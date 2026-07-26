@@ -16,6 +16,7 @@ func TestRuntimePackagesProjectOnlyEnabledVerifiedHostCompatibleGenerations(t *t
 		t.Fatal(err)
 	}
 	manifest, archivePath := lifecycleArchive(t, privateKey, "1.0.0", "process-v1")
+	grantArchive(t, ctx, store, archivePath)
 	installed, err := store.InstallArchive(ctx, archivePath)
 	if err != nil {
 		t.Fatal(err)
@@ -60,6 +61,7 @@ func TestRuntimePayloadRevalidatesIdentityAtReadBoundary(t *testing.T) {
 		t.Fatal(err)
 	}
 	manifest, archivePath := lifecycleArchive(t, privateKey, "1.0.0", "process-v1")
+	grantArchive(t, ctx, store, archivePath)
 	if _, err := store.InstallArchive(ctx, archivePath); err != nil {
 		t.Fatal(err)
 	}

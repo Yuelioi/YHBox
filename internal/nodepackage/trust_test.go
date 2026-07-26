@@ -114,6 +114,7 @@ func TestStoreRevocationQuarantineRollbackAndReopenFailClosed(t *testing.T) {
 	}
 	firstManifest, firstArchive := lifecycleArchive(t, privateKey, "1.0.0", "process-v1")
 	secondManifest, secondArchive := lifecycleArchive(t, privateKey, "2.0.0", "process-v2")
+	grantArchive(t, ctx, store, firstArchive)
 	if _, err := store.InstallArchive(ctx, firstArchive); err != nil {
 		t.Fatal(err)
 	}

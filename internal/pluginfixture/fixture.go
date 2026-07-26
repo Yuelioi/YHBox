@@ -66,6 +66,13 @@ func Create(ctx context.Context, root string, processExecutable, wasmModule []by
 		return Set{}, err
 	}
 	for _, archive := range []string{processArchive, wasmArchive} {
+		candidate, err := store.InspectArchiveTrust(ctx, archive)
+		if err != nil {
+			return Set{}, err
+		}
+		if err := store.GrantPackageTrust(ctx, candidate.PublisherKeyID, candidate.PackageID); err != nil {
+			return Set{}, err
+		}
 		if _, err := store.InstallArchive(ctx, archive); err != nil {
 			return Set{}, err
 		}

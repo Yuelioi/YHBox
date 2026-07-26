@@ -19,13 +19,14 @@ import (
 )
 
 const (
-	RegistryFormat   = "yotta.node-package-registry"
-	RegistryVersion  = "2"
-	registryFilename = "registry.json"
-	generationsDir   = "generations"
-	maxRegistryBytes = 16 << 20
-	maxStorePackages = 4_096
-	maxStoreReleases = 128
+	RegistryFormat        = "yotta.node-package-registry"
+	RegistryVersion       = "3"
+	legacyRegistryVersion = "2"
+	registryFilename      = "registry.json"
+	generationsDir        = "generations"
+	maxRegistryBytes      = 16 << 20
+	maxStorePackages      = 4_096
+	maxStoreReleases      = 128
 )
 
 var quarantineReasonPattern = regexp.MustCompile(`^[a-z][a-z0-9._-]{0,127}$`)
@@ -50,13 +51,29 @@ type registryDocument struct {
 	Format   string                `json:"format"`
 	Version  string                `json:"version"`
 	Trust    json.RawMessage       `json:"trust"`
+	Grants   []PackageTrustGrant   `json:"grants,omitempty"`
 	Packages []PackageInstallation `json:"packages"`
+}
+
+type PackageTrustGrant struct {
+	PublisherKeyID artifact.Digest `json:"publisherKeyId"`
+	PackageID      string          `json:"packageId"`
+}
+
+type ArchiveTrust struct {
+	PublisherNamespace string
+	PackageID          string
+	PackageVersion     string
+	ManifestDigest     artifact.Digest
+	PublisherKeyID     artifact.Digest
+	Granted            bool
 }
 
 type Store struct {
 	mu      sync.RWMutex
 	root    string
 	policy  TrustPolicy
+	grants  map[string]PackageTrustGrant
 	entries map[string]PackageInstallation
 }
 
@@ -127,7 +144,7 @@ func openStore(ctx context.Context, root string, bootstrap *TrustPolicy) (*Store
 	if err := validateStoreRoot(root); err != nil {
 		return nil, err
 	}
-	entries, policy, found, err := loadRegistry(ctx, root)
+	entries, policy, grants, found, err := loadRegistry(ctx, root)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +154,8 @@ func openStore(ctx context.Context, root string, bootstrap *TrustPolicy) (*Store
 		}
 		policy = *bootstrap
 		entries = map[string]PackageInstallation{}
-		raw, err := marshalRegistry(entries, policy)
+		grants = map[string]PackageTrustGrant{}
+		raw, err := marshalRegistry(entries, policy, grants)
 		if err != nil {
 			return nil, err
 		}
@@ -150,7 +168,74 @@ func openStore(ctx context.Context, root string, bootstrap *TrustPolicy) (*Store
 	if err := cleanupOrphanGenerations(root, entries); err != nil {
 		return nil, err
 	}
-	return &Store{root: root, policy: policy, entries: entries}, nil
+	return &Store{root: root, policy: policy, grants: grants, entries: entries}, nil
+}
+
+func grantKey(keyID artifact.Digest, packageID string) string {
+	return keyID.String() + "\x00" + packageID
+}
+
+func (s *Store) GrantPackageTrust(
+	ctx context.Context,
+	publisherKeyID artifact.Digest,
+	packageID string,
+) error {
+	if ctx == nil || !publisherKeyID.Valid() || strings.TrimSpace(packageID) != packageID || packageID == "" {
+		return errors.New("node package trust grant is invalid")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key, found := s.policy.state.keys[publisherKeyID]
+	if !found {
+		return errors.New("node package trust grant uses an unknown publisher key")
+	}
+	namespace, err := validateNamespace(key.namespace)
+	if err != nil || validateOwnedURI(namespace, packageID, "package ID") != nil {
+		return errors.New("node package trust grant is outside the publisher authority")
+	}
+	next := cloneGrants(s.grants)
+	next[grantKey(publisherKeyID, packageID)] = PackageTrustGrant{
+		PublisherKeyID: publisherKeyID, PackageID: packageID,
+	}
+	raw, err := marshalRegistry(s.entries, s.policy, next)
+	if err != nil {
+		return err
+	}
+	writeErr := durablefs.WriteFile(filepath.Join(s.root, registryFilename), raw, 0o600)
+	if writeErr != nil && !durablefs.Committed(writeErr) {
+		return fmt.Errorf("write node package registry trust grant: %w", writeErr)
+	}
+	s.grants = next
+	if writeErr != nil {
+		return fmt.Errorf("node package registry trust grant committed without confirmed durability: %w", writeErr)
+	}
+	return nil
+}
+
+func (s *Store) InspectArchiveTrust(ctx context.Context, archivePath string) (ArchiveTrust, error) {
+	if ctx == nil {
+		return ArchiveTrust{}, errors.New("node package archive trust inspection requires a context")
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	manifest, envelope, err := VerifyArchiveSignature(ctx, archivePath, s.policy)
+	if err != nil {
+		return ArchiveTrust{}, err
+	}
+	trust, err := VerifySignature(manifest, envelope, s.policy)
+	if err != nil {
+		return ArchiveTrust{}, err
+	}
+	_, granted := s.grants[grantKey(trust.SignerKeyID, manifest.PackageID())]
+	return ArchiveTrust{
+		PublisherNamespace: manifest.PublisherNamespace(),
+		PackageID:          manifest.PackageID(), PackageVersion: manifest.PackageVersion(),
+		ManifestDigest: manifest.Digest(), PublisherKeyID: trust.SignerKeyID,
+		Granted: granted,
+	}, nil
 }
 
 func (s *Store) List() []PackageInstallation {
@@ -227,6 +312,9 @@ func (s *Store) InstallArchive(ctx context.Context, archivePath string) (Package
 	trust, err := VerifySignature(verifiedManifest, envelope, s.policy)
 	if err != nil {
 		return PackageInstallation{}, err
+	}
+	if _, granted := s.grants[grantKey(trust.SignerKeyID, verifiedManifest.PackageID())]; !granted {
+		return PackageInstallation{}, errors.New("node package install requires an explicit package-scoped publisher trust grant")
 	}
 	incoming, err := os.MkdirTemp(s.root, ".incoming-*")
 	if err != nil {
@@ -406,7 +494,7 @@ func (s *Store) mutate(packageID string, apply func(*PackageInstallation) error)
 }
 
 func (s *Store) commitLocked(next map[string]PackageInstallation, policy TrustPolicy) error {
-	raw, err := marshalRegistry(next, policy)
+	raw, err := marshalRegistry(next, policy, s.grants)
 	if err != nil {
 		return err
 	}
@@ -422,65 +510,90 @@ func (s *Store) commitLocked(next map[string]PackageInstallation, policy TrustPo
 	return nil
 }
 
-func loadRegistry(ctx context.Context, root string) (map[string]PackageInstallation, TrustPolicy, bool, error) {
+func loadRegistry(ctx context.Context, root string) (map[string]PackageInstallation, TrustPolicy, map[string]PackageTrustGrant, bool, error) {
 	registryPath := filepath.Join(root, registryFilename)
 	info, statErr := os.Lstat(registryPath)
 	if errors.Is(statErr, os.ErrNotExist) {
-		return nil, TrustPolicy{}, false, nil
+		return nil, TrustPolicy{}, nil, false, nil
 	}
 	if statErr != nil {
-		return nil, TrustPolicy{}, false, fmt.Errorf("inspect node package registry: %w", statErr)
+		return nil, TrustPolicy{}, nil, false, fmt.Errorf("inspect node package registry: %w", statErr)
 	}
 	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Size() <= 0 || info.Size() > maxRegistryBytes {
-		return nil, TrustPolicy{}, false, errors.New("node package registry is invalid or exceeds its byte budget")
+		return nil, TrustPolicy{}, nil, false, errors.New("node package registry is invalid or exceeds its byte budget")
 	}
 	raw, err := os.ReadFile(registryPath)
 	if err != nil {
-		return nil, TrustPolicy{}, false, fmt.Errorf("read node package registry: %w", err)
+		return nil, TrustPolicy{}, nil, false, fmt.Errorf("read node package registry: %w", err)
 	}
 	if len(raw) == 0 || len(raw) > maxRegistryBytes {
-		return nil, TrustPolicy{}, false, errors.New("node package registry exceeds its byte budget")
+		return nil, TrustPolicy{}, nil, false, errors.New("node package registry exceeds its byte budget")
 	}
 	if err := artifact.InspectJSONBudget(raw, 32, 131072, maxRegistryBytes); err != nil {
-		return nil, TrustPolicy{}, false, fmt.Errorf("inspect node package registry: %w", err)
+		return nil, TrustPolicy{}, nil, false, fmt.Errorf("inspect node package registry: %w", err)
 	}
 	canonical, err := artifact.Canonicalize(raw)
 	if err != nil || !bytes.Equal(raw, canonical) {
-		return nil, TrustPolicy{}, false, errors.New("node package registry is not canonical JSON")
+		return nil, TrustPolicy{}, nil, false, errors.New("node package registry is not canonical JSON")
 	}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	var document registryDocument
 	if err := decoder.Decode(&document); err != nil {
-		return nil, TrustPolicy{}, false, fmt.Errorf("decode node package registry: %w", err)
+		return nil, TrustPolicy{}, nil, false, fmt.Errorf("decode node package registry: %w", err)
 	}
 	var trailing any
 	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		return nil, TrustPolicy{}, false, errors.New("node package registry contains trailing JSON values")
+		return nil, TrustPolicy{}, nil, false, errors.New("node package registry contains trailing JSON values")
 	}
-	if document.Format != RegistryFormat || document.Version != RegistryVersion {
-		return nil, TrustPolicy{}, false, errors.New("unsupported node package registry format")
+	if document.Format != RegistryFormat ||
+		document.Version != RegistryVersion && document.Version != legacyRegistryVersion {
+		return nil, TrustPolicy{}, nil, false, errors.New("unsupported node package registry format")
 	}
 	policy, err := OpenTrustPolicy(document.Trust)
 	if err != nil {
-		return nil, TrustPolicy{}, false, fmt.Errorf("open node package registry trust policy: %w", err)
+		return nil, TrustPolicy{}, nil, false, fmt.Errorf("open node package registry trust policy: %w", err)
 	}
 	if len(document.Packages) > maxStorePackages {
-		return nil, TrustPolicy{}, false, errors.New("node package registry package count exceeds its budget")
+		return nil, TrustPolicy{}, nil, false, errors.New("node package registry package count exceeds its budget")
 	}
 	entries := make(map[string]PackageInstallation, len(document.Packages))
 	previous := ""
 	for _, installed := range document.Packages {
 		if installed.PackageID <= previous {
-			return nil, TrustPolicy{}, false, errors.New("node package registry package order or identity is invalid")
+			return nil, TrustPolicy{}, nil, false, errors.New("node package registry package order or identity is invalid")
 		}
 		previous = installed.PackageID
 		if err := validateInstallation(ctx, root, installed, policy); err != nil {
-			return nil, TrustPolicy{}, false, fmt.Errorf("validate installed node package %q: %w", installed.PackageID, err)
+			return nil, TrustPolicy{}, nil, false, fmt.Errorf("validate installed node package %q: %w", installed.PackageID, err)
 		}
 		entries[installed.PackageID] = cloneInstallation(installed)
 	}
-	return entries, policy, true, nil
+	grants := make(map[string]PackageTrustGrant)
+	if document.Version == legacyRegistryVersion {
+		for _, installed := range entries {
+			for _, release := range installed.Releases {
+				grant := PackageTrustGrant{
+					PublisherKeyID: release.Trust.SignerKeyID, PackageID: installed.PackageID,
+				}
+				grants[grantKey(grant.PublisherKeyID, grant.PackageID)] = grant
+			}
+		}
+	} else {
+		previousGrant := ""
+		for _, grant := range document.Grants {
+			key := grantKey(grant.PublisherKeyID, grant.PackageID)
+			publisherKey, found := policy.state.keys[grant.PublisherKeyID]
+			namespace, namespaceErr := validateNamespace(publisherKey.namespace)
+			if !found || key <= previousGrant || namespaceErr != nil ||
+				validateOwnedURI(namespace, grant.PackageID, "package ID") != nil {
+				return nil, TrustPolicy{}, nil, false, errors.New("node package registry trust grant is invalid")
+			}
+			previousGrant = key
+			grants[key] = grant
+		}
+	}
+	return entries, policy, grants, true, nil
 }
 
 func validateInstallation(ctx context.Context, root string, installed PackageInstallation, policy TrustPolicy) error {
@@ -525,7 +638,11 @@ func validateInstallation(ctx context.Context, root string, installed PackageIns
 	return nil
 }
 
-func marshalRegistry(entries map[string]PackageInstallation, policy TrustPolicy) ([]byte, error) {
+func marshalRegistry(
+	entries map[string]PackageInstallation,
+	policy TrustPolicy,
+	grants map[string]PackageTrustGrant,
+) ([]byte, error) {
 	if !policy.Valid() {
 		return nil, errors.New("node package registry trust policy is invalid")
 	}
@@ -537,7 +654,18 @@ func marshalRegistry(entries map[string]PackageInstallation, policy TrustPolicy)
 		packages = append(packages, cloneInstallation(installed))
 	}
 	sort.Slice(packages, func(i, j int) bool { return packages[i].PackageID < packages[j].PackageID })
-	raw, err := artifact.Marshal(registryDocument{Format: RegistryFormat, Version: RegistryVersion, Trust: policy.Bytes(), Packages: packages})
+	orderedGrants := make([]PackageTrustGrant, 0, len(grants))
+	for _, grant := range grants {
+		orderedGrants = append(orderedGrants, grant)
+	}
+	sort.Slice(orderedGrants, func(i, j int) bool {
+		return grantKey(orderedGrants[i].PublisherKeyID, orderedGrants[i].PackageID) <
+			grantKey(orderedGrants[j].PublisherKeyID, orderedGrants[j].PackageID)
+	})
+	raw, err := artifact.Marshal(registryDocument{
+		Format: RegistryFormat, Version: RegistryVersion, Trust: policy.Bytes(),
+		Grants: orderedGrants, Packages: packages,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -545,6 +673,14 @@ func marshalRegistry(entries map[string]PackageInstallation, policy TrustPolicy)
 		return nil, errors.New("node package registry exceeds its byte budget")
 	}
 	return raw, nil
+}
+
+func cloneGrants(source map[string]PackageTrustGrant) map[string]PackageTrustGrant {
+	result := make(map[string]PackageTrustGrant, len(source))
+	for key, grant := range source {
+		result[key] = grant
+	}
+	return result
 }
 
 func cleanupInterrupted(root string) error {

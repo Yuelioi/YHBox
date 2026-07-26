@@ -23,6 +23,7 @@ func TestStoreInstallUpdateReopenQuarantineRollbackAndUninstall(t *testing.T) {
 		t.Fatal(err)
 	}
 	firstManifest, firstArchive := lifecycleArchive(t, privateKey, "1.0.0", "process-v1")
+	grantArchive(t, ctx, store, firstArchive)
 	first, err := store.InstallArchive(ctx, firstArchive)
 	if err != nil {
 		t.Fatal(err)
@@ -117,6 +118,7 @@ func TestStoreRejectsUnknownPublisherAndTamperedGeneration(t *testing.T) {
 	if len(store.List()) != 0 {
 		t.Fatal("failed signature verification published registry state")
 	}
+	grantArchive(t, ctx, store, archivePath)
 	if _, err := store.InstallArchive(ctx, archivePath); err != nil {
 		t.Fatal(err)
 	}
@@ -165,13 +167,14 @@ func TestStoreDoesNotPublishMemoryWhenRegistryCommitFails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	_, archivePath := lifecycleArchive(t, privateKey, "1.0.0", "process-v1")
+	grantArchive(t, ctx, store, archivePath)
 	if err := os.Remove(filepath.Join(root, registryFilename)); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Mkdir(filepath.Join(root, registryFilename), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	_, archivePath := lifecycleArchive(t, privateKey, "1.0.0", "process-v1")
 	if _, err := store.InstallArchive(ctx, archivePath); err == nil {
 		t.Fatal("registry commit failure installed a package")
 	}
@@ -199,6 +202,7 @@ func TestStoreSerializesConcurrentPackageUpdates(t *testing.T) {
 	}
 	firstManifest, firstArchive := lifecycleArchive(t, privateKey, "1.0.0", "process-v1")
 	secondManifest, secondArchive := lifecycleArchive(t, privateKey, "2.0.0", "process-v2")
+	grantArchive(t, ctx, store, firstArchive)
 	type request struct {
 		manifest Manifest
 		archive  string
@@ -230,9 +234,83 @@ func TestStoreSerializesConcurrentPackageUpdates(t *testing.T) {
 	}
 }
 
+func TestStoreRequiresPackageScopedPublisherTrust(t *testing.T) {
+	ctx := context.Background()
+	policy, privateKey := lifecyclePolicy(t)
+	store, err := CreateStore(ctx, filepath.Join(t.TempDir(), "packages"), policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, archivePath := lifecycleArchive(t, privateKey, "1.0.0", "process-v1")
+	candidate, err := store.InspectArchiveTrust(ctx, archivePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if candidate.Granted {
+		t.Fatal("new package unexpectedly inherited publisher trust")
+	}
+	if _, err := store.InstallArchive(ctx, archivePath); err == nil {
+		t.Fatal("package installed without an explicit package-scoped trust grant")
+	}
+	if err := store.GrantPackageTrust(ctx, candidate.PublisherKeyID, candidate.PackageID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.InstallArchive(ctx, archivePath); err != nil {
+		t.Fatal(err)
+	}
+	_, siblingArchive := lifecycleArchiveForPackage(
+		t, privateKey, testNamespace+"/packages/sibling/v1", "1.0.0", "sibling-v1",
+	)
+	sibling, err := store.InspectArchiveTrust(ctx, siblingArchive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sibling.PublisherKeyID != candidate.PublisherKeyID || sibling.Granted {
+		t.Fatalf("sibling package trust = %#v", sibling)
+	}
+	if _, err := store.InstallArchive(ctx, siblingArchive); err == nil {
+		t.Fatal("publisher key trust expanded to a different package ID")
+	}
+	reopened, err := OpenStore(ctx, store.root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reopenedCandidate, err := reopened.InspectArchiveTrust(ctx, archivePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reopenedCandidate.Granted {
+		t.Fatal("package-scoped publisher trust grant was not persisted")
+	}
+}
+
+func grantArchive(t *testing.T, ctx context.Context, store *Store, archivePath string) ArchiveTrust {
+	t.Helper()
+	candidate, err := store.InspectArchiveTrust(ctx, archivePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.GrantPackageTrust(ctx, candidate.PublisherKeyID, candidate.PackageID); err != nil {
+		t.Fatal(err)
+	}
+	return candidate
+}
+
 func lifecycleArchive(t *testing.T, privateKey ed25519.PrivateKey, version, payload string) (Manifest, string) {
 	t.Helper()
+	return lifecycleArchiveForPackage(
+		t, privateKey, testNamespace+"/packages/transform/v1", version, payload,
+	)
+}
+
+func lifecycleArchiveForPackage(
+	t *testing.T,
+	privateKey ed25519.PrivateKey,
+	packageID, version, payload string,
+) (Manifest, string) {
+	t.Helper()
 	draft := testDraft(t, nodecontract.ABIProcess)
+	draft.PackageID = packageID
 	draft.PackageVersion = version
 	draft.Nodes[0].Implementation.Payload = testPayload(t, "bin/plugin.exe", "application/vnd.microsoft.portable-executable", payload)
 	manifest, err := Seal(draft)
