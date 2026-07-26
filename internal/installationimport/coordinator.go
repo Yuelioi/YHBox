@@ -40,6 +40,8 @@ type PackageStore interface {
 	Get(string) (nodepackage.PackageInstallation, bool)
 }
 
+var _ PackageStore = (*nodepackage.Store)(nil)
+
 type PackageCandidate struct {
 	Release        installationplan.NodePackageRelease
 	PublisherKeyID artifact.Digest

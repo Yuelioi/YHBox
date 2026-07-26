@@ -186,11 +186,11 @@ subgraph store；不把 workflow-local Graph 定义升级成 Global Asset。
   Platform Publication Proof；私有离线文件允许 unsigned，并明确标记 unverified source。
 - [x] [M4c — Offline Pack container](slices/stage-m4c-offline-pack-container.md)：只封装 M4a Plan 与
   exact Workflow/Node Package artifact bytes，容器完整性不产生 trust、install 或 consent authority。
-- [ ] 定义 Installation Plan；在线逐项下载 workflow/package artifact，`.yotta-offline-pack` 原样装入同一组已签名字节，
-  外层 manifest 只锁定列表/digest，不产生新的信任。
-- [ ] Node Package Publisher Trust、精确 Package Installation 与 Workflow Execution Consent 分成独立本机记录；
+- [x] [M4d — Import coordinator 与本机 authority 边界](slices/stage-m4d-import-coordinator-authority-boundaries.md)：
+  在线逐项获取与 `.yotta-offline-pack` 复用同一 complete-or-nothing staging，且外层 transport 不产生新的信任。
+- [x] Node Package Publisher Trust、精确 Package Installation 与 Workflow Execution Consent 分成独立本机记录；
   第三方 trust scope 为 `publisherKey + packageId`，新 release 仍需显式安装。
-- [ ] 离线包无法包含缺失、下架或禁止再分发的精确依赖时拒绝声称“完整离线安装”；导入后代码安装仍独立确认。
+- [x] 离线包无法包含缺失、下架或禁止再分发的精确依赖时拒绝声称“完整离线安装”；导入后代码安装仍独立确认。
 
 验收：workflow 导入不会执行代码；未知 trust root 不能由离线包自举；官方包由内置 trust anchor 验证；平台或网络不可用
 不影响已安装 workflow/package 的本地编辑、运行与计划。

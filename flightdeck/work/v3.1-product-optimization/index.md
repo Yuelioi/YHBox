@@ -10,17 +10,23 @@ Open
 
 ## Current
 
-Stage M4 进行中：M4a canonical Installation Plan、M4b `.yotta-workflow` opaque release evidence 与
-M4c deterministic `.yotta-offline-pack` container 已闭环。在线/离线现在共享 exact artifact identity，
-但容器完整性始终不产生 publisher trust、package install 或 Workflow execution consent authority。
+Stage M4 已完成：canonical Installation Plan、Workflow Release evidence、deterministic offline pack 与
+统一 import coordinator 已闭环。在线/离线只在全部 exact artifact 完整后产生 Session；publisher trust、
+Node Package installation 与 Workflow execution consent 是三个独立本机 authority 动作。
 
 ## Next
 
-继续 [Stage M4](plan.md)：把在线逐项获取与离线 pack inspect 接入同一导入协调器，并将 publisher trust、
-精确 package installation 与 Workflow execution consent 保持为三个显式用户动作。
+继续 [Stage M5](plan.md)：建立本地派生、显式 staged update、权限变化重新授权、旁装与 rollback 语义。
 
 ## Progress
 
+- 2026-07-26 M4d/Stage M4 完成：新增统一 `installationimport` coordinator，在线 source 与 offline pack
+  共享 complete-or-nothing staging；每次消费重验 raw digest，signed Node Package 必须与 Plan 的
+  publisher/package/version/manifest identity 精确一致。registry v3 将用户 trust 持久化为
+  `publisherKeyId + packageId`，legacy v2 只 grandfather 已安装的精确包；trust、单 release install 与既有
+  run/schedule consent API 互不隐式推进。完整离线导出增加逐 artifact redistribution check，missing、
+  delisted 或 forbidden 均不发布目标文件。定向普通/race/版本测试通过；增量 `task check` 通过
+  plugin contract 和 15 个受影响 Go 包的 test/vet。
 - 2026-07-26 M4c 完成：新增 deterministic `.yotta-offline-pack` transport，只保存 canonical
   Installation Plan 与按 raw SHA-256 寻址的原始 Workflow/Node Package artifact bytes。Writer 逐项重哈希，
   Inspect 拒绝 missing/extra/tampered/duplicate/unsafe/encrypted/超预算 entry，只返回原 Plan，不验签、
