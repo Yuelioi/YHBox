@@ -18,7 +18,7 @@ afterEach(() => {
 describe('ScheduleEditorPanel', () => {
   it('opens from a reactive schedule returned by the management view', () => {
     const schedule = reactive({
-      schemaVersion: '2',
+      schemaVersion: '3',
       id: 'schedule-1',
       name: 'Morning run',
       enabled: true,
@@ -31,7 +31,7 @@ describe('ScheduleEditorPanel', () => {
     }) as unknown as Schedule
     const root = document.createElement('div')
     document.body.append(root)
-    const app = createApp(ScheduleEditorPanel, { schedule, installations: [] })
+    const app = createApp(ScheduleEditorPanel, { schedule, workflows: [] })
     app.config.warnHandler = () => undefined
     mounted.push(app)
 
@@ -42,11 +42,11 @@ describe('ScheduleEditorPanel', () => {
 
   it('persists the visible interval default when the number field is untouched', async () => {
     const schedule = {
-      schemaVersion: '2',
+      schemaVersion: '3',
       id: 'schedule-2',
       name: 'Interval run',
       enabled: true,
-      targets: [{ kind: 'workflow-installation', id: 'installation-1' }],
+      targets: [{ kind: 'workflow', id: 'workflow-1' }],
       trigger: { kind: 'cron', subKind: 'interval' },
       timeoutMinutes: 0,
       onError: 'stop',
@@ -58,14 +58,19 @@ describe('ScheduleEditorPanel', () => {
     document.body.append(root)
     const app = createApp(ScheduleEditorPanel, {
       schedule,
-      installations: [
+      workflows: [
         {
-          installationId: 'installation-1',
-          releaseId: 'sha256:1111111111111111111111111111111111111111111111111111111111111111',
+          workflowId: 'workflow-1',
           name: 'Workflow 1',
-          lifecycle: 'active',
+          description: '',
+          category: '',
+          tags: [],
+          nodeCount: 0,
+          revision: 0,
+          sourceHash: '',
           createdAt: '2026-07-19T00:00:00Z',
           updatedAt: '2026-07-19T00:00:00Z',
+          sourceJson: '',
         },
       ],
       onSave: save,

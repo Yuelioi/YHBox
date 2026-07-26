@@ -10,12 +10,6 @@ import type {
   DeleteSourcePreview,
   DeleteSourceRequest,
   DeleteSourceResult,
-  InstallationReadinessView,
-  InstallationSettingsView,
-  InstallationUpdateApplyView,
-  InstallationUpdateCandidateView,
-  InstallationUpdatePreviewView,
-  InstallationView,
   PatchView,
   RunView,
   SourcePage,
@@ -50,32 +44,6 @@ export interface DebugChangedEvent {
 
 export interface WorkflowTransport {
   listSources(): Promise<SourceView[]>
-  listInstallations(): Promise<InstallationView[]>
-  listInstallationUpdateCandidates(
-    installationId: string,
-  ): Promise<InstallationUpdateCandidateView[]>
-  previewInstallationUpdate(
-    installationId: string,
-    candidateReleaseId: string,
-  ): Promise<InstallationUpdatePreviewView>
-  previewInstallationRollback(installationId: string): Promise<InstallationUpdatePreviewView>
-  applyInstallationUpdate(token: string): Promise<InstallationUpdateApplyView>
-  deriveInstallationSource(installationId: string, name: string): Promise<SourceView>
-  getInstallationReadiness(installationId: string): Promise<InstallationReadinessView>
-  getInstallationSettings(installationId: string): Promise<InstallationSettingsView>
-  updateInstallationTargetProfile(
-    installationId: string,
-    expectedGeneration: number,
-    definitionId: string,
-    settingsJson: string,
-    targetInstallationId: string,
-  ): Promise<InstallationSettingsView>
-  updateInstallationCredentialBinding(
-    installationId: string,
-    expectedGeneration: number,
-    requirementSlot: string,
-    credentialBindingId: string,
-  ): Promise<InstallationSettingsView>
   querySources(query: SourceQuery): Promise<SourcePage>
   listSourceRecoveries(): Promise<SourceRecoveryView[]>
   repairSourceRecovery(recoveryId: string, sourceJson: string): Promise<SourceView>
@@ -113,7 +81,6 @@ export interface WorkflowTransport {
   ): Promise<PatchView>
   compileSource(workflowId: string): Promise<CompileView>
   startRun(workflowId: string): Promise<StartRunView>
-  startInstallationRun(installationId: string): Promise<StartRunView>
   startDebugRun(workflowId: string, breakpoints: DebugBreakpoint[]): Promise<StartRunView>
   getDebugSnapshot(runId: string): Promise<DebugSnapshot>
   controlDebugRun(runId: string, action: 'continue' | 'pause' | 'step'): Promise<DebugSnapshot>
@@ -127,48 +94,6 @@ export interface WorkflowTransport {
 
 export const workflowTransport: WorkflowTransport = {
   listSources: () => invoke(WorkflowService.ListSources),
-  listInstallations: () => invoke(WorkflowService.ListInstallations),
-  listInstallationUpdateCandidates: (installationId) =>
-    invoke(WorkflowService.ListInstallationUpdateCandidates, installationId),
-  previewInstallationUpdate: (installationId, candidateReleaseId) =>
-    invoke(WorkflowService.PreviewInstallationUpdate, installationId, candidateReleaseId),
-  previewInstallationRollback: (installationId) =>
-    invoke(WorkflowService.PreviewInstallationRollback, installationId),
-  applyInstallationUpdate: (token) => invoke(WorkflowService.ApplyInstallationUpdate, token),
-  deriveInstallationSource: (installationId, name) =>
-    invoke(WorkflowService.DeriveInstallationSource, installationId, name),
-  getInstallationReadiness: (installationId) =>
-    invoke(WorkflowService.GetInstallationReadiness, installationId),
-  getInstallationSettings: (installationId) =>
-    invoke(WorkflowService.GetInstallationSettings, installationId),
-  updateInstallationTargetProfile: (
-    installationId,
-    expectedGeneration,
-    definitionId,
-    settingsJson,
-    targetInstallationId,
-  ) =>
-    invoke(
-      WorkflowService.UpdateInstallationTargetProfile,
-      installationId,
-      expectedGeneration,
-      definitionId,
-      settingsJson,
-      targetInstallationId,
-    ),
-  updateInstallationCredentialBinding: (
-    installationId,
-    expectedGeneration,
-    requirementSlot,
-    credentialBindingId,
-  ) =>
-    invoke(
-      WorkflowService.UpdateInstallationCredentialBinding,
-      installationId,
-      expectedGeneration,
-      requirementSlot,
-      credentialBindingId,
-    ),
   querySources: (query) => invoke(WorkflowService.QuerySources, query),
   listSourceRecoveries: () => invoke(WorkflowService.ListSourceRecoveries),
   repairSourceRecovery: (recoveryId, sourceJson) =>
@@ -230,8 +155,6 @@ export const workflowTransport: WorkflowTransport = {
     ),
   compileSource: (workflowId) => invoke(WorkflowService.CompileSource, workflowId),
   startRun: (workflowId) => invoke(WorkflowService.StartRun, workflowId),
-  startInstallationRun: (installationId) =>
-    invoke(WorkflowService.StartInstallationRun, installationId),
   startDebugRun: (workflowId, breakpoints) =>
     invoke(WorkflowService.StartDebugRun, workflowId, breakpoints),
   getDebugSnapshot: (runId) => invoke(WorkflowService.GetDebugSnapshot, runId),
@@ -294,12 +217,6 @@ export type {
   BundleExportResult,
   BundleInfoView,
   CompileView,
-  InstallationReadinessView,
-  InstallationSettingsView,
-  InstallationUpdateApplyView,
-  InstallationUpdateCandidateView,
-  InstallationUpdatePreviewView,
-  InstallationView,
   CreateSourceRequest,
   DeleteSourcePreview,
   DeleteSourceRequest,

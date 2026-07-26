@@ -13,7 +13,6 @@ import (
 	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/appbootstrap"
 	"github.com/yottaapp/yotta/internal/appcontrol"
-	"github.com/yottaapp/yotta/internal/artifact"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/datatype"
@@ -28,8 +27,6 @@ import (
 	"github.com/yottaapp/yotta/internal/storage/catalog"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
-	"github.com/yottaapp/yotta/internal/workflowbundle"
-	"github.com/yottaapp/yotta/internal/workflowinstallation"
 )
 
 func TestServiceQueriesOneThousandSourcesWithBoundedPages(t *testing.T) {
@@ -421,8 +418,7 @@ func TestServiceExposesWorkflowSourcePortabilityWithoutMachineInstallations(t *t
 		t.Fatalf("ExportSourceBundle() = %#v, %v", exported, err)
 	}
 	info, err := service.InspectSourceBundle(archivePath)
-	if err != nil || info.WorkflowID != created.WorkflowID || info.SourceHash != created.SourceHash ||
-		info.SourceTrust != workflowbundle.SourceTrustUnverified || len(info.EvidenceKinds) != 0 {
+	if err != nil || info.WorkflowID != created.WorkflowID || info.SourceHash != created.SourceHash {
 		t.Fatalf("InspectSourceBundle() = %#v, %v", info, err)
 	}
 	imported, err := service.ImportSourceBundle(archivePath)
@@ -441,113 +437,6 @@ func TestServiceExposesWorkflowSourcePortabilityWithoutMachineInstallations(t *t
 	repeated := service.ExportSourceBundles([]string{created.WorkflowID}, batchDirectory)
 	if len(repeated) != 1 || repeated[0].Exported || repeated[0].Error != "destination already exists" {
 		t.Fatalf("repeated ExportSourceBundles() = %#v", repeated)
-	}
-}
-
-func TestServiceReadsAndUpdatesInstallationTargetProfiles(t *testing.T) {
-	now := time.Date(2026, 7, 26, 5, 45, 0, 0, time.UTC)
-	runtime := workflowRuntime(t, now)
-	if err := runtime.Start(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := runtime.Close(ctx); err != nil {
-			t.Errorf("Close() error = %v", err)
-		}
-	})
-	service, err := workflow.NewService(
-		runtime.Application,
-		workflow.WithInstallationRuntime(runtime),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	source, err := artifact.Canonicalize([]byte(`{
-		"format":"yotta.workflow","version":"1",
-		"workflow":{"id":"installed-settings","name":"Installed settings"},
-		"revision":0,"entryGraph":"main",
-		"graphs":[{"id":"main","kind":"main","nodes":[],"edges":[],"inputs":[],"outputs":[]}],
-		"resources":[],
-		"targetDefaults":[{"target":"desktop-target","slot":"desktop"}],
-		"targetProfileDefinitions":[{
-			"id":"desktop","name":"Desktop","targetKind":"desktop-window","adapterKind":"win32",
-			"profileVersion":"1","settingsSchemaRoot":"https://example.test/desktop/v1",
-			"settingsSchemaBundle":[{"id":"https://example.test/desktop/v1","schema":{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://example.test/desktop/v1","type":"object","properties":{"windowTitle":{"type":"string"}},"additionalProperties":false}}],
-			"initialDefaults":{},"discoveryHints":[{"kind":"window-title","value":"Yotta"}]
-		}],
-		"credentialRequirements":[{
-			"slot":"api","kind":"https://schemas.yotta.dev/credentials/ai-api-key/v1",
-			"purpose":"Call the configured AI model"
-		}],"dependencies":[],"variables":[]
-	}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	releaseDigest, err := artifact.Sum("yotta/test/workflow-service-release/v1", []byte("release"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	attestationDigest, err := artifact.Sum("yotta/test/workflow-service-attestation/v1", []byte("attestation"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	release, err := workflowinstallation.NewVerifiedRelease(source, workflowinstallation.VerificationReceipt{
-		ReleaseDigest: releaseDigest, AttestationDigest: attestationDigest,
-		PublisherNamespace: "https://publisher.test/workflows", ReleaseVersion: "1.0.0", VerifiedAt: now,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	installation, err := runtime.Installations.InstallVerified(context.Background(), release, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	library, err := service.QuerySources(workflow.SourceQuery{
-		Search: "installed settings", Sort: "name_asc", Page: 1, PageSize: 20,
-	})
-	if err != nil || library.Total != 1 || len(library.Items) != 1 {
-		t.Fatalf("QuerySources installed workflow = %#v, %v", library, err)
-	}
-	imported := library.Items[0]
-	if imported.Kind != "imported" || !imported.ReadOnly ||
-		imported.InstallationID != installation.ID ||
-		imported.ReleaseID != release.ID || imported.ReleaseVersion != "1.0.0" ||
-		imported.PublisherNamespace != release.PublisherNamespace ||
-		imported.Readiness == nil {
-		t.Fatalf("installed workflow library projection = %#v", imported)
-	}
-	editable, err := service.ListSources()
-	if err != nil || len(editable) != 0 {
-		t.Fatalf("ListSources should remain the editable source collection: %#v, %v", editable, err)
-	}
-	settings, err := service.GetInstallationSettings(installation.ID)
-	if err != nil || settings.Generation != 1 || len(settings.Targets) != 1 ||
-		settings.Targets[0].DefinitionID != "desktop" ||
-		settings.Targets[0].SettingsJSON != `{}` ||
-		len(settings.Targets[0].DiscoveryHints) != 1 ||
-		len(settings.Credentials) != 1 ||
-		len(settings.Credentials[0].Candidates) != 1 ||
-		settings.Credentials[0].Candidates[0].BindingID != ai.CredentialBindingID("primary") ||
-		!settings.Credentials[0].Candidates[0].Available {
-		t.Fatalf("GetInstallationSettings() = %#v, %v", settings, err)
-	}
-	settings, err = service.UpdateInstallationTargetProfile(
-		installation.ID, settings.Generation, "desktop",
-		`{"windowTitle":"Yotta"}`, "automation-target/desktop",
-	)
-	if err != nil || settings.Generation != 2 ||
-		settings.Targets[0].TargetInstallationID != "automation-target/desktop" ||
-		settings.Targets[0].SettingsJSON != `{"windowTitle":"Yotta"}` {
-		t.Fatalf("UpdateInstallationTargetProfile() = %#v, %v", settings, err)
-	}
-	settings, err = service.UpdateInstallationCredentialBinding(
-		installation.ID, settings.Generation, "api", ai.CredentialBindingID("primary"),
-	)
-	if err != nil || settings.Generation != 3 ||
-		settings.Credentials[0].BindingID != ai.CredentialBindingID("primary") {
-		t.Fatalf("UpdateInstallationCredentialBinding() = %#v, %v", settings, err)
 	}
 }
 
@@ -670,9 +559,9 @@ func workflowRuntime(t *testing.T, now time.Time, maxSources ...int) *appbootstr
 	}
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
 		DataRoot: roots.Data, ProgramCacheRoot: filepath.Join(roots.Cache, "programs"),
-		WorkflowRepository: foundation.Workflows(), InstallationRepository: foundation.WorkflowInstallations(),
-		RunRepository: foundation.Runs(),
-		BlobStore:     blobStore,
+		WorkflowRepository: foundation.Workflows(),
+		RunRepository:      foundation.Runs(),
+		BlobStore:          blobStore,
 		Limits: appbootstrap.Limits{
 			MaxSources: sourceLimit, MaxPrograms: 8, MaxRuns: 8, MaxResourcePayloadBytes: 2 << 20,
 			MaxProgramCacheBytes: 8 << 20,
@@ -680,14 +569,6 @@ func workflowRuntime(t *testing.T, now time.Time, maxSources ...int) *appbootstr
 		},
 		AIInstallations: aiInstallations, HTTPInstallations: httpInstallations,
 		ApplicationInstallations: applicationInstallations, AutomationInstallations: automationInstallations,
-		CredentialStates: func(context.Context) ([]workflowinstallation.CredentialState, error) {
-			return []workflowinstallation.CredentialState{{
-				CredentialBindingID: ai.CredentialBindingID("primary"),
-				Kind:                ai.CredentialKindAPIKey,
-				Label:               "primary · gpt-test",
-				Available:           true,
-			}}, nil
-		},
 		ScriptRuntime: scriptRuntime, LogEmitter: noderuntime.LogEmitterFunc(func(context.Context, noderuntime.LogEntry) error { return nil }),
 		GrantTTL: 5 * time.Minute, OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
 	})

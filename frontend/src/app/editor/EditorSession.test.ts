@@ -85,7 +85,7 @@ describe('EditorSession', () => {
     ])
   })
 
-  it('does not auto-upgrade an unregistered stale node contract', async () => {
+  it('auto-upgrades a shape-compatible same-version node contract', async () => {
     const source = emptySource()
     const staleDigest = `sha256:${'b'.repeat(64)}`
     source.graphs[0]!.nodes.push({
@@ -102,8 +102,8 @@ describe('EditorSession', () => {
 
     await session.load(source.workflow.id)
 
-    expect(session.currentGraph!.nodes[0]!.nodeRef.semanticDigest).toBe(staleDigest)
-    expect(session.dirty).toBe(false)
+    expect(session.currentGraph!.nodes[0]!.nodeRef).toEqual(concat.nodeRef)
+    expect(session.dirty).toBe(true)
   })
 
   it('clears only a terminal run trace without mutating the workflow', () => {
@@ -1937,16 +1937,6 @@ function runView(status: string): RunView {
 function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
   return {
     listSources: vi.fn(async () => [saved]),
-    listInstallations: vi.fn(async () => []),
-    listInstallationUpdateCandidates: vi.fn(async () => []),
-    previewInstallationUpdate: vi.fn(async () => ({}) as never),
-    previewInstallationRollback: vi.fn(async () => ({}) as never),
-    applyInstallationUpdate: vi.fn(async () => ({}) as never),
-    deriveInstallationSource: vi.fn(async () => saved),
-    getInstallationReadiness: vi.fn(async () => ({}) as never),
-    getInstallationSettings: vi.fn(async () => ({}) as never),
-    updateInstallationTargetProfile: vi.fn(async () => ({}) as never),
-    updateInstallationCredentialBinding: vi.fn(async () => ({}) as never),
     querySources: vi.fn(async () => ({
       items: [saved],
       total: 1,
@@ -1974,8 +1964,6 @@ function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
       sourceHash: saved.sourceHash,
       blobCount: 0,
       blobBytes: 0,
-      sourceTrust: 'unverified',
-      evidenceKinds: [],
     })),
     importSourceBundle: vi.fn(async () => saved),
     replaceSourceFromBundle: vi.fn(async () => saved),
@@ -2000,15 +1988,6 @@ function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
         }) as CompileView,
     ),
     startRun: vi.fn(
-      async () =>
-        ({
-          sourceHash: 'sha256:source-next',
-          programHash: 'sha256:program',
-          diagnostics: [],
-          run,
-        }) as StartRunView,
-    ),
-    startInstallationRun: vi.fn(
       async () =>
         ({
           sourceHash: 'sha256:source-next',

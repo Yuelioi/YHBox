@@ -361,6 +361,10 @@ func (a *Application) Start(ctx context.Context) error {
 		a.commandMu.Unlock()
 		return fmt.Errorf("cancel stale queued Runs: %w", err)
 	}
+	if err := a.migrateCompatibleSourceContracts(ctx); err != nil {
+		a.commandMu.Unlock()
+		return fmt.Errorf("migrate Workflow node contracts: %w", err)
+	}
 	a.mu.Lock()
 	if a.state != stateNew {
 		a.mu.Unlock()
@@ -375,6 +379,62 @@ func (a *Application) Start(ctx context.Context) error {
 	a.commandMu.Unlock()
 	for _, record := range append(interrupted, cancelled...) {
 		a.emit(record, nil)
+	}
+	return nil
+}
+
+// migrateCompatibleSourceContracts keeps local workflows runnable when a
+// built-in node contract is corrected without changing its stable type and
+// version. Only migrations that preserve every config field, binding, and
+// topology endpoint are published; incompatible nodes remain untouched for
+// explicit repair.
+func (a *Application) migrateCompatibleSourceContracts(ctx context.Context) error {
+	for _, snapshot := range a.sources.List() {
+		source, diagnostics := schema.ParseSource(snapshot.Artifact())
+		if len(diagnostics) != 0 {
+			continue
+		}
+		commands := make([]authoring.Command, 0)
+		for _, graph := range source.Graphs {
+			for _, node := range graph.Nodes {
+				projection, ok := a.authoring.Node(node.NodeRef.NodeTypeID)
+				if !ok || projection.NodeRef == node.NodeRef ||
+					projection.NodeRef.Version != node.NodeRef.Version {
+					continue
+				}
+				command := authoring.Command{
+					Kind: authoring.CommandUpgradeNodeContract,
+					UpgradeNodeContract: &authoring.NodeCommand{
+						GraphID: graph.ID,
+						NodeID:  node.ID,
+					},
+				}
+				if _, err := a.authoringEngine.Apply(source, []authoring.Command{command}); err != nil {
+					continue
+				}
+				commands = append(commands, command)
+				if len(commands) == authoring.MaxCommands {
+					break
+				}
+			}
+			if len(commands) == authoring.MaxCommands {
+				break
+			}
+		}
+		if len(commands) == 0 {
+			continue
+		}
+		applied, err := a.authoringEngine.Apply(source, commands)
+		if err != nil {
+			continue
+		}
+		_, raw, err := stampWorkflowUpdate(applied.Source, a.now())
+		if err != nil {
+			return err
+		}
+		if _, err := a.sources.Save(ctx, raw, snapshot.Revision()); err != nil {
+			return err
+		}
 	}
 	return nil
 }

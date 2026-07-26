@@ -8,7 +8,7 @@ import (
 func TestValidate_OK_Cron(t *testing.T) {
 	s := &Schedule{
 		SchemaVersion: CurrentSchemaVersion, ID: "x", Name: "ok",
-		Targets: []TargetRef{{Kind: TargetWorkflowInstallation, ID: "c1"}},
+		Targets: []TargetRef{{Kind: TargetWorkflow, ID: "c1"}},
 		Trigger: Trigger{Kind: TriggerCron, SubKind: CronDaily, At: "05:00"},
 		OnError: OnErrorStop,
 	}
@@ -20,7 +20,7 @@ func TestValidate_OK_Cron(t *testing.T) {
 func TestValidate_OK_Manual(t *testing.T) {
 	s := &Schedule{
 		SchemaVersion: CurrentSchemaVersion, ID: "x", Name: "ok",
-		Targets: []TargetRef{{Kind: TargetWorkflowInstallation, ID: "c1"}},
+		Targets: []TargetRef{{Kind: TargetWorkflow, ID: "c1"}},
 		Trigger: Trigger{Kind: TriggerManual},
 		OnError: OnErrorStop,
 	}
@@ -40,7 +40,7 @@ func TestValidate_EmptyTargets(t *testing.T) {
 func TestValidate_BadTriggerKind(t *testing.T) {
 	s := &Schedule{
 		SchemaVersion: CurrentSchemaVersion, ID: "x", Name: "ok",
-		Targets: []TargetRef{{Kind: TargetWorkflowInstallation, ID: "c1"}},
+		Targets: []TargetRef{{Kind: TargetWorkflow, ID: "c1"}},
 		Trigger: Trigger{Kind: "weird"},
 		OnError: OnErrorStop,
 	}
@@ -55,7 +55,7 @@ func TestValidate_CronDailyBadTime(t *testing.T) {
 	for _, at := range cases {
 		s := &Schedule{
 			SchemaVersion: CurrentSchemaVersion, ID: "x", Name: "ok",
-			Targets: []TargetRef{{Kind: TargetWorkflowInstallation, ID: "c1"}},
+			Targets: []TargetRef{{Kind: TargetWorkflow, ID: "c1"}},
 			Trigger: Trigger{Kind: TriggerCron, SubKind: CronDaily, At: at},
 			OnError: OnErrorStop,
 		}
@@ -68,7 +68,7 @@ func TestValidate_CronDailyBadTime(t *testing.T) {
 func TestValidate_CronIntervalBadMinutes(t *testing.T) {
 	s := &Schedule{
 		SchemaVersion: CurrentSchemaVersion, ID: "x", Name: "ok",
-		Targets: []TargetRef{{Kind: TargetWorkflowInstallation, ID: "c1"}},
+		Targets: []TargetRef{{Kind: TargetWorkflow, ID: "c1"}},
 		Trigger: Trigger{Kind: TriggerCron, SubKind: CronInterval, EveryMinutes: 0},
 		OnError: OnErrorStop,
 	}
@@ -80,7 +80,7 @@ func TestValidate_CronIntervalBadMinutes(t *testing.T) {
 func TestValidate_BadOnError(t *testing.T) {
 	s := &Schedule{
 		SchemaVersion: CurrentSchemaVersion, ID: "x", Name: "ok",
-		Targets: []TargetRef{{Kind: TargetWorkflowInstallation, ID: "c1"}},
+		Targets: []TargetRef{{Kind: TargetWorkflow, ID: "c1"}},
 		Trigger: Trigger{Kind: TriggerManual},
 		OnError: "weird",
 	}

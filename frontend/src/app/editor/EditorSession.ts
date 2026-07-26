@@ -2435,13 +2435,7 @@ function applyCompatibleNodeContractUpgrade(
 ): boolean {
   if (base.nodeRef.nodeTypeId !== node.nodeRef.nodeTypeId) return false
   if (base.nodeRef.semanticDigest === node.nodeRef.semanticDigest) return true
-  if (
-    node.nodeRef.nodeTypeId !== PLAY_INPUT_CLIP_NODE_TYPE_ID ||
-    node.nodeRef.semanticDigest !== PLAY_INPUT_CLIP_RETRACTED_SCALE_DIGEST ||
-    base.nodeRef.semanticDigest !== PLAY_INPUT_CLIP_STABLE_DIGEST
-  ) {
-    return false
-  }
+  if (base.nodeRef.version !== node.nodeRef.version) return false
 
   const fields = new Map(base.configFields.map((field) => [field.id, field]))
   if (Object.keys(node.config).some((fieldId) => !fields.has(fieldId))) return false
@@ -2452,7 +2446,13 @@ function applyCompatibleNodeContractUpgrade(
   const projection = resolveConfigDependentProjection(base, config)
   const inputs = new Map(projection.dataInputs.map((port) => [port.id, port]))
   const bindings = clone(node.bindings)
-  delete bindings['turn-scale']
+  if (
+    node.nodeRef.nodeTypeId === PLAY_INPUT_CLIP_NODE_TYPE_ID &&
+    node.nodeRef.semanticDigest === PLAY_INPUT_CLIP_RETRACTED_SCALE_DIGEST &&
+    base.nodeRef.semanticDigest === PLAY_INPUT_CLIP_STABLE_DIGEST
+  ) {
+    delete bindings['turn-scale']
+  }
   if (Object.keys(bindings).some((portId) => !inputs.has(portId))) return false
 
   const incoming = new Set<string>()

@@ -9,7 +9,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/yottaapp/yotta/internal/appbootstrap"
+	appcore "github.com/yottaapp/yotta/internal/application"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/automation/target"
 	"github.com/yottaapp/yotta/internal/hotkey"
@@ -152,11 +152,11 @@ func TestClipCompositionUsesTheGlobalAssetStore(t *testing.T) {
 	if service := newClipService(store); service == nil {
 		t.Fatal("clip composition returned nil")
 	}
-	if err := (&workflowRunStarter{}).StartInstallation(context.Background(), "missing"); err == nil {
+	if err := (&workflowRunStarter{}).StartWorkflow(context.Background(), "missing"); err == nil {
 		t.Fatal("workflow starter accepted a missing runtime")
 	}
-	if err := (&workflowRunStarter{runtime: &appbootstrap.Runtime{}}).StartInstallation(context.Background(), "missing"); err == nil {
-		t.Fatal("workflow starter hid an unavailable Installation runtime")
+	if err := (&workflowRunStarter{application: &appcore.Application{}}).StartWorkflow(context.Background(), "missing"); err == nil {
+		t.Fatal("workflow starter hid an unavailable Workflow runtime")
 	}
 }
 

@@ -29,7 +29,6 @@ import (
 	"github.com/yottaapp/yotta/internal/storage/catalog"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
-	"github.com/yottaapp/yotta/internal/workflowinstallation"
 	"github.com/yottaapp/yotta/internal/workspacefs"
 )
 
@@ -39,19 +38,16 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 	stores := newTestWorkflowStorage(t)
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
 		DataRoot: stores.roots.Data, ProgramCacheRoot: filepath.Join(stores.roots.Cache, "programs"),
-		WorkflowRepository: stores.foundation.Workflows(), InstallationRepository: stores.foundation.WorkflowInstallations(),
-		RunRepository: stores.foundation.Runs(),
-		BlobStore:     stores.blobs,
-		Limits:        testLimits(), AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t), ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t), ScriptRuntime: bootstrapScriptRuntime(t), GrantTTL: 5 * time.Minute,
+		WorkflowRepository: stores.foundation.Workflows(),
+		RunRepository:      stores.foundation.Runs(),
+		BlobStore:          stores.blobs,
+		Limits:             testLimits(), AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t), ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t), ScriptRuntime: bootstrapScriptRuntime(t), GrantTTL: 5 * time.Minute,
 		LogEmitter:        discardWorkflowLog{},
 		OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
 		OnRunEvent: func(event appcore.RunEvent) { events <- event },
 	})
 	if err != nil {
 		t.Fatal(err)
-	}
-	if runtime.Installations == nil {
-		t.Fatal("Build() did not compose the Workflow Installation module")
 	}
 	if err := runtime.Start(context.Background()); err != nil {
 		t.Fatal(err)
@@ -63,7 +59,7 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 			t.Errorf("Close = %v", err)
 		}
 	})
-	service, err := workflow.NewService(runtime.Application, workflow.WithInstallationRuntime(runtime))
+	service, err := workflow.NewService(runtime.Application)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,156 +132,14 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 	}
 }
 
-func TestRuntimeStartsOnlyReadyWorkflowInstallationThroughSharedApplication(t *testing.T) {
-	now := time.Date(2026, 7, 26, 6, 0, 0, 0, time.UTC)
-	stores := newTestWorkflowStorage(t)
-	runtime, err := appbootstrap.Build(appbootstrap.Config{
-		DataRoot: stores.roots.Data, ProgramCacheRoot: filepath.Join(stores.roots.Cache, "programs"),
-		WorkflowRepository: stores.foundation.Workflows(), InstallationRepository: stores.foundation.WorkflowInstallations(),
-		RunRepository: stores.foundation.Runs(), BlobStore: stores.blobs,
-		Limits: testLimits(), AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t),
-		ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t),
-		ScriptRuntime: bootstrapScriptRuntime(t), LogEmitter: discardWorkflowLog{},
-		GrantTTL: 5 * time.Minute, OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := runtime.Start(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := runtime.Close(ctx); err != nil {
-			t.Errorf("Close = %v", err)
-		}
-	})
-	service, err := workflow.NewService(runtime.Application, workflow.WithInstallationRuntime(runtime))
-	if err != nil {
-		t.Fatal(err)
-	}
-	source, err := service.CreateSource("Installed release")
-	if err != nil {
-		t.Fatal(err)
-	}
-	snapshot, err := runtime.Application.GetSource(source.WorkflowID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	release, err := workflowinstallation.NewVerifiedRelease(snapshot.Artifact(), workflowinstallation.VerificationReceipt{
-		ReleaseDigest:      testDigest(t, "workflow-release"),
-		AttestationDigest:  testDigest(t, "publisher-attestation"),
-		PublisherNamespace: "https://example.test/publishers/acme", ReleaseVersion: "1.0.0", VerifiedAt: now,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	installation, err := runtime.Installations.InstallVerified(context.Background(), release, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	listed, err := service.ListInstallations()
-	if err != nil || len(listed) != 1 || listed[0].InstallationID != installation.ID {
-		t.Fatalf("ListInstallations() = %#v, %v", listed, err)
-	}
-	derived, err := service.DeriveInstallationSource(installation.ID, "Editable release copy")
-	if err != nil || derived.WorkflowID == release.WorkflowID || derived.Name != "Editable release copy" ||
-		derived.Revision != 0 {
-		t.Fatalf("DeriveInstallationSource() = %#v, %v", derived, err)
-	}
-	derivedSnapshot, err := runtime.Application.GetSource(derived.WorkflowID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	derivedDocument, diagnostics := schema.ParseSource(derivedSnapshot.Artifact())
-	if len(diagnostics) != 0 || derivedDocument.DerivedFrom == nil ||
-		derivedDocument.DerivedFrom.ReleaseDigest != release.ID ||
-		derivedDocument.DerivedFrom.SourceHash != release.SourceHash ||
-		derivedDocument.DerivedFrom.AttestationDigest != release.AttestationDigest {
-		t.Fatalf("derived Source = %#v, diagnostics = %#v", derivedDocument.DerivedFrom, diagnostics)
-	}
-	afterDerive, err := runtime.Installations.Get(context.Background(), installation.ID)
-	if err != nil || afterDerive.ReleaseID != release.ID {
-		t.Fatalf("Installation after derivation = %#v, %v", afterDerive, err)
-	}
-	readiness, err := service.GetInstallationReadiness(installation.ID)
-	if err != nil || !readiness.RunAllowed || !readiness.ScheduleAllowed || len(readiness.Blockers) != 0 {
-		t.Fatalf("GetInstallationReadiness() = %#v, %v", readiness, err)
-	}
-	started, err := service.StartInstallationRun(installation.ID)
-	if err != nil || started.Run == nil || started.SourceHash != release.SourceHash {
-		t.Fatalf("StartInstallationRun() = %#v, %v", started, err)
-	}
-	candidateSource, diagnostics := schema.ParseSource(release.SourceArtifact)
-	if schema.HasErrors(diagnostics) {
-		t.Fatalf("candidate Source diagnostics = %#v", diagnostics)
-	}
-	candidateSource.Workflow.Name = "Installed release v2"
-	candidateArtifact, err := artifact.Marshal(candidateSource)
-	if err != nil {
-		t.Fatal(err)
-	}
-	candidate, err := workflowinstallation.NewVerifiedRelease(
-		candidateArtifact,
-		workflowinstallation.VerificationReceipt{
-			ReleaseDigest: testDigest(t, "workflow-release-v2"), AttestationDigest: testDigest(t, "publisher-attestation-v2"),
-			PublisherNamespace: release.PublisherNamespace, ReleaseVersion: "2.0.0", VerifiedAt: now.Add(time.Minute),
-		},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := runtime.Installations.CacheVerifiedRelease(context.Background(), candidate); err != nil {
-		t.Fatal(err)
-	}
-	candidates, err := service.ListInstallationUpdateCandidates(installation.ID)
-	if err != nil || len(candidates) != 1 || candidates[0].ReleaseID != candidate.ID ||
-		candidates[0].ImmediatePrevious {
-		t.Fatalf("ListInstallationUpdateCandidates() = %#v, %v", candidates, err)
-	}
-	preview, err := service.PreviewInstallationUpdate(installation.ID, candidate.ID.String())
-	if err != nil || preview.Token == "" || preview.Diff.CandidateReleaseID != candidate.ID ||
-		len(preview.Conflicts) != 0 {
-		t.Fatalf("PreviewInstallationUpdate() = %#v, %v", preview, err)
-	}
-	updatedInstallation, err := service.ApplyInstallationUpdate(preview.Token)
-	if err != nil || updatedInstallation.Installation.ReleaseID != candidate.ID ||
-		updatedInstallation.ReconciliationRequired {
-		t.Fatalf("ApplyInstallationUpdate() = %#v, %v", updatedInstallation, err)
-	}
-	if _, err := service.ApplyInstallationUpdate(preview.Token); err == nil {
-		t.Fatal("ApplyInstallationUpdate reused a consumed preview")
-	}
-	rollback, err := service.PreviewInstallationRollback(installation.ID)
-	if err != nil || !rollback.Rollback || rollback.Diff.CandidateReleaseID != release.ID {
-		t.Fatalf("PreviewInstallationRollback() = %#v, %v", rollback, err)
-	}
-	afterUpdate, err := service.GetInstallationReadiness(installation.ID)
-	if err != nil || afterUpdate.ReleaseID != candidate.ID || !afterUpdate.RunAllowed ||
-		!afterUpdate.ScheduleAllowed || len(afterUpdate.Blockers) != 0 {
-		t.Fatalf("readiness after update = %#v, %v", afterUpdate, err)
-	}
-	if _, err := runtime.StartInstallationRun(
-		context.Background(), installation.ID, workflowinstallation.ScopeSchedule,
-	); err != nil {
-		t.Fatalf("schedule run after update = %v", err)
-	}
-	reconciledRollback, err := service.ApplyInstallationUpdate(rollback.Token)
-	if err != nil || reconciledRollback.ReconciliationRequired ||
-		reconciledRollback.Installation.ReleaseID != release.ID {
-		t.Fatalf("postcommit rollback reconciliation = %#v, %v", reconciledRollback, err)
-	}
-}
-
 func TestBuildStartsWithOneCorruptWorkflowSourceIsolatedAndRepairable(t *testing.T) {
 	stores := newTestWorkflowStorage(t)
 	build := func() *appbootstrap.Runtime {
 		runtime, err := appbootstrap.Build(appbootstrap.Config{
 			DataRoot: stores.roots.Data, ProgramCacheRoot: filepath.Join(stores.roots.Cache, "programs"),
-			WorkflowRepository: stores.foundation.Workflows(), InstallationRepository: stores.foundation.WorkflowInstallations(),
-			RunRepository: stores.foundation.Runs(),
-			BlobStore:     stores.blobs, Limits: testLimits(),
+			WorkflowRepository: stores.foundation.Workflows(),
+			RunRepository:      stores.foundation.Runs(),
+			BlobStore:          stores.blobs, Limits: testLimits(),
 			AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t),
 			ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t),
 			ScriptRuntime: bootstrapScriptRuntime(t), LogEmitter: discardWorkflowLog{},
@@ -360,9 +214,9 @@ func TestRuntimeHotReplacesApplicationAutomationAndAuthoringGeneration(t *testin
 	stores := newTestWorkflowStorage(t)
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
 		DataRoot: stores.roots.Data, ProgramCacheRoot: filepath.Join(stores.roots.Cache, "programs"),
-		WorkflowRepository: stores.foundation.Workflows(), InstallationRepository: stores.foundation.WorkflowInstallations(),
-		RunRepository: stores.foundation.Runs(),
-		BlobStore:     stores.blobs, Limits: testLimits(),
+		WorkflowRepository: stores.foundation.Workflows(),
+		RunRepository:      stores.foundation.Runs(),
+		BlobStore:          stores.blobs, Limits: testLimits(),
 		AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t),
 		ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t),
 		ScriptRuntime: bootstrapScriptRuntime(t), GrantTTL: 5 * time.Minute, LogEmitter: discardWorkflowLog{},
@@ -557,31 +411,6 @@ func TestBuiltinPolicyApprovesExactConfiguredAIInstallation(t *testing.T) {
 	}
 }
 
-func TestAICredentialStatesExposeOnlyNonSecretAvailability(t *testing.T) {
-	profileDraft, evaluation := approvedAIProfile(t, ai.ModelProfileDraft{
-		Provider: ai.ProviderOpenAIResponses, Model: "gpt-test", MaxOutputTokens: 4096,
-		Capabilities: ai.ProfileCapabilities{StructuredOutput: true},
-	})
-	installations, err := ai.Install([]ai.InstallationDraft{
-		{Slot: "missing", Profile: profileDraft, Evaluation: evaluation},
-		{Slot: "primary", Profile: profileDraft, Evaluation: evaluation},
-	}, testAICredentials{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	states, err := appbootstrap.AICredentialStates(
-		context.Background(), installations,
-		testCredentialAvailability{"primary": true},
-	)
-	if err != nil || len(states) != 2 ||
-		states[0].CredentialBindingID != ai.CredentialBindingID("missing") ||
-		states[0].Available ||
-		states[1].CredentialBindingID != ai.CredentialBindingID("primary") ||
-		states[1].Kind != ai.CredentialKindAPIKey || !states[1].Available {
-		t.Fatalf("AICredentialStates() = %#v, %v", states, err)
-	}
-}
-
 func TestBuiltinPolicyApprovesExactConfiguredHTTPInstallation(t *testing.T) {
 	now := time.Date(2026, 7, 16, 17, 0, 0, 0, time.UTC)
 	profileDraft := httpegress.ProfileDraft{Origin: "https://example.com", ResponseByteLimit: 4096, TimeoutMilliseconds: 5000}
@@ -695,12 +524,6 @@ func TestBuiltinPolicyApprovesExactConfiguredAutomationTarget(t *testing.T) {
 type testAICredentials struct{}
 
 func (testAICredentials) Get(string) (string, error) { return "secret", nil }
-
-type testCredentialAvailability map[string]bool
-
-func (availability testCredentialAvailability) HasSlot(slot string) (bool, error) {
-	return availability[slot], nil
-}
 
 type discardWorkflowLog struct{}
 

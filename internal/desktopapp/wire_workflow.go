@@ -4,16 +4,18 @@ import (
 	"context"
 	"errors"
 
-	"github.com/yottaapp/yotta/internal/appbootstrap"
-	"github.com/yottaapp/yotta/internal/workflowinstallation"
+	"github.com/yottaapp/yotta/internal/application"
 )
 
-type workflowRunStarter struct{ runtime *appbootstrap.Runtime }
+type workflowRunStarter struct{ application *application.Application }
 
-func (s *workflowRunStarter) StartInstallation(ctx context.Context, installationID string) error {
-	if s == nil || s.runtime == nil {
-		return errors.New("Workflow Installation runtime is unavailable")
+func (s *workflowRunStarter) StartWorkflow(ctx context.Context, workflowID string) error {
+	if s == nil || s.application == nil {
+		return errors.New("Workflow runtime is unavailable")
 	}
-	_, err := s.runtime.StartInstallationRun(ctx, installationID, workflowinstallation.ScopeSchedule)
+	_, err := s.application.StartRun(ctx, application.StartRunRequest{
+		WorkflowID: workflowID,
+		Principal:  "schedule",
+	})
 	return err
 }

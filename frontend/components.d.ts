@@ -76,9 +76,5 @@ declare module 'vue' {
     USwitch: typeof import('./node_modules/.pnpm/@nuxt+ui@4.7.1_@internation_a2c6100c66aa5f3ef89ec46e30405138/node_modules/@nuxt/ui/dist/runtime/components/Switch.vue')['default']
     UTextarea: typeof import('./node_modules/.pnpm/@nuxt+ui@4.7.1_@internation_a2c6100c66aa5f3ef89ec46e30405138/node_modules/@nuxt/ui/dist/runtime/components/Textarea.vue')['default']
     UTooltip: typeof import('./node_modules/.pnpm/@nuxt+ui@4.7.1_@internation_a2c6100c66aa5f3ef89ec46e30405138/node_modules/@nuxt/ui/dist/runtime/components/Tooltip.vue')['default']
-    WorkflowInstallationCapabilityList: typeof import('./src/components/workflows/WorkflowInstallationCapabilityList.vue')['default']
-    WorkflowInstallationSettingsModal: typeof import('./src/components/workflows/WorkflowInstallationSettingsModal.vue')['default']
-    WorkflowInstallationUpdateDiffCard: typeof import('./src/components/workflows/WorkflowInstallationUpdateDiffCard.vue')['default']
-    WorkflowInstallationUpdateModal: typeof import('./src/components/workflows/WorkflowInstallationUpdateModal.vue')['default']
   }
 }

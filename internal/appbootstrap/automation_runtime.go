@@ -16,33 +16,22 @@ import (
 	"github.com/yottaapp/yotta/internal/nodes"
 	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/scriptengine"
-	"github.com/yottaapp/yotta/internal/workflowinstallation"
 )
 
 // AutomationTargetRuntime is the single owner of installed target
 // generations. Settings submits intent; authoring and Runs hold stable handles
 // or leases and never coordinate provider publication themselves.
 type AutomationTargetRuntime struct {
-	mu              sync.Mutex
-	application     *appcore.Application
-	ai              ai.Installations
-	http            httpegress.Installations
-	current         automationinstalled.Generation
-	retired         []automationinstalled.Generation
-	authoring       automationinstalled.AuthoringTargets
-	workflowTargets []workflowinstallation.TargetState
-	environment     automationEnvironmentConfig
-	closed          bool
-	closeErr        error
-}
-
-func (runtime *AutomationTargetRuntime) WorkflowTargetStates() []workflowinstallation.TargetState {
-	if runtime == nil {
-		return nil
-	}
-	runtime.mu.Lock()
-	defer runtime.mu.Unlock()
-	return append([]workflowinstallation.TargetState(nil), runtime.workflowTargets...)
+	mu          sync.Mutex
+	application *appcore.Application
+	ai          ai.Installations
+	http        httpegress.Installations
+	current     automationinstalled.Generation
+	retired     []automationinstalled.Generation
+	authoring   automationinstalled.AuthoringTargets
+	environment automationEnvironmentConfig
+	closed      bool
+	closeErr    error
 }
 
 type automationEnvironmentConfig struct {
@@ -194,7 +183,6 @@ func (runtime *AutomationTargetRuntime) publish(applications appcontrol.Installa
 		return err
 	}
 	runtime.current = nextGeneration
-	runtime.workflowTargets = workflowTargetStates(installations)
 	published = true
 	runtime.mu.Unlock()
 
@@ -204,21 +192,6 @@ func (runtime *AutomationTargetRuntime) publish(applications appcontrol.Installa
 	runtime.reapRetiredLocked()
 	runtime.mu.Unlock()
 	return nil
-}
-
-func workflowTargetStates(installations automationinstalled.Installations) []workflowinstallation.TargetState {
-	entries := installations.Entries()
-	result := make([]workflowinstallation.TargetState, 0, len(entries))
-	for _, installed := range entries {
-		profile := installed.Profile.Machine()
-		result = append(result, workflowinstallation.TargetState{
-			TargetInstallationID: installed.TargetID,
-			TargetKind:           profile.TargetKind, AdapterKind: profile.AdapterKind,
-			ProfileVersion: profile.ProfileVersion,
-			Available:      true, Authorized: true,
-		})
-	}
-	return result
 }
 
 func (runtime *AutomationTargetRuntime) reapRetiredLocked() {

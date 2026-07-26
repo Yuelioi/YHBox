@@ -45,7 +45,6 @@ import (
 	"github.com/yottaapp/yotta/internal/storage/catalog"
 	storagemigrate "github.com/yottaapp/yotta/internal/storage/migrate"
 	"github.com/yottaapp/yotta/internal/wasmrunner"
-	"github.com/yottaapp/yotta/internal/workflowinstallation"
 	"github.com/yottaapp/yotta/pkg/locale"
 	"github.com/yottaapp/yotta/pkg/screenshot"
 	"github.com/yottaapp/yotta/pkg/version"
@@ -190,9 +189,9 @@ func Run(config Config) error {
 	}
 	workflowRuntime, err := appbootstrap.Build(appbootstrap.Config{
 		DataRoot: roots.Data, ProgramCacheRoot: filepath.Join(roots.Cache, "programs"),
-		WorkflowRepository: catalogFoundation.Workflows(), InstallationRepository: catalogFoundation.WorkflowInstallations(),
-		RunRepository: catalogFoundation.Runs(),
-		BlobStore:     sharedBlobStore,
+		WorkflowRepository: catalogFoundation.Workflows(),
+		RunRepository:      catalogFoundation.Runs(),
+		BlobStore:          sharedBlobStore,
 		Limits: appbootstrap.Limits{
 			MaxSources: 4096, MaxPrograms: 16384, MaxRuns: 65536,
 			MaxProgramCacheBytes:    2 << 30,
@@ -200,9 +199,6 @@ func Run(config Config) error {
 			BlobChunkBytes:          64 << 10, BlobQueueCapacity: 8, StreamCapacity: 16, StreamChunkBytes: 64 << 10,
 		},
 		AIInstallations: aiInstallations, HTTPInstallations: httpInstallations, ApplicationInstallations: applicationInstallations, AutomationInstallations: automationInstallations,
-		CredentialStates: func(ctx context.Context) ([]workflowinstallation.CredentialState, error) {
-			return appbootstrap.AICredentialStates(ctx, aiInstallations, aiSecrets)
-		},
 		ScriptRuntime:    scriptRuntime,
 		NodePackageStore: nodePackageStore, WasmRunnerExecutable: filepath.Join(filepath.Dir(executable), wasmrunner.WorkerExecutableName),
 		LogEmitter: newWorkflowLogEmitter(rootLog),
@@ -250,7 +246,6 @@ func Run(config Config) error {
 	workflowSvc, err := workflow.NewService(
 		workflowRuntime.Application,
 		workflow.WithBundleManager(workflowRuntime.Bundles),
-		workflow.WithInstallationRuntime(workflowRuntime),
 		workflow.WithReferenceResolver(func(workflowID string) []workflow.SourceReference {
 			references := make([]workflow.SourceReference, 0)
 			for _, block := range app.Settings().UI.LauncherItems {
@@ -337,16 +332,14 @@ func Run(config Config) error {
 	}
 	// Schedule triggers enter the same durable Workflow Run command as GUI.
 	scheduleHotkeyAdapter := &scheduleHotkeyRegistrar{reg: hotkeyRegistry}
-	scheduleDaemon := schedule.NewDaemon(scheduleStore, &workflowRunStarter{runtime: workflowRuntime}, scheduleHotkeyAdapter)
+	scheduleDaemon := schedule.NewDaemon(
+		scheduleStore,
+		&workflowRunStarter{application: workflowRuntime.Application},
+		scheduleHotkeyAdapter,
+	)
 	scheduleSvc = schedule.NewService(
 		scheduleStore,
 		schedule.WithChangeListener(scheduleDaemon.Reload),
-		schedule.WithTargetReadiness(func(installationID string) error {
-			_, err := workflowRuntime.Installations.PrepareExecution(
-				context.Background(), installationID, workflowinstallation.ScopeSchedule,
-			)
-			return err
-		}),
 	)
 	// InputClip remains an authoring asset service; playback reads the
 	// exposed nominal BlobRef through explicit blob-read and playback grants.

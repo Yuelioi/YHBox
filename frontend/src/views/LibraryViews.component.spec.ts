@@ -4,7 +4,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 const {
   push,
   querySources,
-  deriveInstallationSource,
   createSourceWithMetadata,
   batchUpdateSourceMetadata,
   queryAssets,
@@ -23,35 +22,6 @@ const {
         revision: 3,
         sourceHash: 'sha256:source',
         sourceJson: '',
-        kind: 'editable',
-        readOnly: false,
-      },
-      {
-        workflowId: 'installation.installation-1',
-        name: 'Installed report',
-        description: 'Read-only imported workflow',
-        category: 'Operations',
-        tags: ['Imported'],
-        nodeCount: 8,
-        revision: 0,
-        sourceHash: 'sha256:installed',
-        sourceJson: '',
-        kind: 'imported',
-        readOnly: true,
-        installationId: 'installation-1',
-        releaseId: 'sha256:release',
-        releaseVersion: '1.0.0',
-        publisherNamespace: 'test.publisher',
-        lifecycle: 'active',
-        readiness: {
-          installationId: 'installation-1',
-          releaseId: 'sha256:release',
-          lifecycle: 'active',
-          lifecycleAllowsExecution: true,
-          runAllowed: true,
-          scheduleAllowed: true,
-          blockers: [],
-        },
       },
     ],
     total: 40,
@@ -59,17 +29,6 @@ const {
     pageSize: 20,
     categories: [{ value: 'Operations', count: 20 }],
     tags: [{ value: 'Daily', count: 20 }],
-  })),
-  deriveInstallationSource: vi.fn(async () => ({
-    workflowId: 'workflow-derived',
-    name: 'Installed report (Local copy)',
-    description: '',
-    category: '',
-    tags: [],
-    nodeCount: 8,
-    revision: 0,
-    sourceHash: 'sha256:derived',
-    sourceJson: '',
   })),
   createSourceWithMetadata: vi.fn(async () => ({
     workflowId: 'workflow-created',
@@ -182,7 +141,6 @@ vi.mock('@/composables/useConfirm', () => ({
 vi.mock('@/app/transport/workflow', () => ({
   workflowTransport: {
     querySources,
-    deriveInstallationSource,
     listSourceRecoveries: vi.fn(async () => []),
     createSourceWithMetadata,
     batchUpdateSourceMetadata,
@@ -260,7 +218,6 @@ afterEach(() => {
   document.body.innerHTML = ''
   push.mockClear()
   querySources.mockClear()
-  deriveInstallationSource.mockClear()
   createSourceWithMetadata.mockClear()
   batchUpdateSourceMetadata.mockClear()
   queryAssets.mockClear()
@@ -272,8 +229,6 @@ describe('library management views', () => {
     const root = await mountView(WorkflowsView)
 
     expect(root.textContent).toContain('Daily report')
-    expect(root.textContent).toContain('Installed report')
-    expect(root.textContent).toContain('workflow.installation.status_ready')
     expect(root.textContent).toContain('Exports the daily report')
     expect(root.textContent).toContain('Operations')
     expect(root.textContent).toContain('Daily')

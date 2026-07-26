@@ -1,4 +1,4 @@
-<!-- 卡片外壳: v3 raised 表面 (顶光 + 高光 + 柔投影)。padding 档可选; hover=true 时悬停加强浮起。
+<!-- 卡片外壳: V4 raised 表面 (顶光 + 高光 + 柔投影)。padding 档可选; hover=true 时悬停加强浮起。
      内容走默认 slot。颜色/文字由内容自身决定, 本组件只给外壳。 -->
 <template>
   <div

@@ -208,9 +208,9 @@ func buildPlatformSmokeRuntime(t *testing.T, installations automationinstalled.I
 	stores := newTestWorkflowStorage(t)
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
 		DataRoot: stores.roots.Data, ProgramCacheRoot: filepath.Join(stores.roots.Cache, "programs"),
-		WorkflowRepository: stores.foundation.Workflows(), InstallationRepository: stores.foundation.WorkflowInstallations(),
-		RunRepository: stores.foundation.Runs(),
-		BlobStore:     stores.blobs, Limits: testLimits(),
+		WorkflowRepository: stores.foundation.Workflows(),
+		RunRepository:      stores.foundation.Runs(),
+		BlobStore:          stores.blobs, Limits: testLimits(),
 		AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t),
 		ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: installations,
 		ScriptRuntime: bootstrapScriptRuntime(t), LogEmitter: discardWorkflowLog{},

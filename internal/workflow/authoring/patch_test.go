@@ -299,7 +299,7 @@ func TestEngineRejectsNodeContractUpgradeThatWouldDropUserBinding(t *testing.T) 
 	}
 }
 
-func TestEngineRejectsUnregisteredNodeContractMigration(t *testing.T) {
+func TestEngineAllowsShapeCompatibleSameVersionNodeContractMigration(t *testing.T) {
 	builtins, projection := testContracts(t)
 	engine, err := authoring.New(builtins.Catalog, projection, func() string { return "concat" })
 	if err != nil {
@@ -312,15 +312,20 @@ func TestEngineRejectsUnregisteredNodeContractMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	currentRef := created.Source.Graphs[0].Nodes[0].NodeRef
 	stale := created.Source
 	stale.Graphs[0].Nodes[0].NodeRef.SemanticDigest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	_, err = engine.Apply(stale, []authoring.Command{{
+	stale.Graphs[0].Nodes[0].Bindings["a"] = schema.InputBinding{Kind: schema.BindingValue, Value: json.RawMessage(`"hello"`)}
+	stale.Graphs[0].Nodes[0].Bindings["b"] = schema.InputBinding{Kind: schema.BindingValue, Value: json.RawMessage(`" world"`)}
+	upgraded, err := engine.Apply(stale, []authoring.Command{{
 		Kind:                authoring.CommandUpgradeNodeContract,
 		UpgradeNodeContract: &authoring.NodeCommand{GraphID: "main", NodeID: "concat"},
 	}})
-	var patchErr *authoring.PatchError
-	if !errors.As(err, &patchErr) || patchErr.Code != "INCOMPATIBLE_NODE_UPGRADE" {
-		t.Fatalf("error = %#v", err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := upgraded.Source.Graphs[0].Nodes[0].NodeRef; got != currentRef {
+		t.Fatalf("upgraded node ref = %#v", got)
 	}
 }
 

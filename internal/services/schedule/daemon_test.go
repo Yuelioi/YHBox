@@ -19,14 +19,14 @@ type blockingWorkflowRunner struct {
 	ended   chan struct{}
 }
 
-func (r *blockingWorkflowRunner) StartInstallation(ctx context.Context, _ string) error {
+func (r *blockingWorkflowRunner) StartWorkflow(ctx context.Context, _ string) error {
 	close(r.started)
 	<-ctx.Done()
 	close(r.ended)
 	return ctx.Err()
 }
 
-func (f *fakeWorkflowRunner) StartInstallation(_ context.Context, id string) error {
+func (f *fakeWorkflowRunner) StartWorkflow(_ context.Context, id string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.ids = append(f.ids, id)
@@ -118,7 +118,7 @@ func TestDaemonHotkeyFire(t *testing.T) {
 		ID:            "test-1",
 		Name:          "test",
 		Enabled:       true,
-		Targets:       []TargetRef{{Kind: TargetWorkflowInstallation, ID: "C1"}},
+		Targets:       []TargetRef{{Kind: TargetWorkflow, ID: "C1"}},
 		Trigger:       Trigger{Kind: TriggerHotkey, Hotkey: "Ctrl+Shift+1"},
 		OnError:       OnErrorStop,
 	}
@@ -145,7 +145,7 @@ func TestDaemonFireManual(t *testing.T) {
 		ID:            "m-1",
 		Name:          "manual",
 		Enabled:       true,
-		Targets:       []TargetRef{{Kind: TargetWorkflowInstallation, ID: "X"}},
+		Targets:       []TargetRef{{Kind: TargetWorkflow, ID: "X"}},
 		Trigger:       Trigger{Kind: TriggerManual},
 		OnError:       OnErrorStop,
 	}
@@ -212,7 +212,7 @@ func TestDaemonReloadBeforeStartIsNoop(t *testing.T) {
 func TestDaemonReloadReportsHotkeyCleanupErrors(t *testing.T) {
 	store, _ := NewStore(t.TempDir())
 	schedule := &Schedule{SchemaVersion: CurrentSchemaVersion, ID: "reload", Name: "reload", Enabled: true,
-		Targets: []TargetRef{{Kind: TargetWorkflowInstallation, ID: "C1"}}, Trigger: Trigger{Kind: TriggerHotkey, Hotkey: "Ctrl+Shift+1"}, OnError: OnErrorStop}
+		Targets: []TargetRef{{Kind: TargetWorkflow, ID: "C1"}}, Trigger: Trigger{Kind: TriggerHotkey, Hotkey: "Ctrl+Shift+1"}, OnError: OnErrorStop}
 	if err := store.Save(schedule); err != nil {
 		t.Fatal(err)
 	}
@@ -245,7 +245,7 @@ func TestDaemonStopAggregatesHotkeyCleanupErrors(t *testing.T) {
 		ID:            "cleanup",
 		Name:          "cleanup",
 		Enabled:       true,
-		Targets:       []TargetRef{{Kind: TargetWorkflowInstallation, ID: "C1"}},
+		Targets:       []TargetRef{{Kind: TargetWorkflow, ID: "C1"}},
 		Trigger:       Trigger{Kind: TriggerHotkey, Hotkey: "Ctrl+Shift+1"},
 		OnError:       OnErrorStop,
 	}

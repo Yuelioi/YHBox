@@ -17,7 +17,6 @@ import (
 	"github.com/coder/websocket/wsjson"
 	"github.com/yottaapp/yotta/internal/storage"
 	"github.com/yottaapp/yotta/internal/storage/catalog"
-	"github.com/yottaapp/yotta/internal/workflowinstallation"
 )
 
 func TestSeedRecoveryFixtureUsesCurrentCatalogAuthority(t *testing.T) {
@@ -52,21 +51,6 @@ func TestSeedRecoveryFixtureUsesCurrentCatalogAuthority(t *testing.T) {
 	if len(recoveries) != 1 || recoveries[0].OriginalName != "damaged-workflow.json" ||
 		string(recoveries[0].Artifact) != `{"format":"yotta.workflow","version":"1",` {
 		t.Fatalf("recoveries = %#v", recoveries)
-	}
-	installations, err := workflowinstallation.New(
-		foundation.WorkflowInstallations(),
-		workflowinstallation.Options{},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	listed, err := installations.List(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(listed) != 1 || listed[0].ID != smokeInstallationID ||
-		listed[0].Name != "Installed smoke workflow" {
-		t.Fatalf("installations = %#v", listed)
 	}
 }
 
@@ -136,19 +120,8 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	postDelete := withState(base, func(state *pageState) { state.CanvasNodes = 1 })
 	connected := withState(base, func(state *pageState) { state.CanvasNodes, state.CanvasEdges = 2, 1 })
 	states := []pageState{
-		{RecoveryPanel: true, InstallationRows: 1, LauncherButton: true},
-		{RecoveryPanel: true, InstallationRows: 1, InstallationSettings: true, LauncherButton: true},
-		{RecoveryPanel: true, InstallationRows: 1, LauncherButton: true},
-		{RecoveryPanel: true, InstallationRows: 1, InstallationUpdate: true, LauncherButton: true},
-		{RecoveryPanel: true, InstallationRows: 1, InstallationUpdate: true, InstallationApply: true, LauncherButton: true},
-		{RecoveryPanel: true, InstallationRows: 1, LauncherButton: true},
-		{RecoveryPanel: true, InstallationRows: 1, InstallationUpdate: true, InstallationRollback: true, LauncherButton: true},
-		{RecoveryPanel: true, InstallationRows: 1, InstallationUpdate: true, InstallationApply: true, InstallationRollback: true, LauncherButton: true},
-		{RecoveryPanel: true, InstallationRows: 1, LauncherButton: true},
-		{RecoveryPanel: true, InstallationRows: 1, LauncherButton: true, ConfirmDialog: true},
-		base,
-		{RecoveryPanel: true, InstallationRows: 1, LauncherButton: true},
-		{CreateInput: true, RecoveryPanel: true, InstallationRows: 1, LauncherButton: true},
+		{RecoveryPanel: true, LauncherButton: true},
+		{CreateInput: true, RecoveryPanel: true, LauncherButton: true},
 		{},
 		oneNode,
 		withState(base, func(state *pageState) { state.CanvasNodes, state.MinimapOpen = 1, true }),

@@ -11,7 +11,7 @@ func TestSchedule_JSONRoundTrip(t *testing.T) {
 		ID:             "s1",
 		Name:           "日常",
 		Enabled:        true,
-		Targets:        []TargetRef{{Kind: TargetWorkflowInstallation, ID: "c-A"}, {Kind: TargetWorkflowInstallation, ID: "c-B"}},
+		Targets:        []TargetRef{{Kind: TargetWorkflow, ID: "c-A"}, {Kind: TargetWorkflow, ID: "c-B"}},
 		Trigger:        Trigger{Kind: TriggerCron, SubKind: CronDaily, At: "05:00"},
 		TimeoutMinutes: 30,
 		OnError:        OnErrorStop,

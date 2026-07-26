@@ -94,15 +94,6 @@ func (f *Foundation) Workflows() *WorkflowRepository {
 	return &WorkflowRepository{database: f.content}
 }
 
-// WorkflowInstallations returns the repository for immutable verified Release
-// projections and their independent local Installation instances.
-func (f *Foundation) WorkflowInstallations() *WorkflowInstallationRepository {
-	if f == nil || f.content == nil {
-		return nil
-	}
-	return &WorkflowInstallationRepository{database: f.content}
-}
-
 // Runs returns the append-oriented Run Ledger repository. Run domain
 // validation remains in internal/run; this repository owns only the durable
 // summary/event/value representation and its transaction boundaries.

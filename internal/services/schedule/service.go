@@ -2,7 +2,6 @@ package schedule
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -12,15 +11,10 @@ import (
 
 // ChangeListener Schedule CRUD 后回调，main.go 注入 daemon.Reload。
 type ChangeListener func() error
-type TargetReadiness func(installationID string) error
 type ServiceOption func(*Service)
 
 func WithChangeListener(listener ChangeListener) ServiceOption {
 	return func(service *Service) { service.onChange = listener }
-}
-
-func WithTargetReadiness(readiness TargetReadiness) ServiceOption {
-	return func(service *Service) { service.readiness = readiness }
 }
 
 // PostCommitError means durable schedule state changed successfully, but the
@@ -38,15 +32,8 @@ func (e *PostCommitError) Unwrap() error   { return e.Err }
 func (e *PostCommitError) Committed() bool { return true }
 
 type Service struct {
-	store     *Store
-	onChange  ChangeListener
-	readiness TargetReadiness
-}
-
-type InstallationPauser struct{ service *Service }
-
-func NewInstallationPauser(service *Service) *InstallationPauser {
-	return &InstallationPauser{service: service}
+	store    *Store
+	onChange ChangeListener
 }
 
 func NewService(store *Store, options ...ServiceOption) *Service {
@@ -97,9 +84,6 @@ func (s *Service) Create(name string) (Schedule, error) {
 
 // Save 持久化一个完整 Schedule（首次或后续）。
 func (s *Service) Save(sc Schedule) error {
-	if err := s.requireEnabledTargetsReady(sc); err != nil {
-		return err
-	}
 	if err := s.store.Save(&sc); err != nil {
 		return err
 	}
@@ -124,9 +108,6 @@ func (s *Service) Update(id string, patchJSON string) error {
 		return fmt.Errorf("parse patchJSON: expected exactly one JSON object")
 	}
 	sc.ID = id // 防 patch 改 ID 触发 path traversal
-	if err := s.requireEnabledTargetsReady(sc); err != nil {
-		return err
-	}
 	if err := s.store.Save(&sc); err != nil {
 		return err
 	}
@@ -134,65 +115,6 @@ func (s *Service) Update(id string, patchJSON string) error {
 		return &PostCommitError{Operation: "update", Err: err}
 	}
 	return nil
-}
-
-func (s *Service) requireEnabledTargetsReady(schedule Schedule) error {
-	if !schedule.Enabled {
-		return nil
-	}
-	if s.readiness == nil {
-		return errors.New("Workflow Installation readiness is unavailable")
-	}
-	for _, target := range schedule.Targets {
-		if target.Kind != TargetWorkflowInstallation {
-			continue
-		}
-		if err := s.readiness(target.ID); err != nil {
-			return fmt.Errorf("Workflow Installation %q is not ready for schedule: %w", target.ID, err)
-		}
-	}
-	return nil
-}
-
-// PauseInstallation disables every enabled schedule that references one
-// Workflow Installation. Exact Release consent already prevents execution;
-// this persists the user-visible paused state and reloads the live daemon.
-func (p *InstallationPauser) PauseInstallation(installationID string) ([]string, error) {
-	if p == nil || p.service == nil {
-		return nil, errors.New("Workflow Installation schedule pauser is unavailable")
-	}
-	s := p.service
-	if strings.TrimSpace(installationID) == "" || installationID != strings.TrimSpace(installationID) {
-		return nil, errors.New("Workflow Installation identity is invalid")
-	}
-	paused, persistErr := s.store.PauseInstallation(installationID)
-	if len(paused) == 0 {
-		return paused, persistErr
-	}
-	reloadErr := s.emitChange()
-	if persistErr != nil {
-		var committed interface{ Committed() bool }
-		if !errors.As(persistErr, &committed) || !committed.Committed() {
-			return paused, persistErr
-		}
-		if reloadErr != nil {
-			persistErr = errors.Join(persistErr, reloadErr)
-		}
-		return paused, &PostCommitError{Operation: "pause installation schedules", Err: persistErr}
-	}
-	if reloadErr != nil {
-		return paused, &PostCommitError{Operation: "pause installation schedules", Err: reloadErr}
-	}
-	return paused, nil
-}
-
-func scheduleTargetsInstallation(schedule Schedule, installationID string) bool {
-	for _, target := range schedule.Targets {
-		if target.Kind == TargetWorkflowInstallation && target.ID == installationID {
-			return true
-		}
-	}
-	return false
 }
 
 func (s *Service) Delete(id string) error {

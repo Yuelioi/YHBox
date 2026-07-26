@@ -277,61 +277,34 @@
             class="grid min-h-16 items-center gap-3 border-b border-default/70 px-3 py-2 hover:bg-elevated/30"
             :style="{ gridTemplateColumns: workflowGridTemplate }"
             data-testid="workflow-library-row"
-            :data-installation-id="source.installationId || undefined"
           >
             <UCheckbox
               :model-value="Boolean(selected[source.workflowId])"
               :aria-label="t('workflow.list.select_named', { name: source.name })"
-              :disabled="source.readOnly"
               @update:model-value="toggleSource(source, Boolean($event))"
             />
             <div class="min-w-0">
               <div class="flex min-w-0 items-center gap-2">
                 <RouterLink
-                  v-if="!source.readOnly"
                   :to="`/workflows/${source.workflowId}/edit`"
                   class="truncate text-sm font-medium text-highlighted underline-offset-4 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   {{ source.name }}
                 </RouterLink>
-                <span v-else class="truncate text-sm font-medium text-highlighted">
-                  {{ source.name }}
-                </span>
                 <UBadge
-                  v-if="source.readOnly"
-                  color="neutral"
-                  variant="soft"
-                  size="xs"
-                  icon="i-tabler-lock"
-                >
-                  {{ t('workflow.list.imported_readonly') }}
-                </UBadge>
-                <UBadge
-                  v-if="source.readOnly"
-                  :color="sourceReadinessColor(source)"
+                  v-if="runFeedbackById[source.workflowId]"
+                  :color="runFeedbackById[source.workflowId].tone"
                   variant="soft"
                   size="xs"
                 >
-                  {{ sourceReadinessLabel(source) }}
-                </UBadge>
-                <UBadge
-                  v-if="runFeedbackById[sourceRunKey(source)]"
-                  :color="runFeedbackById[sourceRunKey(source)].tone"
-                  variant="soft"
-                  size="xs"
-                >
-                  {{ runFeedbackById[sourceRunKey(source)].label }}
+                  {{ runFeedbackById[source.workflowId].label }}
                 </UBadge>
               </div>
               <p class="mt-0.5 truncate text-[11px] text-muted">
                 {{ source.description || t('workflow.list.no_description') }}
               </p>
               <p class="mt-0.5 truncate font-mono text-[9px] text-dimmed">
-                {{
-                  source.readOnly
-                    ? `${source.publisherNamespace ?? ''} · ${source.installationId ?? ''}`
-                    : source.workflowId
-                }}
+                {{ source.workflowId }}
               </p>
             </div>
             <div v-if="isColumnVisible('category')" class="min-w-0">
@@ -368,7 +341,7 @@
             <span
               v-if="isColumnVisible('revision')"
               class="text-right font-mono text-xs text-muted"
-              >{{ source.readOnly ? source.releaseVersion || '—' : source.revision }}</span
+              >{{ source.revision }}</span
             >
             <time
               v-if="isColumnVisible('createdAt')"
@@ -393,30 +366,15 @@
                 variant="ghost"
                 size="sm"
                 :aria-label="t('workflow.action.run_named', { name: source.name })"
-                :loading="runStartingId === sourceRunKey(source)"
-                :disabled="
-                  Boolean(runStartingId) ||
-                  deleting ||
-                  (source.readOnly && !source.readiness?.runAllowed)
-                "
-                @click="runSource(source)"
+                :loading="runStartingId === source.workflowId"
+                :disabled="Boolean(runStartingId) || deleting"
+                @click="runWorkflow(source.workflowId)"
               />
               <UButton
-                v-if="!source.readOnly"
                 icon="i-tabler-schema"
                 size="sm"
                 :aria-label="t('workflow.action.edit_named', { name: source.name })"
                 @click="router.push(`/workflows/${source.workflowId}/edit`)"
-              />
-              <UButton
-                v-else
-                data-testid="workflow-imported-settings"
-                icon="i-tabler-adjustments"
-                size="sm"
-                color="neutral"
-                variant="soft"
-                :aria-label="t('workflow.installation.settings')"
-                @click="openInstallationSettingsForSource(source)"
               />
               <UDropdownMenu :items="rowMenuItems(source)">
                 <UButton
@@ -528,22 +486,6 @@
         />
       </template>
     </BaseModal>
-
-    <WorkflowInstallationSettingsModal
-      v-if="activeInstallation"
-      v-model:open="installationSettingsOpen"
-      :installation-id="activeInstallation.installationId"
-      :name="activeInstallation.name"
-      @saved="load"
-    />
-
-    <WorkflowInstallationUpdateModal
-      v-if="activeUpdateInstallation"
-      v-model:open="installationUpdateOpen"
-      :installation-id="activeUpdateInstallation.installationId"
-      :name="activeUpdateInstallation.name"
-      @applied="load"
-    />
 
     <BaseModal
       v-model:open="metadataModalOpen"
@@ -666,7 +608,6 @@ import {
   workflowTransport,
   type BundleInfoView,
   type DeleteSourcePreview,
-  type InstallationView,
   type SourceRecoveryView,
   type SourceView,
 } from '@/app/transport/workflow'
@@ -683,8 +624,6 @@ import BaseModal from '@/components/common/BaseModal.vue'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LibrarySelectionToolbar from '@/components/library/LibrarySelectionToolbar.vue'
-import WorkflowInstallationSettingsModal from '@/components/workflows/WorkflowInstallationSettingsModal.vue'
-import WorkflowInstallationUpdateModal from '@/components/workflows/WorkflowInstallationUpdateModal.vue'
 
 defineOptions({ name: 'WorkflowsView' })
 
@@ -719,11 +658,6 @@ const tags = ref<Array<{ value: string; count: number }>>([])
 const visibleColumns = ref<WorkflowColumn[]>(loadColumns())
 const selected = ref<Record<string, SelectedSource>>({})
 const loading = ref(true)
-const installationSettingsOpen = ref(false)
-const activeInstallation = ref<InstallationView | null>(null)
-const installationUpdateOpen = ref(false)
-const activeUpdateInstallation = ref<InstallationView | null>(null)
-const derivingId = ref('')
 const deleting = ref(false)
 const importing = ref(false)
 const exportingId = ref('')
@@ -771,10 +705,7 @@ const portabilityBusy = computed(
 )
 const allCurrentPageSelected = computed(
   () =>
-    sources.value.some((source) => !source.readOnly) &&
-    sources.value
-      .filter((source) => !source.readOnly)
-      .every((source) => selected.value[source.workflowId]),
+    sources.value.length > 0 && sources.value.every((source) => selected.value[source.workflowId]),
 )
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 const resultStart = computed(() => (total.value ? (page.value - 1) * pageSize.value + 1 : 0))
@@ -993,7 +924,6 @@ async function goToPage(next: number): Promise<void> {
 }
 
 function toggleSource(source: SourceView, checked: boolean): void {
-  if (source.readOnly) return
   const next = { ...selected.value }
   if (checked) next[source.workflowId] = source
   else delete next[source.workflowId]
@@ -1003,7 +933,6 @@ function toggleSource(source: SourceView, checked: boolean): void {
 function toggleCurrentPage(checked: boolean): void {
   const next = { ...selected.value }
   for (const source of sources.value) {
-    if (source.readOnly) continue
     if (checked) next[source.workflowId] = source
     else delete next[source.workflowId]
   }
@@ -1234,28 +1163,6 @@ function uniqueStrings(values: string[]): string[] {
 }
 
 function rowMenuItems(source: SourceView) {
-  if (source.readOnly) {
-    return [
-      [
-        {
-          label: t('workflow.installation.settings'),
-          icon: 'i-tabler-adjustments',
-          onSelect: () => openInstallationSettingsForSource(source),
-        },
-        {
-          label: t('workflow.installation.update'),
-          icon: 'i-tabler-refresh',
-          onSelect: () => openInstallationUpdateForSource(source),
-        },
-        {
-          label: t('workflow.installation.derive'),
-          icon: 'i-tabler-pencil-plus',
-          disabled: Boolean(derivingId.value),
-          onSelect: () => void deriveInstallationFromSource(source),
-        },
-      ],
-    ]
-  }
   return [
     [
       {
@@ -1438,21 +1345,12 @@ async function replaceSource(source: SelectedSource): Promise<void> {
 }
 
 function bundleDescription(info: BundleInfoView): string {
-  const details = [
-    t('workflow.list.bundle_description', {
-      name: info.name,
-      revision: info.revision,
-      blobs: info.blobCount,
-      bytes: info.blobBytes,
-    }),
-  ]
-  if (info.sourceTrust === 'unverified') {
-    details.push(t('workflow.list.bundle_unverified'))
-  }
-  if (info.evidenceKinds.length > 0) {
-    details.push(t('workflow.list.bundle_evidence', { count: info.evidenceKinds.length }))
-  }
-  return details.join('\n')
+  return t('workflow.list.bundle_description', {
+    name: info.name,
+    revision: info.revision,
+    blobs: info.blobCount,
+    bytes: info.blobBytes,
+  })
 }
 
 function selectedName(workflowId: string): string {
@@ -1544,129 +1442,6 @@ function referenceDetails(preview: DeleteSourcePreview): string[] {
 
 function sourceName(workflowId: string, previews: DeleteSourcePreview[]): string {
   return previews.find((preview) => preview.workflowId === workflowId)?.name ?? workflowId
-}
-
-function sourceReadinessColor(source: SourceView): 'success' | 'warning' | 'neutral' {
-  const report = source.readiness
-  if (!report || report.lifecycle !== 'active') return 'neutral'
-  return report.runAllowed ? 'success' : 'warning'
-}
-
-function sourceReadinessLabel(source: SourceView): string {
-  const report = source.readiness
-  if (!report) return t('workflow.installation.status_unknown')
-  if (report.lifecycle !== 'active') return t('workflow.installation.status_archived')
-  return t(
-    report.runAllowed
-      ? 'workflow.installation.status_ready'
-      : 'workflow.installation.status_blocked',
-  )
-}
-
-function installationFromSource(source: SourceView): InstallationView | null {
-  if (!source.readOnly || !source.installationId || !source.releaseId) return null
-  return {
-    installationId: source.installationId,
-    releaseId: source.releaseId,
-    name: source.name,
-    lifecycle: source.lifecycle ?? 'active',
-    createdAt: source.createdAt ?? '',
-    updatedAt: source.updatedAt ?? '',
-  }
-}
-
-function openInstallationSettingsForSource(source: SourceView): void {
-  const installation = installationFromSource(source)
-  if (installation) openInstallationSettings(installation)
-}
-
-function openInstallationUpdateForSource(source: SourceView): void {
-  const installation = installationFromSource(source)
-  if (installation) openInstallationUpdate(installation)
-}
-
-function deriveInstallationFromSource(source: SourceView): Promise<void> {
-  const installation = installationFromSource(source)
-  return installation ? deriveInstallation(installation) : Promise.resolve()
-}
-
-function openInstallationSettings(installation: InstallationView): void {
-  activeInstallation.value = installation
-  installationSettingsOpen.value = true
-}
-
-function openInstallationUpdate(installation: InstallationView): void {
-  activeUpdateInstallation.value = installation
-  installationUpdateOpen.value = true
-}
-
-async function deriveInstallation(installation: InstallationView): Promise<void> {
-  if (derivingId.value) return
-  const accepted = await confirm({
-    title: t('workflow.installation.derive_title', { name: installation.name }),
-    description: t('workflow.installation.derive_description'),
-    confirmText: t('workflow.installation.derive_confirm'),
-    cancelText: t('common.cancel'),
-  })
-  if (accepted !== true) return
-  derivingId.value = installation.installationId
-  try {
-    const derived = await workflowTransport.deriveInstallationSource(
-      installation.installationId,
-      t('workflow.installation.derived_name', { name: installation.name }),
-    )
-    await router.push(`/workflows/${derived.workflowId}/edit`)
-  } catch (error) {
-    toast.add({
-      title: t('workflow.installation.derive_failed'),
-      description: errorText(error),
-      color: 'error',
-    })
-  } finally {
-    derivingId.value = ''
-  }
-}
-
-async function runInstallation(installationId: string): Promise<void> {
-  if (runStartingId.value) return
-  runStartingId.value = installationId
-  try {
-    const started = await workflowTransport.startInstallationRun(installationId)
-    if (!started.run) {
-      runFeedbackById[installationId] = {
-        tone: 'warning',
-        label: t('workflow.toast.not_started'),
-        detail: diagnosticText(started),
-      }
-      return
-    }
-    runFeedbackById[installationId] = {
-      tone: 'success',
-      label: t('workflow.toast.queued'),
-      detail: started.run.runId,
-    }
-  } catch (error) {
-    delete runFeedbackById[installationId]
-    toast.add({
-      title: t('workflow.toast.run_failed'),
-      description: errorText(error),
-      color: 'error',
-    })
-  } finally {
-    runStartingId.value = ''
-  }
-}
-
-function sourceRunKey(source: SourceView): string {
-  return source.readOnly ? (source.installationId ?? source.workflowId) : source.workflowId
-}
-
-async function runSource(source: SourceView): Promise<void> {
-  if (source.readOnly) {
-    if (source.installationId) await runInstallation(source.installationId)
-    return
-  }
-  await runWorkflow(source.workflowId)
 }
 
 async function runWorkflow(workflowId: string): Promise<void> {

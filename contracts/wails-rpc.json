@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 16,
-    "methods": 149,
-    "models": 235
+    "methods": 138,
+    "models": 220
   },
   "services": [
     {
@@ -1381,18 +1381,6 @@
       "module": "internal/services/workflow/service",
       "methods": [
         {
-          "name": "ApplyInstallationUpdate",
-          "bindingId": "3046827605",
-          "parameters": [
-            {
-              "name": "token",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<$models.InstallationUpdateApplyView>"
-        },
-        {
           "name": "ApplyPatch",
           "bindingId": "4198428146",
           "parameters": [
@@ -1522,23 +1510,6 @@
           "returns": "$CancellablePromise<$models.DeleteSourceResult[]>"
         },
         {
-          "name": "DeriveInstallationSource",
-          "bindingId": "961191490",
-          "parameters": [
-            {
-              "name": "installationID",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "name",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<$models.SourceView>"
-        },
-        {
           "name": "ExportSourceBundle",
           "bindingId": "57269803",
           "parameters": [
@@ -1595,30 +1566,6 @@
             }
           ],
           "returns": "$CancellablePromise<compiler$0.DebugSnapshot>"
-        },
-        {
-          "name": "GetInstallationReadiness",
-          "bindingId": "284852380",
-          "parameters": [
-            {
-              "name": "installationID",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<$models.InstallationReadinessView>"
-        },
-        {
-          "name": "GetInstallationSettings",
-          "bindingId": "1410123185",
-          "parameters": [
-            {
-              "name": "installationID",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<$models.InstallationSettingsView>"
         },
         {
           "name": "GetRunTimeline",
@@ -1691,24 +1638,6 @@
           "returns": "$CancellablePromise<$models.BundleInfoView>"
         },
         {
-          "name": "ListInstallations",
-          "bindingId": "1714633689",
-          "parameters": [],
-          "returns": "$CancellablePromise<$models.InstallationView[]>"
-        },
-        {
-          "name": "ListInstallationUpdateCandidates",
-          "bindingId": "4246662095",
-          "parameters": [
-            {
-              "name": "installationID",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<$models.InstallationUpdateCandidateView[]>"
-        },
-        {
           "name": "ListSourceRecoveries",
           "bindingId": "544341126",
           "parameters": [],
@@ -1731,35 +1660,6 @@
             }
           ],
           "returns": "$CancellablePromise<$models.DeleteSourcePreview[]>"
-        },
-        {
-          "name": "PreviewInstallationRollback",
-          "bindingId": "486196640",
-          "parameters": [
-            {
-              "name": "installationID",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<$models.InstallationUpdatePreviewView>"
-        },
-        {
-          "name": "PreviewInstallationUpdate",
-          "bindingId": "992423717",
-          "parameters": [
-            {
-              "name": "installationID",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "candidateReleaseID",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<$models.InstallationUpdatePreviewView>"
         },
         {
           "name": "PreviewRun",
@@ -1864,18 +1764,6 @@
           "returns": "$CancellablePromise<$models.StartRunView>"
         },
         {
-          "name": "StartInstallationRun",
-          "bindingId": "460722153",
-          "parameters": [
-            {
-              "name": "installationID",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<$models.StartRunView>"
-        },
-        {
           "name": "StartRun",
           "bindingId": "3018932761",
           "parameters": [
@@ -1886,65 +1774,6 @@
             }
           ],
           "returns": "$CancellablePromise<$models.StartRunView>"
-        },
-        {
-          "name": "UpdateInstallationCredentialBinding",
-          "bindingId": "3011832973",
-          "parameters": [
-            {
-              "name": "installationID",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "expectedGeneration",
-              "optional": false,
-              "type": "number"
-            },
-            {
-              "name": "requirementSlot",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "credentialBindingID",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<$models.InstallationSettingsView>"
-        },
-        {
-          "name": "UpdateInstallationTargetProfile",
-          "bindingId": "1165031745",
-          "parameters": [
-            {
-              "name": "installationID",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "expectedGeneration",
-              "optional": false,
-              "type": "number"
-            },
-            {
-              "name": "definitionID",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "settingsJSON",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "targetInstallationID",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<$models.InstallationSettingsView>"
         },
         {
           "name": "UpdateSourceMetadata",
@@ -5643,7 +5472,7 @@
             },
             {
               "name": "CurrentSchemaVersion",
-              "value": "\"2\""
+              "value": "\"3\""
             }
           ]
         },
@@ -5656,8 +5485,8 @@
               "value": "\"\""
             },
             {
-              "name": "TargetWorkflowInstallation",
-              "value": "\"workflow-installation\""
+              "name": "TargetWorkflow",
+              "value": "\"workflow\""
             }
           ]
         },
@@ -6189,16 +6018,6 @@
               "name": "\"blobBytes\"",
               "optional": false,
               "type": "number"
-            },
-            {
-              "name": "\"sourceTrust\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"evidenceKinds\"",
-              "optional": false,
-              "type": "string[]"
             }
           ]
         },
@@ -6371,479 +6190,6 @@
         },
         {
           "kind": "class",
-          "name": "InstallationCapabilityScopeView",
-          "fields": [
-            {
-              "name": "\"nodeTypeId\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"capabilityId\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"operations\"",
-              "optional": false,
-              "type": "string[]"
-            },
-            {
-              "name": "\"targetSlot\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"credentialSlot\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"scope\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"risk\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"consent\"",
-              "optional": false,
-              "type": "string"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "InstallationCredentialCandidateView",
-          "fields": [
-            {
-              "name": "\"bindingId\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"label\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"available\"",
-              "optional": false,
-              "type": "boolean"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "InstallationCredentialRequirementView",
-          "fields": [
-            {
-              "name": "\"slot\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"kind\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"purpose\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"bindingId\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"candidates\"",
-              "optional": false,
-              "type": "InstallationCredentialCandidateView[]"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "InstallationDependencyChangeView",
-          "fields": [
-            {
-              "name": "\"publisherNamespace\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"packageId\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"packageVersion\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"manifestDigest\"",
-              "optional": false,
-              "type": "artifact$0.Digest"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "InstallationReadinessView",
-          "fields": [
-            {
-              "name": "\"installationId\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"releaseId\"",
-              "optional": false,
-              "type": "artifact$0.Digest"
-            },
-            {
-              "name": "\"lifecycle\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"lifecycleAllowsExecution\"",
-              "optional": false,
-              "type": "boolean"
-            },
-            {
-              "name": "\"runAllowed\"",
-              "optional": false,
-              "type": "boolean"
-            },
-            {
-              "name": "\"scheduleAllowed\"",
-              "optional": false,
-              "type": "boolean"
-            },
-            {
-              "name": "\"blockers\"",
-              "optional": false,
-              "type": "ReadinessBlockerView[]"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "InstallationSettingsView",
-          "fields": [
-            {
-              "name": "\"installationId\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"generation\"",
-              "optional": false,
-              "type": "number"
-            },
-            {
-              "name": "\"updatedAt\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"targets\"",
-              "optional": false,
-              "type": "InstallationTargetProfileView[]"
-            },
-            {
-              "name": "\"credentials\"",
-              "optional": false,
-              "type": "InstallationCredentialRequirementView[]"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "InstallationTargetProfileView",
-          "fields": [
-            {
-              "name": "\"definitionId\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"name\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"description\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"targetKind\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"adapterKind\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"profileVersion\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"settingsJson\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"targetInstallationId\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"discoveryHints\"",
-              "optional": false,
-              "type": "TargetDiscoveryHintView[]"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "InstallationUpdateApplyView",
-          "fields": [
-            {
-              "name": "\"installation\"",
-              "optional": false,
-              "type": "InstallationView"
-            },
-            {
-              "name": "\"reconciliationRequired\"",
-              "optional": false,
-              "type": "boolean"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "InstallationUpdateCandidateView",
-          "fields": [
-            {
-              "name": "\"releaseId\"",
-              "optional": false,
-              "type": "artifact$0.Digest"
-            },
-            {
-              "name": "\"releaseVersion\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"verifiedAt\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"immediatePrevious\"",
-              "optional": false,
-              "type": "boolean"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "InstallationUpdateConflictView",
-          "fields": [
-            {
-              "name": "\"kind\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"requirementId\"",
-              "optional": false,
-              "type": "string"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "InstallationUpdateDiffView",
-          "fields": [
-            {
-              "name": "\"currentReleaseId\"",
-              "optional": false,
-              "type": "artifact$0.Digest"
-            },
-            {
-              "name": "\"candidateReleaseId\"",
-              "optional": false,
-              "type": "artifact$0.Digest"
-            },
-            {
-              "name": "\"currentVersion\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"candidateVersion\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"addedTargets\"",
-              "optional": false,
-              "type": "string[]"
-            },
-            {
-              "name": "\"changedTargets\"",
-              "optional": false,
-              "type": "string[]"
-            },
-            {
-              "name": "\"removedTargets\"",
-              "optional": false,
-              "type": "string[]"
-            },
-            {
-              "name": "\"addedCredentials\"",
-              "optional": false,
-              "type": "string[]"
-            },
-            {
-              "name": "\"changedCredentials\"",
-              "optional": false,
-              "type": "string[]"
-            },
-            {
-              "name": "\"removedCredentials\"",
-              "optional": false,
-              "type": "string[]"
-            },
-            {
-              "name": "\"graphsChanged\"",
-              "optional": false,
-              "type": "boolean"
-            },
-            {
-              "name": "\"resourcesChanged\"",
-              "optional": false,
-              "type": "boolean"
-            },
-            {
-              "name": "\"variablesChanged\"",
-              "optional": false,
-              "type": "boolean"
-            },
-            {
-              "name": "\"dependenciesChanged\"",
-              "optional": false,
-              "type": "boolean"
-            },
-            {
-              "name": "\"addedDependencies\"",
-              "optional": false,
-              "type": "InstallationDependencyChangeView[]"
-            },
-            {
-              "name": "\"removedDependencies\"",
-              "optional": false,
-              "type": "InstallationDependencyChangeView[]"
-            },
-            {
-              "name": "\"addedCapabilities\"",
-              "optional": false,
-              "type": "InstallationCapabilityScopeView[]"
-            },
-            {
-              "name": "\"removedCapabilities\"",
-              "optional": false,
-              "type": "InstallationCapabilityScopeView[]"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "InstallationUpdatePreviewView",
-          "fields": [
-            {
-              "name": "\"token\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"installationId\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"rollback\"",
-              "optional": false,
-              "type": "boolean"
-            },
-            {
-              "name": "\"diff\"",
-              "optional": false,
-              "type": "InstallationUpdateDiffView"
-            },
-            {
-              "name": "\"conflicts\"",
-              "optional": false,
-              "type": "InstallationUpdateConflictView[]"
-            },
-            {
-              "name": "\"readiness\"",
-              "optional": false,
-              "type": "InstallationReadinessView"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "InstallationView",
-          "fields": [
-            {
-              "name": "\"installationId\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"releaseId\"",
-              "optional": false,
-              "type": "artifact$0.Digest"
-            },
-            {
-              "name": "\"name\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"lifecycle\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"createdAt\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"updatedAt\"",
-              "optional": false,
-              "type": "string"
-            }
-          ]
-        },
-        {
-          "kind": "class",
           "name": "PatchView",
           "fields": [
             {
@@ -6855,37 +6201,6 @@
               "name": "\"generatedNodes\"",
               "optional": false,
               "type": "authoring$0.GeneratedNode[]"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "ReadinessBlockerView",
-          "fields": [
-            {
-              "name": "\"kind\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"requirementId\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"expected\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"blocks\"",
-              "optional": false,
-              "type": "string[]"
-            },
-            {
-              "name": "\"action\"",
-              "optional": false,
-              "type": "string"
             }
           ]
         },
@@ -7137,46 +6452,6 @@
               "name": "\"sourceJson\"",
               "optional": true,
               "type": "string"
-            },
-            {
-              "name": "\"kind\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"readOnly\"",
-              "optional": false,
-              "type": "boolean"
-            },
-            {
-              "name": "\"installationId\"",
-              "optional": true,
-              "type": "string"
-            },
-            {
-              "name": "\"releaseId\"",
-              "optional": true,
-              "type": "artifact$0.Digest"
-            },
-            {
-              "name": "\"releaseVersion\"",
-              "optional": true,
-              "type": "string"
-            },
-            {
-              "name": "\"publisherNamespace\"",
-              "optional": true,
-              "type": "string"
-            },
-            {
-              "name": "\"lifecycle\"",
-              "optional": true,
-              "type": "string"
-            },
-            {
-              "name": "\"readiness\"",
-              "optional": true,
-              "type": "InstallationReadinessView | null"
             }
           ]
         },
@@ -7224,22 +6499,6 @@
               "name": "\"counters\"",
               "optional": false,
               "type": "{ [_ in string]?: number }"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "TargetDiscoveryHintView",
-          "fields": [
-            {
-              "name": "\"kind\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"value\"",
-              "optional": false,
-              "type": "string"
             }
           ]
         },

@@ -1618,10 +1618,7 @@ func instanceProjection(snapshot nodeauthoring.Snapshot, node schema.Node) (node
 }
 
 func admittedNodeContractUpgrade(from, to nodecontract.NodeRef) bool {
-	return from.NodeTypeID == playInputClipNodeTypeID &&
-		to.NodeTypeID == playInputClipNodeTypeID &&
-		string(from.SemanticDigest) == playInputClipRetractedScaleDigest &&
-		string(to.SemanticDigest) == playInputClipStableDigest
+	return from.NodeTypeID == to.NodeTypeID && from.Version == to.Version
 }
 
 func prepareAdmittedNodeContractUpgrade(node *schema.Node) {

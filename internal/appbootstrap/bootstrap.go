@@ -33,9 +33,7 @@ import (
 	"github.com/yottaapp/yotta/internal/storage/catalog"
 	"github.com/yottaapp/yotta/internal/stream"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
-	"github.com/yottaapp/yotta/internal/workflow/schema"
 	"github.com/yottaapp/yotta/internal/workflowbundle"
-	"github.com/yottaapp/yotta/internal/workflowinstallation"
 	"github.com/yottaapp/yotta/internal/workflowstore"
 	"github.com/yottaapp/yotta/internal/workspacefs"
 )
@@ -56,7 +54,6 @@ type Config struct {
 	DataRoot                 string
 	ProgramCacheRoot         string
 	WorkflowRepository       *catalog.WorkflowRepository
-	InstallationRepository   *catalog.WorkflowInstallationRepository
 	RunRepository            *catalog.RunRepository
 	BlobStore                *blob.Store
 	Limits                   Limits
@@ -64,7 +61,6 @@ type Config struct {
 	HTTPInstallations        httpegress.Installations
 	ApplicationInstallations appcontrol.Installations
 	AutomationInstallations  automationinstalled.Installations
-	CredentialStates         func(context.Context) ([]workflowinstallation.CredentialState, error)
 	ScriptRuntime            *scriptengine.Runtime
 	NodePackageStore         *nodepackage.Store
 	WasmRunnerExecutable     string
@@ -82,7 +78,6 @@ type Runtime struct {
 	Builtins          nodes.Builtins
 	BlobStore         *blob.Store
 	Bundles           *workflowbundle.Manager
-	Installations     *workflowinstallation.Module
 	ai                ai.Installations
 	http              httpegress.Installations
 	automationTargets *AutomationTargetRuntime
@@ -92,7 +87,7 @@ func Build(config Config) (*Runtime, error) {
 	if config.Now == nil {
 		config.Now = time.Now
 	}
-	if !config.AIInstallations.Valid() || !config.HTTPInstallations.Valid() || !config.ApplicationInstallations.Valid() || !config.AutomationInstallations.Valid() || config.BlobStore == nil || config.WorkflowRepository == nil || config.InstallationRepository == nil || config.RunRepository == nil || config.ScriptRuntime == nil || config.LogEmitter == nil || config.GrantTTL <= 0 || config.GrantTTL > 24*time.Hour || config.OwnerCloseTimeout <= 0 {
+	if !config.AIInstallations.Valid() || !config.HTTPInstallations.Valid() || !config.ApplicationInstallations.Valid() || !config.AutomationInstallations.Valid() || config.BlobStore == nil || config.WorkflowRepository == nil || config.RunRepository == nil || config.ScriptRuntime == nil || config.LogEmitter == nil || config.GrantTTL <= 0 || config.GrantTTL > 24*time.Hour || config.OwnerCloseTimeout <= 0 {
 		return nil, errors.New("app bootstrap requires trusted installations, isolated effect runtimes, and bounded Run lifetimes")
 	}
 	if err := validateLimits(config.Limits); err != nil {
@@ -343,39 +338,10 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	installationDependencies := make([]workflowinstallation.DependencyState, 0, len(runtimePackages))
-	for _, installed := range runtimePackages {
-		installationDependencies = append(installationDependencies, workflowinstallation.DependencyState{
-			PublisherNamespace: installed.PublisherNamespace,
-			PackageID:          installed.PackageID, PackageVersion: installed.PackageVersion,
-			ManifestDigest: installed.ManifestDigest, Enabled: true,
-		})
-	}
-	var automationTargets *AutomationTargetRuntime
-	installations, err := workflowinstallation.New(config.InstallationRepository, workflowinstallation.Options{
-		Now: config.Now,
-		Dependencies: func(context.Context) ([]workflowinstallation.DependencyState, error) {
-			return append([]workflowinstallation.DependencyState(nil), installationDependencies...), nil
-		},
-		Targets: func(context.Context) ([]workflowinstallation.TargetState, error) {
-			if automationTargets == nil {
-				return workflowTargetStates(config.AutomationInstallations), nil
-			}
-			return automationTargets.WorkflowTargetStates(), nil
-		},
-		Credentials: config.CredentialStates,
-		Capabilities: func(ctx context.Context, source schema.WorkflowSource) ([]workflowinstallation.CapabilityScope, error) {
-			return projectWorkflowCapabilityScopes(ctx, source, catalog, config.NodePackageStore)
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
 	generationOwned = true
-	automationTargets = &AutomationTargetRuntime{
+	automationTargets := &AutomationTargetRuntime{
 		application: application, ai: config.AIInstallations, http: config.HTTPInstallations,
 		current: automationGeneration, authoring: authoringTargets,
-		workflowTargets: workflowTargetStates(config.AutomationInstallations),
 		environment: automationEnvironmentConfig{
 			builtins: builtins, blobDigest: blobDigest, streamDigest: streamDigest, workspaceFileDigest: workspaceFileDigest,
 			scriptRuntime: config.ScriptRuntime, pluginFeatures: append([]string(nil), pluginFeatures...), now: config.Now,
@@ -383,7 +349,7 @@ func Build(config Config) (*Runtime, error) {
 		},
 	}
 	return &Runtime{
-		Application: application, Builtins: builtins, BlobStore: blobStore, Bundles: bundles, Installations: installations,
+		Application: application, Builtins: builtins, BlobStore: blobStore, Bundles: bundles,
 		ai: config.AIInstallations, http: config.HTTPInstallations, automationTargets: automationTargets,
 	}, nil
 }

@@ -20,36 +20,19 @@ import (
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 	"github.com/yottaapp/yotta/internal/workflowbundle"
-	"github.com/yottaapp/yotta/internal/workflowinstallation"
 	"github.com/yottaapp/yotta/internal/workflowstore"
 )
 
 type Service struct {
-	application   *appcore.Application
-	authoring     nodeauthoring.Snapshot
-	bundles       *workflowbundle.Manager
-	references    ReferenceResolver
-	installations InstallationRuntime
+	application *appcore.Application
+	authoring   nodeauthoring.Snapshot
+	bundles     *workflowbundle.Manager
+	references  ReferenceResolver
 }
 
 type ReferenceResolver func(workflowID string) []SourceReference
 
 type Option func(*Service)
-
-type InstallationRuntime interface {
-	ListWorkflowInstallations(context.Context) ([]workflowinstallation.InstallationRecord, error)
-	ListWorkflowLibrary(context.Context) ([]workflowinstallation.LibraryEntry, error)
-	ListWorkflowInstallationUpdateCandidates(context.Context, string) ([]workflowinstallation.UpdateCandidate, error)
-	StageWorkflowInstallationUpdate(context.Context, string, artifact.Digest) (workflowinstallation.UpdatePreview, error)
-	StageWorkflowInstallationRollback(context.Context, string) (workflowinstallation.UpdatePreview, error)
-	ApplyStagedWorkflowInstallationUpdate(context.Context, string) (workflowinstallation.InstallationRecord, error)
-	DeriveWorkflowInstallationSource(context.Context, string, string) (workflowstore.SourceSnapshot, error)
-	WorkflowInstallationReadiness(context.Context, string) (workflowinstallation.ReadinessReport, error)
-	WorkflowInstallationSettings(context.Context, string) (workflowinstallation.SettingsSnapshot, error)
-	UpdateWorkflowInstallationTargetProfile(context.Context, string, int64, string, []byte, string) (workflowinstallation.SettingsSnapshot, error)
-	UpdateWorkflowInstallationCredentialBinding(context.Context, string, int64, string, string) (workflowinstallation.SettingsSnapshot, error)
-	StartInstallationRun(context.Context, string, workflowinstallation.ExecutionScope) (appcore.StartRunResult, error)
-}
 
 func WithReferenceResolver(resolver ReferenceResolver) Option {
 	return func(service *Service) { service.references = resolver }
@@ -57,10 +40,6 @@ func WithReferenceResolver(resolver ReferenceResolver) Option {
 
 func WithBundleManager(manager *workflowbundle.Manager) Option {
 	return func(service *Service) { service.bundles = manager }
-}
-
-func WithInstallationRuntime(runtime InstallationRuntime) Option {
-	return func(service *Service) { service.installations = runtime }
 }
 
 func NewService(application *appcore.Application, options ...Option) (*Service, error) {
@@ -81,156 +60,17 @@ func NewService(application *appcore.Application, options ...Option) (*Service, 
 }
 
 type SourceView struct {
-	WorkflowID         string                     `json:"workflowId"`
-	Name               string                     `json:"name"`
-	Description        string                     `json:"description,omitempty"`
-	Category           string                     `json:"category,omitempty"`
-	Tags               []string                   `json:"tags,omitempty"`
-	CreatedAt          string                     `json:"createdAt,omitempty"`
-	UpdatedAt          string                     `json:"updatedAt,omitempty"`
-	NodeCount          int                        `json:"nodeCount"`
-	Revision           int64                      `json:"revision"`
-	SourceHash         artifact.Digest            `json:"sourceHash"`
-	SourceJSON         string                     `json:"sourceJson,omitempty"`
-	Kind               string                     `json:"kind"`
-	ReadOnly           bool                       `json:"readOnly"`
-	InstallationID     string                     `json:"installationId,omitempty"`
-	ReleaseID          artifact.Digest            `json:"releaseId,omitempty"`
-	ReleaseVersion     string                     `json:"releaseVersion,omitempty"`
-	PublisherNamespace string                     `json:"publisherNamespace,omitempty"`
-	Lifecycle          string                     `json:"lifecycle,omitempty"`
-	Readiness          *InstallationReadinessView `json:"readiness,omitempty"`
-}
-
-type InstallationView struct {
-	InstallationID string          `json:"installationId"`
-	ReleaseID      artifact.Digest `json:"releaseId"`
-	Name           string          `json:"name"`
-	Lifecycle      string          `json:"lifecycle"`
-	CreatedAt      string          `json:"createdAt"`
-	UpdatedAt      string          `json:"updatedAt"`
-}
-
-type InstallationUpdateCandidateView struct {
-	ReleaseID         artifact.Digest `json:"releaseId"`
-	ReleaseVersion    string          `json:"releaseVersion"`
-	VerifiedAt        string          `json:"verifiedAt"`
-	ImmediatePrevious bool            `json:"immediatePrevious"`
-}
-
-type InstallationDependencyChangeView struct {
-	PublisherNamespace string          `json:"publisherNamespace"`
-	PackageID          string          `json:"packageId"`
-	PackageVersion     string          `json:"packageVersion"`
-	ManifestDigest     artifact.Digest `json:"manifestDigest"`
-}
-
-type InstallationCapabilityScopeView struct {
-	NodeTypeID     string   `json:"nodeTypeId"`
-	CapabilityID   string   `json:"capabilityId"`
-	Operations     []string `json:"operations"`
-	TargetSlot     string   `json:"targetSlot"`
-	CredentialSlot string   `json:"credentialSlot"`
-	Scope          string   `json:"scope"`
-	Risk           string   `json:"risk"`
-	Consent        string   `json:"consent"`
-}
-
-type InstallationUpdateConflictView struct {
-	Kind          string `json:"kind"`
-	RequirementID string `json:"requirementId"`
-}
-
-type InstallationUpdateDiffView struct {
-	CurrentReleaseID    artifact.Digest                    `json:"currentReleaseId"`
-	CandidateReleaseID  artifact.Digest                    `json:"candidateReleaseId"`
-	CurrentVersion      string                             `json:"currentVersion"`
-	CandidateVersion    string                             `json:"candidateVersion"`
-	AddedTargets        []string                           `json:"addedTargets"`
-	ChangedTargets      []string                           `json:"changedTargets"`
-	RemovedTargets      []string                           `json:"removedTargets"`
-	AddedCredentials    []string                           `json:"addedCredentials"`
-	ChangedCredentials  []string                           `json:"changedCredentials"`
-	RemovedCredentials  []string                           `json:"removedCredentials"`
-	GraphsChanged       bool                               `json:"graphsChanged"`
-	ResourcesChanged    bool                               `json:"resourcesChanged"`
-	VariablesChanged    bool                               `json:"variablesChanged"`
-	DependenciesChanged bool                               `json:"dependenciesChanged"`
-	AddedDependencies   []InstallationDependencyChangeView `json:"addedDependencies"`
-	RemovedDependencies []InstallationDependencyChangeView `json:"removedDependencies"`
-	AddedCapabilities   []InstallationCapabilityScopeView  `json:"addedCapabilities"`
-	RemovedCapabilities []InstallationCapabilityScopeView  `json:"removedCapabilities"`
-}
-
-type InstallationUpdatePreviewView struct {
-	Token          string                           `json:"token"`
-	InstallationID string                           `json:"installationId"`
-	Rollback       bool                             `json:"rollback"`
-	Diff           InstallationUpdateDiffView       `json:"diff"`
-	Conflicts      []InstallationUpdateConflictView `json:"conflicts"`
-	Readiness      InstallationReadinessView        `json:"readiness"`
-}
-
-type InstallationUpdateApplyView struct {
-	Installation           InstallationView `json:"installation"`
-	ReconciliationRequired bool             `json:"reconciliationRequired"`
-}
-
-type ReadinessBlockerView struct {
-	Kind          string   `json:"kind"`
-	RequirementID string   `json:"requirementId"`
-	Expected      string   `json:"expected"`
-	Blocks        []string `json:"blocks"`
-	Action        string   `json:"action"`
-}
-
-type InstallationReadinessView struct {
-	InstallationID           string                 `json:"installationId"`
-	ReleaseID                artifact.Digest        `json:"releaseId"`
-	Lifecycle                string                 `json:"lifecycle"`
-	LifecycleAllowsExecution bool                   `json:"lifecycleAllowsExecution"`
-	RunAllowed               bool                   `json:"runAllowed"`
-	ScheduleAllowed          bool                   `json:"scheduleAllowed"`
-	Blockers                 []ReadinessBlockerView `json:"blockers"`
-}
-
-type TargetDiscoveryHintView struct {
-	Kind  string `json:"kind"`
-	Value string `json:"value"`
-}
-
-type InstallationTargetProfileView struct {
-	DefinitionID         string                    `json:"definitionId"`
-	Name                 string                    `json:"name"`
-	Description          string                    `json:"description"`
-	TargetKind           string                    `json:"targetKind"`
-	AdapterKind          string                    `json:"adapterKind"`
-	ProfileVersion       string                    `json:"profileVersion"`
-	SettingsJSON         string                    `json:"settingsJson"`
-	TargetInstallationID string                    `json:"targetInstallationId"`
-	DiscoveryHints       []TargetDiscoveryHintView `json:"discoveryHints"`
-}
-
-type InstallationCredentialRequirementView struct {
-	Slot       string                                `json:"slot"`
-	Kind       string                                `json:"kind"`
-	Purpose    string                                `json:"purpose"`
-	BindingID  string                                `json:"bindingId"`
-	Candidates []InstallationCredentialCandidateView `json:"candidates"`
-}
-
-type InstallationCredentialCandidateView struct {
-	BindingID string `json:"bindingId"`
-	Label     string `json:"label"`
-	Available bool   `json:"available"`
-}
-
-type InstallationSettingsView struct {
-	InstallationID string                                  `json:"installationId"`
-	Generation     int64                                   `json:"generation"`
-	UpdatedAt      string                                  `json:"updatedAt"`
-	Targets        []InstallationTargetProfileView         `json:"targets"`
-	Credentials    []InstallationCredentialRequirementView `json:"credentials"`
+	WorkflowID  string          `json:"workflowId"`
+	Name        string          `json:"name"`
+	Description string          `json:"description,omitempty"`
+	Category    string          `json:"category,omitempty"`
+	Tags        []string        `json:"tags,omitempty"`
+	CreatedAt   string          `json:"createdAt,omitempty"`
+	UpdatedAt   string          `json:"updatedAt,omitempty"`
+	NodeCount   int             `json:"nodeCount"`
+	Revision    int64           `json:"revision"`
+	SourceHash  artifact.Digest `json:"sourceHash"`
+	SourceJSON  string          `json:"sourceJson,omitempty"`
 }
 
 type SourceQuery struct {
@@ -324,8 +164,6 @@ type BundleInfoView struct {
 	SourceHash    artifact.Digest `json:"sourceHash"`
 	BlobCount     int             `json:"blobCount"`
 	BlobBytes     int64           `json:"blobBytes"`
-	SourceTrust   string          `json:"sourceTrust"`
-	EvidenceKinds []string        `json:"evidenceKinds"`
 }
 
 type BundleExportResult struct {
@@ -496,27 +334,7 @@ func (s *Service) ListSources() ([]SourceView, error) {
 }
 
 func (s *Service) listLibrarySources() ([]SourceView, error) {
-	editable, err := s.ListSources()
-	if err != nil {
-		return nil, err
-	}
-	if s.installations == nil {
-		return editable, nil
-	}
-	installed, err := s.installations.ListWorkflowLibrary(context.Background())
-	if err != nil {
-		return nil, err
-	}
-	result := make([]SourceView, 0, len(editable)+len(installed))
-	result = append(result, editable...)
-	for _, entry := range installed {
-		view, err := installedSourceView(entry)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, view)
-	}
-	return result, nil
+	return s.ListSources()
 }
 
 func (s *Service) ListSourceRecoveries() []SourceRecoveryView {
@@ -909,190 +727,6 @@ func (s *Service) StartRun(workflowID string) (StartRunView, error) {
 	return view, err
 }
 
-func (s *Service) ListInstallations() ([]InstallationView, error) {
-	if s.installations == nil {
-		return nil, errors.New("Workflow Installation runtime is unavailable")
-	}
-	records, err := s.installations.ListWorkflowInstallations(context.Background())
-	if err != nil {
-		return nil, err
-	}
-	result := make([]InstallationView, 0, len(records))
-	for _, record := range records {
-		result = append(result, installationView(record))
-	}
-	return result, nil
-}
-
-func (s *Service) DeriveInstallationSource(
-	installationID string,
-	name string,
-) (SourceView, error) {
-	if s.installations == nil {
-		return SourceView{}, errors.New("workflow installation runtime is unavailable")
-	}
-	snapshot, err := s.installations.DeriveWorkflowInstallationSource(
-		context.Background(), installationID, name,
-	)
-	if err != nil {
-		return SourceView{}, err
-	}
-	return sourceView(snapshot, true)
-}
-
-func (s *Service) ListInstallationUpdateCandidates(
-	installationID string,
-) ([]InstallationUpdateCandidateView, error) {
-	if s.installations == nil {
-		return nil, errors.New("Workflow Installation runtime is unavailable")
-	}
-	candidates, err := s.installations.ListWorkflowInstallationUpdateCandidates(
-		context.Background(), installationID,
-	)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]InstallationUpdateCandidateView, 0, len(candidates))
-	for _, candidate := range candidates {
-		result = append(result, InstallationUpdateCandidateView{
-			ReleaseID: candidate.ReleaseID, ReleaseVersion: candidate.ReleaseVersion,
-			VerifiedAt:        candidate.VerifiedAt.Format(time.RFC3339Nano),
-			ImmediatePrevious: candidate.ImmediatePrevious,
-		})
-	}
-	return result, nil
-}
-
-func (s *Service) PreviewInstallationUpdate(
-	installationID string,
-	candidateReleaseID string,
-) (InstallationUpdatePreviewView, error) {
-	if s.installations == nil {
-		return InstallationUpdatePreviewView{}, errors.New("Workflow Installation runtime is unavailable")
-	}
-	preview, err := s.installations.StageWorkflowInstallationUpdate(
-		context.Background(), installationID, artifact.Digest(candidateReleaseID),
-	)
-	if err != nil {
-		return InstallationUpdatePreviewView{}, err
-	}
-	return installationUpdatePreviewView(preview), nil
-}
-
-func (s *Service) PreviewInstallationRollback(
-	installationID string,
-) (InstallationUpdatePreviewView, error) {
-	if s.installations == nil {
-		return InstallationUpdatePreviewView{}, errors.New("Workflow Installation runtime is unavailable")
-	}
-	preview, err := s.installations.StageWorkflowInstallationRollback(
-		context.Background(), installationID,
-	)
-	if err != nil {
-		return InstallationUpdatePreviewView{}, err
-	}
-	return installationUpdatePreviewView(preview), nil
-}
-
-func (s *Service) ApplyInstallationUpdate(token string) (InstallationUpdateApplyView, error) {
-	if s.installations == nil {
-		return InstallationUpdateApplyView{}, errors.New("Workflow Installation runtime is unavailable")
-	}
-	record, err := s.installations.ApplyStagedWorkflowInstallationUpdate(
-		context.Background(), token,
-	)
-	if err != nil {
-		var committed interface{ Committed() bool }
-		if !errors.As(err, &committed) || !committed.Committed() ||
-			workflowinstallation.ValidateInstallationRecord(record) != nil {
-			return InstallationUpdateApplyView{}, err
-		}
-		return InstallationUpdateApplyView{
-			Installation: installationView(record), ReconciliationRequired: true,
-		}, nil
-	}
-	return InstallationUpdateApplyView{Installation: installationView(record)}, nil
-}
-
-func (s *Service) GetInstallationReadiness(installationID string) (InstallationReadinessView, error) {
-	if s.installations == nil {
-		return InstallationReadinessView{}, errors.New("Workflow Installation runtime is unavailable")
-	}
-	report, err := s.installations.WorkflowInstallationReadiness(context.Background(), installationID)
-	if err != nil {
-		return InstallationReadinessView{}, err
-	}
-	return installationReadinessView(report), nil
-}
-
-func (s *Service) GetInstallationSettings(installationID string) (InstallationSettingsView, error) {
-	if s.installations == nil {
-		return InstallationSettingsView{}, errors.New("Workflow Installation runtime is unavailable")
-	}
-	snapshot, err := s.installations.WorkflowInstallationSettings(context.Background(), installationID)
-	if err != nil {
-		return InstallationSettingsView{}, err
-	}
-	return installationSettingsView(snapshot), nil
-}
-
-func (s *Service) UpdateInstallationTargetProfile(
-	installationID string,
-	expectedGeneration int64,
-	definitionID string,
-	settingsJSON string,
-	targetInstallationID string,
-) (InstallationSettingsView, error) {
-	if s.installations == nil {
-		return InstallationSettingsView{}, errors.New("Workflow Installation runtime is unavailable")
-	}
-	snapshot, err := s.installations.UpdateWorkflowInstallationTargetProfile(
-		context.Background(), installationID, expectedGeneration, definitionID,
-		[]byte(settingsJSON), targetInstallationID,
-	)
-	if err != nil {
-		return InstallationSettingsView{}, err
-	}
-	return installationSettingsView(snapshot), nil
-}
-
-func (s *Service) UpdateInstallationCredentialBinding(
-	installationID string,
-	expectedGeneration int64,
-	requirementSlot string,
-	credentialBindingID string,
-) (InstallationSettingsView, error) {
-	if s.installations == nil {
-		return InstallationSettingsView{}, errors.New("Workflow Installation runtime is unavailable")
-	}
-	snapshot, err := s.installations.UpdateWorkflowInstallationCredentialBinding(
-		context.Background(), installationID, expectedGeneration,
-		requirementSlot, credentialBindingID,
-	)
-	if err != nil {
-		return InstallationSettingsView{}, err
-	}
-	return installationSettingsView(snapshot), nil
-}
-
-func (s *Service) StartInstallationRun(installationID string) (StartRunView, error) {
-	if s.installations == nil {
-		return StartRunView{}, errors.New("Workflow Installation runtime is unavailable")
-	}
-	result, err := s.installations.StartInstallationRun(
-		context.Background(), installationID, workflowinstallation.ScopeRun,
-	)
-	view := StartRunView{
-		SourceHash: result.SourceHash, ProgramHash: result.ProgramHash,
-		Diagnostics: append([]schema.Diagnostic(nil), result.Diagnostics...),
-	}
-	if result.Record.Valid() {
-		run := runView(result.Record)
-		view.Run = &run
-	}
-	return view, err
-}
-
 func (s *Service) StartDebugRun(workflowID string, breakpoints []compiler.DebugBreakpoint) (StartRunView, error) {
 	result, err := s.application.StartDebugRun(context.Background(), appcore.StartRunRequest{WorkflowID: workflowID, Principal: "local-user"}, breakpoints)
 	view := StartRunView{
@@ -1107,141 +741,6 @@ func (s *Service) StartDebugRun(workflowID string, breakpoints []compiler.DebugB
 		}
 	}
 	return view, err
-}
-
-func installationReadinessView(report workflowinstallation.ReadinessReport) InstallationReadinessView {
-	view := InstallationReadinessView{
-		InstallationID: report.InstallationID, ReleaseID: report.ReleaseID,
-		Lifecycle: string(report.Lifecycle), LifecycleAllowsExecution: report.LifecycleAllowsExecution,
-		RunAllowed: report.RunAllowed, ScheduleAllowed: report.ScheduleAllowed,
-		Blockers: make([]ReadinessBlockerView, 0, len(report.Blockers)),
-	}
-	for _, blocker := range report.Blockers {
-		blocks := make([]string, 0, len(blocker.Blocks))
-		for _, scope := range blocker.Blocks {
-			blocks = append(blocks, string(scope))
-		}
-		view.Blockers = append(view.Blockers, ReadinessBlockerView{
-			Kind: string(blocker.Kind), RequirementID: blocker.RequirementID,
-			Expected: blocker.Expected, Blocks: blocks, Action: string(blocker.Action.Kind),
-		})
-	}
-	return view
-}
-
-func installationView(record workflowinstallation.InstallationRecord) InstallationView {
-	return InstallationView{
-		InstallationID: record.ID, ReleaseID: record.ReleaseID, Name: record.Name,
-		Lifecycle: string(record.Lifecycle),
-		CreatedAt: record.CreatedAt.Format(time.RFC3339Nano),
-		UpdatedAt: record.UpdatedAt.Format(time.RFC3339Nano),
-	}
-}
-
-func installationUpdatePreviewView(
-	preview workflowinstallation.UpdatePreview,
-) InstallationUpdatePreviewView {
-	diff := preview.Diff
-	view := InstallationUpdatePreviewView{
-		Token: preview.Token, InstallationID: preview.InstallationID, Rollback: preview.Rollback,
-		Diff: InstallationUpdateDiffView{
-			CurrentReleaseID: diff.CurrentReleaseID, CandidateReleaseID: diff.CandidateReleaseID,
-			CurrentVersion: diff.CurrentVersion, CandidateVersion: diff.CandidateVersion,
-			AddedTargets:       append([]string(nil), diff.AddedTargets...),
-			ChangedTargets:     append([]string(nil), diff.ChangedTargets...),
-			RemovedTargets:     append([]string(nil), diff.RemovedTargets...),
-			AddedCredentials:   append([]string(nil), diff.AddedCredentials...),
-			ChangedCredentials: append([]string(nil), diff.ChangedCredentials...),
-			RemovedCredentials: append([]string(nil), diff.RemovedCredentials...),
-			GraphsChanged:      diff.GraphsChanged, ResourcesChanged: diff.ResourcesChanged,
-			VariablesChanged: diff.VariablesChanged, DependenciesChanged: diff.DependenciesChanged,
-			AddedDependencies:   make([]InstallationDependencyChangeView, 0, len(diff.AddedDependencies)),
-			RemovedDependencies: make([]InstallationDependencyChangeView, 0, len(diff.RemovedDependencies)),
-			AddedCapabilities:   make([]InstallationCapabilityScopeView, 0, len(diff.AddedCapabilities)),
-			RemovedCapabilities: make([]InstallationCapabilityScopeView, 0, len(diff.RemovedCapabilities)),
-		},
-		Conflicts: make([]InstallationUpdateConflictView, 0, len(preview.Conflicts)),
-		Readiness: installationReadinessView(preview.Readiness),
-	}
-	for _, change := range diff.AddedDependencies {
-		view.Diff.AddedDependencies = append(view.Diff.AddedDependencies, dependencyChangeView(change))
-	}
-	for _, change := range diff.RemovedDependencies {
-		view.Diff.RemovedDependencies = append(view.Diff.RemovedDependencies, dependencyChangeView(change))
-	}
-	for _, scope := range diff.AddedCapabilities {
-		view.Diff.AddedCapabilities = append(view.Diff.AddedCapabilities, capabilityScopeView(scope))
-	}
-	for _, scope := range diff.RemovedCapabilities {
-		view.Diff.RemovedCapabilities = append(view.Diff.RemovedCapabilities, capabilityScopeView(scope))
-	}
-	for _, conflict := range preview.Conflicts {
-		view.Conflicts = append(view.Conflicts, InstallationUpdateConflictView{
-			Kind: string(conflict.Kind), RequirementID: conflict.RequirementID,
-		})
-	}
-	return view
-}
-
-func dependencyChangeView(change workflowinstallation.DependencyChange) InstallationDependencyChangeView {
-	return InstallationDependencyChangeView{
-		PublisherNamespace: change.PublisherNamespace, PackageID: change.PackageID,
-		PackageVersion: change.PackageVersion, ManifestDigest: change.ManifestDigest,
-	}
-}
-
-func capabilityScopeView(scope workflowinstallation.CapabilityScope) InstallationCapabilityScopeView {
-	return InstallationCapabilityScopeView{
-		NodeTypeID: scope.NodeTypeID, CapabilityID: scope.CapabilityID,
-		Operations: append([]string(nil), scope.Operations...),
-		TargetSlot: scope.TargetSlot, CredentialSlot: scope.CredentialSlot,
-		Scope: scope.Scope, Risk: scope.Risk, Consent: scope.Consent,
-	}
-}
-
-func installationSettingsView(snapshot workflowinstallation.SettingsSnapshot) InstallationSettingsView {
-	view := InstallationSettingsView{
-		InstallationID: snapshot.Configuration.InstallationID,
-		Generation:     snapshot.Configuration.Generation,
-		UpdatedAt:      snapshot.Configuration.UpdatedAt.Format(time.RFC3339Nano),
-		Targets:        make([]InstallationTargetProfileView, 0, len(snapshot.TargetDefinitions)),
-		Credentials:    make([]InstallationCredentialRequirementView, 0, len(snapshot.CredentialRequirements)),
-	}
-	for _, definition := range snapshot.TargetDefinitions {
-		profile := snapshot.Configuration.TargetProfiles[definition.ID]
-		target := InstallationTargetProfileView{
-			DefinitionID: definition.ID, Name: definition.Name, Description: definition.Description,
-			TargetKind: definition.TargetKind, AdapterKind: definition.AdapterKind,
-			ProfileVersion: definition.ProfileVersion, SettingsJSON: string(profile.Settings),
-			TargetInstallationID: profile.TargetInstallationID,
-			DiscoveryHints:       make([]TargetDiscoveryHintView, 0, len(definition.DiscoveryHints)),
-		}
-		for _, hint := range definition.DiscoveryHints {
-			target.DiscoveryHints = append(target.DiscoveryHints, TargetDiscoveryHintView{
-				Kind: hint.Kind, Value: hint.Value,
-			})
-		}
-		view.Targets = append(view.Targets, target)
-	}
-	for _, requirement := range snapshot.CredentialRequirements {
-		credential := InstallationCredentialRequirementView{
-			Slot: requirement.Slot, Kind: requirement.Kind, Purpose: requirement.Purpose,
-			BindingID:  snapshot.Configuration.CredentialBindings[requirement.Slot],
-			Candidates: []InstallationCredentialCandidateView{},
-		}
-		for _, candidate := range snapshot.Credentials {
-			if candidate.Kind != requirement.Kind {
-				continue
-			}
-			credential.Candidates = append(credential.Candidates, InstallationCredentialCandidateView{
-				BindingID: candidate.CredentialBindingID,
-				Label:     candidate.Label,
-				Available: candidate.Available,
-			})
-		}
-		view.Credentials = append(view.Credentials, credential)
-	}
-	return view
 }
 
 func (s *Service) GetDebugSnapshot(runID string) (compiler.DebugSnapshot, error) {
@@ -1299,39 +798,11 @@ func sourceView(snapshot workflowstore.SourceSnapshot, includeSource bool) (Sour
 		Tags: append([]string(nil), document.Workflow.Tags...), CreatedAt: document.Workflow.CreatedAt,
 		UpdatedAt: document.Workflow.UpdatedAt, NodeCount: sourceNodeCount(document),
 		Revision: snapshot.Revision(), SourceHash: snapshot.Hash(),
-		Kind: "editable",
 	}
 	if includeSource {
 		view.SourceJSON = string(snapshot.Artifact())
 	}
 	return view, nil
-}
-
-func installedSourceView(entry workflowinstallation.LibraryEntry) (SourceView, error) {
-	document, diagnostics := schema.ParseSource(entry.Release.SourceArtifact)
-	if len(diagnostics) != 0 {
-		return SourceView{}, errors.New("installed Workflow Source failed strict reopen")
-	}
-	readiness := installationReadinessView(entry.Readiness)
-	return SourceView{
-		WorkflowID:         "installation." + entry.Installation.ID,
-		Name:               entry.Installation.Name,
-		Description:        document.Workflow.Description,
-		Category:           document.Workflow.Category,
-		Tags:               append([]string(nil), document.Workflow.Tags...),
-		CreatedAt:          entry.Installation.CreatedAt.Format(time.RFC3339Nano),
-		UpdatedAt:          entry.Installation.UpdatedAt.Format(time.RFC3339Nano),
-		NodeCount:          sourceNodeCount(document),
-		SourceHash:         entry.Release.SourceHash,
-		Kind:               "imported",
-		ReadOnly:           true,
-		InstallationID:     entry.Installation.ID,
-		ReleaseID:          entry.Release.ID,
-		ReleaseVersion:     entry.Release.ReleaseVersion,
-		PublisherNamespace: entry.Release.PublisherNamespace,
-		Lifecycle:          string(entry.Installation.Lifecycle),
-		Readiness:          &readiness,
-	}, nil
 }
 
 func sourceNodeCount(source schema.WorkflowSource) int {
@@ -1343,14 +814,9 @@ func sourceNodeCount(source schema.WorkflowSource) int {
 }
 
 func bundleInfoView(info workflowbundle.Info) BundleInfoView {
-	evidenceKinds := make([]string, 0, len(info.Evidence))
-	for _, evidence := range info.Evidence {
-		evidenceKinds = append(evidenceKinds, string(evidence.Kind))
-	}
 	return BundleInfoView{
 		WorkflowID: info.WorkflowID, Name: info.Name, Revision: info.Revision,
 		SourceHash: info.SourceHash, BlobCount: info.BlobCount, BlobBytes: info.BlobBytes,
-		SourceTrust: info.SourceTrust, EvidenceKinds: evidenceKinds,
 	}
 }
 

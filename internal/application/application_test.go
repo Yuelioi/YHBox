@@ -263,17 +263,9 @@ func TestCreateSourceSeedsRunStartedRoot(t *testing.T) {
 	}
 }
 
-func TestApplicationRetractsPlaybackScaleContractBeforeCompile(t *testing.T) {
+func TestApplicationMigratesCompatibleNodeContractsBeforeCompile(t *testing.T) {
 	now := time.Date(2026, 7, 21, 13, 0, 0, 0, time.UTC)
 	application, sources, _, builtins, _, _ := newTestApplication(t, now, nil)
-	if err := application.Start(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = application.Close(ctx)
-	})
 	started, _ := builtins.Definition(nodes.RunStartedNodeID)
 	playback, _ := builtins.Definition(nodes.PlayInputClipNodeID)
 	stalePlaybackRef := playback.Contract.NodeRef()
@@ -303,6 +295,14 @@ func TestApplicationRetractsPlaybackScaleContractBeforeCompile(t *testing.T) {
 	if _, err := sources.Save(context.Background(), raw, -1); err != nil {
 		t.Fatal(err)
 	}
+	if err := application.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = application.Close(ctx)
+	})
 	hasCode := func(diagnostics []schema.Diagnostic, code string) bool {
 		for _, diagnostic := range diagnostics {
 			if diagnostic.Code == code {
@@ -311,21 +311,23 @@ func TestApplicationRetractsPlaybackScaleContractBeforeCompile(t *testing.T) {
 		}
 		return false
 	}
-	before, err := application.CompileSource(context.Background(), source.Workflow.ID)
+	migrated, err := application.GetSource(source.Workflow.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !hasCode(before.Diagnostics, compiler.CodeNodeContractMismatch) || !hasCode(before.Diagnostics, compiler.CodeUnknownPort) {
-		t.Fatalf("stale diagnostics = %#v", before.Diagnostics)
+	if migrated.Revision() != 1 {
+		t.Fatalf("migrated revision = %d, want 1", migrated.Revision())
 	}
-	if _, err := application.ApplyPatch(context.Background(), authoring.PatchRequest{
-		WorkflowID: source.Workflow.ID, BaseRevision: 0,
-		Commands: []authoring.Command{{
-			Kind:                authoring.CommandUpgradeNodeContract,
-			UpgradeNodeContract: &authoring.NodeCommand{GraphID: "main", NodeID: "playback"},
-		}},
-	}); err != nil {
-		t.Fatal(err)
+	migratedSource, diagnostics := schema.ParseSource(migrated.Artifact())
+	if len(diagnostics) != 0 {
+		t.Fatalf("migrated source diagnostics = %#v", diagnostics)
+	}
+	migratedPlayback := migratedSource.Graphs[0].Nodes[1]
+	if migratedPlayback.NodeRef != playback.Contract.NodeRef() {
+		t.Fatalf("migrated playback ref = %#v", migratedPlayback.NodeRef)
+	}
+	if _, ok := migratedPlayback.Bindings["turn-scale"]; ok {
+		t.Fatal("obsolete turn-scale binding was retained")
 	}
 	after, err := application.CompileSource(context.Background(), source.Workflow.ID)
 	if err != nil {

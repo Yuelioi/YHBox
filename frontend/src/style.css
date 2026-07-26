@@ -28,7 +28,7 @@ textarea {
   min-height: 2.5em;
 }
 
-/* ── v3 暗色基调 (唯一权威锚点): 把整套中性色阶比 NuxtUI 默认深一档, 锚到 v3 设计稿。
+/* ── V4 暗色基调 (唯一权威锚点): 把整套中性色阶比 NuxtUI 默认深一档。
    NuxtUI 默认 dark 的 --ui-bg = neutral-900 (zinc-900) 比稿子的 base #09090b (neutral-950) 亮一整档,
    而所有表面 (NuxtUI 组件底 + 下面的 @utility raised/sunken/overlay 都派生自 --ui-bg) 都浮在它上面,
    于是整体"不够深邃"。这里一处下沉 → 全场表面跟着深, 无需散改各组件。
@@ -47,7 +47,7 @@ textarea {
   background-color: color-mix(in oklab, var(--ui-bg) 45%, black);
 }
 
-/* ── v3 浮层表面: 主体保持黑 (--ui-bg), 只在顶部给一点高光 + 柔投影, 让卡片/面板「轻浮起」。
+/* ── V4 浮层表面: 主体保持黑 (--ui-bg), 只在顶部给一点高光 + 柔投影, 让卡片/面板「轻浮起」。
    不整面提亮 (用户定 2026-06-14): 填充黑底, 仅顶部一道渐隐高光 + 1px 白线 + 亮一档上边框。
    派生自 --ui-bg, 禁止散写 zinc 字面值。 ── */
 @utility raised-surface {
@@ -70,7 +70,7 @@ textarea {
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
-/* ── 主按钮唯一显眼渐变 (v3 渐变纪律: 全场只两处, 此其一)。
+/* ── 主按钮唯一显眼渐变 (V4 渐变纪律: 全场只两处, 此其一)。
    由 vite.config 的 button.compoundVariants base 引用; 普通 CSS 类(非 @utility),
    始终输出、不被 purge。盖在 NuxtUI 默认 bg-primary 之上 (background-image 覆盖 background-color)。 ── */
 .btn-primary-raised {

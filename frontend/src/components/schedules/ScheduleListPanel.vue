@@ -91,14 +91,14 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import type { Schedule } from '@/lib/backend'
-import type { InstallationView } from '@/app/transport/workflow'
+import type { SourceView } from '@/app/transport/workflow'
 import EmptyState from '@/components/common/EmptyState.vue'
 import StatusPill from '@/components/common/StatusPill.vue'
 
 const { t } = useI18n()
-const { list, installations } = defineProps<{
+const { list, workflows } = defineProps<{
   list: Schedule[]
-  installations: InstallationView[]
+  workflows: SourceView[]
 }>()
 const emit = defineEmits<{
   edit: [schedule: Schedule]
@@ -125,10 +125,7 @@ function triggerLabel(schedule: Schedule): string {
 
 function targetSummary(schedule: Schedule): string {
   const names = schedule.targets
-    .map(
-      (target) =>
-        installations.find((installation) => installation.installationId === target.id)?.name,
-    )
+    .map((target) => workflows.find((workflow) => workflow.workflowId === target.id)?.name)
     .filter((name): name is string => Boolean(name))
   if (names.length === 0) return t('schedule.workspace.no_targets')
   const visible = names.slice(0, 2).join(' → ')

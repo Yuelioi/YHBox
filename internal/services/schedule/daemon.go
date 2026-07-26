@@ -22,7 +22,7 @@ type HotkeyRegistrar interface {
 }
 
 type WorkflowRunner interface {
-	StartInstallation(context.Context, string) error
+	StartWorkflow(context.Context, string) error
 }
 
 // Daemon 启动期注册所有 enabled schedules 到 cron / hotkey / once，
@@ -250,7 +250,7 @@ func (d *Daemon) fire(ctx context.Context, scheduleID string) error {
 	var runErr error
 	started := 0
 	for index, target := range s.Targets {
-		if target.Kind != TargetWorkflowInstallation {
+		if target.Kind != TargetWorkflow {
 			err := fmt.Errorf("schedule target %d has unsupported kind %q", index, target.Kind)
 			runErr = errors.Join(runErr, err)
 			if s.OnError != OnErrorContinue {
@@ -258,8 +258,8 @@ func (d *Daemon) fire(ctx context.Context, scheduleID string) error {
 			}
 			continue
 		}
-		if err := d.runner.StartInstallation(runCtx, target.ID); err != nil {
-			runErr = errors.Join(runErr, fmt.Errorf("start Workflow Installation %q: %w", target.ID, err))
+		if err := d.runner.StartWorkflow(runCtx, target.ID); err != nil {
+			runErr = errors.Join(runErr, fmt.Errorf("start Workflow %q: %w", target.ID, err))
 			if s.OnError != OnErrorContinue {
 				break
 			}
@@ -267,7 +267,7 @@ func (d *Daemon) fire(ctx context.Context, scheduleID string) error {
 		}
 		started++
 	}
-	// StartInstallation returns only after the durable QUEUED Run exists, so the
+	// StartWorkflow returns only after the durable QUEUED Run exists, so the
 	// schedule status never claims a notification that admission did not commit.
 	now := time.Now()
 	if cur, ok := d.store.Get(scheduleID); ok {

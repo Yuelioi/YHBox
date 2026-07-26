@@ -49,7 +49,7 @@
             <span class="schedule-target__order">{{ index + 1 }}</span>
             <AdaptiveSelect
               v-model="target.id"
-              :items="installationItems"
+              :items="workflowItems"
               class="min-w-0 flex-1"
               width-mode="fill"
               :aria-label="t('schedule.target_n', { n: index + 1 })"
@@ -220,13 +220,13 @@ import {
   TriggerKind,
 } from '@bindings/github.com/yottaapp/yotta/internal/services/schedule/models.js'
 import type { Schedule } from '@/lib/backend'
-import type { InstallationView } from '@/app/transport/workflow'
+import type { SourceView } from '@/app/transport/workflow'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 
 const { t } = useI18n()
-const { schedule, installations } = defineProps<{
+const { schedule, workflows } = defineProps<{
   schedule: Schedule
-  installations: InstallationView[]
+  workflows: SourceView[]
 }>()
 const emit = defineEmits<{ save: [schedule: Schedule]; cancel: [] }>()
 const draft = reactive<Schedule>(cloneSchedule(schedule))
@@ -274,10 +274,10 @@ function normalizeTrigger(value: Schedule): void {
   }
 }
 
-const installationItems = computed(() =>
-  installations.map((installation) => ({
-    label: installation.name || t('common.untitled'),
-    value: installation.installationId,
+const workflowItems = computed(() =>
+  workflows.map((workflow) => ({
+    label: workflow.name || t('common.untitled'),
+    value: workflow.workflowId,
   })),
 )
 const triggerKinds = computed(() => [
@@ -326,8 +326,8 @@ const triggerError = computed(() => {
 
 function addTarget() {
   draft.targets.push({
-    kind: TargetKind.TargetWorkflowInstallation,
-    id: installations[0]?.installationId ?? '',
+    kind: TargetKind.TargetWorkflow,
+    id: workflows[0]?.workflowId ?? '',
   })
 }
 function moveTarget(from: number, to: number) {

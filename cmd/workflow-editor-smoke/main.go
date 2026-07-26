@@ -16,10 +16,7 @@ import (
 	"github.com/yottaapp/yotta/internal/automation/browsercdp"
 	"github.com/yottaapp/yotta/internal/storage"
 	"github.com/yottaapp/yotta/internal/storage/catalog"
-	"github.com/yottaapp/yotta/internal/workflowinstallation"
 )
-
-const smokeInstallationID = "smoke-installation"
 
 type pageState struct {
 	Href                  string         `json:"href"`
@@ -55,11 +52,6 @@ type pageState struct {
 	ScheduleEditTargets   []string       `json:"scheduleEditTargets"`
 	CreateInput           bool           `json:"createInput"`
 	RecoveryPanel         bool           `json:"recoveryPanel"`
-	InstallationRows      int            `json:"installationRows"`
-	InstallationSettings  bool           `json:"installationSettings"`
-	InstallationUpdate    bool           `json:"installationUpdate"`
-	InstallationApply     bool           `json:"installationApply"`
-	InstallationRollback  bool           `json:"installationRollback"`
 	LauncherButton        bool           `json:"launcherButton"`
 	GraphChromeDark       bool           `json:"graphChromeDark"`
 	HandleOverlaps        int            `json:"handleOverlaps"`
@@ -198,79 +190,6 @@ func seedRecoveryFixture(ctx context.Context, root string) error {
 	}); err != nil {
 		return fmt.Errorf("seed workflow recovery fixture: %w", err)
 	}
-	sourceJSON := `{
-		"format":"yotta.workflow","version":"1",
-		"workflow":{"id":"smoke-release-workflow","name":"Installed smoke workflow"},
-		"revision":0,"entryGraph":"main",
-		"graphs":[{"id":"main","kind":"main","nodes":[],"edges":[],"inputs":[],"outputs":[]}],
-		"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[],"variables":[]
-	}`
-	sourceArtifact, err := artifact.Canonicalize([]byte(sourceJSON))
-	if err != nil {
-		return fmt.Errorf("canonicalize smoke Workflow Release: %w", err)
-	}
-	releaseDigest, err := artifact.Sum("yotta/smoke/workflow-release/v1", sourceArtifact)
-	if err != nil {
-		return fmt.Errorf("identify smoke Workflow Release: %w", err)
-	}
-	attestationDigest, err := artifact.Sum("yotta/smoke/publisher-attestation/v1", []byte("verified smoke publisher"))
-	if err != nil {
-		return fmt.Errorf("identify smoke Publisher Attestation: %w", err)
-	}
-	verifiedAt := time.Date(2026, 7, 26, 0, 0, 0, 0, time.UTC)
-	release, err := workflowinstallation.NewVerifiedRelease(sourceArtifact, workflowinstallation.VerificationReceipt{
-		ReleaseDigest:      releaseDigest,
-		AttestationDigest:  attestationDigest,
-		PublisherNamespace: "https://smoke.yottaapp.test/publishers/official",
-		ReleaseVersion:     "1.0.0",
-		VerifiedAt:         verifiedAt,
-	})
-	if err != nil {
-		return fmt.Errorf("construct smoke Workflow Release: %w", err)
-	}
-	installations, err := workflowinstallation.New(
-		foundation.WorkflowInstallations(),
-		workflowinstallation.Options{
-			Now:   func() time.Time { return verifiedAt },
-			NewID: func() string { return smokeInstallationID },
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("open smoke Workflow Installation module: %w", err)
-	}
-	if _, err := installations.InstallVerified(ctx, release, "Installed smoke workflow"); err != nil {
-		return fmt.Errorf("seed smoke Workflow Installation: %w", err)
-	}
-	candidateArtifact, err := artifact.Canonicalize([]byte(strings.Replace(
-		sourceJSON, "Installed smoke workflow", "Installed smoke workflow v2", 1,
-	)))
-	if err != nil {
-		return fmt.Errorf("canonicalize smoke candidate Workflow Release: %w", err)
-	}
-	candidateDigest, err := artifact.Sum("yotta/smoke/workflow-release/v1", candidateArtifact)
-	if err != nil {
-		return fmt.Errorf("identify smoke candidate Workflow Release: %w", err)
-	}
-	candidateAttestation, err := artifact.Sum(
-		"yotta/smoke/publisher-attestation/v1", []byte("verified smoke publisher v2"),
-	)
-	if err != nil {
-		return fmt.Errorf("identify smoke candidate Publisher Attestation: %w", err)
-	}
-	candidate, err := workflowinstallation.NewVerifiedRelease(
-		candidateArtifact,
-		workflowinstallation.VerificationReceipt{
-			ReleaseDigest: candidateDigest, AttestationDigest: candidateAttestation,
-			PublisherNamespace: release.PublisherNamespace, ReleaseVersion: "2.0.0",
-			VerifiedAt: verifiedAt.Add(time.Minute),
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("construct smoke candidate Workflow Release: %w", err)
-	}
-	if err := installations.CacheVerifiedRelease(ctx, candidate); err != nil {
-		return fmt.Errorf("cache smoke candidate Workflow Release: %w", err)
-	}
 	return nil
 }
 
@@ -362,7 +281,7 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		return err
 	}
 	if err := waitUntilFor(ctx, client, 45*time.Second, func(current pageState) bool {
-		return current.RecoveryPanel && current.InstallationRows == 1 && current.LauncherButton
+		return current.RecoveryPanel && current.LauncherButton
 	}); err != nil {
 		return fmt.Errorf("wait for workflow list hydration: %w", err)
 	}
@@ -370,119 +289,6 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		if err := capture(ctx, client, workflowsScreenshot); err != nil {
 			return fmt.Errorf("capture workflow recovery surface: %w", err)
 		}
-	}
-	if err := eval(ctx, client, `(() => {
-		const row = document.querySelector('[data-testid="workflow-library-row"][data-installation-id="smoke-installation"]');
-		const button = row?.querySelector('[data-testid="workflow-imported-settings"]');
-		if (!button) throw new Error('imported workflow settings button not found');
-		button.click();
-	})()`); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.InstallationSettings
-	}); err != nil {
-		return fmt.Errorf("open workflow installation settings: %w", err)
-	}
-	if workflowsScreenshot != "" {
-		if err := capture(ctx, client, siblingScreenshot(workflowsScreenshot, "workflow-installation-settings.png")); err != nil {
-			return fmt.Errorf("capture workflow installation settings: %w", err)
-		}
-	}
-	if err := dispatchKeyPress(ctx, client, "Escape", "Escape", 27); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return !current.InstallationSettings
-	}); err != nil {
-		return fmt.Errorf("close workflow installation settings: %w", err)
-	}
-	if err := clickImportedWorkflowAction(ctx, client, "smoke-installation", "更新", "Update"); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.InstallationUpdate
-	}); err != nil {
-		return fmt.Errorf("open workflow installation update: %w", err)
-	}
-	if err := eval(ctx, client, `document.querySelector('[data-testid="workflow-installation-preview-update"]')?.click()`); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.InstallationApply
-	}); err != nil {
-		return fmt.Errorf("preview workflow installation update: %w", err)
-	}
-	if workflowsScreenshot != "" {
-		if err := capture(ctx, client, siblingScreenshot(workflowsScreenshot, "workflow-installation-update.png")); err != nil {
-			return fmt.Errorf("capture workflow installation update: %w", err)
-		}
-	}
-	if err := eval(ctx, client, `document.querySelector('[data-testid="workflow-installation-apply-update"]')?.click()`); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return !current.InstallationUpdate && current.InstallationRows == 1
-	}); err != nil {
-		return fmt.Errorf("apply workflow installation update: %w", err)
-	}
-	if err := clickImportedWorkflowAction(ctx, client, "smoke-installation", "更新", "Update"); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.InstallationUpdate && current.InstallationRollback
-	}); err != nil {
-		return fmt.Errorf("open workflow installation rollback: %w", err)
-	}
-	if err := eval(ctx, client, `document.querySelector('[data-testid="workflow-installation-preview-rollback"]')?.click()`); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.InstallationApply
-	}); err != nil {
-		return fmt.Errorf("preview workflow installation rollback: %w", err)
-	}
-	if workflowsScreenshot != "" {
-		if err := capture(ctx, client, siblingScreenshot(workflowsScreenshot, "workflow-installation-rollback.png")); err != nil {
-			return fmt.Errorf("capture workflow installation rollback: %w", err)
-		}
-	}
-	if err := dispatchKeyPress(ctx, client, "Escape", "Escape", 27); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return !current.InstallationUpdate
-	}); err != nil {
-		return fmt.Errorf("close workflow installation rollback: %w", err)
-	}
-	if err := clickImportedWorkflowAction(ctx, client, "smoke-installation", "编辑副本", "Edit copy"); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.ConfirmDialog
-	}); err != nil {
-		return fmt.Errorf("open workflow installation derivation confirmation: %w", err)
-	}
-	if err := eval(ctx, client, `document.querySelector('[data-testid="confirm-accept"]')?.click()`); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.NodeAddTrigger && !current.ConfirmDialog
-	}); err != nil {
-		return fmt.Errorf("open derived Workflow Source: %w", err)
-	}
-	if workflowsScreenshot != "" {
-		if err := capture(ctx, client, siblingScreenshot(workflowsScreenshot, "workflow-installation-derived-source.png")); err != nil {
-			return fmt.Errorf("capture derived Workflow Source: %w", err)
-		}
-	}
-	if err := eval(ctx, client, `history.back()`); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.RecoveryPanel && current.InstallationRows == 1
-	}); err != nil {
-		return fmt.Errorf("return from derived Workflow Source: %w", err)
 	}
 	if err := eval(ctx, client, `(() => {
 		const button = document.querySelector('[data-testid="workflow-new-button"]');
@@ -915,6 +721,10 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	if err != nil {
 		return err
 	}
+	workflowID, err := workflowIDFromEditorHash(workflowHash)
+	if err != nil {
+		return err
+	}
 	workflowHashJSON, _ := json.Marshal(workflowHash)
 	if err := eval(ctx, client, fmt.Sprintf(`location.hash = %s`, workflowHashJSON)); err != nil {
 		return err
@@ -948,25 +758,25 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 			return fmt.Errorf("add workflow to schedule: %w", err)
 		}
 		if err := waitUntil(ctx, client, func(current pageState) bool {
-			return len(current.ScheduleEditTargets) == 1 && current.ScheduleEditTargets[0] == smokeInstallationID
+			return len(current.ScheduleEditTargets) == 1 && current.ScheduleEditTargets[0] == workflowID
 		}); err != nil {
-			return fmt.Errorf("bind installed workflow to schedule: %w", err)
+			return fmt.Errorf("bind workflow to schedule: %w", err)
 		}
 		if err := clickRequired(ctx, client, "schedule-save"); err != nil {
 			return fmt.Errorf("save schedule: %w", err)
 		}
 		if err := waitUntil(ctx, client, func(current pageState) bool {
 			return current.SchedulesView && !current.ScheduleEditor && current.ScheduleRows == 1 &&
-				len(current.ScheduleRowTargets) == 1 && current.ScheduleRowTargets[0] == smokeInstallationID
+				len(current.ScheduleRowTargets) == 1 && current.ScheduleRowTargets[0] == workflowID
 		}); err != nil {
-			return fmt.Errorf("persist schedule installation reference: %w", err)
+			return fmt.Errorf("persist schedule workflow reference: %w", err)
 		}
 		if err := clickRequired(ctx, client, "schedule-edit"); err != nil {
 			return fmt.Errorf("reopen saved schedule: %w", err)
 		}
 		if err := waitUntil(ctx, client, func(current pageState) bool {
 			return current.ScheduleEditor && len(current.ScheduleEditTargets) == 1 &&
-				current.ScheduleEditTargets[0] == smokeInstallationID
+				current.ScheduleEditTargets[0] == workflowID
 		}); err != nil {
 			return fmt.Errorf("verify reopened schedule reference: %w", err)
 		}
@@ -1006,6 +816,14 @@ func workflowEditorHash(href string) (string, error) {
 		return "", fmt.Errorf("created workflow editor route is invalid: %q", hash)
 	}
 	return "#" + hash, nil
+}
+
+func workflowIDFromEditorHash(hash string) (string, error) {
+	parts := strings.Split(strings.Trim(strings.TrimPrefix(hash, "#"), "/"), "/")
+	if len(parts) != 3 || parts[0] != "workflows" || parts[1] == "" || parts[2] != "edit" {
+		return "", fmt.Errorf("workflow editor route is invalid: %q", hash)
+	}
+	return parts[1], nil
 }
 
 func exerciseMultigraph(ctx context.Context, client *browsercdp.WebSocketClient, subgraphScreenshot string) error {
@@ -2129,11 +1947,6 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 			.map(target => target.getAttribute('data-workflow-id') || '').filter(Boolean),
 		createInput: Boolean(document.querySelector('input[data-testid="workflow-create-name"], [data-testid="workflow-create-name"] input')),
 		recoveryPanel: Boolean(document.querySelector('[data-testid="workflow-recovery-panel"]')),
-		installationRows: document.querySelectorAll('[data-testid="workflow-library-row"][data-installation-id]').length,
-		installationSettings: Boolean(document.querySelector('[data-testid="workflow-installation-settings-body"]')),
-		installationUpdate: Boolean(document.querySelector('[data-testid="workflow-installation-update-body"]')),
-		installationApply: Boolean(document.querySelector('[data-testid="workflow-installation-apply-update"]:not(:disabled)')),
-		installationRollback: Boolean(document.querySelector('[data-testid="workflow-installation-preview-rollback"]')),
 		launcherButton: Boolean(document.querySelector('[data-testid="open-launcher"]')),
 		graphChromeDark: darkBackground(controls) && controlButtons.length > 0 && controlButtons.every(darkBackground) && (!minimap || darkBackground(minimap)),
 		handleOverlaps,
@@ -2266,42 +2079,6 @@ func eval(ctx context.Context, client *browsercdp.WebSocketClient, expression st
 		return fmt.Errorf("WebView evaluation failed: %v", details)
 	}
 	return nil
-}
-
-func clickImportedWorkflowAction(
-	ctx context.Context,
-	client *browsercdp.WebSocketClient,
-	installationID string,
-	labels ...string,
-) error {
-	installationJSON, _ := json.Marshal(installationID)
-	labelsJSON, _ := json.Marshal(labels)
-	if err := eval(ctx, client, fmt.Sprintf(`(() => {
-		const row = document.querySelector(
-			'[data-testid="workflow-library-row"][data-installation-id=' + CSS.escape(%s) + ']'
-		);
-		const trigger = row?.querySelector('[data-testid="workflow-row-menu"]');
-		if (!trigger) throw new Error('imported workflow action menu not found');
-		trigger.click();
-	})()`, installationJSON)); err != nil {
-		return err
-	}
-	actionExpression := fmt.Sprintf(`(() => {
-		/* imported workflow action ready */
-		const labels = %s;
-		return [...document.querySelectorAll('[role="menuitem"], [data-slot="item"]')]
-			.some(candidate => labels.includes(candidate.textContent?.trim() || ''));
-	})()`, labelsJSON)
-	if err := waitUntilJS(ctx, client, 3*time.Second, actionExpression); err != nil {
-		return fmt.Errorf("wait for imported workflow action %s: %w", strings.Join(labels, " / "), err)
-	}
-	return eval(ctx, client, fmt.Sprintf(`(() => {
-		const labels = %s;
-		const action = [...document.querySelectorAll('[role="menuitem"], [data-slot="item"]')]
-			.find(candidate => labels.includes(candidate.textContent?.trim() || ''));
-		if (!action) throw new Error('imported workflow action disappeared');
-		action.click();
-	})()`, labelsJSON))
 }
 
 func evalJSON(ctx context.Context, client *browsercdp.WebSocketClient, expression string, out any) error {

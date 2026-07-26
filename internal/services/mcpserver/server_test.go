@@ -192,9 +192,9 @@ func testApplication(t *testing.T) *appcore.Application {
 	}
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
 		DataRoot: roots.Data, ProgramCacheRoot: filepath.Join(roots.Cache, "programs"),
-		WorkflowRepository: foundation.Workflows(), InstallationRepository: foundation.WorkflowInstallations(),
-		RunRepository: foundation.Runs(),
-		BlobStore:     blobStore,
+		WorkflowRepository: foundation.Workflows(),
+		RunRepository:      foundation.Runs(),
+		BlobStore:          blobStore,
 		Limits: appbootstrap.Limits{
 			MaxSources: 16, MaxPrograms: 16, MaxRuns: 16,
 			MaxProgramCacheBytes:    16 << 20,
