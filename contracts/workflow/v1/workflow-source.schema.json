@@ -955,6 +955,45 @@
       ],
       "type": "object"
     },
+    "WorkflowReleaseOrigin": {
+      "additionalProperties": false,
+      "properties": {
+        "attestationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "publisherNamespace": {
+          "maxLength": 1024,
+          "type": "string"
+        },
+        "releaseDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "releaseVersion": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "sourceHash": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "workflowId": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "releaseDigest",
+        "sourceHash",
+        "attestationDigest",
+        "publisherNamespace",
+        "workflowId",
+        "releaseVersion"
+      ],
+      "type": "object"
+    },
     "WorkflowResource": {
       "additionalProperties": false,
       "properties": {
@@ -1026,6 +1065,9 @@
       },
       "maxItems": 4096,
       "type": "array"
+    },
+    "derivedFrom": {
+      "$ref": "#/$defs/WorkflowReleaseOrigin"
     },
     "entryGraph": {
       "maxLength": 128,

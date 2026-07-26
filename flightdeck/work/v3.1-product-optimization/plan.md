@@ -197,7 +197,8 @@ subgraph store；不把 workflow-local Graph 定义升级成 Global Asset。
 
 ### M5 — 编辑、更新与回退
 
-- [ ] 本机 target/credential/consent/schedule 修改不改变 Release；节点图、连接、Workflow Resource 或 Target Profile
+- [x] [M5a — 显式本地派生](slices/stage-m5a-explicit-local-derivation.md)：本机
+  target/credential/consent/schedule 修改不改变 Release；节点图、连接、Workflow Resource 或 Target Profile
   Definition 修改必须显式创建带 `derivedFrom` 的本地派生 Source。
 - [ ] 未派生 Installation 支持显式 staged update：下载/验签、diff、补新增默认项、展示 blocker、确认后原子切换。
 - [ ] capability scope 变化暂停相关计划并要求重新授权；保留前一 Release 引用供显式 rollback。

@@ -30,6 +30,50 @@ func TestParseSource31PreservesPortableReleaseDefinitions(t *testing.T) {
 	}
 }
 
+func TestParseSource31PreservesExactDerivedReleaseOrigin(t *testing.T) {
+	origin := fmt.Sprintf(
+		`"derivedFrom":{"releaseDigest":"sha256:%s","sourceHash":"sha256:%s","attestationDigest":"sha256:%s","publisherNamespace":"https://schemas.example.test/publishers/acme","workflowId":"published-workflow","releaseVersion":"1.2.3"},`,
+		strings.Repeat("4", 64),
+		strings.Repeat("5", 64),
+		strings.Repeat("6", 64),
+	)
+	raw := strings.Replace(portableSourceForTest(), `"revision":0`, origin+`"revision":0`, 1)
+	source, canonical, _, diagnostics, err := CanonicalSource([]byte(raw))
+	if err != nil || len(diagnostics) != 0 || source.DerivedFrom == nil {
+		t.Fatalf("CanonicalSource() = %#v, %#v, %v", source.DerivedFrom, diagnostics, err)
+	}
+	reopened, reopenedDiagnostics := ParseSource(canonical)
+	if len(reopenedDiagnostics) != 0 || reopened.DerivedFrom == nil ||
+		reopened.DerivedFrom.WorkflowID != "published-workflow" ||
+		reopened.DerivedFrom.ReleaseVersion != "1.2.3" {
+		t.Fatalf("reopened origin = %#v, diagnostics = %#v", reopened.DerivedFrom, reopenedDiagnostics)
+	}
+}
+
+func TestParseSource31RejectsInvalidOrSelfDerivedReleaseOrigin(t *testing.T) {
+	valid := portableSourceForTest()
+	for name, origin := range map[string]string{
+		"invalid digest": fmt.Sprintf(
+			`"derivedFrom":{"releaseDigest":"sha256:%s","sourceHash":"sha256:%s","attestationDigest":"invalid","publisherNamespace":"https://schemas.example.test/publishers/acme","workflowId":"published-workflow","releaseVersion":"1.2.3"},`,
+			strings.Repeat("4", 64),
+			strings.Repeat("5", 64),
+		),
+		"self reference": fmt.Sprintf(
+			`"derivedFrom":{"releaseDigest":"sha256:%s","sourceHash":"sha256:%s","attestationDigest":"sha256:%s","publisherNamespace":"https://schemas.example.test/publishers/acme","workflowId":"wf-portable","releaseVersion":"1.2.3"},`,
+			strings.Repeat("4", 64),
+			strings.Repeat("5", 64),
+			strings.Repeat("6", 64),
+		),
+	} {
+		t.Run(name, func(t *testing.T) {
+			raw := strings.Replace(valid, `"revision":0`, origin+`"revision":0`, 1)
+			if _, diagnostics := ParseSource([]byte(raw)); len(diagnostics) == 0 {
+				t.Fatal("invalid derived release origin was accepted")
+			}
+		})
+	}
+}
+
 func TestParseSource31RejectsInvalidPortableDefinitions(t *testing.T) {
 	valid := portableSourceForTest()
 	tests := []struct {

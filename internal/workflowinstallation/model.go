@@ -92,7 +92,8 @@ func ValidateReleaseRecord(record ReleaseRecord) error {
 	}
 	if strings.TrimSpace(record.PublisherNamespace) == "" ||
 		record.PublisherNamespace != strings.TrimSpace(record.PublisherNamespace) ||
-		len(record.PublisherNamespace) > 1024 {
+		len(record.PublisherNamespace) > 1024 ||
+		schema.ValidatePublisherNamespace(record.PublisherNamespace) != nil {
 		return errors.New("Workflow Release publisher namespace is invalid")
 	}
 	if !semverPattern.MatchString(record.ReleaseVersion) {

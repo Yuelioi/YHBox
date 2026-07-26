@@ -245,6 +245,9 @@ func validateSource(source WorkflowSource) []Diagnostic {
 	if err := source.Workflow.validateTimestamps(); err != nil {
 		appendDiagnostic(&out, diagnostic(CodeInvalidField, []string{"workflow"}, map[string]any{"keyword": "timestamps", "reason": err.Error()}))
 	}
+	if err := validateReleaseOrigin(source.Workflow.ID, source.DerivedFrom); err != nil {
+		appendDiagnostic(&out, diagnostic(CodeInvalidField, []string{"derivedFrom"}, map[string]any{"keyword": "workflowReleaseOrigin", "reason": err.Error()}))
+	}
 	if err := validateResources(source.Resources); err != nil {
 		appendDiagnostic(&out, diagnostic(CodeInvalidField, []string{"resources"}, map[string]any{"keyword": "workflowResources", "reason": err.Error()}))
 	}

@@ -37,6 +37,27 @@ var (
 	}
 )
 
+func validateReleaseOrigin(workflowID string, origin *WorkflowReleaseOrigin) error {
+	if origin == nil {
+		return nil
+	}
+	_, publisherErr := validatePublisherNamespace(origin.PublisherNamespace)
+	if !origin.ReleaseDigest.Valid() || !origin.SourceHash.Valid() || !origin.AttestationDigest.Valid() ||
+		publisherErr != nil ||
+		!strictSemverPattern.MatchString(origin.ReleaseVersion) {
+		return errors.New("derived Workflow Release provenance is invalid")
+	}
+	if origin.WorkflowID == workflowID {
+		return errors.New("derived Workflow Source cannot reference itself as its Release origin")
+	}
+	return nil
+}
+
+func ValidatePublisherNamespace(value string) error {
+	_, err := validatePublisherNamespace(value)
+	return err
+}
+
 func validateResources(resources []WorkflowResource) error {
 	if len(resources) > MaxResources {
 		return fmt.Errorf("resource count exceeds %d", MaxResources)

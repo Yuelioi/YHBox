@@ -495,7 +495,7 @@ func TestServiceReadsAndUpdatesInstallationTargetProfiles(t *testing.T) {
 	}
 	release, err := workflowinstallation.NewVerifiedRelease(source, workflowinstallation.VerificationReceipt{
 		ReleaseDigest: releaseDigest, AttestationDigest: attestationDigest,
-		PublisherNamespace: "publisher.test", ReleaseVersion: "1.0.0", VerifiedAt: now,
+		PublisherNamespace: "https://publisher.test/workflows", ReleaseVersion: "1.0.0", VerifiedAt: now,
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -217,7 +217,7 @@ func seedRecoveryFixture(ctx context.Context, root string) error {
 	release, err := workflowinstallation.NewVerifiedRelease(sourceArtifact, workflowinstallation.VerificationReceipt{
 		ReleaseDigest:      releaseDigest,
 		AttestationDigest:  attestationDigest,
-		PublisherNamespace: "yotta.smoke",
+		PublisherNamespace: "https://smoke.yottaapp.test/publishers/official",
 		ReleaseVersion:     "1.0.0",
 		VerifiedAt:         verifiedAt,
 	})
@@ -362,6 +362,40 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		return !current.InstallationSettings
 	}); err != nil {
 		return fmt.Errorf("close workflow installation settings: %w", err)
+	}
+	if err := eval(ctx, client, `(() => {
+		const row = document.querySelector('[data-testid="workflow-installation-row"][data-installation-id="smoke-installation"]');
+		const button = row?.querySelector('[data-testid="workflow-installation-derive"]');
+		if (!button) throw new Error('workflow installation derive button not found');
+		button.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.ConfirmDialog
+	}); err != nil {
+		return fmt.Errorf("open workflow installation derivation confirmation: %w", err)
+	}
+	if err := eval(ctx, client, `document.querySelector('[data-testid="confirm-accept"]')?.click()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.NodeAddTrigger && !current.ConfirmDialog
+	}); err != nil {
+		return fmt.Errorf("open derived Workflow Source: %w", err)
+	}
+	if workflowsScreenshot != "" {
+		if err := capture(ctx, client, siblingScreenshot(workflowsScreenshot, "workflow-installation-derived-source.png")); err != nil {
+			return fmt.Errorf("capture derived Workflow Source: %w", err)
+		}
+	}
+	if err := eval(ctx, client, `history.back()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.RecoveryPanel && current.InstallationRows == 1
+	}); err != nil {
+		return fmt.Errorf("return from derived Workflow Source: %w", err)
 	}
 	if err := eval(ctx, client, `(() => {
 		const button = document.querySelector('[data-testid="workflow-new-button"]');

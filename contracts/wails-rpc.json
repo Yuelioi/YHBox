@@ -3,7 +3,7 @@
   "generator": "wails3",
   "summary": {
     "services": 17,
-    "methods": 155,
+    "methods": 156,
     "models": 229
   },
   "services": [
@@ -1621,6 +1621,23 @@
             }
           ],
           "returns": "$CancellablePromise<$models.DeleteSourceResult[]>"
+        },
+        {
+          "name": "DeriveInstallationSource",
+          "bindingId": "961191490",
+          "parameters": [
+            {
+              "name": "installationID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "name",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.SourceView>"
         },
         {
           "name": "ExportSourceBundle",

@@ -1988,6 +1988,13 @@ export default {
       'blocker_schedule-consent': 'Schedule consent is required',
       authorize_run: 'Authorize run',
       authorize_failed: 'Workflow run could not be authorized',
+      derive: 'Edit copy',
+      derive_title: 'Create an editable copy of “{name}”?',
+      derive_description:
+        'This creates an independent local Workflow Source with exact Release provenance. The installed Release, targets, credentials, consent, and schedules stay unchanged and are not copied into the Source. Future Release updates will not overwrite or merge into this copy.',
+      derive_confirm: 'Create editable copy',
+      derived_name: '{name} (Local copy)',
+      derive_failed: 'Editable copy could not be created',
       settings: 'Settings',
       run: 'Run',
       settings_title: 'Configure “{name}”',

@@ -162,7 +162,7 @@ func catalogTestVerifiedRelease(t *testing.T) workflowinstallation.ReleaseRecord
 	}
 	release, err := workflowinstallation.NewVerifiedRelease(canonical, workflowinstallation.VerificationReceipt{
 		ReleaseDigest: releaseID, AttestationDigest: attestationID,
-		PublisherNamespace: "publisher-1", ReleaseVersion: "1.0.0",
+		PublisherNamespace: "https://example.test/publishers/acme", ReleaseVersion: "1.0.0",
 		VerifiedAt: time.Date(2026, 7, 26, 1, 0, 0, 0, time.UTC),
 	})
 	if err != nil {

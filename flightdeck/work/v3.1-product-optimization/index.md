@@ -10,16 +10,22 @@ Open
 
 ## Current
 
-Stage M4 已完成：canonical Installation Plan、Workflow Release evidence、deterministic offline pack 与
-统一 import coordinator 已闭环。在线/离线只在全部 exact artifact 完整后产生 Session；publisher trust、
-Node Package installation 与 Workflow execution consent 是三个独立本机 authority 动作。
+Stage M5 进行中；M5a 显式本地派生已完成。Installation 可从 exact immutable Release 创建带
+`derivedFrom` provenance 的独立 editable Source，本机 target、credential、consent 与 schedule
+不进入派生内容，原 Installation 保持不变。
 
 ## Next
 
-继续 [Stage M5](plan.md)：建立本地派生、显式 staged update、权限变化重新授权、旁装与 rollback 语义。
+开始 [Stage M5](plan.md) 的未派生 Installation staged update：先建立候选 Release、diff、blocker 与
+确认切换的深 Module 边界，保证切换前失败不影响当前 Installation。
 
 ## Progress
 
+- 2026-07-26 M5a 完成：Workflow Source 增加 exact `derivedFrom` Release provenance；
+  `workflowinstallation` 深 Module 从 Installation 当前 Release 生成 opaque candidate，唯一 Application/
+  Source Store seam 发布独立 Source，不复制 target、credential、consent 或 schedule。工作流列表提供显式
+  “编辑副本”确认与跳转；`task check` 通过契约、39 个 Go 包和前端 83 文件/355 项测试，Windows WebView
+  smoke `20260726-121007` 退出 0，派生 Source 编辑器截图已目检。
 - 2026-07-26 M4d/Stage M4 完成：新增统一 `installationimport` coordinator，在线 source 与 offline pack
   共享 complete-or-nothing staging；每次消费重验 raw digest，signed Node Package 必须与 Plan 的
   publisher/package/version/manifest identity 精确一致。registry v3 将用户 trust 持久化为

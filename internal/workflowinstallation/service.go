@@ -115,6 +115,32 @@ func (e PreparedExecution) CredentialSelection() map[string]string {
 	return cloneBindings(e.state.credentials)
 }
 
+// PreparedDerivedSource is an opaque, canonical editable Source candidate
+// created from one Installation's exact immutable Release. Only this Module
+// can construct its derivedFrom provenance.
+type PreparedDerivedSource struct {
+	originReleaseID artifact.Digest
+	sourceArtifact  []byte
+}
+
+func (p PreparedDerivedSource) Valid() bool {
+	return p.originReleaseID.Valid() && len(p.sourceArtifact) != 0
+}
+
+func (p PreparedDerivedSource) OriginReleaseID() artifact.Digest {
+	if !p.Valid() {
+		return ""
+	}
+	return p.originReleaseID
+}
+
+func (p PreparedDerivedSource) SourceArtifact() []byte {
+	if !p.Valid() {
+		return nil
+	}
+	return append([]byte(nil), p.sourceArtifact...)
+}
+
 type Repository interface {
 	Commit(context.Context, ReleaseRecord, InstallationRecord, Configuration) error
 	GetInstallation(context.Context, string) (InstallationRecord, bool, error)
@@ -202,6 +228,62 @@ func (m *Module) InstallVerified(
 		return InstallationRecord{}, err
 	}
 	return installation, nil
+}
+
+// PrepareDerivedSource creates a new local authoring identity from the exact
+// current Release without copying any Installation-local configuration or
+// authority. Publishing the candidate remains the caller's separate Source
+// Store commit.
+func (m *Module) PrepareDerivedSource(
+	ctx context.Context,
+	installationID string,
+	name string,
+) (PreparedDerivedSource, error) {
+	installation, err := m.Get(ctx, installationID)
+	if err != nil {
+		return PreparedDerivedSource{}, err
+	}
+	release, found, err := m.repository.GetRelease(ctx, installation.ReleaseID)
+	if err != nil {
+		return PreparedDerivedSource{}, err
+	}
+	if !found {
+		return PreparedDerivedSource{}, errors.New("Workflow Installation references a missing Release")
+	}
+	name = strings.TrimSpace(name)
+	if name == "" || len(name) > 256 {
+		return PreparedDerivedSource{}, errors.New("derived Workflow Source name is invalid")
+	}
+	source, diagnostics := schema.ParseSource(release.SourceArtifact)
+	if schema.HasErrors(diagnostics) {
+		return PreparedDerivedSource{}, errors.New("Workflow Release Source is invalid")
+	}
+	source.Workflow.ID = m.newID()
+	source.Workflow.Name = name
+	source.Workflow.CreatedAt = ""
+	source.Workflow.UpdatedAt = ""
+	source.DerivedFrom = &schema.WorkflowReleaseOrigin{
+		ReleaseDigest: release.ID, SourceHash: release.SourceHash,
+		AttestationDigest:  release.AttestationDigest,
+		PublisherNamespace: release.PublisherNamespace,
+		WorkflowID:         release.WorkflowID, ReleaseVersion: release.ReleaseVersion,
+	}
+	source.Revision = 0
+	raw, err := artifact.Marshal(source)
+	if err != nil {
+		return PreparedDerivedSource{}, err
+	}
+	_, canonical, _, diagnostics, err := schema.CanonicalSource(raw)
+	if err != nil {
+		return PreparedDerivedSource{}, err
+	}
+	if schema.HasErrors(diagnostics) {
+		return PreparedDerivedSource{}, errors.New("derived Workflow Source is invalid")
+	}
+	return PreparedDerivedSource{
+		originReleaseID: release.ID,
+		sourceArtifact:  canonical,
+	}, nil
 }
 
 func (m *Module) Get(ctx context.Context, installationID string) (InstallationRecord, error) {

@@ -166,6 +166,17 @@
               @click="grantRunConsent(installation.installationId)"
             />
             <UButton
+              data-testid="workflow-installation-derive"
+              size="xs"
+              color="neutral"
+              variant="ghost"
+              icon="i-tabler-pencil-plus"
+              :label="t('workflow.installation.derive')"
+              :loading="derivingId === installation.installationId"
+              :disabled="Boolean(derivingId)"
+              @click="deriveInstallation(installation)"
+            />
+            <UButton
               data-testid="workflow-installation-settings"
               size="xs"
               color="neutral"
@@ -785,6 +796,7 @@ const installationsFailure = ref('')
 const installationSettingsOpen = ref(false)
 const activeInstallation = ref<InstallationView | null>(null)
 const consentBusyId = ref('')
+const derivingId = ref('')
 const deleting = ref(false)
 const importing = ref(false)
 const exportingId = ref('')
@@ -1641,6 +1653,33 @@ function hasRunConsentBlocker(installationId: string): boolean {
 function openInstallationSettings(installation: InstallationView): void {
   activeInstallation.value = installation
   installationSettingsOpen.value = true
+}
+
+async function deriveInstallation(installation: InstallationView): Promise<void> {
+  if (derivingId.value) return
+  const accepted = await confirm({
+    title: t('workflow.installation.derive_title', { name: installation.name }),
+    description: t('workflow.installation.derive_description'),
+    confirmText: t('workflow.installation.derive_confirm'),
+    cancelText: t('common.cancel'),
+  })
+  if (accepted !== true) return
+  derivingId.value = installation.installationId
+  try {
+    const derived = await workflowTransport.deriveInstallationSource(
+      installation.installationId,
+      t('workflow.installation.derived_name', { name: installation.name }),
+    )
+    await router.push(`/workflows/${derived.workflowId}/edit`)
+  } catch (error) {
+    toast.add({
+      title: t('workflow.installation.derive_failed'),
+      description: errorText(error),
+      color: 'error',
+    })
+  } finally {
+    derivingId.value = ''
+  }
 }
 
 async function grantRunConsent(installationId: string): Promise<void> {

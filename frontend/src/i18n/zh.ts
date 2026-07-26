@@ -1585,6 +1585,13 @@ export default {
       'blocker_schedule-consent': '尚未授权计划运行',
       authorize_run: '授权运行',
       authorize_failed: '无法授权工作流运行',
+      derive: '编辑副本',
+      derive_title: '创建「{name}」的可编辑副本？',
+      derive_description:
+        '这会创建带精确 Release 来源记录的独立本地 Workflow Source。已安装 Release、目标、凭据、授权和计划均保持不变，也不会被写入 Source；未来 Release 更新也不会覆盖或合并此副本。',
+      derive_confirm: '创建可编辑副本',
+      derived_name: '{name}（本地副本）',
+      derive_failed: '无法创建可编辑副本',
       settings: '设置',
       run: '运行',
       settings_title: '设置「{name}」',

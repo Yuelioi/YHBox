@@ -38,6 +38,7 @@ type Option func(*Service)
 
 type InstallationRuntime interface {
 	ListWorkflowInstallations(context.Context) ([]workflowinstallation.InstallationRecord, error)
+	DeriveWorkflowInstallationSource(context.Context, string, string) (workflowstore.SourceSnapshot, error)
 	WorkflowInstallationReadiness(context.Context, string) (workflowinstallation.ReadinessReport, error)
 	WorkflowInstallationSettings(context.Context, string) (workflowinstallation.SettingsSnapshot, error)
 	UpdateWorkflowInstallationTargetProfile(context.Context, string, int64, string, []byte, string) (workflowinstallation.SettingsSnapshot, error)
@@ -825,6 +826,22 @@ func (s *Service) ListInstallations() ([]InstallationView, error) {
 		})
 	}
 	return result, nil
+}
+
+func (s *Service) DeriveInstallationSource(
+	installationID string,
+	name string,
+) (SourceView, error) {
+	if s.installations == nil {
+		return SourceView{}, errors.New("workflow installation runtime is unavailable")
+	}
+	snapshot, err := s.installations.DeriveWorkflowInstallationSource(
+		context.Background(), installationID, name,
+	)
+	if err != nil {
+		return SourceView{}, err
+	}
+	return sourceView(snapshot, true)
 }
 
 func (s *Service) GetInstallationReadiness(installationID string) (InstallationReadinessView, error) {

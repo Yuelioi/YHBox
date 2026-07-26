@@ -62,6 +62,13 @@ describe('WorkflowsView entry points', () => {
     expect(assetsSource.match(/i-tabler-refresh/g)).toHaveLength(1)
   })
 
+  it('requires an explicit derivation confirmation before editing an immutable Installation', () => {
+    expect(source).toContain('data-testid="workflow-installation-derive"')
+    expect(source).toContain("t('workflow.installation.derive_description')")
+    expect(source).toContain('workflowTransport.deriveInstallationSource')
+    expect(source).toContain('router.push(`/workflows/${derived.workflowId}/edit`)')
+  })
+
   it('previews references and performs CAS-protected partial batch deletion', () => {
     expect(source).toContain('workflowTransport.previewDeleteSources')
     expect(source).toContain('workflowTransport.deleteSources')

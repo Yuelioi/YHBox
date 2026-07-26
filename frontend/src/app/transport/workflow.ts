@@ -48,6 +48,7 @@ export interface DebugChangedEvent {
 export interface WorkflowTransport {
   listSources(): Promise<SourceView[]>
   listInstallations(): Promise<InstallationView[]>
+  deriveInstallationSource(installationId: string, name: string): Promise<SourceView>
   getInstallationReadiness(installationId: string): Promise<InstallationReadinessView>
   getInstallationSettings(installationId: string): Promise<InstallationSettingsView>
   updateInstallationTargetProfile(
@@ -119,6 +120,8 @@ export interface WorkflowTransport {
 export const workflowTransport: WorkflowTransport = {
   listSources: () => invoke(WorkflowService.ListSources),
   listInstallations: () => invoke(WorkflowService.ListInstallations),
+  deriveInstallationSource: (installationId, name) =>
+    invoke(WorkflowService.DeriveInstallationSource, installationId, name),
   getInstallationReadiness: (installationId) =>
     invoke(WorkflowService.GetInstallationReadiness, installationId),
   getInstallationSettings: (installationId) =>

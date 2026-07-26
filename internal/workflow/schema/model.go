@@ -37,6 +37,7 @@ type WorkflowSource struct {
 	Format                   string                    `json:"format" jsonschema:"required,enum=yotta.workflow"`
 	Version                  string                    `json:"version" jsonschema:"required,enum=1"`
 	Workflow                 Workflow                  `json:"workflow" jsonschema:"required"`
+	DerivedFrom              *WorkflowReleaseOrigin    `json:"derivedFrom,omitempty"`
 	Revision                 int64                     `json:"revision" jsonschema:"required,minimum=0,maximum=9007199254740991"`
 	EntryGraph               string                    `json:"entryGraph" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
 	Graphs                   []Graph                   `json:"graphs" jsonschema:"required,minItems=1,maxItems=256"`
@@ -46,6 +47,18 @@ type WorkflowSource struct {
 	CredentialRequirements   []CredentialRequirement   `json:"credentialRequirements" jsonschema:"required,maxItems=4096"`
 	Dependencies             []NodePackageDependency   `json:"dependencies" jsonschema:"required,maxItems=4096"`
 	Variables                []Variable                `json:"variables" jsonschema:"required,maxItems=4096"`
+}
+
+// WorkflowReleaseOrigin preserves exact provenance when an immutable Release
+// is explicitly copied into a new local editable Source. It contains no
+// installation-local configuration or authority.
+type WorkflowReleaseOrigin struct {
+	ReleaseDigest      artifact.Digest `json:"releaseDigest" jsonschema:"required,pattern=^sha256:[a-f0-9]{64}$"`
+	SourceHash         artifact.Digest `json:"sourceHash" jsonschema:"required,pattern=^sha256:[a-f0-9]{64}$"`
+	AttestationDigest  artifact.Digest `json:"attestationDigest" jsonschema:"required,pattern=^sha256:[a-f0-9]{64}$"`
+	PublisherNamespace string          `json:"publisherNamespace" jsonschema:"required,maxLength=1024"`
+	WorkflowID         string          `json:"workflowId" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
+	ReleaseVersion     string          `json:"releaseVersion" jsonschema:"required,maxLength=128"`
 }
 
 type ResourceKind string

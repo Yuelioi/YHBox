@@ -7,6 +7,7 @@ import (
 	"github.com/yottaapp/yotta/internal/admission"
 	appcore "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/workflowinstallation"
+	"github.com/yottaapp/yotta/internal/workflowstore"
 )
 
 // StartInstallationRun is the only composition command that turns a local
@@ -39,6 +40,21 @@ func (r *Runtime) ListWorkflowInstallations(ctx context.Context) ([]workflowinst
 		return nil, errors.New("workflow installation runtime is unavailable")
 	}
 	return r.Installations.List(ctx)
+}
+
+func (r *Runtime) DeriveWorkflowInstallationSource(
+	ctx context.Context,
+	installationID string,
+	name string,
+) (workflowstore.SourceSnapshot, error) {
+	if r == nil || r.Application == nil || r.Installations == nil {
+		return workflowstore.SourceSnapshot{}, errors.New("workflow installation runtime is unavailable")
+	}
+	prepared, err := r.Installations.PrepareDerivedSource(ctx, installationID, name)
+	if err != nil {
+		return workflowstore.SourceSnapshot{}, err
+	}
+	return r.Application.PublishImportedSource(ctx, prepared.SourceArtifact(), -1, "")
 }
 
 func (r *Runtime) WorkflowInstallationReadiness(

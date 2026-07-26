@@ -1,6 +1,7 @@
 package workflowinstallation
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"testing"
@@ -55,6 +56,83 @@ func TestInstallVerifiedCreatesIndependentInstallationsBeforeReadiness(t *testin
 	firstProfile.Settings[0] = 'x'
 	if secondConfiguration.TargetProfiles["desktop"].Settings[0] == 'x' {
 		t.Fatal("Workflow Installations share mutable Target Profile settings")
+	}
+}
+
+func TestPrepareDerivedSourcePreservesReleaseContentWithoutLocalConfiguration(t *testing.T) {
+	release := testRelease(t)
+	repository := &memoryRepository{
+		releases: map[artifact.Digest]ReleaseRecord{}, installations: map[string]InstallationRecord{},
+	}
+	ids := []string{"installation-derived", "local-derived-source"}
+	module, err := New(repository, Options{
+		Now: func() time.Time { return time.Date(2026, 7, 26, 7, 0, 0, 0, time.UTC) },
+		NewID: func() string {
+			id := ids[0]
+			ids = ids[1:]
+			return id
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	installation, err := module.InstallVerified(context.Background(), release, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	configuration := repository.configurations[installation.ID]
+	configuration.TargetBindings["desktop"] = "private-target"
+	profile := configuration.TargetProfiles["desktop"]
+	profile.TargetInstallationID = "private-target"
+	configuration.TargetProfiles["desktop"] = profile
+	configuration.CredentialBindings["api"] = "private-credential"
+	configuration.RunConsentRelease = release.ID
+	configuration.ScheduleConsentRelease = release.ID
+	repository.configurations[installation.ID] = configuration
+
+	prepared, err := module.PrepareDerivedSource(
+		context.Background(), installation.ID, "Editable local copy",
+	)
+	if err != nil || !prepared.Valid() || prepared.OriginReleaseID() != release.ID {
+		t.Fatalf("PrepareDerivedSource() = %#v, %v", prepared, err)
+	}
+	derived, diagnostics := schema.ParseSource(prepared.SourceArtifact())
+	origin, originalDiagnostics := schema.ParseSource(release.SourceArtifact)
+	if len(diagnostics) != 0 || len(originalDiagnostics) != 0 || derived.DerivedFrom == nil {
+		t.Fatalf("derived diagnostics = %#v, origin diagnostics = %#v", diagnostics, originalDiagnostics)
+	}
+	if derived.Workflow.ID != "local-derived-source" ||
+		derived.Workflow.Name != "Editable local copy" || derived.Revision != 0 ||
+		derived.DerivedFrom.ReleaseDigest != release.ID ||
+		derived.DerivedFrom.SourceHash != release.SourceHash ||
+		derived.DerivedFrom.AttestationDigest != release.AttestationDigest ||
+		derived.DerivedFrom.PublisherNamespace != release.PublisherNamespace ||
+		derived.DerivedFrom.WorkflowID != release.WorkflowID ||
+		derived.DerivedFrom.ReleaseVersion != release.ReleaseVersion {
+		t.Fatalf("derived identity = %#v / %#v", derived.Workflow, derived.DerivedFrom)
+	}
+	if len(derived.Graphs) != len(origin.Graphs) ||
+		len(derived.Resources) != len(origin.Resources) ||
+		len(derived.TargetProfileDefinitions) != len(origin.TargetProfileDefinitions) ||
+		len(derived.CredentialRequirements) != len(origin.CredentialRequirements) ||
+		len(derived.Dependencies) != len(origin.Dependencies) {
+		t.Fatal("derived Source lost portable Release content")
+	}
+	if bytes.Contains(prepared.SourceArtifact(), []byte("private-target")) ||
+		bytes.Contains(prepared.SourceArtifact(), []byte("private-credential")) {
+		t.Fatal("derived Source leaked Installation-local configuration")
+	}
+	artifactCopy := prepared.SourceArtifact()
+	artifactCopy[0] = 'x'
+	if prepared.SourceArtifact()[0] == 'x' {
+		t.Fatal("PreparedDerivedSource leaked mutable Source bytes")
+	}
+	current, _ := repository.installations[installation.ID]
+	currentConfiguration := repository.configurations[installation.ID]
+	if current.ReleaseID != release.ID ||
+		currentConfiguration.TargetBindings["desktop"] != "private-target" ||
+		currentConfiguration.RunConsentRelease != release.ID {
+		t.Fatal("derivation mutated the original Installation")
 	}
 }
 
@@ -394,7 +472,7 @@ func testReceipt(t *testing.T) VerificationReceipt {
 	}
 	return VerificationReceipt{
 		ReleaseDigest: releaseDigest, AttestationDigest: attestationDigest,
-		PublisherNamespace: "publisher-1", ReleaseVersion: "1.2.3",
+		PublisherNamespace: "https://example.test/publishers/acme", ReleaseVersion: "1.2.3",
 		VerifiedAt: time.Date(2026, 7, 26, 0, 0, 0, 0, time.UTC),
 	}
 }

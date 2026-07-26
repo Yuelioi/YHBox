@@ -176,7 +176,7 @@ func TestRuntimeStartsOnlyReadyWorkflowInstallationThroughSharedApplication(t *t
 	release, err := workflowinstallation.NewVerifiedRelease(snapshot.Artifact(), workflowinstallation.VerificationReceipt{
 		ReleaseDigest:      testDigest(t, "workflow-release"),
 		AttestationDigest:  testDigest(t, "publisher-attestation"),
-		PublisherNamespace: "publisher-1", ReleaseVersion: "1.0.0", VerifiedAt: now,
+		PublisherNamespace: "https://example.test/publishers/acme", ReleaseVersion: "1.0.0", VerifiedAt: now,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -188,6 +188,26 @@ func TestRuntimeStartsOnlyReadyWorkflowInstallationThroughSharedApplication(t *t
 	listed, err := service.ListInstallations()
 	if err != nil || len(listed) != 1 || listed[0].InstallationID != installation.ID {
 		t.Fatalf("ListInstallations() = %#v, %v", listed, err)
+	}
+	derived, err := service.DeriveInstallationSource(installation.ID, "Editable release copy")
+	if err != nil || derived.WorkflowID == release.WorkflowID || derived.Name != "Editable release copy" ||
+		derived.Revision != 0 {
+		t.Fatalf("DeriveInstallationSource() = %#v, %v", derived, err)
+	}
+	derivedSnapshot, err := runtime.Application.GetSource(derived.WorkflowID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	derivedDocument, diagnostics := schema.ParseSource(derivedSnapshot.Artifact())
+	if len(diagnostics) != 0 || derivedDocument.DerivedFrom == nil ||
+		derivedDocument.DerivedFrom.ReleaseDigest != release.ID ||
+		derivedDocument.DerivedFrom.SourceHash != release.SourceHash ||
+		derivedDocument.DerivedFrom.AttestationDigest != release.AttestationDigest {
+		t.Fatalf("derived Source = %#v, diagnostics = %#v", derivedDocument.DerivedFrom, diagnostics)
+	}
+	afterDerive, err := runtime.Installations.Get(context.Background(), installation.ID)
+	if err != nil || afterDerive.ReleaseID != release.ID {
+		t.Fatalf("Installation after derivation = %#v, %v", afterDerive, err)
 	}
 	readiness, err := service.GetInstallationReadiness(installation.ID)
 	if err != nil || readiness.RunAllowed || readiness.ScheduleAllowed || len(readiness.Blockers) != 2 {

@@ -5,6 +5,7 @@ const {
   push,
   querySources,
   listInstallations,
+  deriveInstallationSource,
   getInstallationReadiness,
   createSourceWithMetadata,
   batchUpdateSourceMetadata,
@@ -42,6 +43,17 @@ const {
       updatedAt: '2026-07-26T00:00:00Z',
     },
   ]),
+  deriveInstallationSource: vi.fn(async () => ({
+    workflowId: 'workflow-derived',
+    name: 'Installed report (Local copy)',
+    description: '',
+    category: '',
+    tags: [],
+    nodeCount: 8,
+    revision: 0,
+    sourceHash: 'sha256:derived',
+    sourceJson: '',
+  })),
   getInstallationReadiness: vi.fn(async () => ({
     installationId: 'installation-1',
     releaseId: 'sha256:release',
@@ -171,6 +183,7 @@ vi.mock('@/app/transport/workflow', () => ({
   workflowTransport: {
     querySources,
     listInstallations,
+    deriveInstallationSource,
     getInstallationReadiness,
     listSourceRecoveries: vi.fn(async () => []),
     createSourceWithMetadata,
@@ -249,6 +262,7 @@ afterEach(() => {
   document.body.innerHTML = ''
   push.mockClear()
   querySources.mockClear()
+  deriveInstallationSource.mockClear()
   createSourceWithMetadata.mockClear()
   batchUpdateSourceMetadata.mockClear()
   queryAssets.mockClear()
@@ -290,6 +304,23 @@ describe('library management views', () => {
     expect(querySources).toHaveBeenLastCalledWith(
       expect.objectContaining({ page: 2, pageSize: 20 }),
     )
+  })
+
+  it('explicitly derives an installation before opening the editable Source', async () => {
+    const root = await mountView(WorkflowsView)
+
+    const derive = root.querySelector(
+      '[data-testid="workflow-installation-derive"]',
+    ) as HTMLButtonElement
+    expect(derive).toBeTruthy()
+    derive.click()
+    await flushView()
+
+    expect(deriveInstallationSource).toHaveBeenCalledWith(
+      'installation-1',
+      'workflow.installation.derived_name',
+    )
+    expect(push).toHaveBeenCalledWith('/workflows/workflow-derived/edit')
   })
 
   it('keeps macro, precise recording, and template contexts exclusive in one dense resource list', async () => {

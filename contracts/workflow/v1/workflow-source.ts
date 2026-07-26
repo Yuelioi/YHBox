@@ -35,6 +35,7 @@ export interface YottaWorkflowSource {
    * @maxItems 4096
    */
   dependencies: NodePackageDependency[]
+  derivedFrom?: WorkflowReleaseOrigin
   entryGraph: string
   format: 'yotta.workflow'
   /**
@@ -82,6 +83,14 @@ export interface NodeRef {
   nodeTypeId: string
   semanticDigest: string
   version: string
+}
+export interface WorkflowReleaseOrigin {
+  attestationDigest: string
+  publisherNamespace: string
+  releaseDigest: string
+  releaseVersion: string
+  sourceHash: string
+  workflowId: string
 }
 export interface Graph {
   /**
