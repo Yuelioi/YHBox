@@ -136,6 +136,68 @@ func TestPrepareDerivedSourcePreservesReleaseContentWithoutLocalConfiguration(t 
 	}
 }
 
+func TestDerivedReleaseCannotOverwriteOriginAndCanSideInstall(t *testing.T) {
+	origin := testRelease(t)
+	repository := &memoryRepository{
+		releases: map[artifact.Digest]ReleaseRecord{}, installations: map[string]InstallationRecord{},
+	}
+	ids := []string{"origin-installation", "derived-workflow", "derived-installation"}
+	module, err := New(repository, Options{
+		Now: func() time.Time { return time.Date(2026, 7, 26, 7, 30, 0, 0, time.UTC) },
+		NewID: func() string {
+			id := ids[0]
+			ids = ids[1:]
+			return id
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	originInstallation, err := module.InstallVerified(context.Background(), origin, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	derived, err := module.PrepareDerivedSource(
+		context.Background(), originInstallation.ID, "Independent derived workflow",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	derivedReleaseDigest, err := artifact.Sum("yotta/test/workflow-release/v1", derived.SourceArtifact())
+	if err != nil {
+		t.Fatal(err)
+	}
+	derivedAttestationDigest, err := artifact.Sum(
+		"yotta/test/publisher-attestation/v1", derived.SourceArtifact(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	derivedRelease, err := NewVerifiedRelease(derived.SourceArtifact(), VerificationReceipt{
+		ReleaseDigest: derivedReleaseDigest, AttestationDigest: derivedAttestationDigest,
+		PublisherNamespace: origin.PublisherNamespace, ReleaseVersion: "1.0.0",
+		VerifiedAt: origin.VerifiedAt.Add(time.Hour),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := module.PrepareUpdate(
+		context.Background(), originInstallation.ID, derivedRelease,
+	); err == nil {
+		t.Fatal("derived Release was accepted as an overwrite or merge of its origin Installation")
+	}
+	sideInstalled, err := module.InstallVerified(context.Background(), derivedRelease, "")
+	if err != nil || sideInstalled.ID != "derived-installation" ||
+		sideInstalled.ReleaseID != derivedRelease.ID || sideInstalled.ID == originInstallation.ID {
+		t.Fatalf("side installation = %#v, %v", sideInstalled, err)
+	}
+	currentOrigin := repository.installations[originInstallation.ID]
+	if currentOrigin.ReleaseID != origin.ID || currentOrigin.PreviousReleaseID != "" ||
+		len(repository.installations) != 2 {
+		t.Fatalf("origin after side install = %#v; installations=%d", currentOrigin, len(repository.installations))
+	}
+}
+
 func TestPreparedUpdatePreservesCompatibleLocalValuesAndResetsExactConsent(t *testing.T) {
 	current := testRelease(t)
 	candidate := testUpdatedRelease(t, func(source *schema.WorkflowSource) {

@@ -204,7 +204,8 @@ subgraph store；不把 workflow-local Graph 定义升级成 Global Asset。
   diff、补新增默认项、展示 blocker、确认后原子切换。
 - [x] [M5c — Rollback lineage 与计划重新授权](slices/stage-m5c-rollback-and-schedule-reauthorization.md)：
   capability scope 变化暂停相关计划并要求重新授权；保留前一 Release 引用供显式 rollback。
-- [ ] 派生 workflow 不接受原 Release 覆盖或自动 merge，只能旁装新 Release；任何 Release 都可“安装为新实例”。
+- [x] [M5d — 派生隔离与旁装验收](slices/stage-m5d-side-install-acceptance.md)：派生 workflow
+  不接受原 Release 覆盖或自动 merge，只能旁装新 Release；任何 Release 都可“安装为新实例”。
 
 验收：更新不会覆盖已有本机值；失败发生在切换前时原 Installation 可继续运行；下架不影响已缓存 rollback。
 

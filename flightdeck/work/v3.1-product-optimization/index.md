@@ -10,16 +10,20 @@ Open
 
 ## Current
 
-Stage M5 进行中；M5a–M5c 已完成。Installation 持久保留 immediate previous Release，rollback
-复用 staged update；任何 Release 切换清空 exact consent 并持久暂停相关计划。
+Stage M5 已完成：显式本地派生、staged update、exact consent/计划重新授权、离线 rollback lineage
+与派生隔离/旁装语义均已进入唯一 Source/Installation/runtime 路径。
 
 ## Next
 
-完成 [Stage M5](plan.md) 最终验收：证明派生 Source 不接受 Release 覆盖/自动 merge，任何 Release
-均可旁装为新 Installation，并运行阶段门禁与 Windows WebView smoke。
+下一执行阶段为 [Stage M6](plan.md) 的外部 Site Foundation prerelease；进入兄弟仓库前先核对对应
+依赖 Work 与发布授权，本仓当前无未完成的 Stage M5 动作。
 
 ## Progress
 
+- 2026-07-26 M5d/Stage M5 完成：跨语义测试从 Installation 派生独立 Source、投影为 verified Release，
+  证明其因 workflow identity 不同无法覆盖/merge 原 Installation，但可旁装为新 Installation，原实例不变。
+  Stage 最终 `task check` 通过 34 个受影响 Go 包；Windows WebView smoke `20260726-123823` 退出 0，
+  显式派生编辑器截图已目检。
 - 2026-07-26 M5c 完成：Content Catalog schema 7 为 Installation 持久化 immediate
   `previous_release_id`；`PrepareRollback` 只读取已缓存 previous Release 并复用 staged diff、迁移、
   Readiness 与原子 CAS，成功切换后 previous 反向指向被替换版本。每次切换清空 exact consent，并由未暴露
