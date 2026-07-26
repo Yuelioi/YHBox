@@ -45,25 +45,14 @@ func TestProfileCanonicalizesIPv6Authority(t *testing.T) {
 	}
 }
 
-func TestInstallationsBindSlotsAndRejectStaleConsent(t *testing.T) {
+func TestConfiguredInstallationsImmediatelyBindSlots(t *testing.T) {
 	draft := ProfileDraft{Origin: "https://example.com", ResponseByteLimit: 4096, TimeoutMilliseconds: 1000}
-	profile, err := SealProfile(draft)
-	if err != nil {
-		t.Fatal(err)
-	}
-	consent, err := WorkflowConsentDigest("primary", profile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	installed, err := Install([]InstallationDraft{{Slot: "primary", Profile: draft, Consent: consent}, {Slot: "secondary", Profile: draft}})
+	installed, err := Install([]InstallationDraft{{Slot: "primary", Profile: draft}, {Slot: "secondary", Profile: draft}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	entries := installed.Entries()
 	if len(entries) != 2 || entries[0].TargetID != "http-origin/primary" || entries[0].ProviderID != entries[1].ProviderID || entries[0].Provider != entries[1].Provider {
 		t.Fatalf("unexpected installations: %+v", entries)
-	}
-	if _, err := Install([]InstallationDraft{{Slot: "primary", Profile: draft, Consent: entries[0].ProviderArtifact}}); err == nil {
-		t.Fatal("accepted stale consent")
 	}
 }

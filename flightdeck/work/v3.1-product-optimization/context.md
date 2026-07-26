@@ -2,7 +2,7 @@
 
 ## What matters
 
-Yotta 3.1 的唯一产品事实是 Workflow Source、Catalog/Node Contract、Compiler 和统一 runtime。
+Yotta 3.1 的唯一产品事实是 Workflow、Catalog/Node Contract、Compiler 和统一 runtime。
 恢复旧体验只能复用用户心智和已验证交互，不得复制 3.0 Container、registry、localStorage store 或
 第二套执行路径。Stage M2 的资源归属与编辑旅程已完成：创建、Global Asset snapshot、显式提升、
 Source-native 内容编辑和 duplicate 都以 Workflow Resource/CAS 为事实。下一步进入 M3 的 Release、
@@ -28,15 +28,16 @@ Installation、Readiness 与本机 target/credential 配置。
 - Workflow Resource 的摘要、预览和内容编辑只读取 Source metadata 与其 CAS BlobRef；内容重写保留
   Resource ID 并同步影响全部共享 binding，显式 duplicate 分配新 ID 且不隐式改绑节点。
 - 工作流只分发 Target Profile Definition，其设置 schema、应用发现提示与 `counts/360` 等首次安装默认值参与
-  发布身份；首次安装会产生独立本机 Workflow Target Profile，其用户值不参与 Source 身份且升级只补新项、
+  发布来源版本；首次导入会产生独立本机 Workflow Target Profile，其用户值不参与 Source 身份且升级只补新项、
   不覆盖已有项。Global Target Profile 只能经用户显式操作初始化或重绑定工作流配置。
 - 精确路径/digest、HWND、设备序列号、provider authority 和 consent 只属于本机 Target Installation；本机配置
   虽不参与工作流签名，仍必须通过 schema、安全与可用性检查。
 - Credential 可以是仅当前工作流使用的 Workflow Credential Profile，也可显式绑定可复用的 Global Credential
   Profile；API key/token 等 secret 始终只存在本机安全存储，不进入 Source、Bundle、发布签名或升级数据。
-- 发布制品使用不可变 Workflow Release 身份，本机使用独立 Workflow Installation 身份；同一 Release 可安装多份，
-  每份分别拥有 target/credential 配置、用户修改、运行授权、计划与更新状态，但可共享不可变 Source/Blob 字节。
-- 安装不授予运行权限；首次手动运行和启用计划分别进行 consent，Release、Node Package 或权限范围变化后不得沿用失配授权。
+- 用户只面对一个 Workflow；本地创建项可编辑，外部导入项只读并带来源版本。内部 Release/Installation 只承载
+  不可变来源、更新、回退与本机配置，不形成第二套工作流列表或运行许可。
+- 配置应用、自动化目标、HTTP 连接或 AI 账号即表示选择它供工作流使用；手动运行、启用计划和普通更新不再要求
+  Workflow/Release consent。真实 dependency、target 或 credential 缺失仍由 Readiness 说明并阻止执行。
 - 在线平台只有上架/下架，没有 Workflow Release 撤销或远程停用；下架只停止未来下载，不影响已安装制品、
   作者签名、平台已出具的发布证明或离线运行。平台不能静默改写本机 Node Package TrustPolicy。
 - 默认核心产品不后台联网检查更新；用户显式进入在线功能后才检查、浏览或下载，可选定期检查也必须由用户
@@ -94,18 +95,17 @@ Installation、Readiness 与本机 target/credential 配置。
 - 在线安装与离线包共用精确 Installation Plan。在线逐项下载 Workflow/Node Package Release；离线交付把相同已签名
   字节装入 `.yotta-offline-pack`，外层清单只锁定内容与 digest，不产生新信任或携带本机配置。依赖缺失、下架或
   不允许再分发时不得声称可生成完整离线包，导入后仍分别确认工作流与可执行节点包。
-- Workflow artifact 验证通过后立即创建本机 Workflow Installation，不等待依赖、target、credential 或 consent 完成；
-  用户可随时退出设置并在“我的工作流”继续查看/编辑。Installation lifecycle 与 Readiness Report 分离，后者可同时
-  报告缺依赖、缺目标配置、缺凭据和缺授权等 blocker；只有无运行 blocker 时才能运行或启用计划。
-- Workflow Target Profile、credential binding、consent、schedule 和其他本机 target 选择属于 Installation 配置；修改
+- Workflow artifact 验证通过后立即进入统一工作流列表，不等待依赖、target 或 credential 完成；
+  用户可随时退出设置并在“工作流”继续查看。内部 lifecycle 与 Readiness Report 分离，后者只报告缺依赖、
+  缺目标配置和缺凭据等真实 blocker。
+- Workflow Target Profile、credential binding、schedule 和其他本机 target 选择属于本机工作流配置；修改
   节点图、连接、工作流内容参数、Workflow Resource 或 Target Profile Definition 必须显式创建新的本地派生 Workflow
   Source，并以 `derivedFrom` 保留原 Release provenance。派生内容不接受原 Release 自动覆盖或自动合并。
-- 未派生 Installation 可由用户显式更新当前安装：先旁路下载/验签并计算依赖、target definition、credential slot 与
-  权限差异，保留已有本机值并只补新增默认项，确认后原子切换 current Release。权限范围变化会暂停相关计划并要求
-  重新授权；保留前一 Release 引用供显式回退。派生工作流只能把新 Release 作为独立 Installation 安装在旁边。
-- Node Package 的 Publisher Trust、精确 Package Installation 与 Workflow Execution Consent 是三份独立本机事实。
-  首版第三方信任只覆盖 `publisherKey + packageId`；已信任 key 的新版本仍需显式安装，capability scope 变化仍需重新
-  授权。官方内置包使用应用自带 trust anchor；本机信任、安装和授权不随工作流分发，也不被平台下架或密钥停用远程改写。
+- 外部导入 Workflow 可显式更新来源版本：先旁路下载/验签并计算依赖、target definition、credential slot 与
+  capability 差异，保留已有本机值并只补新增默认项，确认后原子切换内部 current Release。capability 差异只用于
+  更新说明，不暂停计划或要求重新授权；保留前一版本供显式回退。
+- Node Package 的发布者证明与精确 Package Installation 保留为代码安装边界，不再叠加 Workflow Execution Consent。
+  官方内置包使用应用自带 trust anchor；本机包安装不随工作流分发，也不被平台下架远程改写。
 - 持久本机 target/credential 配置只在“工作流设置 → 目标与凭据”中编辑：作者声明逻辑 slot 和 Target Profile
   Definition，节点只引用 slot。工作流可声明多个 target slot；不提供可任意改写 Installation 配置的通用节点。确需
   运行时切换时必须由专用 Node Contract 接收目标值并通过 capability 检查。

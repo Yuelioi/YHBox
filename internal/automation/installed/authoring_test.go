@@ -111,7 +111,7 @@ func authoringTestGeneration(t *testing.T, slot string, profile Profile, install
 		t.Fatal(err)
 	}
 	providerID := "automation-test-provider"
-	manifest, err := sealInstallationManifest(slot, slot, TargetID(slot), providerID, providerArtifact, profile, registered, false)
+	manifest, err := sealInstallationManifest(slot, slot, TargetID(slot), providerID, providerArtifact, profile, registered)
 	if err != nil {
 		t.Fatal(err)
 	}

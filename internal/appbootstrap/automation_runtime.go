@@ -215,7 +215,7 @@ func workflowTargetStates(installations automationinstalled.Installations) []wor
 			TargetInstallationID: installed.TargetID,
 			TargetKind:           profile.TargetKind, AdapterKind: profile.AdapterKind,
 			ProfileVersion: profile.ProfileVersion,
-			Available:      true, Authorized: installed.Descriptor.WorkflowConsented,
+			Available:      true, Authorized: true,
 		})
 	}
 	return result

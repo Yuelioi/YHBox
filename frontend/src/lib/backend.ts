@@ -15,7 +15,6 @@ import * as ClipService from '@bindings/github.com/yottaapp/yotta/internal/servi
 import * as MacroService from '@bindings/github.com/yottaapp/yotta/internal/services/macro/service.js'
 import * as SnippetService from '@bindings/github.com/yottaapp/yotta/internal/services/snippet/service.js'
 import * as AIService from '@bindings/github.com/yottaapp/yotta/internal/services/aiservice.js'
-import * as NetworkService from '@bindings/github.com/yottaapp/yotta/internal/services/networkservice.js'
 import * as ApplicationService from '@bindings/github.com/yottaapp/yotta/internal/services/applicationservice.js'
 import * as AutomationService from '@bindings/github.com/yottaapp/yotta/internal/services/automationservice.js'
 import { AIModelSettings as AIModelSettingsBinding } from '@bindings/github.com/yottaapp/yotta/internal/services/models.js'
@@ -345,7 +344,6 @@ export interface AIModelProfile {
   evaluation: 'unverified' | 'approved' | 'rejected'
   evaluationSuite?: string
   evaluationReport?: AIEvaluationReport
-  workflowConsent?: string
 }
 
 export interface AIProfileTestResult {
@@ -423,7 +421,6 @@ export interface HTTPOriginProfile {
   allowPrivateNetwork: boolean
   responseByteLimit: number
   timeoutMilliseconds: number
-  workflowConsent?: string
 }
 
 export interface InstalledApplicationProfile {
@@ -432,7 +429,6 @@ export interface InstalledApplicationProfile {
   executable: string
   executableDigest: string
   arguments: string[]
-  workflowConsent?: string
 }
 
 export interface DesktopAutomationTargetProfile {
@@ -476,7 +472,6 @@ export interface InstalledAutomationTargetProfile {
     | AndroidAutomationTargetProfile
     | BrowserAutomationTargetProfile
     | Record<string, unknown>
-  workflowConsent?: string
 }
 
 export interface AndroidDeviceDescriptor {
@@ -572,8 +567,6 @@ export const backend = {
     applyEvaluation: (slot: string, evidence: AIEvaluationReport) =>
       invoke(AIService.ApplyEvaluation, slot, new EvalReportArtifactBinding(evidence)),
     revokeEvaluation: (slot: string) => invoke(AIService.RevokeEvaluation, slot),
-    grantWorkflowUse: (slot: string) => invoke(AIService.GrantWorkflowUse, slot) as Promise<string>,
-    revokeWorkflowUse: (slot: string) => invoke(AIService.RevokeWorkflowUse, slot),
     proposeWorkflow: (
       slot: string,
       workflowId: string,
@@ -594,12 +587,6 @@ export const backend = {
     getWorkflowProposal: (reviewId: string) =>
       invoke(AIService.GetWorkflowProposal, reviewId) as Promise<AIWorkflowReview>,
   },
-  network: {
-    grantHTTPWorkflowConsent: (slot: string) =>
-      invoke(NetworkService.GrantHTTPWorkflowConsent, slot) as Promise<string>,
-    revokeHTTPWorkflowConsent: (slot: string) =>
-      invoke(NetworkService.RevokeHTTPWorkflowConsent, slot),
-  },
   applications: {
     pickExecutable: (title: string) =>
       callRPC('applications.pickExecutable', () =>
@@ -611,9 +598,6 @@ export const backend = {
       ) as Promise<string>,
     inspectExecutable: (path: string) =>
       invoke(ApplicationService.InspectExecutable, path) as Promise<ExecutableInspection>,
-    grantWorkflowConsent: (slot: string) =>
-      invoke(ApplicationService.GrantWorkflowConsent, slot) as Promise<string>,
-    revokeWorkflowConsent: (slot: string) => invoke(ApplicationService.RevokeWorkflowConsent, slot),
   },
   automation: {
     listTargetTypes: () => invoke(AutomationService.ListTargetTypes),
@@ -625,11 +609,6 @@ export const backend = {
       invoke(AutomationService.ListBrowserTargets, endpoint) as Promise<BrowserTargetDescriptor[]>,
     checkTargetHealth: (slot: string) =>
       invoke(AutomationService.CheckTargetHealth, slot) as Promise<AutomationTargetHealth>,
-    grantWorkflowConsent: (slot: string) =>
-      invoke(AutomationService.GrantWorkflowConsent, slot) as Promise<string>,
-    revokeWorkflowConsent: (slot: string) => invoke(AutomationService.RevokeWorkflowConsent, slot),
-    grantAllWorkflowConsents: () => invoke(AutomationService.GrantAllWorkflowConsents),
-    revokeAllWorkflowConsents: () => invoke(AutomationService.RevokeAllWorkflowConsents),
   },
   schedules: {
     list: () => invoke(ScheduleService.List),

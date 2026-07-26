@@ -45,43 +45,10 @@ func TestProfileUsesProviderNativeGenerationAndStoredCredential(t *testing.T) {
 	}
 }
 
-func TestWorkflowConsentIsExplicitAndProfileEditsRevokeIt(t *testing.T) {
-	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
-	store := newFakeSecretStore()
-	secrets := NewAISecrets(store)
-	_, _, err := app.MutateSettings(func(settings *Settings) error {
-		settings.AI.Profiles = []AIModelSettings{evaluatedModelSettingsForTest(t, "primary", "Primary")}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	service := NewAIService(app, secrets)
-	consent, err := service.GrantWorkflowUse("primary")
-	if err != nil || consent == "" || app.Settings().AI.Profiles[0].WorkflowConsent.String() != consent {
-		t.Fatalf("GrantWorkflowUse = %q, %v", consent, err)
-	}
-	settingsService := NewSettingsService(app, secrets)
-	if err := settingsService.Update(`{"ai":{"profiles":[{"slot":"primary","label":"Primary","provider":"openai-responses","model":"gpt-changed","maxOutputTokens":4096,"capabilities":{"structuredOutput":true,"toolCalling":false,"parallelTools":false,"background":false,"zeroRetention":false},"evaluation":"unverified","workflowConsent":"` + consent + `"}]}}`); err != nil {
-		t.Fatal(err)
-	}
-	if app.Settings().AI.Profiles[0].WorkflowConsent != "" {
-		t.Fatal("semantic profile edit retained prior workflow consent")
-	}
-}
-
-func TestProfileEditDowngradesStaleEvaluationAndConsent(t *testing.T) {
+func TestProfileEditDowngradesStaleEvaluation(t *testing.T) {
 	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
 	configured := evaluatedModelSettingsForTest(t, "primary", "Primary")
-	profile, err := ai.SealModelProfile(configured.profileDraft())
-	if err != nil {
-		t.Fatal(err)
-	}
-	configured.WorkflowConsent, err = ai.WorkflowConsentDigest(configured.Slot, profile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, _, err = app.MutateSettings(func(settings *Settings) error {
+	_, _, err := app.MutateSettings(func(settings *Settings) error {
 		settings.AI.Profiles = []AIModelSettings{configured}
 		return nil
 	})
@@ -98,7 +65,7 @@ func TestProfileEditDowngradesStaleEvaluationAndConsent(t *testing.T) {
 		t.Fatal(err)
 	}
 	current := app.Settings().AI.Profiles[0]
-	if current.Evaluation != ai.EvaluationUnverified || current.EvaluationSuite != "" || !current.EvaluationReport.Empty() || current.WorkflowConsent != "" {
+	if current.Evaluation != ai.EvaluationUnverified || current.EvaluationSuite != "" || !current.EvaluationReport.Empty() {
 		t.Fatalf("stale evaluation was not revoked: %#v", current)
 	}
 }

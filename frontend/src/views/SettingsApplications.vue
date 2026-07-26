@@ -57,24 +57,6 @@
             <span class="min-w-0 flex-1">
               <span class="flex flex-wrap items-center gap-2">
                 <span class="truncate text-sm font-medium text-default">{{ profile.label }}</span>
-                <UBadge
-                  :color="profile.workflowConsent ? 'success' : 'warning'"
-                  size="xs"
-                  variant="subtle"
-                  :icon="
-                    profile.workflowConsent
-                      ? 'i-tabler-shield-check'
-                      : 'i-tabler-shield-exclamation'
-                  "
-                >
-                  {{
-                    t(
-                      profile.workflowConsent
-                        ? 'settingsApplications.profiles.workflow_allowed'
-                        : 'settingsApplications.profiles.consent_required',
-                    )
-                  }}
-                </UBadge>
               </span>
               <span class="mt-1 block truncate text-xs text-dimmed">
                 {{ fileName(profile.executable) }} · <code>{{ profile.slot }}</code>
@@ -143,47 +125,6 @@
               />
             </UFormField>
 
-            <div class="rounded-lg border border-warning/30 bg-warning/5 p-3">
-              <div class="flex flex-wrap items-start gap-3">
-                <UIcon
-                  name="i-tabler-shield-exclamation"
-                  class="mt-0.5 size-4 shrink-0 text-warning"
-                />
-                <div class="min-w-0 flex-1">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <p class="text-xs font-medium text-default">
-                      {{ t('settingsApplications.consent.title') }}
-                    </p>
-                    <SettingsRestartBadge />
-                  </div>
-                  <p class="mt-1 text-xs leading-relaxed text-dimmed">
-                    {{ t('settingsApplications.consent.hint') }}
-                  </p>
-                </div>
-                <UButton
-                  v-if="profile.workflowConsent"
-                  size="sm"
-                  variant="soft"
-                  color="warning"
-                  icon="i-tabler-shield-off"
-                  :loading="busy[profile.slot]"
-                  @click="revoke(profile)"
-                  >{{ t('settingsApplications.consent.revoke') }}</UButton
-                >
-                <UButton
-                  v-else
-                  size="sm"
-                  variant="soft"
-                  color="primary"
-                  icon="i-tabler-shield-check"
-                  :loading="busy[profile.slot]"
-                  :disabled="!profile.persisted"
-                  @click="grant(profile)"
-                  >{{ t('settingsApplications.consent.grant') }}</UButton
-                >
-              </div>
-            </div>
-
             <div class="flex items-center border-t border-default/60 pt-4">
               <UButton
                 class="ml-auto"
@@ -242,7 +183,6 @@ import { backend, type ExecutableInspection, type InstalledApplicationProfile } 
 import { errorMessage } from '@/lib/invoke'
 import { useSettingsStore } from '@/stores/settings'
 import { useConfirm } from '@/composables/useConfirm'
-import SettingsRestartBadge from '@/components/settings/SettingsRestartBadge.vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 
 interface ApplicationDraft extends InstalledApplicationProfile {
@@ -351,7 +291,6 @@ function metadata(profile: ApplicationDraft): InstalledApplicationProfile {
       .split('\n')
       .map((value) => value.replace(/\r$/, ''))
       .filter((value) => value.length > 0),
-    ...(profile.workflowConsent ? { workflowConsent: profile.workflowConsent } : {}),
   }
 }
 async function commit() {
@@ -374,29 +313,6 @@ async function replaceExecutable(profile: ApplicationDraft) {
       profile.executableDigest = inspection.digest
       await commit()
     }
-  } catch (error) {
-    pickerFailure.value = errorMessage(error)
-  } finally {
-    busy[profile.slot] = false
-  }
-}
-async function grant(profile: ApplicationDraft) {
-  if (!(await commit())) return
-  busy[profile.slot] = true
-  pickerFailure.value = ''
-  try {
-    await backend.applications.grantWorkflowConsent(profile.slot)
-  } catch (error) {
-    pickerFailure.value = errorMessage(error)
-  } finally {
-    busy[profile.slot] = false
-  }
-}
-async function revoke(profile: ApplicationDraft) {
-  busy[profile.slot] = true
-  pickerFailure.value = ''
-  try {
-    await backend.applications.revokeWorkflowConsent(profile.slot)
   } catch (error) {
     pickerFailure.value = errorMessage(error)
   } finally {

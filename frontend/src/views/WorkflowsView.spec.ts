@@ -29,7 +29,7 @@ describe('WorkflowsView entry points', () => {
   })
 
   it('keeps queued Run feedback on the workflow row instead of a success toast', () => {
-    expect(source).toContain('runFeedbackById[source.workflowId]')
+    expect(source).toContain('runFeedbackById[sourceRunKey(source)]')
     expect(source).toContain("label: t('workflow.toast.queued')")
     expect(source).not.toContain("title: t('workflow.toast.queued')")
   })
@@ -56,24 +56,25 @@ describe('WorkflowsView entry points', () => {
     expect(source.slice(filterStart, filterEnd)).not.toContain('width-mode="fixed"')
   })
 
-  it('keeps Source refresh in the library menu and gives installations their own refresh action', () => {
-    expect(source.match(/i-tabler-refresh/g)).toHaveLength(3)
-    expect(source).toContain('@click="loadInstallations"')
+  it('refreshes one unified workflow library without a second installation panel', () => {
+    expect(source).not.toContain('data-testid="workflow-installations"')
+    expect(source).not.toContain('loadInstallations')
+    expect(source).toContain("t('workflow.list.imported_readonly')")
     expect(assetsSource.match(/i-tabler-refresh/g)).toHaveLength(1)
   })
 
   it('requires an explicit derivation confirmation before editing an immutable Installation', () => {
-    expect(source).toContain('data-testid="workflow-installation-derive"')
+    expect(source).toContain("label: t('workflow.installation.derive')")
     expect(source).toContain("t('workflow.installation.derive_description')")
     expect(source).toContain('workflowTransport.deriveInstallationSource')
     expect(source).toContain('router.push(`/workflows/${derived.workflowId}/edit`)')
   })
 
   it('opens the staged update and rollback surface from each Installation', () => {
-    expect(source).toContain('data-testid="workflow-installation-update"')
+    expect(source).toContain("label: t('workflow.installation.update')")
     expect(source).toContain('<WorkflowInstallationUpdateModal')
     expect(source).toContain('v-model:open="installationUpdateOpen"')
-    expect(source).toContain('@applied="loadInstallations"')
+    expect(source).toContain('@applied="load"')
   })
 
   it('previews references and performs CAS-protected partial batch deletion', () => {

@@ -33,7 +33,7 @@ func TestActivateWindowUsesDedicatedExactCapability(t *testing.T) {
 		t.Fatalf("requirements = %#v", machine.CapabilityRequirements)
 	}
 	windowCapability, ok := builtins.Catalog.LookupCapability(AutomationWindowCapabilityID)
-	if !ok || windowCapability.Machine().Risk != capability.RiskDangerous || windowCapability.Machine().Consent != capability.ConsentOnce {
+	if !ok || windowCapability.Machine().Risk != capability.RiskDangerous || windowCapability.Machine().Consent != capability.ConsentNone {
 		t.Fatalf("window capability = %#v", windowCapability.Machine())
 	}
 	inputCapability, ok := builtins.Catalog.LookupCapability(AutomationInputCapabilityID)

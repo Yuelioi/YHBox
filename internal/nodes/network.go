@@ -24,7 +24,7 @@ func sealHTTPGetCapability() (capability.Definition, error) {
 			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
 			"properties":{"method":{"const":"GET"}},"required":["method"],"additionalProperties":false
 		}`, scopeID))}},
-		Credential: capability.CredentialNone, Risk: capability.RiskSensitive, Consent: capability.ConsentOnce,
+		Credential: capability.CredentialNone, Risk: capability.RiskSensitive, Consent: capability.ConsentNone,
 		ProviderABI: httpegress.ProviderABI,
 	})
 }

@@ -362,9 +362,7 @@ function compatibleTargets(target: TargetView): InstalledAutomationTargetProfile
 
 function targetItems(target: TargetView): Array<{ label: string; value: string }> {
   const result = compatibleTargets(target).map((candidate) => ({
-    label: candidate.workflowConsent
-      ? candidate.label
-      : `${candidate.label} (${t('workflow.installation.target_not_authorized')})`,
+    label: candidate.label,
     value: `automation-target/${candidate.slot}`,
   }))
   const current = drafts[target.definitionId]?.targetInstallationId

@@ -348,12 +348,6 @@ func Run(config Config) error {
 			return err
 		}),
 	)
-	if err := workflowRuntime.SetWorkflowInstallationSchedulePauser(
-		schedule.NewInstallationPauser(scheduleSvc).PauseInstallation,
-	); err != nil {
-		return fmt.Errorf("bind Workflow Installation schedule pauser: %w", err)
-	}
-
 	// InputClip remains an authoring asset service; playback reads the
 	// exposed nominal BlobRef through explicit blob-read and playback grants.
 	clipSvc := newClipService(assetStore, app.Emit)
@@ -500,7 +494,6 @@ func Run(config Config) error {
 		application.NewService(macroSvc),
 		application.NewService(snippetSvc),
 		application.NewService(services.NewAIService(app, aiSecrets, aiAuthoring)),
-		application.NewService(services.NewNetworkService(app)),
 		application.NewService(services.NewApplicationService(app)),
 		application.NewService(services.NewAutomationService(app)),
 	)

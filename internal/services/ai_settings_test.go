@@ -66,33 +66,12 @@ func TestAISettingsRequireUniqueSlotsAndLabels(t *testing.T) {
 	}
 }
 
-func TestAISettingsPinProviderNativeProfileAndConsent(t *testing.T) {
+func TestAISettingsPinProviderNativeProfile(t *testing.T) {
 	settings := defaultSettings()
 	configured := evaluatedModelSettingsForTest(t, "primary", "Model")
 	settings.AI.Profiles = []AIModelSettings{configured}
 	if err := settings.Validate(); err != nil {
 		t.Fatal(err)
-	}
-	profile, err := ai.SealModelProfile(configured.profileDraft())
-	if err != nil {
-		t.Fatal(err)
-	}
-	configured.WorkflowConsent, err = ai.WorkflowConsentDigest(configured.Slot, profile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	settings.AI.Profiles[0] = configured
-	if err := settings.Validate(); err != nil {
-		t.Fatal(err)
-	}
-	settings.AI.Profiles[0].Model = "changed"
-	if err := settings.Validate(); err == nil {
-		t.Fatal("accepted workflow consent for a different model profile")
-	}
-	settings.AI.Profiles[0] = configured
-	settings.AI.Profiles[0].Endpoint = "https://gateway.example/v1/responses"
-	if err := settings.Validate(); err == nil {
-		t.Fatal("accepted workflow consent for a different provider endpoint")
 	}
 	settings.AI.Profiles[0] = modelSettingsForTest("primary", "Model")
 	settings.AI.Profiles[0].Provider = "openai-compatible"

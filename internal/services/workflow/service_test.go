@@ -504,6 +504,24 @@ func TestServiceReadsAndUpdatesInstallationTargetProfiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	library, err := service.QuerySources(workflow.SourceQuery{
+		Search: "installed settings", Sort: "name_asc", Page: 1, PageSize: 20,
+	})
+	if err != nil || library.Total != 1 || len(library.Items) != 1 {
+		t.Fatalf("QuerySources installed workflow = %#v, %v", library, err)
+	}
+	imported := library.Items[0]
+	if imported.Kind != "imported" || !imported.ReadOnly ||
+		imported.InstallationID != installation.ID ||
+		imported.ReleaseID != release.ID || imported.ReleaseVersion != "1.0.0" ||
+		imported.PublisherNamespace != release.PublisherNamespace ||
+		imported.Readiness == nil {
+		t.Fatalf("installed workflow library projection = %#v", imported)
+	}
+	editable, err := service.ListSources()
+	if err != nil || len(editable) != 0 {
+		t.Fatalf("ListSources should remain the editable source collection: %#v, %v", editable, err)
+	}
 	settings, err := service.GetInstallationSettings(installation.ID)
 	if err != nil || settings.Generation != 1 || len(settings.Targets) != 1 ||
 		settings.Targets[0].DefinitionID != "desktop" ||

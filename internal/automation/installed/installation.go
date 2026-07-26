@@ -10,15 +10,12 @@ import (
 	"github.com/yottaapp/yotta/internal/resource"
 )
 
-const workflowConsentDomain = "yotta/installed-automation-target-consent/v1"
-
 var slotPattern = regexp.MustCompile(`^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$`)
 
 type InstallationDraft struct {
 	Slot                  string
 	Label                 string
 	Profile               ProfileDraft
-	Consent               artifact.Digest
 	RuntimeMouseCounts360 int64
 }
 
@@ -29,7 +26,6 @@ type Installation struct {
 	ProviderID       string
 	ProviderArtifact artifact.Digest
 	TargetID         string
-	Consent          artifact.Digest
 	Provider         resource.Provider
 	Descriptor       InstallationDescriptor
 }
@@ -71,16 +67,9 @@ func installWithRegistry(drafts []InstallationDraft, registry adapterRegistry) (
 		if err := verifyProfileWithRegistry(profile, registry); err != nil {
 			return Installations{}, fmt.Errorf("verify automation target profile for slot %q: %w", draft.Slot, err)
 		}
-		manifest, err := sealInstallationManifestForProfile(draft.Slot, draft.Label, profile, draft.Consent != "", registry)
+		manifest, err := sealInstallationManifestForProfile(draft.Slot, draft.Label, profile, registry)
 		if err != nil {
 			return Installations{}, err
-		}
-		expected, err := workflowConsentDigest(manifest)
-		if err != nil {
-			return Installations{}, err
-		}
-		if draft.Consent != "" && draft.Consent != expected {
-			return Installations{}, fmt.Errorf("automation target slot %q has stale workflow consent", draft.Slot)
 		}
 		installed, exists := shared[profile.Digest()]
 		if !exists {
@@ -97,7 +86,7 @@ func installWithRegistry(drafts []InstallationDraft, registry adapterRegistry) (
 			shared[profile.Digest()] = installed
 			providers = append(providers, created)
 		}
-		installed.Slot, installed.TargetID, installed.Consent = draft.Slot, TargetID(draft.Slot), draft.Consent
+		installed.Slot, installed.TargetID = draft.Slot, TargetID(draft.Slot)
 		installed.Manifest = manifest
 		installed.Descriptor = manifest.Descriptor()
 		entries = append(entries, installed)
@@ -130,15 +119,7 @@ func ValidateInstallationSlot(slot string) error {
 	}
 	return nil
 }
-func WorkflowConsentDigest(slot string, profile Profile) (artifact.Digest, error) {
-	manifest, err := sealInstallationManifestForProfile(slot, "", profile, false, defaultAdapterRegistry())
-	if err != nil {
-		return "", err
-	}
-	return workflowConsentDigest(manifest)
-}
-
-func sealInstallationManifestForProfile(slot, label string, profile Profile, consented bool, registry adapterRegistry) (InstallationManifest, error) {
+func sealInstallationManifestForProfile(slot, label string, profile Profile, registry adapterRegistry) (InstallationManifest, error) {
 	if !slotPattern.MatchString(slot) || !profile.Valid() {
 		return InstallationManifest{}, errors.New("automation target consent identity is invalid")
 	}
@@ -152,25 +133,10 @@ func sealInstallationManifestForProfile(slot, label string, profile Profile, con
 	}
 	manifest, err := sealInstallationManifest(
 		slot, label, TargetID(slot), "automation-"+profile.Digest().String()[7:39],
-		providerArtifact, profile, registered, consented,
+		providerArtifact, profile, registered,
 	)
 	if err != nil {
 		return InstallationManifest{}, fmt.Errorf("seal automation target manifest for slot %q: %w", slot, err)
 	}
 	return manifest, nil
-}
-
-func workflowConsentDigest(manifest InstallationManifest) (artifact.Digest, error) {
-	if !manifest.Valid() {
-		return "", errors.New("automation target consent manifest is invalid")
-	}
-	document := manifest.Machine()
-	raw, err := artifact.Marshal(map[string]any{
-		"slot": document.Slot, "profileDigest": document.ProfileDigest, "providerAbi": document.ProviderABI,
-		"capabilities": document.Capabilities,
-	})
-	if err != nil {
-		return "", err
-	}
-	return artifact.Sum(workflowConsentDomain, raw)
 }

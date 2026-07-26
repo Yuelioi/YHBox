@@ -33,19 +33,19 @@ _Avoid_: Artifact contract version, product version
 _Avoid_: Version
 
 **Workflow Release**:
-发布者签名的不可变工作流制品，精确绑定 Workflow Source、Workflow Resource、Target Profile Definition 与 Node Package 依赖。
-_Avoid_: Workflow installation, downloaded copy
+外部发布工作流的内部不可变来源版本，精确绑定 Workflow Source、Workflow Resource 与 Node Package 依赖；它不是用户工作流类型或执行许可。
+_Avoid_: Installed workflow, executable workflow, run authorization
 
 **Workflow Installation**:
-一个 Workflow Release 在某台宿主上的独立本机实例，拥有自己的用户配置、授权、计划与更新状态；同一 Release 可有多个 Installation。
-_Avoid_: Workflow release, imported source
+外部导入工作流的内部本机记录，关联来源版本、本机目标/凭据、计划与更新状态；产品界面统一把它呈现为 Workflow。
+_Avoid_: User-visible workflow type, execution permission
 
 **Installation Lifecycle**:
-Workflow Installation 在本机的持久存在状态，例如 active 或 archived；它不表达依赖、目标、凭据或授权是否齐全。
+Workflow Installation 在本机的持久存在状态，例如 active 或 archived；它不表达依赖、目标或凭据是否齐全。
 _Avoid_: Readiness, setup status
 
 **Readiness Report**:
-对某个精确 Workflow Installation/Release 的当前可执行性投影，同时列出 dependency、target、credential、手动运行授权与计划授权 blocker 及修复动作；它不推进 Installation lifecycle。
+对一个工作流当前可执行性的投影，列出 dependency、target 与 credential blocker 及修复动作；它不推进 lifecycle。
 _Avoid_: Installation status, setup step
 
 **Platform Delisting**:
@@ -65,7 +65,7 @@ Registry 审核通过后对某个精确 release digest 曾获准上架的长期�
 _Avoid_: Publisher attestation, remote authorization
 
 **Installation Plan**:
-一次在线或离线安装所需的精确 Workflow Release、Node Package Release、digest、大小与可用状态投影；它不授予信任或执行权限。
+一次在线或离线安装所需的精确 Workflow Release、Node Package Release、digest、大小与可用状态投影；它不自动配置本机目标或凭据。
 _Avoid_: Offline pack, execution grant
 
 **Compile Result**:

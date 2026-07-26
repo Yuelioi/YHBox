@@ -25,28 +25,6 @@
       <template #actions>
         <div class="flex flex-wrap gap-2">
           <UButton
-            v-if="hasMissingConsent"
-            size="sm"
-            color="warning"
-            variant="soft"
-            icon="i-tabler-shield-check"
-            :loading="bulkConsentBusy"
-            @click="grantAllConsents"
-          >
-            {{ t('settingsAutomation.bulk.grant') }}
-          </UButton>
-          <UButton
-            v-if="hasGrantedConsent"
-            size="sm"
-            color="neutral"
-            variant="soft"
-            icon="i-tabler-shield-off"
-            :loading="bulkConsentBusy"
-            @click="revokeAllConsents"
-          >
-            {{ t('settingsAutomation.bulk.revoke') }}
-          </UButton>
-          <UButton
             size="sm"
             color="primary"
             variant="soft"
@@ -122,22 +100,6 @@
             <span class="min-w-0 flex-1">
               <span class="flex flex-wrap items-center gap-2">
                 <span class="truncate text-sm font-medium text-default">{{ target.label }}</span>
-                <UBadge
-                  :color="target.workflowConsent ? 'success' : 'warning'"
-                  size="xs"
-                  variant="subtle"
-                  :icon="
-                    target.workflowConsent ? 'i-tabler-shield-check' : 'i-tabler-shield-exclamation'
-                  "
-                >
-                  {{
-                    t(
-                      target.workflowConsent
-                        ? 'settingsAutomation.targets.workflow_allowed'
-                        : 'settingsAutomation.targets.consent_required',
-                    )
-                  }}
-                </UBadge>
                 <UBadge v-if="isDesktop(target)" size="xs" color="neutral" variant="subtle">
                   {{ t(`settingsAutomation.backend.${target.inputBackend}`) }}
                 </UBadge>
@@ -673,49 +635,6 @@
               </div>
             </UFormField>
 
-            <div class="rounded-lg border border-warning/30 bg-warning/5 p-3">
-              <div class="flex flex-wrap items-start gap-3">
-                <UIcon
-                  name="i-tabler-shield-exclamation"
-                  class="mt-0.5 size-4 shrink-0 text-warning"
-                  aria-hidden="true"
-                />
-                <div class="min-w-0 flex-1">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <p class="text-xs font-medium text-default">
-                      {{ t('settingsAutomation.consent.title') }}
-                    </p>
-                  </div>
-                  <p class="mt-1 text-xs leading-relaxed text-dimmed">
-                    {{ t('settingsAutomation.consent.hint') }}
-                  </p>
-                </div>
-                <UButton
-                  v-if="target.workflowConsent"
-                  size="sm"
-                  variant="soft"
-                  color="warning"
-                  icon="i-tabler-shield-off"
-                  :loading="busy[target.slot]"
-                  @click="revoke(target)"
-                >
-                  {{ t('settingsAutomation.consent.revoke') }}
-                </UButton>
-                <UButton
-                  v-else
-                  size="sm"
-                  variant="soft"
-                  color="primary"
-                  icon="i-tabler-shield-check"
-                  :loading="busy[target.slot]"
-                  :disabled="!target.persisted"
-                  @click="grant(target)"
-                >
-                  {{ t('settingsAutomation.consent.grant') }}
-                </UButton>
-              </div>
-            </div>
-
             <div class="flex items-center border-t border-default/60 pt-4">
               <UButton
                 size="sm"
@@ -851,7 +770,6 @@ interface AutomationTargetDraft {
   browserTitle: string
   browserUrl: string
   profile: Record<string, string | number>
-  workflowConsent?: string
   persisted: boolean
 }
 
@@ -890,14 +808,12 @@ const genericTargetTypes = computed(() =>
 )
 const draft = ref<AutomationTargetDraft[]>([])
 const expandedSlot = ref('')
-const busy = reactive<Record<string, boolean>>({})
 const capturingSlot = ref('')
 const captureID = ref('')
 const captureFeedback = ref<{
   tone: 'success' | 'warning' | 'error'
   message: string
 } | null>(null)
-const bulkConsentBusy = ref(false)
 const adbDevices = ref<AndroidDeviceDescriptor[]>([])
 const adbLoading = ref(false)
 const adbError = ref('')
@@ -923,16 +839,6 @@ const mouseCalibrationModeItems = computed(() => [
   { label: t('settingsAutomation.targets.mouse_counts_use_active'), value: 'active' as const },
   { label: t('settingsAutomation.targets.mouse_counts_custom'), value: 'custom' as const },
 ])
-const hasMissingConsent = computed(
-  () =>
-    applications.value.some((application) => !application.workflowConsent) ||
-    targets.value.some((target) => !target.workflowConsent),
-)
-const hasGrantedConsent = computed(
-  () =>
-    applications.value.some((application) => Boolean(application.workflowConsent)) ||
-    targets.value.some((target) => Boolean(target.workflowConsent)),
-)
 const backendItems = computed(() =>
   profileFieldOptions(desktopTargetType.value, 'inputBackend').map((value) => ({
     label: t(`settingsAutomation.backend.${value}`),
@@ -1042,7 +948,6 @@ function draftFromProfile(target: InstalledAutomationTargetProfile): AutomationT
     browserTitle: profile.browserTitle ?? '',
     browserUrl: profile.browserUrl ?? '',
     profile: editableProfile(profile),
-    ...(target.workflowConsent ? { workflowConsent: target.workflowConsent } : {}),
     persisted: true,
   }
 }
@@ -1211,7 +1116,6 @@ async function duplicateTarget(source: AutomationTargetDraft) {
     label: uniqueLabel(t('settingsAutomation.targets.copy_label', { name: source.label })),
     persisted: false,
   }
-  delete duplicate.workflowConsent
   draft.value.push(duplicate)
   expandedSlot.value = slot
   await commit()
@@ -1223,7 +1127,6 @@ function metadata(target: AutomationTargetDraft): InstalledAutomationTargetProfi
     targetKind: target.targetKind,
     adapterKind: target.adapterKind,
     profileVersion: target.profileVersion,
-    ...(target.workflowConsent ? { workflowConsent: target.workflowConsent } : {}),
   }
   if (isDesktop(target))
     return {
@@ -1366,7 +1269,6 @@ function browserEndpointChanged(target: AutomationTargetDraft): void {
   target.browserWebSocketUrl = ''
   target.browserTitle = ''
   target.browserUrl = ''
-  delete target.workflowConsent
   delete health[target.slot]
   browserTargets.value = []
 }
@@ -1379,7 +1281,6 @@ async function setBrowserTarget(index: number, id: string): Promise<void> {
   target.browserWebSocketUrl = selected.webSocketDebuggerUrl
   target.browserTitle = selected.title
   target.browserUrl = selected.url
-  delete target.workflowConsent
   delete health[target.slot]
   await commit()
 }
@@ -1406,7 +1307,6 @@ async function setADBDevice(index: number, serial: string): Promise<void> {
   target.adbModel = selected.model
   target.adbDevice = selected.device
   target.androidPackage = ''
-  delete target.workflowConsent
   delete health[target.slot]
   await refreshADBApps(target)
 }
@@ -1430,12 +1330,10 @@ async function setAndroidApp(index: number, packageName: string): Promise<void> 
   const target = draft.value[index]
   if (!target || !isAndroid(target)) return
   target.androidPackage = packageName
-  delete target.workflowConsent
   delete health[target.slot]
   await commit()
 }
 async function androidPackageChanged(target: AutomationTargetDraft): Promise<void> {
-  delete target.workflowConsent
   delete health[target.slot]
   await commit()
 }
@@ -1461,75 +1359,6 @@ async function setBackend(index: number, value: InputBackend) {
 async function setCaptureBackend(index: number, value: CaptureBackend) {
   draft.value[index]!.captureBackend = value
   await commit()
-}
-async function grant(target: AutomationTargetDraft) {
-  if (!(await commit())) return
-  busy[target.slot] = true
-  try {
-    await backend.automation.grantWorkflowConsent(target.slot)
-  } catch (error) {
-    captureFeedback.value = { tone: 'error', message: errorText(error) }
-  } finally {
-    busy[target.slot] = false
-  }
-}
-async function revoke(target: AutomationTargetDraft) {
-  busy[target.slot] = true
-  try {
-    await backend.automation.revokeWorkflowConsent(target.slot)
-  } catch (error) {
-    captureFeedback.value = { tone: 'error', message: errorText(error) }
-  } finally {
-    busy[target.slot] = false
-  }
-}
-async function grantAllConsents(): Promise<void> {
-  if (bulkConsentBusy.value) return
-  const accepted = await confirm({
-    title: t('settingsAutomation.bulk.grant_title'),
-    description: t('settingsAutomation.bulk.grant_hint'),
-    confirmText: t('settingsAutomation.bulk.grant'),
-    cancelText: t('common.cancel'),
-    color: 'warning',
-  })
-  if (accepted !== true) return
-  bulkConsentBusy.value = true
-  try {
-    await backend.automation.grantAllWorkflowConsents()
-    await store.load()
-    captureFeedback.value = {
-      tone: 'success',
-      message: t('settingsAutomation.bulk.granted'),
-    }
-  } catch (error) {
-    captureFeedback.value = { tone: 'error', message: errorText(error) }
-  } finally {
-    bulkConsentBusy.value = false
-  }
-}
-async function revokeAllConsents(): Promise<void> {
-  if (bulkConsentBusy.value) return
-  const accepted = await confirm({
-    title: t('settingsAutomation.bulk.revoke_title'),
-    description: t('settingsAutomation.bulk.revoke_hint'),
-    confirmText: t('settingsAutomation.bulk.revoke'),
-    cancelText: t('common.cancel'),
-    color: 'error',
-  })
-  if (accepted !== true) return
-  bulkConsentBusy.value = true
-  try {
-    await backend.automation.revokeAllWorkflowConsents()
-    await store.load()
-    captureFeedback.value = {
-      tone: 'warning',
-      message: t('settingsAutomation.bulk.revoked'),
-    }
-  } catch (error) {
-    captureFeedback.value = { tone: 'error', message: errorText(error) }
-  } finally {
-    bulkConsentBusy.value = false
-  }
 }
 async function removeTarget(target: AutomationTargetDraft) {
   if (capturingSlot.value === target.slot) await cancelCapture(true)
@@ -1652,14 +1481,12 @@ async function acceptCapture(raw: unknown): Promise<void> {
       target.windowTitleMatch = 'exact'
       target.windowSelection = 'unique'
       target.windowClass = payload.class
-      delete target.workflowConsent
       const ok = await store.patch({
         applications: { profiles: [...applications.value, application] },
         automation: { targets: draft.value.map(metadata) },
       })
       if (!ok) throw new Error(t('settingsAutomation.capture.save_failed'))
       for (const candidate of draft.value) candidate.persisted = true
-      await backend.automation.grantWorkflowConsent(target.slot)
       await store.load()
       captureFeedback.value = {
         tone: 'success',
@@ -1676,7 +1503,6 @@ async function acceptCapture(raw: unknown): Promise<void> {
     target.windowSelection = 'unique'
     target.windowClass = payload.class
     if (!(await commit())) throw new Error(t('settingsAutomation.capture.save_failed'))
-    await backend.automation.grantWorkflowConsent(target.slot)
     await store.load()
     captureFeedback.value = {
       tone: 'success',

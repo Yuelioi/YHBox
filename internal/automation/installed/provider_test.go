@@ -388,13 +388,9 @@ func TestProviderContinuesAfterAuthorizedExecutableUpdate(t *testing.T) {
 	}
 }
 
-func TestInstallationConsentAndUnsupportedHost(t *testing.T) {
+func TestConfiguredInstallationAndUnsupportedHost(t *testing.T) {
 	profile, _ := testProfile(t)
-	consent, err := WorkflowConsentDigest("editor", profile)
-	if err != nil || !consent.Valid() {
-		t.Fatalf("WorkflowConsentDigest() = %q, %v", consent, err)
-	}
-	draft := InstallationDraft{Slot: "editor", Profile: profile.Machine(), Consent: consent}
+	draft := InstallationDraft{Slot: "editor", Profile: profile.Machine()}
 	installations, err := Install([]InstallationDraft{draft})
 	if !PlatformSupported() {
 		if err == nil {
@@ -409,9 +405,6 @@ func TestInstallationConsentAndUnsupportedHost(t *testing.T) {
 		t.Fatalf("entries = %d", len(installations.Entries()))
 	}
 	if err := installations.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := artifact.ParseDigest(consent.String()); err != nil {
 		t.Fatal(err)
 	}
 }

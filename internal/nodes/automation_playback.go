@@ -40,7 +40,7 @@ func sealAutomationPlaybackCapability() (capability.Definition, error) {
 			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
 			"properties":{"operation":{"const":"play"}},"required":["operation"],"additionalProperties":false
 		}`, scopeID))}},
-		Credential: capability.CredentialNone, Risk: capability.RiskDangerous, Consent: capability.ConsentOnce,
+		Credential: capability.CredentialNone, Risk: capability.RiskDangerous, Consent: capability.ConsentNone,
 		ProviderABI: installed.ProviderABI,
 	})
 }

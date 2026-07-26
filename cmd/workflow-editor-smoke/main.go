@@ -372,9 +372,9 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		}
 	}
 	if err := eval(ctx, client, `(() => {
-		const row = document.querySelector('[data-testid="workflow-installation-row"][data-installation-id="smoke-installation"]');
-		const button = row?.querySelector('[data-testid="workflow-installation-settings"]');
-		if (!button) throw new Error('workflow installation settings button not found');
+		const row = document.querySelector('[data-testid="workflow-library-row"][data-installation-id="smoke-installation"]');
+		const button = row?.querySelector('[data-testid="workflow-imported-settings"]');
+		if (!button) throw new Error('imported workflow settings button not found');
 		button.click();
 	})()`); err != nil {
 		return err
@@ -397,12 +397,7 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	}); err != nil {
 		return fmt.Errorf("close workflow installation settings: %w", err)
 	}
-	if err := eval(ctx, client, `(() => {
-		const row = document.querySelector('[data-testid="workflow-installation-row"][data-installation-id="smoke-installation"]');
-		const button = row?.querySelector('[data-testid="workflow-installation-update"]');
-		if (!button) throw new Error('workflow installation update button not found');
-		button.click();
-	})()`); err != nil {
+	if err := clickImportedWorkflowAction(ctx, client, "smoke-installation", "更新", "Update"); err != nil {
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool {
@@ -431,10 +426,7 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	}); err != nil {
 		return fmt.Errorf("apply workflow installation update: %w", err)
 	}
-	if err := eval(ctx, client, `(() => {
-		const row = document.querySelector('[data-testid="workflow-installation-row"][data-installation-id="smoke-installation"]');
-		row?.querySelector('[data-testid="workflow-installation-update"]')?.click();
-	})()`); err != nil {
+	if err := clickImportedWorkflowAction(ctx, client, "smoke-installation", "更新", "Update"); err != nil {
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool {
@@ -463,12 +455,7 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	}); err != nil {
 		return fmt.Errorf("close workflow installation rollback: %w", err)
 	}
-	if err := eval(ctx, client, `(() => {
-		const row = document.querySelector('[data-testid="workflow-installation-row"][data-installation-id="smoke-installation"]');
-		const button = row?.querySelector('[data-testid="workflow-installation-derive"]');
-		if (!button) throw new Error('workflow installation derive button not found');
-		button.click();
-	})()`); err != nil {
+	if err := clickImportedWorkflowAction(ctx, client, "smoke-installation", "编辑副本", "Edit copy"); err != nil {
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool {
@@ -2142,7 +2129,7 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 			.map(target => target.getAttribute('data-workflow-id') || '').filter(Boolean),
 		createInput: Boolean(document.querySelector('input[data-testid="workflow-create-name"], [data-testid="workflow-create-name"] input')),
 		recoveryPanel: Boolean(document.querySelector('[data-testid="workflow-recovery-panel"]')),
-		installationRows: document.querySelectorAll('[data-testid="workflow-installation-row"]').length,
+		installationRows: document.querySelectorAll('[data-testid="workflow-library-row"][data-installation-id]').length,
 		installationSettings: Boolean(document.querySelector('[data-testid="workflow-installation-settings-body"]')),
 		installationUpdate: Boolean(document.querySelector('[data-testid="workflow-installation-update-body"]')),
 		installationApply: Boolean(document.querySelector('[data-testid="workflow-installation-apply-update"]:not(:disabled)')),
@@ -2279,6 +2266,42 @@ func eval(ctx context.Context, client *browsercdp.WebSocketClient, expression st
 		return fmt.Errorf("WebView evaluation failed: %v", details)
 	}
 	return nil
+}
+
+func clickImportedWorkflowAction(
+	ctx context.Context,
+	client *browsercdp.WebSocketClient,
+	installationID string,
+	labels ...string,
+) error {
+	installationJSON, _ := json.Marshal(installationID)
+	labelsJSON, _ := json.Marshal(labels)
+	if err := eval(ctx, client, fmt.Sprintf(`(() => {
+		const row = document.querySelector(
+			'[data-testid="workflow-library-row"][data-installation-id=' + CSS.escape(%s) + ']'
+		);
+		const trigger = row?.querySelector('[data-testid="workflow-row-menu"]');
+		if (!trigger) throw new Error('imported workflow action menu not found');
+		trigger.click();
+	})()`, installationJSON)); err != nil {
+		return err
+	}
+	actionExpression := fmt.Sprintf(`(() => {
+		/* imported workflow action ready */
+		const labels = %s;
+		return [...document.querySelectorAll('[role="menuitem"], [data-slot="item"]')]
+			.some(candidate => labels.includes(candidate.textContent?.trim() || ''));
+	})()`, labelsJSON)
+	if err := waitUntilJS(ctx, client, 3*time.Second, actionExpression); err != nil {
+		return fmt.Errorf("wait for imported workflow action %s: %w", strings.Join(labels, " / "), err)
+	}
+	return eval(ctx, client, fmt.Sprintf(`(() => {
+		const labels = %s;
+		const action = [...document.querySelectorAll('[role="menuitem"], [data-slot="item"]')]
+			.find(candidate => labels.includes(candidate.textContent?.trim() || ''));
+		if (!action) throw new Error('imported workflow action disappeared');
+		action.click();
+	})()`, labelsJSON))
 }
 
 func evalJSON(ctx context.Context, client *browsercdp.WebSocketClient, expression string, out any) error {

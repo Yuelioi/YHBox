@@ -4,9 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 const {
   push,
   querySources,
-  listInstallations,
   deriveInstallationSource,
-  getInstallationReadiness,
   createSourceWithMetadata,
   batchUpdateSourceMetadata,
   queryAssets,
@@ -25,6 +23,35 @@ const {
         revision: 3,
         sourceHash: 'sha256:source',
         sourceJson: '',
+        kind: 'editable',
+        readOnly: false,
+      },
+      {
+        workflowId: 'installation.installation-1',
+        name: 'Installed report',
+        description: 'Read-only imported workflow',
+        category: 'Operations',
+        tags: ['Imported'],
+        nodeCount: 8,
+        revision: 0,
+        sourceHash: 'sha256:installed',
+        sourceJson: '',
+        kind: 'imported',
+        readOnly: true,
+        installationId: 'installation-1',
+        releaseId: 'sha256:release',
+        releaseVersion: '1.0.0',
+        publisherNamespace: 'test.publisher',
+        lifecycle: 'active',
+        readiness: {
+          installationId: 'installation-1',
+          releaseId: 'sha256:release',
+          lifecycle: 'active',
+          lifecycleAllowsExecution: true,
+          runAllowed: true,
+          scheduleAllowed: true,
+          blockers: [],
+        },
       },
     ],
     total: 40,
@@ -33,16 +60,6 @@ const {
     categories: [{ value: 'Operations', count: 20 }],
     tags: [{ value: 'Daily', count: 20 }],
   })),
-  listInstallations: vi.fn(async () => [
-    {
-      installationId: 'installation-1',
-      releaseId: 'sha256:release',
-      name: 'Installed report',
-      lifecycle: 'active',
-      createdAt: '2026-07-26T00:00:00Z',
-      updatedAt: '2026-07-26T00:00:00Z',
-    },
-  ]),
   deriveInstallationSource: vi.fn(async () => ({
     workflowId: 'workflow-derived',
     name: 'Installed report (Local copy)',
@@ -53,23 +70,6 @@ const {
     revision: 0,
     sourceHash: 'sha256:derived',
     sourceJson: '',
-  })),
-  getInstallationReadiness: vi.fn(async () => ({
-    installationId: 'installation-1',
-    releaseId: 'sha256:release',
-    lifecycle: 'active',
-    lifecycleAllowsExecution: true,
-    runAllowed: true,
-    scheduleAllowed: false,
-    blockers: [
-      {
-        kind: 'schedule-consent',
-        requirementId: 'scheduled-execution',
-        expected: 'sha256:release',
-        blocks: ['schedule'],
-        action: 'grant-schedule-consent',
-      },
-    ],
   })),
   createSourceWithMetadata: vi.fn(async () => ({
     workflowId: 'workflow-created',
@@ -182,9 +182,7 @@ vi.mock('@/composables/useConfirm', () => ({
 vi.mock('@/app/transport/workflow', () => ({
   workflowTransport: {
     querySources,
-    listInstallations,
     deriveInstallationSource,
-    getInstallationReadiness,
     listSourceRecoveries: vi.fn(async () => []),
     createSourceWithMetadata,
     batchUpdateSourceMetadata,
@@ -304,23 +302,6 @@ describe('library management views', () => {
     expect(querySources).toHaveBeenLastCalledWith(
       expect.objectContaining({ page: 2, pageSize: 20 }),
     )
-  })
-
-  it('explicitly derives an installation before opening the editable Source', async () => {
-    const root = await mountView(WorkflowsView)
-
-    const derive = root.querySelector(
-      '[data-testid="workflow-installation-derive"]',
-    ) as HTMLButtonElement
-    expect(derive).toBeTruthy()
-    derive.click()
-    await flushView()
-
-    expect(deriveInstallationSource).toHaveBeenCalledWith(
-      'installation-1',
-      'workflow.installation.derived_name',
-    )
-    expect(push).toHaveBeenCalledWith('/workflows/workflow-derived/edit')
   })
 
   it('keeps macro, precise recording, and template contexts exclusive in one dense resource list', async () => {

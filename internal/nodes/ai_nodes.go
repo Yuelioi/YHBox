@@ -119,7 +119,7 @@ func sealAIGenerationCapability() (capability.Definition, error) {
 			},"required":["retention","structured","agent"],"additionalProperties":false
 		}`, scopeID))}},
 		Credential: capability.CredentialRequired,
-		Risk:       capability.RiskSensitive, Consent: capability.ConsentOnce,
+		Risk:       capability.RiskSensitive, Consent: capability.ConsentNone,
 		ProviderABI: ai.ProviderABI,
 	})
 }

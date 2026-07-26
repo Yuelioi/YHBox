@@ -10,8 +10,6 @@ import (
 	"github.com/yottaapp/yotta/internal/resource"
 )
 
-const workflowConsentDomain = "yotta/ai-workflow-consent/v1"
-
 const CredentialKindAPIKey = "https://schemas.yotta.dev/credentials/ai-api-key/v1"
 
 var installationSlotPattern = regexp.MustCompile(`^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$`)
@@ -20,7 +18,6 @@ type InstallationDraft struct {
 	Slot       string
 	Profile    ModelProfileDraft
 	Evaluation EvalReportArtifact
-	Consent    artifact.Digest
 }
 
 type Installation struct {
@@ -30,7 +27,6 @@ type Installation struct {
 	ProviderArtifact    artifact.Digest
 	TargetID            string
 	CredentialBindingID string
-	Consent             artifact.Digest
 	Evaluation          EvalReportArtifact
 	Provider            resource.Provider
 }
@@ -63,13 +59,6 @@ func Install(drafts []InstallationDraft, credentials CredentialStore) (Installat
 		profile, err := SealModelProfile(draft.Profile)
 		if err != nil {
 			return Installations{}, fmt.Errorf("seal AI profile for slot %q: %w", draft.Slot, err)
-		}
-		consent, err := WorkflowConsentDigest(draft.Slot, profile)
-		if err != nil {
-			return Installations{}, err
-		}
-		if draft.Consent != "" && draft.Consent != consent {
-			return Installations{}, fmt.Errorf("AI installation slot %q has stale workflow consent", draft.Slot)
 		}
 		if err := ValidateEvaluation(profile, draft.Evaluation); err != nil {
 			if errors.Is(err, ErrEvaluationNotApproved) {
@@ -104,7 +93,6 @@ func Install(drafts []InstallationDraft, credentials CredentialStore) (Installat
 		shared.Slot = draft.Slot
 		shared.TargetID = TargetID(draft.Slot)
 		shared.CredentialBindingID = CredentialBindingID(draft.Slot)
-		shared.Consent = draft.Consent
 		shared.Evaluation = draft.Evaluation
 		entries = append(entries, shared)
 	}
@@ -157,18 +145,4 @@ func ValidateInstallationSlot(slot string) error {
 		return errors.New("invalid AI installation slot")
 	}
 	return nil
-}
-
-func WorkflowConsentDigest(slot string, profile ModelProfile) (artifact.Digest, error) {
-	if !installationSlotPattern.MatchString(slot) || !profile.Valid() {
-		return "", errors.New("AI workflow consent identity is invalid")
-	}
-	raw, err := artifact.Marshal(map[string]any{
-		"slot": slot, "profileDigest": profile.Digest(), "providerAbi": ProviderABI,
-		"operations": []string{OperationGenerate, OperationGenerateStructured, OperationAgentStart, OperationAgentContinue},
-	})
-	if err != nil {
-		return "", err
-	}
-	return artifact.Sum(workflowConsentDomain, raw)
 }

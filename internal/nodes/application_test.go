@@ -17,7 +17,7 @@ func TestApplicationNodesUseExactDangerousLifecycleCapability(t *testing.T) {
 		t.Fatal("application lifecycle capability is missing")
 	}
 	machine := definition.Machine()
-	if machine.Risk != capability.RiskDangerous || machine.Consent != capability.ConsentOnce || machine.TargetKinds[0] != appcontrol.TargetKind {
+	if machine.Risk != capability.RiskDangerous || machine.Consent != capability.ConsentNone || machine.TargetKinds[0] != appcontrol.TargetKind {
 		t.Fatalf("application lifecycle capability = %#v", machine)
 	}
 	launch := builtins.LaunchApplicationContract.Machine()

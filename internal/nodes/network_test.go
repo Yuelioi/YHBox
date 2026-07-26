@@ -21,7 +21,7 @@ func TestHTTPGetContractBindsOneInstalledOriginAndHasNoGenericOut(t *testing.T) 
 		t.Fatalf("requirements = %#v, bindings = %#v", machine.CapabilityRequirements, machine.RequirementBindings)
 	}
 	definition, ok := builtins.Catalog.LookupCapability(HTTPGetCapabilityID)
-	if !ok || definition.Machine().Consent != capability.ConsentOnce || definition.Machine().Risk != capability.RiskSensitive || definition.Machine().Credential != capability.CredentialNone {
+	if !ok || definition.Machine().Consent != capability.ConsentNone || definition.Machine().Risk != capability.RiskSensitive || definition.Machine().Credential != capability.CredentialNone {
 		t.Fatalf("capability = %#v", definition.Machine())
 	}
 	if !signalIDsEqual(machine.Ports.ExecInputs, []string{"in"}) || !signalIDsEqual(machine.Ports.ExecOutputs, []string{"completed"}) || !signalIDsEqual(machine.Ports.ErrorOutputs, []string{"failed"}) {

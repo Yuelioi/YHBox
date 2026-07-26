@@ -35,7 +35,7 @@ func TestBrowserProfilePinsExactLoopbackPageIdentity(t *testing.T) {
 	}
 }
 
-func TestBrowserEndpointOrPageChangeRotatesProfileAndConsentIdentity(t *testing.T) {
+func TestBrowserEndpointOrPageChangeRotatesProfileIdentity(t *testing.T) {
 	first, err := SealProfile(NewBrowserProfileDraft(BrowserProfilePayload{
 		BrowserEndpoint: "http://127.0.0.1:9222", BrowserTargetID: "page-1",
 		BrowserWebSocketURL: "ws://127.0.0.1:9222/devtools/page/page-1",
@@ -52,16 +52,8 @@ func TestBrowserEndpointOrPageChangeRotatesProfileAndConsentIdentity(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	firstConsent, err := WorkflowConsentDigest("browser", first)
-	if err != nil {
-		t.Fatal(err)
-	}
-	secondConsent, err := WorkflowConsentDigest("browser", second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if first.Digest() == second.Digest() || firstConsent == secondConsent {
-		t.Fatalf("browser identity did not rotate: profiles %s/%s consent %s/%s", first.Digest(), second.Digest(), firstConsent, secondConsent)
+	if first.Digest() == second.Digest() {
+		t.Fatalf("browser identity did not rotate: profiles %s/%s", first.Digest(), second.Digest())
 	}
 }
 
@@ -157,7 +149,7 @@ func TestBrowserProviderRejectsOperationsOutsideItsManifest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := sealInstallationManifestForProfile("browser", "Browser", profile, false, defaultAdapterRegistry())
+	manifest, err := sealInstallationManifestForProfile("browser", "Browser", profile, defaultAdapterRegistry())
 	if err != nil {
 		t.Fatal(err)
 	}

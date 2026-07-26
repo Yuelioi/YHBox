@@ -126,6 +126,15 @@ type InstallationRecord struct {
 	UpdatedAt         time.Time
 }
 
+// LibraryEntry is the complete product projection for one imported, read-only
+// workflow. Release and Installation remain internal provenance/versioning
+// records; callers do not need to reconstruct a second workflow collection.
+type LibraryEntry struct {
+	Installation InstallationRecord
+	Release      ReleaseRecord
+	Readiness    ReadinessReport
+}
+
 func ValidateInstallationRecord(record InstallationRecord) error {
 	if !installationIDPattern.MatchString(record.ID) || !record.ReleaseID.Valid() ||
 		(record.PreviousReleaseID != "" && (!record.PreviousReleaseID.Valid() ||
@@ -141,14 +150,12 @@ func ValidateInstallationRecord(record InstallationRecord) error {
 }
 
 type Configuration struct {
-	InstallationID         string
-	Generation             int64
-	TargetProfiles         map[string]TargetProfile
-	TargetBindings         map[string]string
-	CredentialBindings     map[string]string
-	RunConsentRelease      artifact.Digest
-	ScheduleConsentRelease artifact.Digest
-	UpdatedAt              time.Time
+	InstallationID     string
+	Generation         int64
+	TargetProfiles     map[string]TargetProfile
+	TargetBindings     map[string]string
+	CredentialBindings map[string]string
+	UpdatedAt          time.Time
 }
 
 type TargetProfile struct {
@@ -233,9 +240,7 @@ func MaterializeTargetProfiles(
 func ValidateConfiguration(configuration Configuration) error {
 	if !installationIDPattern.MatchString(configuration.InstallationID) ||
 		configuration.Generation < 1 || configuration.UpdatedAt.IsZero() ||
-		configuration.UpdatedAt.Location() != time.UTC ||
-		(configuration.RunConsentRelease != "" && !configuration.RunConsentRelease.Valid()) ||
-		(configuration.ScheduleConsentRelease != "" && !configuration.ScheduleConsentRelease.Valid()) {
+		configuration.UpdatedAt.Location() != time.UTC {
 		return errors.New("Workflow Installation configuration is invalid")
 	}
 	for definitionID, profile := range configuration.TargetProfiles {
@@ -294,11 +299,9 @@ func cloneBindings(source map[string]string) map[string]string {
 type BlockerKind string
 
 const (
-	BlockerDependency      BlockerKind = "dependency"
-	BlockerTarget          BlockerKind = "target"
-	BlockerCredential      BlockerKind = "credential"
-	BlockerRunConsent      BlockerKind = "run-consent"
-	BlockerScheduleConsent BlockerKind = "schedule-consent"
+	BlockerDependency BlockerKind = "dependency"
+	BlockerTarget     BlockerKind = "target"
+	BlockerCredential BlockerKind = "credential"
 )
 
 type RepairActionKind string
@@ -307,8 +310,6 @@ const (
 	ActionInstallDependency RepairActionKind = "install-dependency"
 	ActionConfigureTarget   RepairActionKind = "configure-target"
 	ActionBindCredential    RepairActionKind = "bind-credential"
-	ActionGrantRunConsent   RepairActionKind = "grant-run-consent"
-	ActionGrantSchedule     RepairActionKind = "grant-schedule-consent"
 )
 
 type ExecutionScope string
@@ -400,7 +401,7 @@ func EvaluateReadiness(
 	}
 
 	blockers := make([]Blocker, 0,
-		len(source.Dependencies)+len(source.TargetProfileDefinitions)+len(source.CredentialRequirements)+2)
+		len(source.Dependencies)+len(source.TargetProfileDefinitions)+len(source.CredentialRequirements))
 	dependencies := make(map[string]DependencyState, len(environment.Dependencies))
 	for _, current := range environment.Dependencies {
 		dependencies[current.PackageID] = current
@@ -457,18 +458,6 @@ func EvaluateReadiness(
 		blockers = append(blockers, newBlocker(
 			BlockerCredential, requirement.Slot, requirement.Kind,
 			ActionBindCredential, ScopeRun, ScopeSchedule,
-		))
-	}
-	if configuration.RunConsentRelease != release.ID {
-		blockers = append(blockers, newBlocker(
-			BlockerRunConsent, "workflow-execution", release.ID.String(),
-			ActionGrantRunConsent, ScopeRun,
-		))
-	}
-	if configuration.ScheduleConsentRelease != release.ID {
-		blockers = append(blockers, newBlocker(
-			BlockerScheduleConsent, "scheduled-execution", release.ID.String(),
-			ActionGrantSchedule, ScopeSchedule,
 		))
 	}
 	sort.SliceStable(blockers, func(i, j int) bool {

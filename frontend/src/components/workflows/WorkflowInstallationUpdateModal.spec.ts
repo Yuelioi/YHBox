@@ -36,6 +36,6 @@ describe('WorkflowInstallationUpdateModal', () => {
       expect(source).toContain(field)
     }
     expect(source).toContain('preview.conflicts.length > 0')
-    expect(source).toContain("t('workflow.installation.update_consent_warning')")
+    expect(source).not.toContain("t('workflow.installation.update_consent_warning')")
   })
 })

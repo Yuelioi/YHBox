@@ -7,7 +7,7 @@
 ## Current stage
 
 Stage A–L、Stage N、Stage O、Stage P 与 Stage Q 已完成实现、增量门禁和 Windows 真机验收。Stage R
-R1–R8 已完成。Stage M 的 M1–M5 已完成；下一步进入 M6 的外部 Site Foundation prerelease。
+R1–R8 已完成。Stage M 的 M1–M5f 已完成；下一阶段评估 M6。
 
 ## Stage R — 配置与资源持久化基础设施
 
@@ -212,6 +212,14 @@ subgraph store；不把 workflow-local Graph 定义升级成 Global Asset。
   产品入口与 capability scope diff；schedule pause 使用可恢复原子批处理；复用 Release ensure 事务逻辑。
 
 验收：更新不会覆盖已有本机值；失败发生在切换前时原 Installation 可继续运行；下架不影响已缓存 rollback。
+
+### M5f — 工作流产品模型简化
+
+- [x] [M5f — 工作流产品模型简化](slices/stage-m5f-workflow-product-simplification.md)：Release 降为内部
+  来源版本快照；本地与外部工作流进入同一列表；删除 Installation 与应用/目标/HTTP/AI 的重复 consent。
+
+验收：用户只面对工作流、目标/凭据和计划；配置完成即可运行，更新不要求重新授权；内部仍使用唯一
+Source/compiler/runtime 和既有 capability/admission/arm 约束。
 
 ### M6 — 公开 Site Foundation prerelease（外部仓库）
 

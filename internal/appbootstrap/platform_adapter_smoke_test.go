@@ -61,7 +61,7 @@ func TestBrowserCDPWorkflowSmoke(t *testing.T) {
 		BrowserEndpoint: endpoint, BrowserTargetID: page.ID, BrowserWebSocketURL: page.WebSocketDebuggerURL,
 		BrowserTitle: page.Title, BrowserURL: page.URL, ResolveTimeoutMilliseconds: 5000,
 	})
-	installations := consentedAutomationInstallations(t, browserSmokeSlot, "Browser smoke", profileDraft)
+	installations := configuredAutomationInstallations(t, browserSmokeSlot, "Browser smoke", profileDraft)
 	runtime, service := buildPlatformSmokeRuntime(t, installations)
 	source, err := service.CreateSource("Browser CDP platform smoke")
 	if err != nil {
@@ -123,7 +123,7 @@ func TestAndroidADBWorkflowSmoke(t *testing.T) {
 		ADBSerial: selected.Serial, ADBProduct: selected.Product, ADBModel: selected.Model, ADBDevice: selected.Device,
 		AndroidPackage: androidPackage, ResolveTimeoutMilliseconds: 5000,
 	})
-	installations := consentedAutomationInstallations(t, androidSmokeSlot, "Android smoke", profileDraft)
+	installations := configuredAutomationInstallations(t, androidSmokeSlot, "Android smoke", profileDraft)
 	runtime, service := buildPlatformSmokeRuntime(t, installations)
 	if err := runtime.AuthoringTargets().Activate(ctx, androidSmokeSlot); err != nil {
 		t.Fatalf("activate Android fixture: %v", err)
@@ -194,17 +194,9 @@ func TestAndroidADBWorkflowSmoke(t *testing.T) {
 	)
 }
 
-func consentedAutomationInstallations(t *testing.T, slot, label string, draft automationinstalled.ProfileDraft) automationinstalled.Installations {
+func configuredAutomationInstallations(t *testing.T, slot, label string, draft automationinstalled.ProfileDraft) automationinstalled.Installations {
 	t.Helper()
-	profile, err := automationinstalled.SealProfile(draft)
-	if err != nil {
-		t.Fatal(err)
-	}
-	consent, err := automationinstalled.WorkflowConsentDigest(slot, profile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	installations, err := automationinstalled.Install([]automationinstalled.InstallationDraft{{Slot: slot, Label: label, Profile: draft, Consent: consent}})
+	installations, err := automationinstalled.Install([]automationinstalled.InstallationDraft{{Slot: slot, Label: label, Profile: draft}})
 	if err != nil {
 		t.Fatal(err)
 	}

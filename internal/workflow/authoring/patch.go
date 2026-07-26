@@ -32,7 +32,7 @@ var handlePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,63}$`)
 
 const (
 	playInputClipNodeTypeID           = "https://schemas.yotta.dev/nodes/automation/play-input-clip"
-	playInputClipStableDigest         = "sha256:5c353fb0725ca6a841a7ef5e9adcca12bb10e2d6362fed4d7d38449a58608e02"
+	playInputClipStableDigest         = "sha256:bab93b5e1f655e3f5e23c254139b92a23b048c93d3d212ff7f32d2dd009e0d75"
 	playInputClipRetractedScaleDigest = "sha256:ff7ea9d0b2ca91cb2062cff30dd5ca8575555ec5363b4c76e746925ee6ae027b"
 )
 

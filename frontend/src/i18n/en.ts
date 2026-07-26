@@ -276,7 +276,7 @@ export default {
       generate: {
         title: 'Generate AI text',
         description:
-          'Generates text through an installed model resolved by explicit model, credential, and consent slots.',
+          'Generates text through a configured model resolved by explicit model and credential slots.',
       },
       extract: {
         title: 'Extract structured AI data',
@@ -812,7 +812,7 @@ export default {
         config: {
           slot: {
             title: 'HTTP origin slot',
-            description: 'Select the exact installed and consented HTTP origin for this request.',
+            description: 'Select the exact configured HTTP origin for this request.',
           },
         },
       },
@@ -821,17 +821,17 @@ export default {
       launch: {
         title: 'Launch installed application',
         description:
-          'Launch the user-authorized executable and fixed arguments from Settings. Workflows cannot supply a path, arguments, or command line.',
+          'Launch the configured executable and fixed arguments from Settings. Workflows cannot supply a path, arguments, or command line.',
       },
       terminate: {
         title: 'Terminate installed application',
         description:
-          'Terminate only processes that belong to the user-authorized installation path, and return the count.',
+          'Terminate only processes that belong to the configured installation path, and return the count.',
       },
       config: {
         slot: {
           title: 'Application slot',
-          description: 'Select an installed and explicitly consented desktop application.',
+          description: 'Select a configured desktop application.',
         },
       },
     },
@@ -840,7 +840,7 @@ export default {
         slot: {
           title: 'Window target slot',
           description:
-            'Select an explicitly consented target bound to an authorized application path, window title, and window class.',
+            'Select a target bound to an application path, window title, and window class.',
         },
       },
       clickPointer: {
@@ -923,7 +923,7 @@ export default {
       waitWindow: {
         title: 'Wait for window',
         description:
-          'Wait up to the supplied timeout for the authorized application path and window selector to match.',
+          'Wait up to the supplied timeout for the configured application path and window selector to match.',
       },
       waitWindowGone: {
         title: 'Wait for window to disappear',
@@ -1781,7 +1781,7 @@ export default {
     TRANSPORT_UNAVAILABLE: 'The backend connection is unavailable; restart Yotta',
     admission: {
       target_unavailable:
-        'A required target is unavailable. Check that it is installed, authorized, and currently matches.',
+        'A required target is unavailable. Check that it is configured and currently matches.',
       target_ambiguous: 'The target match is ambiguous',
       provider_incompatible: 'The capability provider is incompatible',
       unsupported_host: 'The current host does not support the required capability',
@@ -1850,10 +1850,10 @@ export default {
       show_inspector: 'Show properties sidebar',
     },
     list: {
-      eyebrow: 'WORKFLOW SOURCES',
+      eyebrow: 'WORKFLOW LIBRARY',
       title: 'Workflows',
       description: 'Every run compiles a saved Workflow Source into an immutable Program snapshot.',
-      management_description: 'Search, filter, and manage Workflow Sources in bulk.',
+      management_description: 'Search, filter, and run every workflow from one list.',
       new_workflow: 'New workflow',
       library_actions: 'Workflow library actions',
       name_placeholder: 'Workflow name',
@@ -1881,6 +1881,7 @@ export default {
       no_description: 'No description',
       unclassified: 'Unclassified',
       no_tags: 'No tags',
+      imported_readonly: 'Imported · read-only',
       search_label: 'Search workflows',
       search_placeholder: 'Search by name or workflow ID',
       search_all_placeholder: 'Search name, description, category, tags, or workflow ID',
@@ -1945,7 +1946,7 @@ export default {
       bundle_description:
         'Source bundle: {name}, revision {revision}, {blobs} referenced assets ({bytes} bytes). Installations, secrets, and machine-local target details are not imported.',
       bundle_unverified:
-        'This file is still an unverified source. Importing creates an editable copy; it does not grant publisher trust, install node packages, or authorize execution.',
+        'This file has an unverified source. Importing creates an editable copy; it does not install node packages or start a run automatically.',
       bundle_evidence: 'Carries {count} release evidence items awaiting verification.',
       delete_selected: 'Delete selected',
       delete_title: 'Delete {n} workflows?',
@@ -1971,37 +1972,33 @@ export default {
         'Only the isolated corrupt source is deleted. Other workflows, assets, and run records are unchanged.',
     },
     installation: {
-      title: 'Installed workflows',
-      description: 'Configure local targets and run immutable Releases by installation identity.',
-      refresh: 'Refresh installed workflows',
-      empty: 'No workflow Release is installed.',
+      title: 'Imported workflows',
+      description: 'Configure local targets for imported versions and run them directly.',
+      refresh: 'Refresh imported workflows',
+      empty: 'No external workflow has been imported.',
       status_ready: 'Ready',
       status_blocked: 'Setup needed',
       status_archived: 'Archived',
       status_unknown: 'Unknown',
       readiness_unknown: 'Readiness has not been loaded.',
-      no_blockers: 'Dependencies, targets, credentials, and run consent are ready.',
+      no_blockers: 'Dependencies, targets, and credentials are ready.',
       blocker_dependency: 'Dependency {id} is missing',
       blocker_target: 'Target {id} is not ready',
       blocker_credential: 'Credential {id} is not bound',
-      'blocker_run-consent': 'Manual run consent is required',
-      'blocker_schedule-consent': 'Schedule consent is required',
-      authorize_run: 'Authorize run',
-      authorize_failed: 'Workflow run could not be authorized',
       derive: 'Edit copy',
       derive_title: 'Create an editable copy of “{name}”?',
       derive_description:
-        'This creates an independent local Workflow Source with exact Release provenance. The installed Release, targets, credentials, consent, and schedules stay unchanged and are not copied into the Source. Future Release updates will not overwrite or merge into this copy.',
+        'This creates an independent editable local copy. The imported version, local targets, credentials, and schedules stay unchanged. Future version updates will not overwrite or merge into the copy.',
       derive_confirm: 'Create editable copy',
       derived_name: '{name} (Local copy)',
       derive_failed: 'Editable copy could not be created',
       update: 'Update',
       update_title: 'Update “{name}”',
       update_description:
-        'Only verified Releases already cached on this device are available. Review the exact diff before switching; each preview token is single-use.',
-      update_candidate: 'Candidate Release',
+        'Only verified versions already saved on this device are shown. Review the diff before switching.',
+      update_candidate: 'Candidate version',
       update_candidate_placeholder: 'Select a cached version',
-      update_empty: 'No cached Release is available for a regular update.',
+      update_empty: 'No local version is available for an update.',
       update_preview: 'Preview update',
       rollback_preview: 'Preview rollback',
       update_badge: 'Update',
@@ -2012,40 +2009,37 @@ export default {
       update_graphs: 'Node graphs changed',
       update_resources: 'Workflow Resources changed',
       update_variables: 'State variables changed',
-      update_permissions: 'Permission scope diff',
-      update_permissions_unchanged: 'The candidate does not change any exact capability scope.',
-      update_permissions_added: 'Added permissions',
-      update_permissions_removed: 'Removed permissions',
+      update_permissions: 'Runtime capability changes',
+      update_permissions_unchanged:
+        'The candidate does not change runtime capability requirements.',
+      update_permissions_added: 'Added capabilities',
+      update_permissions_removed: 'Removed capabilities',
       update_conflicts: 'Resolve local configuration conflicts before this preview can be applied.',
-      update_consent_warning:
-        'Switching clears run and schedule consent for this Installation and durably pauses every related enabled schedule.',
-      update_blocker_count: 'The candidate still has {n} readiness blockers.',
+      update_blocker_count: 'The candidate still has {n} setup items.',
       update_apply: 'Confirm update',
       rollback_apply: 'Confirm rollback',
-      update_reconciliation_title: 'Release switched; review schedule state',
+      update_reconciliation_title: 'Version switched; refresh to confirm',
       update_reconciliation_description:
-        'The new Release is committed and previous consent is invalid. Yotta could not confirm every related schedule persistence or live reload; refresh Schedules and restart if reconciliation is still needed.',
+        'The new version was saved, but the final persistence confirmation did not complete. Refresh the workflow list and restart only if the state still appears stale.',
       settings: 'Settings',
       run: 'Run',
       settings_title: 'Configure “{name}”',
       settings_description:
-        'Each installation owns independent target profiles. Saving validates the exact schema embedded in this Release without changing its Workflow Source.',
+        'Each imported workflow has independent target profiles. Saving validates the current version’s configuration format without changing workflow content.',
       targets_title: 'Target profiles',
-      targets_empty: 'This Release does not declare a local target.',
+      targets_empty: 'This version does not need a local target.',
       local_target: 'Installed target',
       select_target: 'Select a compatible installed target',
       target_required: 'Select an installed target.',
-      target_not_authorized: 'not authorized',
       target_unavailable: 'currently unavailable',
-      no_compatible_target:
-        'No compatible target is installed. Install and authorize one in Settings first.',
+      no_compatible_target: 'No compatible target is configured. Add one in Settings first.',
       open_target_settings: 'Open target settings',
       profile_settings: 'Target Profile settings',
-      profile_settings_hint: 'JSON must satisfy the exact schema embedded in the Release.',
+      profile_settings_hint: 'JSON must satisfy the configuration format embedded in this version.',
       settings_json_invalid: 'Enter valid JSON.',
       settings_object_required: 'Profile settings must be a JSON object.',
       credentials_title: 'Secure credentials',
-      credentials_empty: 'This Release does not require a secure credential.',
+      credentials_empty: 'This version does not require a secure credential.',
       credential_bound: 'Bound',
       credential_unbound: 'Not bound',
       credential_profile: 'Secure credential profile',
@@ -2056,7 +2050,7 @@ export default {
         'No compatible secure credential is available. Save an API key in AI Settings first.',
       open_credential_settings: 'Open AI Settings',
       credentials_secure_hint:
-        'Only a logical credential reference is saved here. API keys remain in system secure storage and never enter the Workflow Installation, Release, or frontend response.',
+        'Only a credential reference is saved here. API keys remain in system secure storage and never enter workflow files or frontend responses.',
     },
     template: {
       windows: {
@@ -2834,10 +2828,6 @@ export default {
     workflow_unnamed: '(Untitled)',
     workflow_unbound: 'Unbound (manual only)',
     create_default_name: 'Schedule {n}',
-    consent_title: 'Allow scheduled execution?',
-    consent_desc:
-      'Allow “{name}” to run from this schedule. This grants schedule execution only for the current exact release.',
-    consent_confirm: 'Allow schedule',
     readiness_blocked:
       'This workflow installation still needs dependencies, targets, or credentials before scheduling.',
     validation: {
@@ -3247,10 +3237,9 @@ export default {
       input: 'Configure recorded input semantics and maintain game calibration profiles',
       launcher: 'Arrange the floating launcher content, appearance, and quick actions',
       ai: 'Manage AI service endpoints, credentials, and connection health',
-      network: 'Install exact HTTP origins and control workflow network consent',
-      applications: 'Install exact desktop applications and control launch and terminate consent',
-      automation:
-        'Bind input nodes to exact installed application windows and control workflow consent',
+      network: 'Configure the HTTP origins workflows can access',
+      applications: 'Configure the desktop applications workflows can launch and terminate',
+      automation: 'Bind input nodes to configured application windows',
     },
     save: {
       automatic: 'Saved automatically on this device',
@@ -3430,8 +3419,6 @@ export default {
       hint: 'Use a stable slot to bind workflows to an exact origin and bounded response budget.',
       add: 'Install origin',
       unnamed: 'Unnamed origin',
-      workflow_allowed: 'Workflow allowed',
-      consent_required: 'Consent required',
       private_enabled: 'Private network enabled',
       origin_missing: 'Origin not specified',
       name_label: 'Display name',
@@ -3447,8 +3434,7 @@ export default {
       timeout_hint: 'Hard limit covering connection, response headers, and body reading.',
       delete: 'Delete origin',
       empty: 'No HTTP origins installed',
-      empty_hint:
-        'Install an exact origin before an HTTP GET node can pass admission. Installation does not grant workflow use automatically.',
+      empty_hint: 'Add an exact origin and HTTP GET nodes can use it through a stable slot.',
       new_label: 'New HTTP origin',
     },
     private: {
@@ -3456,12 +3442,6 @@ export default {
       hint: 'Keep disabled for public APIs. DNS results are checked again at connection time to prevent rebinding into local networks.',
       warning:
         'This origin may reach services on this computer or private network. Enable only for a target you control and trust.',
-    },
-    consent: {
-      title: 'Workflow network consent',
-      hint: 'Consent matches this exact slot and profile digest. Editing the origin, private-network policy, timeout, or byte limit revokes it. Restart to install the new snapshot.',
-      grant: 'Allow current origin',
-      revoke: 'Revoke consent',
     },
     confirm: {
       delete_title: 'Delete “{name}”?',
@@ -3476,10 +3456,8 @@ export default {
     },
     profiles: {
       title: 'Installed desktop applications',
-      hint: 'Each profile fixes one .exe installation path and argument list. Normal updates at that path retain authorization. Launch never uses a shell.',
+      hint: 'Each profile fixes one .exe installation path and argument list. Once saved, workflows can use its slot immediately. Launch never uses a shell.',
       add: 'Select and install application',
-      workflow_allowed: 'Workflow allowed',
-      consent_required: 'Consent required',
       name_label: 'Display name',
       slot_label: 'Installation slot',
       slot_hint: 'Workflows persist this identifier. It cannot be changed after saving.',
@@ -3493,16 +3471,10 @@ export default {
       delete: 'Delete application',
       empty: 'No desktop applications installed',
       empty_hint:
-        'Select a trusted .exe first. Installation does not automatically grant workflow launch or terminate authority.',
+        'Select the .exe you want to automate. Once saved, workflows can launch or terminate it through the slot.',
       cancelled: 'No desktop application selected',
       cancelled_hint:
         'The file picker was cancelled. No installation was created or changed; you can choose again when ready.',
-    },
-    consent: {
-      title: 'Workflow application lifecycle consent',
-      hint: 'Consent matches this slot, installation path, and fixed arguments. Changing the path or arguments revokes it; a normal update at the same path does not.',
-      grant: 'Allow launch and terminate',
-      revoke: 'Revoke consent',
     },
     picker: {
       title: 'Choose a Windows application to install',
@@ -3525,14 +3497,12 @@ export default {
       add_windows: 'Windows target',
       add_android: 'Android target',
       add_browser: 'Browser target',
-      workflow_allowed: 'Workflow allowed',
-      consent_required: 'Consent required',
       name_label: 'Display name',
       slot_label: 'Installation slot',
       slot_hint: 'Workflows persist this identifier. It cannot be changed after saving.',
       application_label: 'Installed application',
       application_hint:
-        'Reuses the user-authorized installation path from Applications. Launch arguments are not inherited.',
+        'Reuses the configured installation path from Applications. Launch arguments are not inherited.',
       backend_label: 'Fixed input backend',
       backend_hint:
         'SendInput foregrounds the target. PostMessage posts only to the exact window queue. Runtime never switches automatically.',
@@ -3571,7 +3541,7 @@ export default {
       delete: 'Delete target',
       empty: 'No automation targets installed',
       empty_hint:
-        'Install a Windows, Android, or browser target before automation nodes can pass admission. Installation does not grant workflow use automatically.',
+        'Add a Windows, Android, or browser target and automation nodes can use it through a stable slot.',
       no_applications: 'Install a desktop application first',
       no_applications_hint:
         'A window target must reference a user-installed .exe from the Applications page.',
@@ -3626,7 +3596,7 @@ export default {
       unselected: 'No page selected',
     },
     capture: {
-      hint: 'Temporarily enable the global capture key, switch to the target window, then press F9 (or the configured key). A successful capture binds and immediately authorizes that exact identity; the key is then released without reaching the target app.',
+      hint: 'Temporarily enable the global capture key, switch to the target window, then press F9 (or the configured key). A successful capture saves and immediately enables that exact identity; the key is then released without reaching the target app.',
       start: 'Capture and enable window',
       start_failed: 'Could not start window capture. Try again.',
       cancel: 'Cancel capture',
@@ -3636,10 +3606,10 @@ export default {
       inspect_failed: 'Could not verify the captured window executable identity.',
       application_missing:
         'The captured window application is not installed. Select and install its .exe under Desktop applications first.',
-      install_title: 'Install “{name}”, bind this window, and allow automation?',
+      install_title: 'Add “{name}” and bind this window?',
       install_hint:
-        'Yotta will install and authorize this executable path and create the window target. Normal updates at the same path will not require reauthorization: {path}',
-      install_confirm: 'Install, bind, and allow',
+        'Yotta will save this executable path and create the window target. Normal updates at the same path do not require reconfiguration: {path}',
+      install_confirm: 'Add and bind',
       install_cancelled: 'Installation cancelled. The captured identity was not saved.',
       installed_and_completed:
         'Installed the window application, bound “{name}” to the exact window, and enabled it immediately.',
@@ -3655,25 +3625,6 @@ export default {
     captureBackend: {
       gdi: 'GDI · exact window pixels',
       wgc: 'WGC · Windows Graphics Capture',
-    },
-    consent: {
-      title: 'Workflow automation consent',
-      hint: 'Consent covers only the operations declared by this adapter and exactly matches the slot and complete target identity. Any edit revokes it; reauthorization applies in the current process.',
-      grant: 'Allow automation',
-      revoke: 'Revoke consent',
-    },
-    bulk: {
-      grant: 'Authorize all',
-      revoke: 'Revoke all',
-      grant_title: 'Authorize all current desktop automation installations?',
-      grant_hint:
-        'This authorizes every currently installed desktop application and automation target in one action. New installations or identity changes still require fresh consent and do not bypass capability, admission, or arm boundaries.',
-      revoke_title: 'Revoke all desktop automation consent?',
-      revoke_hint:
-        'Workflow consent will be cleared from every installed desktop application and automation target.',
-      granted:
-        'Authorized all current desktop applications and automation targets. New or changed items still require consent.',
-      revoked: 'Revoked all desktop application and automation target consent.',
     },
     confirm: {
       delete_title: 'Delete “{name}”?',
@@ -3698,8 +3649,6 @@ export default {
       add: 'Install model',
       unnamed: 'Unnamed model',
       credential_saved: 'Key saved',
-      workflow_allowed: 'Workflow allowed',
-      consent_required: 'Consent required',
       model_missing: 'Model not specified',
       name_label: 'Display name',
       slot_label: 'Installation slot',
@@ -3732,8 +3681,7 @@ export default {
       delete: 'Delete model',
       test_ok: 'Native request succeeded. Resolved model: {model}; finish: {finish}',
       empty: 'No AI models installed',
-      empty_hint:
-        'Install a model before nodes can generate through a stable slot. Installation does not grant workflow access automatically.',
+      empty_hint: 'Add a model and API key so nodes can generate through a stable slot.',
       new_label: 'New model',
     },
     evaluation: {
@@ -3764,12 +3712,6 @@ export default {
       cache_read: 'Cache read',
       output: 'Output',
     },
-    consent: {
-      title: 'Workflow usage consent',
-      hint: 'Consent matches only the current profile contents. Changing the endpoint, model, capabilities, or limit invalidates it immediately. Restart to install the new consent digest into the runtime.',
-      grant: 'Allow current profile',
-      revoke: 'Revoke consent',
-    },
     confirm: {
       delete_title: 'Delete “{name}”?',
       delete_profile:
@@ -3797,7 +3739,7 @@ export default {
       },
       installation: {
         name: 'Installation and Target',
-        desc: 'Models, applications, automation targets, and plugins install under stable slots. Workflows declare slots and capabilities without persisting native handles or bypassing consent.',
+        desc: 'Models, applications, automation targets, and plugins use stable configured slots. Workflows declare slots and capabilities without persisting native handles.',
       },
     },
     section_author: 'Author · Links',

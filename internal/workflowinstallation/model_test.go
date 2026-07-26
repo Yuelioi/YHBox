@@ -88,8 +88,6 @@ func TestPrepareDerivedSourcePreservesReleaseContentWithoutLocalConfiguration(t 
 	profile.TargetInstallationID = "private-target"
 	configuration.TargetProfiles["desktop"] = profile
 	configuration.CredentialBindings["api"] = "private-credential"
-	configuration.RunConsentRelease = release.ID
-	configuration.ScheduleConsentRelease = release.ID
 	repository.configurations[installation.ID] = configuration
 
 	prepared, err := module.PrepareDerivedSource(
@@ -132,8 +130,7 @@ func TestPrepareDerivedSourcePreservesReleaseContentWithoutLocalConfiguration(t 
 	current, _ := repository.installations[installation.ID]
 	currentConfiguration := repository.configurations[installation.ID]
 	if current.ReleaseID != release.ID ||
-		currentConfiguration.TargetBindings["desktop"] != "private-target" ||
-		currentConfiguration.RunConsentRelease != release.ID {
+		currentConfiguration.TargetBindings["desktop"] != "private-target" {
 		t.Fatal("derivation mutated the original Installation")
 	}
 }
@@ -246,8 +243,6 @@ func TestPreparedUpdatePreservesCompatibleLocalValuesAndResetsExactConsent(t *te
 	desktop.TargetInstallationID = "target-a"
 	config.TargetProfiles["desktop"] = desktop
 	config.CredentialBindings["api"] = "credential-a"
-	config.RunConsentRelease = current.ID
-	config.ScheduleConsentRelease = current.ID
 	repository.configurations[installation.ID] = config
 
 	prepared, err := module.PrepareUpdate(context.Background(), installation.ID, candidate)
@@ -263,7 +258,7 @@ func TestPreparedUpdatePreservesCompatibleLocalValuesAndResetsExactConsent(t *te
 	}
 	readiness := prepared.CandidateReadiness()
 	if readiness.ReleaseID != candidate.ID || readiness.RunAllowed || readiness.ScheduleAllowed ||
-		len(readiness.Blockers) < 4 {
+		len(readiness.Blockers) < 2 {
 		t.Fatalf("candidate readiness = %#v", readiness)
 	}
 	updated, err := module.ApplyUpdate(context.Background(), prepared)
@@ -277,8 +272,7 @@ func TestPreparedUpdatePreservesCompatibleLocalValuesAndResetsExactConsent(t *te
 		next.TargetProfiles["desktop"].ReleaseID != candidate.ID ||
 		next.TargetProfiles["mobile"].ReleaseID != candidate.ID ||
 		next.CredentialBindings["api"] != "credential-a" ||
-		next.CredentialBindings["secondary"] != "" ||
-		next.RunConsentRelease != "" || next.ScheduleConsentRelease != "" {
+		next.CredentialBindings["secondary"] != "" {
 		t.Fatalf("updated configuration = %#v", next)
 	}
 	rollback, err := module.PrepareRollback(context.Background(), installation.ID)
@@ -292,9 +286,7 @@ func TestPreparedUpdatePreservesCompatibleLocalValuesAndResetsExactConsent(t *te
 		t.Fatalf("ApplyUpdate(rollback) = %#v, %v", rolledBack, err)
 	}
 	rolledBackConfiguration := repository.configurations[installation.ID]
-	if rolledBackConfiguration.RunConsentRelease != "" ||
-		rolledBackConfiguration.ScheduleConsentRelease != "" ||
-		rolledBackConfiguration.TargetBindings["desktop"] != "target-a" ||
+	if rolledBackConfiguration.TargetBindings["desktop"] != "target-a" ||
 		rolledBackConfiguration.CredentialBindings["api"] != "credential-a" {
 		t.Fatalf("rolled back configuration = %#v", rolledBackConfiguration)
 	}
@@ -595,7 +587,7 @@ func TestGetConfigurationMaterializesProfilesForPreProfileConfiguration(t *testi
 	}
 }
 
-func TestReadinessReturnsEveryBlockerAndSeparatesRunFromSchedule(t *testing.T) {
+func TestReadinessReturnsOnlyConcreteExecutionBlockers(t *testing.T) {
 	release := testRelease(t)
 	installation := InstallationRecord{
 		ID: "installation-a", ReleaseID: release.ID, Name: "Installed",
@@ -611,14 +603,12 @@ func TestReadinessReturnsEveryBlockerAndSeparatesRunFromSchedule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantKinds := []BlockerKind{
-		BlockerCredential, BlockerDependency, BlockerRunConsent, BlockerScheduleConsent, BlockerTarget,
-	}
+	wantKinds := []BlockerKind{BlockerCredential, BlockerDependency, BlockerTarget}
 	gotKinds := make([]BlockerKind, 0, len(report.Blockers))
 	for _, blocker := range report.Blockers {
 		gotKinds = append(gotKinds, blocker.Kind)
 	}
-	if len(report.Blockers) != 5 || report.RunAllowed || report.ScheduleAllowed {
+	if len(report.Blockers) != 3 || report.RunAllowed || report.ScheduleAllowed {
 		t.Fatalf("blocked report = %#v, kinds=%v want=%v", report, gotKinds, wantKinds)
 	}
 
@@ -628,41 +618,24 @@ func TestReadinessReturnsEveryBlockerAndSeparatesRunFromSchedule(t *testing.T) {
 	profile.TargetInstallationID = "target-installation-a"
 	configuration.TargetProfiles["desktop"] = profile
 	configuration.CredentialBindings["api"] = "credential-profile-a"
-	configuration.RunConsentRelease = release.ID
-	readyExceptSchedule := ReadinessEnvironment{
+	ready := ReadinessEnvironment{
 		Dependencies: []DependencyState{sourceDependency},
 		Targets:      []TargetState{testTargetState("target-installation-a")},
 		Credentials:  []CredentialState{testCredentialState("credential-profile-a")},
 	}
-	report, err = EvaluateReadiness(installation, release, configuration, readyExceptSchedule)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !report.RunAllowed || report.ScheduleAllowed || len(report.Blockers) != 1 ||
-		report.Blockers[0].Kind != BlockerScheduleConsent {
-		t.Fatalf("schedule-only blocker report = %#v", report)
-	}
-	configuration.ScheduleConsentRelease = release.ID
-	report, err = EvaluateReadiness(installation, release, configuration, readyExceptSchedule)
+	report, err = EvaluateReadiness(installation, release, configuration, ready)
 	if err != nil || !report.RunAllowed || !report.ScheduleAllowed || len(report.Blockers) != 0 {
 		t.Fatalf("ready report = %#v, %v", report, err)
 	}
-	readyExceptSchedule.Targets[0].Authorized = false
-	report, err = EvaluateReadiness(installation, release, configuration, readyExceptSchedule)
+	ready.Targets[0].Authorized = false
+	report, err = EvaluateReadiness(installation, release, configuration, ready)
 	if err != nil || report.RunAllowed || report.ScheduleAllowed || len(report.Blockers) != 1 ||
 		report.Blockers[0].Kind != BlockerTarget {
 		t.Fatalf("unauthorized target report = %#v, %v", report, err)
 	}
-	readyExceptSchedule.Targets[0].Authorized = true
-	configuration.RunConsentRelease = ""
-	report, err = EvaluateReadiness(installation, release, configuration, readyExceptSchedule)
-	if err != nil || report.RunAllowed || !report.ScheduleAllowed || len(report.Blockers) != 1 ||
-		report.Blockers[0].Kind != BlockerRunConsent {
-		t.Fatalf("run-only blocker report = %#v, %v", report, err)
-	}
 }
 
-func TestModulePersistsBindingsAndExactReleaseConsentsWithGenerationCAS(t *testing.T) {
+func TestModulePersistsBindingsAndRunsWithoutSeparateConsent(t *testing.T) {
 	release := testRelease(t)
 	repository := &memoryRepository{
 		releases:      map[artifact.Digest]ReleaseRecord{},
@@ -709,14 +682,6 @@ func TestModulePersistsBindingsAndExactReleaseConsentsWithGenerationCAS(t *testi
 	}
 	if _, err := module.ReplaceBindings(context.Background(), installation.ID, 1, BindingUpdate{}); !errors.Is(err, ErrInstallationConflict) {
 		t.Fatalf("stale ReplaceBindings() error = %v", err)
-	}
-	configuration, err = module.GrantConsent(context.Background(), installation.ID, 2, ScopeRun)
-	if err != nil || configuration.RunConsentRelease != release.ID || configuration.Generation != 3 {
-		t.Fatalf("GrantConsent(run) = %#v, %v", configuration, err)
-	}
-	configuration, err = module.GrantConsent(context.Background(), installation.ID, 3, ScopeSchedule)
-	if err != nil || configuration.ScheduleConsentRelease != release.ID || configuration.Generation != 4 {
-		t.Fatalf("GrantConsent(schedule) = %#v, %v", configuration, err)
 	}
 	report, err := module.Readiness(context.Background(), installation.ID)
 	if err != nil || !report.RunAllowed || !report.ScheduleAllowed {

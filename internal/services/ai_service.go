@@ -14,8 +14,8 @@ import (
 
 type aiNativeFactory func(ai.ModelProfile) (ai.Provider, error)
 
-// AIService exposes transient credential, verification, and explicit
-// workflow-consent operations without returning stored secret values.
+// AIService exposes transient credential, verification, and authoring
+// operations without returning stored secret values.
 type AIService struct {
 	app       *App
 	secrets   *AISecrets
@@ -188,55 +188,6 @@ func (s *AIService) DeleteAPIKey(slot string) error {
 	return s.secrets.DeleteSlot(slot)
 }
 
-func (s *AIService) GrantWorkflowUse(slot string) (string, error) {
-	var consent string
-	_, current, err := s.app.MutateSettings(func(settings *Settings) error {
-		profile := findAIProfile(settings, slot)
-		if profile == nil {
-			return fmt.Errorf("AI profile slot %q is not configured", slot)
-		}
-		sealed, sealErr := ai.SealModelProfile(profile.profileDraft())
-		if sealErr != nil {
-			return sealErr
-		}
-		builtins, buildErr := nodes.Build()
-		if buildErr != nil {
-			return buildErr
-		}
-		if evaluationErr := ai.ValidateEvaluationCandidate(sealed, profile.EvaluationReport, builtins.AIEvaluationArtifacts()); evaluationErr != nil {
-			return evaluationErr
-		}
-		digest := expectedAIConsent(*profile)
-		if !digest.Valid() {
-			return errors.New("AI profile cannot produce workflow consent")
-		}
-		profile.WorkflowConsent = digest
-		consent = digest.String()
-		return nil
-	})
-	if err != nil && current == nil {
-		return "", err
-	}
-	s.app.Emit("settings:changed", map[string]any{})
-	return consent, err
-}
-
-func (s *AIService) RevokeWorkflowUse(slot string) error {
-	_, current, err := s.app.MutateSettings(func(settings *Settings) error {
-		profile := findAIProfile(settings, slot)
-		if profile == nil {
-			return fmt.Errorf("AI profile slot %q is not configured", slot)
-		}
-		profile.WorkflowConsent = ""
-		return nil
-	})
-	if err != nil && current == nil {
-		return err
-	}
-	s.app.Emit("settings:changed", map[string]any{})
-	return err
-}
-
 func (s *AIService) ApplyEvaluation(slot string, evidence ai.EvalReportArtifact) error {
 	if s.app == nil {
 		return errors.New("settings are unavailable")
@@ -258,7 +209,6 @@ func (s *AIService) ApplyEvaluation(slot string, evidence ai.EvalReportArtifact)
 		configured.Evaluation = document.Decision
 		configured.EvaluationSuite = document.Suite
 		configured.EvaluationReport = evidence
-		configured.WorkflowConsent = ""
 		profile, sealErr := ai.SealModelProfile(configured.profileDraft())
 		if sealErr != nil {
 			return sealErr
@@ -288,7 +238,6 @@ func (s *AIService) RevokeEvaluation(slot string) error {
 		configured.Evaluation = ai.EvaluationUnverified
 		configured.EvaluationSuite = ""
 		configured.EvaluationReport = ai.EvalReportArtifact{}
-		configured.WorkflowConsent = ""
 		return nil
 	})
 	if err != nil && current == nil {

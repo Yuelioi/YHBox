@@ -46,7 +46,7 @@ func TestCaptureWindowUsesNominalImageAndSeparateAuthorities(t *testing.T) {
 		t.Fatalf("capture operations = %v", got)
 	}
 	capture, ok := builtins.Catalog.LookupCapability(AutomationCaptureCapabilityID)
-	if !ok || capture.Machine().Risk != capability.RiskSensitive || capture.Machine().Consent != capability.ConsentOnce {
+	if !ok || capture.Machine().Risk != capability.RiskSensitive || capture.Machine().Consent != capability.ConsentNone {
 		t.Fatalf("capture capability = %#v", capture.Machine())
 	}
 	for _, capabilityID := range []string{AutomationInputCapabilityID, AutomationWindowCapabilityID} {

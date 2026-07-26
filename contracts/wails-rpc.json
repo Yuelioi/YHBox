@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "generator": "wails3",
   "summary": {
-    "services": 17,
-    "methods": 160,
-    "models": 236
+    "services": 16,
+    "methods": 149,
+    "models": 235
   },
   "services": [
     {
@@ -149,18 +149,6 @@
           "returns": "$CancellablePromise<aiauthoring$0.Review>"
         },
         {
-          "name": "GrantWorkflowUse",
-          "bindingId": "3366715462",
-          "parameters": [
-            {
-              "name": "slot",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<string>"
-        },
-        {
           "name": "ProposeWorkflow",
           "bindingId": "2791834483",
           "parameters": [
@@ -202,18 +190,6 @@
         {
           "name": "RevokeEvaluation",
           "bindingId": "2685067172",
-          "parameters": [
-            {
-              "name": "slot",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<void>"
-        },
-        {
-          "name": "RevokeWorkflowUse",
-          "bindingId": "3004098454",
           "parameters": [
             {
               "name": "slot",
@@ -281,18 +257,6 @@
       "module": "internal/services/applicationservice",
       "methods": [
         {
-          "name": "GrantWorkflowConsent",
-          "bindingId": "332030973",
-          "parameters": [
-            {
-              "name": "slot",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<string>"
-        },
-        {
           "name": "InspectExecutable",
           "bindingId": "1742248542",
           "parameters": [
@@ -303,18 +267,6 @@
             }
           ],
           "returns": "$CancellablePromise<appcontrol$0.ExecutableInspection>"
-        },
-        {
-          "name": "RevokeWorkflowConsent",
-          "bindingId": "2111541373",
-          "parameters": [
-            {
-              "name": "slot",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<void>"
         }
       ]
     },
@@ -611,24 +563,6 @@
           "returns": "$CancellablePromise<$models.AutomationTargetHealth>"
         },
         {
-          "name": "GrantAllWorkflowConsents",
-          "bindingId": "1429352858",
-          "parameters": [],
-          "returns": "$CancellablePromise<$models.BulkWorkflowConsentResult>"
-        },
-        {
-          "name": "GrantWorkflowConsent",
-          "bindingId": "2035588158",
-          "parameters": [
-            {
-              "name": "slot",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<string>"
-        },
-        {
           "name": "ListADBDevices",
           "bindingId": "187818553",
           "parameters": [],
@@ -663,24 +597,6 @@
           "bindingId": "1319813193",
           "parameters": [],
           "returns": "$CancellablePromise<installed$0.TargetTypeDescriptor[]>"
-        },
-        {
-          "name": "RevokeAllWorkflowConsents",
-          "bindingId": "3714580184",
-          "parameters": [],
-          "returns": "$CancellablePromise<$models.BulkWorkflowConsentResult>"
-        },
-        {
-          "name": "RevokeWorkflowConsent",
-          "bindingId": "1220421584",
-          "parameters": [
-            {
-              "name": "slot",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<void>"
         }
       ]
     },
@@ -888,35 +804,6 @@
             }
           ],
           "returns": "$CancellablePromise<$models.Macro | null>"
-        }
-      ]
-    },
-    {
-      "module": "internal/services/networkservice",
-      "methods": [
-        {
-          "name": "GrantHTTPWorkflowConsent",
-          "bindingId": "2348281941",
-          "parameters": [
-            {
-              "name": "slot",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<string>"
-        },
-        {
-          "name": "RevokeHTTPWorkflowConsent",
-          "bindingId": "358233493",
-          "parameters": [
-            {
-              "name": "slot",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<void>"
         }
       ]
     },
@@ -1778,23 +1665,6 @@
             }
           ],
           "returns": "$CancellablePromise<$models.SourceView>"
-        },
-        {
-          "name": "GrantInstallationConsent",
-          "bindingId": "3992596264",
-          "parameters": [
-            {
-              "name": "installationID",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "scope",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<$models.InstallationReadinessView>"
         },
         {
           "name": "ImportSourceBundle",
@@ -4436,11 +4306,6 @@
               "name": "\"evaluationReport\"",
               "optional": true,
               "type": "ai$0.EvalReportArtifact"
-            },
-            {
-              "name": "\"workflowConsent\"",
-              "optional": true,
-              "type": "artifact$0.Digest"
             }
           ]
         },
@@ -4531,22 +4396,6 @@
         },
         {
           "kind": "class",
-          "name": "BulkWorkflowConsentResult",
-          "fields": [
-            {
-              "name": "\"applications\"",
-              "optional": false,
-              "type": "number"
-            },
-            {
-              "name": "\"targets\"",
-              "optional": false,
-              "type": "number"
-            }
-          ]
-        },
-        {
-          "kind": "class",
           "name": "CaptureSettings",
           "fields": [
             {
@@ -4594,11 +4443,6 @@
               "name": "\"timeoutMilliseconds\"",
               "optional": false,
               "type": "number"
-            },
-            {
-              "name": "\"workflowConsent\"",
-              "optional": true,
-              "type": "artifact$0.Digest"
             }
           ]
         },
@@ -4630,11 +4474,6 @@
               "name": "\"arguments\"",
               "optional": false,
               "type": "string[]"
-            },
-            {
-              "name": "\"workflowConsent\"",
-              "optional": true,
-              "type": "artifact$0.Digest"
             }
           ]
         },
@@ -4671,11 +4510,6 @@
               "name": "\"profile\"",
               "optional": false,
               "type": "json$0.RawMessage"
-            },
-            {
-              "name": "\"workflowConsent\"",
-              "optional": true,
-              "type": "artifact$0.Digest"
             }
           ]
         },
@@ -7303,6 +7137,46 @@
               "name": "\"sourceJson\"",
               "optional": true,
               "type": "string"
+            },
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"readOnly\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"installationId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"releaseId\"",
+              "optional": true,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"releaseVersion\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"publisherNamespace\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"lifecycle\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"readiness\"",
+              "optional": true,
+              "type": "InstallationReadinessView | null"
             }
           ]
         },

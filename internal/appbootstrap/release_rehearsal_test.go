@@ -195,16 +195,8 @@ func evaluatedAIInstallations(t *testing.T, slot, endpoint, secret string) ai.In
 	draft.Evaluation = ai.EvaluationApproved
 	draft.EvaluationSuite = suite.Digest()
 	draft.EvaluationReport = evaluation.Digest
-	profile, err = ai.SealModelProfile(draft)
-	if err != nil {
-		t.Fatal(err)
-	}
-	consent, err := ai.WorkflowConsentDigest(slot, profile)
-	if err != nil {
-		t.Fatal(err)
-	}
 	installations, err := ai.Install([]ai.InstallationDraft{{
-		Slot: slot, Profile: draft, Evaluation: evaluation, Consent: consent,
+		Slot: slot, Profile: draft, Evaluation: evaluation,
 	}}, rehearsalCredentialStore{binding: ai.CredentialBindingID(slot), secret: secret})
 	if err != nil {
 		t.Fatal(err)

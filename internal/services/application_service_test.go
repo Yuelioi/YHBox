@@ -9,7 +9,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func TestApplicationWorkflowConsentIsExplicitAndProfileEditsRevokeIt(t *testing.T) {
+func TestConfiguredApplicationIsImmediatelyUsableAndEditable(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "AfterFX.exe")
 	if err := os.WriteFile(path, []byte("after-effects-v1"), 0o700); err != nil {
 		t.Fatal(err)
@@ -27,10 +27,6 @@ func TestApplicationWorkflowConsentIsExplicitAndProfileEditsRevokeIt(t *testing.
 	}); err != nil {
 		t.Fatal(err)
 	}
-	consent, err := service.GrantWorkflowConsent(configured.Slot)
-	if err != nil || consent == "" || app.Settings().Applications.Profiles[0].WorkflowConsent.String() != consent {
-		t.Fatalf("GrantWorkflowConsent = %q, %v", consent, err)
-	}
 	settingsService := NewSettingsService(app, nil)
 	if err := os.WriteFile(path, []byte("after-effects-v2"), 0o700); err != nil {
 		t.Fatal(err)
@@ -39,20 +35,13 @@ func TestApplicationWorkflowConsentIsExplicitAndProfileEditsRevokeIt(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := settingsService.Update(`{"applications":{"profiles":[{"slot":"after-effects","label":"After Effects","executable":"` + escapeJSONPath(t, updated.Executable) + `","executableDigest":"` + updated.Digest.String() + `","arguments":["-noui"],"workflowConsent":"` + consent + `"}]}}`); err != nil {
+	if err := settingsService.Update(`{"applications":{"profiles":[{"slot":"after-effects","label":"After Effects","executable":"` + escapeJSONPath(t, updated.Executable) + `","executableDigest":"` + updated.Digest.String() + `","arguments":["-noui","-fixed"]}]}}`); err != nil {
 		t.Fatal(err)
 	}
-	if app.Settings().Applications.Profiles[0].WorkflowConsent.String() != consent {
-		t.Fatal("normal executable update revoked application consent")
-	}
-	if err := settingsService.Update(`{"applications":{"profiles":[{"slot":"after-effects","label":"After Effects","executable":"` + escapeJSONPath(t, updated.Executable) + `","executableDigest":"` + updated.Digest.String() + `","arguments":["-noui","-fixed"],"workflowConsent":"` + consent + `"}]}}`); err != nil {
-		t.Fatal(err)
-	}
-	if app.Settings().Applications.Profiles[0].WorkflowConsent != "" {
-		t.Fatal("semantic application profile edit retained prior consent")
-	}
-	if _, err := service.GrantWorkflowConsent("missing"); err == nil {
-		t.Fatal("granted consent to missing application")
+	drafts := app.Settings().Applications.InstallationDrafts()
+	if len(drafts) != 1 || drafts[0].Slot != configured.Slot ||
+		len(drafts[0].Profile.Arguments) != 2 {
+		t.Fatalf("configured application drafts = %#v", drafts)
 	}
 }
 

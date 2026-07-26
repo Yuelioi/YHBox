@@ -3,7 +3,6 @@ package appbootstrap
 import (
 	"context"
 	"errors"
-	"sort"
 	"time"
 
 	"github.com/yottaapp/yotta/internal/admission"
@@ -80,7 +79,6 @@ func NewBuiltinPolicy(now func() time.Time, ttl time.Duration, aiInstallations a
 }
 
 func (p *builtinPolicy) Authorize(_ context.Context, request admission.PolicyRequest) (admission.PolicyDecision, error) {
-	consents := make(map[artifact.Digest]struct{})
 	for _, binding := range request.Bindings {
 		if binding.PluginInstanceID != "builtin" {
 			return admission.PolicyDecision{Outcome: admission.PolicyDenied}, nil
@@ -106,30 +104,18 @@ func (p *builtinPolicy) Authorize(_ context.Context, request admission.PolicyReq
 				if binding.ProviderID != installed.ProviderID || binding.ProviderArtifactDigest != installed.ProviderArtifact || binding.ProviderABI != ai.ProviderABI || binding.TargetKind != "ai-model" || binding.ResourceKind != ai.KindModelSession || binding.CredentialBindingID != installed.CredentialBindingID {
 					return admission.PolicyDecision{Outcome: admission.PolicyDenied}, nil
 				}
-				if installed.Consent == "" {
-					return admission.PolicyDecision{Outcome: admission.PolicyConsentRequired}, nil
-				}
-				consents[installed.Consent] = struct{}{}
 				continue
 			}
 			if installed, ok := p.httpTargets[binding.TargetID]; ok {
 				if binding.ProviderID != installed.ProviderID || binding.ProviderArtifactDigest != installed.ProviderArtifact || binding.ProviderABI != httpegress.ProviderABI || binding.TargetKind != httpegress.TargetKind || binding.ResourceKind != httpegress.KindHTTPSession || binding.CredentialBindingID != "" {
 					return admission.PolicyDecision{Outcome: admission.PolicyDenied}, nil
 				}
-				if installed.Consent == "" {
-					return admission.PolicyDecision{Outcome: admission.PolicyConsentRequired}, nil
-				}
-				consents[installed.Consent] = struct{}{}
 				continue
 			}
 			if installed, ok := p.applicationTargets[binding.TargetID]; ok {
 				if binding.ProviderID != installed.ProviderID || binding.ProviderArtifactDigest != installed.ProviderArtifact || binding.ProviderABI != appcontrol.ProviderABI || binding.TargetKind != appcontrol.TargetKind || binding.ResourceKind != appcontrol.KindApplication || binding.CredentialBindingID != "" {
 					return admission.PolicyDecision{Outcome: admission.PolicyDenied}, nil
 				}
-				if installed.Consent == "" {
-					return admission.PolicyDecision{Outcome: admission.PolicyConsentRequired}, nil
-				}
-				consents[installed.Consent] = struct{}{}
 				continue
 			}
 			installed, ok := p.automationTargets[binding.TargetID]
@@ -138,18 +124,9 @@ func (p *builtinPolicy) Authorize(_ context.Context, request admission.PolicyReq
 			if !ok || binding.ProviderID != manifest.ProviderID || binding.ProviderArtifactDigest != manifest.ProviderArtifact || binding.ProviderABI != manifest.ProviderABI || binding.TargetKind != manifest.TargetKind || !validKind || binding.CredentialBindingID != "" {
 				return admission.PolicyDecision{Outcome: admission.PolicyDenied}, nil
 			}
-			if installed.Consent == "" {
-				return admission.PolicyDecision{Outcome: admission.PolicyConsentRequired}, nil
-			}
-			consents[installed.Consent] = struct{}{}
 		}
 	}
-	lineage := make([]artifact.Digest, 0, len(consents))
-	for consent := range consents {
-		lineage = append(lineage, consent)
-	}
-	sort.Slice(lineage, func(i, j int) bool { return lineage[i] < lineage[j] })
 	return admission.PolicyDecision{
-		Outcome: admission.PolicyApproved, Generation: "builtin-local-v3", ExpiresAt: p.now().UTC().Add(p.ttl), ConsentLineage: lineage,
+		Outcome: admission.PolicyApproved, Generation: "builtin-local-v4", ExpiresAt: p.now().UTC().Add(p.ttl),
 	}, nil
 }

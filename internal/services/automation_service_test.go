@@ -35,7 +35,7 @@ func TestAutomationSettingsPersistOnlyVersionedDiscriminatedProfile(t *testing.T
 	}
 }
 
-func TestAutomationWorkflowConsentIsExplicitAndTargetEditsRevokeIt(t *testing.T) {
+func TestConfiguredAutomationTargetIsImmediatelyUsableAndEditable(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "Editor.exe")
 	if err := os.WriteFile(path, []byte("editor-v1"), 0o700); err != nil {
 		t.Fatal(err)
@@ -78,23 +78,18 @@ func TestAutomationWorkflowConsentIsExplicitAndTargetEditsRevokeIt(t *testing.T)
 	if err != nil || !ok || len(desktop.Application.Arguments) != 0 || desktop.WindowTitleMatch != "regex" {
 		t.Fatalf("desktop profile = %#v, %v", desktop, err)
 	}
-	service := NewAutomationService(app)
-	consent, err := service.GrantWorkflowConsent(target.Slot)
-	if err != nil || consent == "" || app.Settings().Automation.Targets[0].WorkflowConsent.String() != consent {
-		t.Fatalf("GrantWorkflowConsent = %q, %v", consent, err)
-	}
-	if app.Settings().Applications.Profiles[0].WorkflowConsent == "" {
-		t.Fatal("desktop target grant did not authorize its pinned application identity")
-	}
 	settingsService := NewSettingsService(app, nil)
-	if err := settingsService.Update(`{"automation":{"targets":[{"slot":"editor-input","label":"Editor input","targetKind":"desktop-window","adapterKind":"win32","profileVersion":"1","profile":{"applicationSlot":"editor","windowTitle":"Editor","windowTitleMatch":"exact","windowSelection":"unique","windowClass":"EditorWindowV2","inputBackend":"postmessage","captureBackend":"gdi","mouseCounts360":0,"resolveTimeoutMilliseconds":500},"workflowConsent":"` + consent + `"}]}}`); err != nil {
+	if err := settingsService.Update(`{"automation":{"targets":[{"slot":"editor-input","label":"Editor input","targetKind":"desktop-window","adapterKind":"win32","profileVersion":"1","profile":{"applicationSlot":"editor","windowTitle":"Editor","windowTitleMatch":"exact","windowSelection":"unique","windowClass":"EditorWindowV2","inputBackend":"postmessage","captureBackend":"gdi","mouseCounts360":0,"resolveTimeoutMilliseconds":500}}]}}`); err != nil {
 		t.Fatal(err)
 	}
-	if app.Settings().Automation.Targets[0].WorkflowConsent != "" {
-		t.Fatal("semantic automation target edit retained prior consent")
+	updatedDrafts, err := app.Settings().Automation.InstallationDrafts(app.Settings().Applications)
+	if err != nil || len(updatedDrafts) != 1 {
+		t.Fatalf("updated automation drafts = %#v, %v", updatedDrafts, err)
 	}
-	if _, err := service.GrantWorkflowConsent("missing"); err == nil {
-		t.Fatal("granted consent to missing automation target")
+	updated, err := automationinstalled.SealProfile(updatedDrafts[0].Profile)
+	desktop, ok = automationinstalled.DesktopProfile(updated)
+	if err != nil || !ok || desktop.WindowClass != "EditorWindowV2" {
+		t.Fatalf("updated desktop profile = %#v, %v", desktop, err)
 	}
 }
 
@@ -142,58 +137,6 @@ func TestBrowserAutomationTargetInstallsWithoutDesktopApplication(t *testing.T) 
 	if err != nil || !ok || browser.BrowserTargetID != "page-1" {
 		t.Fatalf("browser profile = %#v, %v", browser, err)
 	}
-	consent, err := NewAutomationService(app).GrantWorkflowConsent(target.Slot)
-	if err != nil || consent == "" {
-		t.Fatalf("GrantWorkflowConsent = %q, %v", consent, err)
-	}
-}
-
-func TestAutomationBulkConsentGrantsAndRevokesCurrentSnapshot(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "Game.exe")
-	if err := os.WriteFile(path, []byte("game-v1"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	inspection, err := appcontrol.InspectExecutable(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
-	app.settings.Applications.Profiles = []InstalledApplicationSettings{{
-		Slot: "game", Label: "Game", Executable: inspection.Executable, ExecutableDigest: inspection.Digest,
-	}}
-	app.settings.Automation.Targets = []InstalledAutomationTargetSettings{{
-		Slot: "game-window", Label: "Game window", TargetKind: "desktop-window", AdapterKind: "win32",
-		ProfileVersion: automationinstalled.ProfileVersionV1,
-		Profile: automationTargetProfile(DesktopAutomationTargetSettings{
-			ApplicationSlot: "game", WindowTitle: "Game", WindowTitleMatch: "exact", WindowSelection: "unique", WindowClass: "GameWindow", InputBackend: "sendinput",
-			CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 3000,
-		}),
-	}}
-
-	service := NewAutomationService(app)
-	granted, err := service.GrantAllWorkflowConsents()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if granted.Applications != 1 || granted.Targets != 1 {
-		t.Fatalf("unexpected grant result: %+v", granted)
-	}
-	settings := app.Settings()
-	if settings.Applications.Profiles[0].WorkflowConsent == "" || settings.Automation.Targets[0].WorkflowConsent == "" {
-		t.Fatal("bulk grant did not seal both application and automation consent")
-	}
-
-	revoked, err := service.RevokeAllWorkflowConsents()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if revoked.Applications != 1 || revoked.Targets != 1 {
-		t.Fatalf("unexpected revoke result: %+v", revoked)
-	}
-	settings = app.Settings()
-	if settings.Applications.Profiles[0].WorkflowConsent != "" || settings.Automation.Targets[0].WorkflowConsent != "" {
-		t.Fatal("bulk revoke left a workflow consent digest behind")
-	}
 }
 
 func TestAndroidAutomationTargetInstallsWithoutDesktopApplication(t *testing.T) {
@@ -220,10 +163,6 @@ func TestAndroidAutomationTargetInstallsWithoutDesktopApplication(t *testing.T) 
 	android, ok := automationinstalled.AndroidProfile(sealed)
 	if err != nil || !ok || android.AndroidPackage != "dev.yotta.fixture" {
 		t.Fatalf("Android profile = %#v, %v", android, err)
-	}
-	consent, err := NewAutomationService(app).GrantWorkflowConsent(target.Slot)
-	if err != nil || consent == "" {
-		t.Fatalf("GrantWorkflowConsent = %q, %v", consent, err)
 	}
 }
 

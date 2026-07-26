@@ -347,7 +347,8 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 				result = map[string]any{"result": map[string]any{"value": value}}
 			} else if call.Method == "Runtime.evaluate" &&
 				(strings.Contains(expression, "quick add search ready") ||
-					strings.Contains(expression, "quick add item ready")) {
+					strings.Contains(expression, "quick add item ready") ||
+					strings.Contains(expression, "imported workflow action ready")) {
 				result = map[string]any{"result": map[string]any{"value": "true"}}
 			} else if call.Method == "Runtime.evaluate" && strings.Contains(expression, "JSON.stringify") {
 				value := `{"start":{"x":10,"y":10},"end":{"x":20,"y":20}}`

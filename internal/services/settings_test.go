@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
-	"github.com/yottaapp/yotta/internal/appcontrol"
 	"github.com/yottaapp/yotta/internal/artifact"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 )
@@ -329,64 +328,60 @@ func TestLoadSettings_CorruptedFileRequiresRecovery(t *testing.T) {
 	}
 }
 
-func TestLoadSettingsRevokesStaleConsentWithoutDiscardingInstallation(t *testing.T) {
+func TestLoadSettingsAcceptsLegacyWorkflowConsentWithoutDiscardingConfiguration(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
-	stale, err := artifact.Sum("yotta/test/stale-settings-consent/v1", []byte("stale"))
-	if err != nil {
-		t.Fatal(err)
-	}
 	settings := defaultSettings()
 	settings.Locale = "en"
 	settings.Network.HTTPOrigins = []HTTPOriginSettings{{
 		Slot: "status-api", Label: "Status API", Origin: "https://example.test/",
-		ResponseByteLimit: 8192, TimeoutMilliseconds: 1000, WorkflowConsent: stale,
+		ResponseByteLimit: 8192, TimeoutMilliseconds: 1000,
 	}}
-	writeUncheckedSettingsEnvelope(t, path, settings, 1)
-
-	loaded, err := LoadSettings(path)
-	if err != nil {
-		t.Fatalf("LoadSettings: %v", err)
-	}
-	if loaded.Locale != "en" || len(loaded.Network.HTTPOrigins) != 1 {
-		t.Fatalf("installation was discarded: %#v", loaded)
-	}
-	if loaded.Network.HTTPOrigins[0].WorkflowConsent != "" {
-		t.Fatalf("stale consent was retained: %#v", loaded.Network.HTTPOrigins[0])
-	}
-	if err := loaded.Validate(); err != nil {
-		t.Fatalf("revoked settings are invalid: %v", err)
-	}
-}
-
-func TestLoadSettingsRevokesStaleApplicationConsent(t *testing.T) {
-	dir := t.TempDir()
-	executable := filepath.Join(dir, "Game.exe")
-	if err := os.WriteFile(executable, []byte("game-v1"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	inspection, err := appcontrol.InspectExecutable(executable)
+	payload, err := artifact.Marshal(settings)
 	if err != nil {
 		t.Fatal(err)
 	}
-	staleConsent, err := artifact.Sum("yotta/test/stale-application-consent/v1", []byte("granted"))
+	var legacy map[string]any
+	if err := json.Unmarshal(payload, &legacy); err != nil {
+		t.Fatal(err)
+	}
+	network := legacy["network"].(map[string]any)
+	origins := network["httpOrigins"].([]any)
+	origins[0].(map[string]any)["workflowConsent"] = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	legacyPayload, err := artifact.Marshal(legacy)
 	if err != nil {
 		t.Fatal(err)
 	}
-	settings := defaultSettings()
-	settings.Applications.Profiles = []InstalledApplicationSettings{{
-		Slot: "game", Label: "Game", Executable: inspection.Executable,
-		ExecutableDigest: inspection.Digest, Arguments: []string{}, WorkflowConsent: staleConsent,
-	}}
-	path := filepath.Join(dir, "settings.json")
-	writeUncheckedSettingsEnvelope(t, path, settings, 1)
-
-	loaded, err := LoadSettings(path)
+	checksum, err := artifact.Sum(settingsPayloadDomain, legacyPayload)
 	if err != nil {
-		t.Fatalf("LoadSettings: %v", err)
+		t.Fatal(err)
 	}
-	configured := loaded.Applications.Profiles[0]
-	if configured.WorkflowConsent != "" {
-		t.Fatalf("stale application consent was not revoked: got %s", configured.WorkflowConsent)
+	raw, err := json.Marshal(settingsEnvelope{
+		Format: SettingsFormat, Version: SettingsSchemaVersion, Generation: 1,
+		Checksum: checksum, Payload: legacyPayload,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	store, loaded, err := OpenSettingsStore(path)
+	if err != nil {
+		t.Fatalf("OpenSettingsStore: %v", err)
+	}
+	if loaded.Locale != "en" || len(loaded.Network.HTTPOrigins) != 1 || loaded.Network.HTTPOrigins[0].Slot != "status-api" {
+		t.Fatalf("legacy configuration was discarded: %#v", loaded)
+	}
+	if err := store.Save(loaded); err != nil {
+		t.Fatal(err)
+	}
+	current, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(current), "workflowConsent") {
+		t.Fatal("retired workflowConsent field was written into the current settings generation")
 	}
 }
 

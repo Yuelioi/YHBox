@@ -232,7 +232,7 @@ func TestAndroidProviderRejectsUnsupportedLowLevelInputAtOpen(t *testing.T) {
 	if err := registry.register(productionAdapters()[1].targetType, sealAndroidProfile, verifyPortableProfile, func(Profile) (driver, error) { return &fakeDriver{}, nil }, androidProfileIntentCodec()); err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := sealInstallationManifestForProfile("android", "Android", profile, false, registry)
+	manifest, err := sealInstallationManifestForProfile("android", "Android", profile, registry)
 	if err != nil {
 		t.Fatal(err)
 	}

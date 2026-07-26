@@ -63,7 +63,6 @@ func TestWorkflowInstallationRepositoryCommitsReleaseAndMultipleInstances(t *tes
 	profile.Settings = []byte(`{"windowTitle":"Changed"}`)
 	configuration.TargetProfiles["desktop"] = profile
 	configuration.CredentialBindings["api"] = "credential-a"
-	configuration.RunConsentRelease = release.ID
 	configuration.UpdatedAt = now.Add(time.Minute)
 	if err := repository.ReplaceConfiguration(context.Background(), 1, configuration); err != nil {
 		t.Fatal(err)
@@ -73,8 +72,7 @@ func TestWorkflowInstallationRepositoryCommitsReleaseAndMultipleInstances(t *tes
 		reloaded.TargetBindings["desktop"] != "target-a" ||
 		reloaded.TargetProfiles["desktop"].TargetInstallationID != "target-a" ||
 		string(reloaded.TargetProfiles["desktop"].Settings) != `{"windowTitle":"Changed"}` ||
-		reloaded.CredentialBindings["api"] != "credential-a" ||
-		reloaded.RunConsentRelease != release.ID {
+		reloaded.CredentialBindings["api"] != "credential-a" {
 		t.Fatalf("reloaded configuration = %#v, found=%v, err=%v", reloaded, found, err)
 	}
 	if err := repository.ReplaceConfiguration(context.Background(), 1, configuration); !errors.Is(err, workflowinstallation.ErrInstallationConflict) {

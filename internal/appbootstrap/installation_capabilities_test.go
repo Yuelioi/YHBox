@@ -38,7 +38,7 @@ func TestProjectWorkflowCapabilityScopesResolvesExactDynamicSlotAndAuthority(t *
 		scope.CapabilityID != nodes.HTTPGetCapabilityID ||
 		len(scope.Operations) != 1 || scope.Operations[0] != "get" ||
 		scope.TargetSlot != "reporting-origin" || scope.CredentialSlot != "" ||
-		scope.Scope != `{"method":"GET"}` || scope.Risk != "sensitive" || scope.Consent != "once" {
+		scope.Scope != `{"method":"GET"}` || scope.Risk != "sensitive" || scope.Consent != "none" {
 		t.Fatalf("capability scope = %#v", scope)
 	}
 }

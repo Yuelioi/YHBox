@@ -514,8 +514,6 @@ func (m *Module) PrepareUpdate(
 	nextInstallation.ReleaseID = candidate.ID
 	nextInstallation.UpdatedAt = now
 	nextConfiguration.Generation = configuration.Generation + 1
-	nextConfiguration.RunConsentRelease = ""
-	nextConfiguration.ScheduleConsentRelease = ""
 	nextConfiguration.UpdatedAt = now
 	if err := ValidateInstallationRecord(nextInstallation); err != nil {
 		return PreparedUpdate{}, err
@@ -732,6 +730,33 @@ func (m *Module) List(ctx context.Context) ([]InstallationRecord, error) {
 		return nil, errors.New("list Workflow Installations requires a context")
 	}
 	return m.repository.ListInstallations(ctx)
+}
+
+func (m *Module) ListLibrary(ctx context.Context) ([]LibraryEntry, error) {
+	installations, err := m.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	entries := make([]LibraryEntry, 0, len(installations))
+	for _, installation := range installations {
+		release, found, err := m.repository.GetRelease(ctx, installation.ReleaseID)
+		if err != nil {
+			return nil, err
+		}
+		if !found {
+			return nil, errors.New("Workflow Installation references a missing Release")
+		}
+		readiness, err := m.Readiness(ctx, installation.ID)
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, LibraryEntry{
+			Installation: installation,
+			Release:      CloneReleaseRecord(release),
+			Readiness:    readiness,
+		})
+	}
+	return entries, nil
 }
 
 func (m *Module) GetConfiguration(ctx context.Context, installationID string) (Configuration, error) {
@@ -1097,47 +1122,6 @@ func (m *Module) ReplaceBindings(
 	if err := ValidateConfiguration(next); err != nil {
 		return Configuration{}, err
 	}
-	if err := m.repository.ReplaceConfiguration(ctx, expectedGeneration, next); err != nil {
-		return Configuration{}, err
-	}
-	return CloneConfiguration(next), nil
-}
-
-func (m *Module) GrantConsent(
-	ctx context.Context,
-	installationID string,
-	expectedGeneration int64,
-	scope ExecutionScope,
-) (Configuration, error) {
-	installation, err := m.Get(ctx, installationID)
-	if err != nil {
-		return Configuration{}, err
-	}
-	release, found, err := m.repository.GetRelease(ctx, installation.ReleaseID)
-	if err != nil {
-		return Configuration{}, err
-	}
-	if !found {
-		return Configuration{}, errors.New("Workflow Installation references a missing Release")
-	}
-	current, err := m.configuration(ctx, installation, release)
-	if err != nil {
-		return Configuration{}, err
-	}
-	if current.Generation != expectedGeneration {
-		return Configuration{}, ErrInstallationConflict
-	}
-	next := CloneConfiguration(current)
-	next.Generation++
-	switch scope {
-	case ScopeRun:
-		next.RunConsentRelease = installation.ReleaseID
-	case ScopeSchedule:
-		next.ScheduleConsentRelease = installation.ReleaseID
-	default:
-		return Configuration{}, errors.New("Workflow Installation consent scope is invalid")
-	}
-	next.UpdatedAt = m.now().UTC()
 	if err := m.repository.ReplaceConfiguration(ctx, expectedGeneration, next); err != nil {
 		return Configuration{}, err
 	}

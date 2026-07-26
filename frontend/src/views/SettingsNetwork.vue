@@ -43,24 +43,6 @@
                   {{ origin.label || t('settingsNetwork.origins.unnamed') }}
                 </span>
                 <UBadge
-                  v-if="origin.workflowConsent"
-                  size="xs"
-                  color="success"
-                  variant="subtle"
-                  icon="i-tabler-shield-check"
-                >
-                  {{ t('settingsNetwork.origins.workflow_allowed') }}
-                </UBadge>
-                <UBadge
-                  v-else
-                  size="xs"
-                  color="warning"
-                  variant="subtle"
-                  icon="i-tabler-shield-exclamation"
-                >
-                  {{ t('settingsNetwork.origins.consent_required') }}
-                </UBadge>
-                <UBadge
                   v-if="origin.allowPrivateNetwork"
                   size="xs"
                   color="error"
@@ -180,47 +162,6 @@
               </p>
             </div>
 
-            <div class="rounded-lg border border-warning/30 bg-warning/5 p-3">
-              <div class="flex flex-wrap items-start gap-3">
-                <UIcon
-                  name="i-tabler-shield-exclamation"
-                  class="mt-0.5 size-4 shrink-0 text-warning"
-                />
-                <div class="min-w-0 flex-1">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <p class="text-xs font-medium text-default">
-                      {{ t('settingsNetwork.consent.title') }}
-                    </p>
-                    <SettingsRestartBadge />
-                  </div>
-                  <p class="mt-1 text-xs leading-relaxed text-dimmed">
-                    {{ t('settingsNetwork.consent.hint') }}
-                  </p>
-                </div>
-                <UButton
-                  v-if="origin.workflowConsent"
-                  size="sm"
-                  variant="soft"
-                  color="warning"
-                  icon="i-tabler-shield-off"
-                  :loading="busy[origin.slot]"
-                  @click="revoke(origin)"
-                  >{{ t('settingsNetwork.consent.revoke') }}</UButton
-                >
-                <UButton
-                  v-else
-                  size="sm"
-                  variant="soft"
-                  color="primary"
-                  icon="i-tabler-shield-check"
-                  :loading="busy[origin.slot]"
-                  :disabled="!origin.persisted"
-                  @click="grant(origin)"
-                  >{{ t('settingsNetwork.consent.grant') }}</UButton
-                >
-              </div>
-            </div>
-
             <div class="flex items-center border-t border-default/60 pt-4">
               <UButton
                 class="ml-auto"
@@ -252,12 +193,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { backend, type HTTPOriginProfile } from '@/lib/backend'
+import { type HTTPOriginProfile } from '@/lib/backend'
 import { useSettingsStore } from '@/stores/settings'
 import { useConfirm } from '@/composables/useConfirm'
-import SettingsRestartBadge from '@/components/settings/SettingsRestartBadge.vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 
 interface HTTPOriginDraft extends HTTPOriginProfile {
@@ -270,7 +210,6 @@ const store = useSettingsStore()
 const origins = computed<HTTPOriginProfile[]>(() => store.data?.network.httpOrigins ?? [])
 const draft = ref<HTTPOriginDraft[]>([])
 const expandedSlot = ref('')
-const busy = reactive<Record<string, boolean>>({})
 
 watch(
   origins,
@@ -325,7 +264,6 @@ function metadata(origin: HTTPOriginDraft): HTTPOriginProfile {
     allowPrivateNetwork: origin.allowPrivateNetwork,
     responseByteLimit: origin.responseByteLimit,
     timeoutMilliseconds: origin.timeoutMilliseconds,
-    ...(origin.workflowConsent ? { workflowConsent: origin.workflowConsent } : {}),
   }
 }
 async function commit(): Promise<boolean> {
@@ -345,17 +283,6 @@ async function commit(): Promise<boolean> {
 async function setPrivateNetwork(index: number, value: boolean) {
   draft.value[index]!.allowPrivateNetwork = value
   await commit()
-}
-async function grant(origin: HTTPOriginDraft) {
-  if (!(await commit())) return
-  busy[origin.slot] = true
-  await backend.network.grantHTTPWorkflowConsent(origin.slot)
-  busy[origin.slot] = false
-}
-async function revoke(origin: HTTPOriginDraft) {
-  busy[origin.slot] = true
-  await backend.network.revokeHTTPWorkflowConsent(origin.slot)
-  busy[origin.slot] = false
 }
 async function removeOrigin(origin: HTTPOriginDraft) {
   if (!origin.persisted) {

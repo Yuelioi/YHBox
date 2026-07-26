@@ -49,18 +49,6 @@
                 >
                   {{ t('settingsAI.profiles.credential_saved') }}
                 </UBadge>
-                <UBadge
-                  v-if="profile.workflowConsent"
-                  size="xs"
-                  color="success"
-                  variant="subtle"
-                  icon="i-tabler-shield-check"
-                >
-                  {{ t('settingsAI.profiles.workflow_allowed') }}
-                </UBadge>
-                <UBadge v-else size="xs" color="warning" variant="subtle">
-                  {{ t('settingsAI.profiles.consent_required') }}
-                </UBadge>
               </span>
               <span class="mt-1 block truncate text-xs text-dimmed">
                 {{ providerName(profile.provider) }} ·
@@ -306,47 +294,6 @@
               </template>
             </UFormField>
 
-            <div class="rounded-lg border border-warning/30 bg-warning/5 p-3">
-              <div class="flex flex-wrap items-start gap-3">
-                <UIcon
-                  name="i-tabler-shield-exclamation"
-                  class="mt-0.5 size-4 shrink-0 text-warning"
-                />
-                <div class="min-w-0 flex-1">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <p class="text-xs font-medium text-default">
-                      {{ t('settingsAI.consent.title') }}
-                    </p>
-                    <SettingsRestartBadge />
-                  </div>
-                  <p class="mt-1 text-xs leading-relaxed text-dimmed">
-                    {{ t('settingsAI.consent.hint') }}
-                  </p>
-                </div>
-                <UButton
-                  v-if="profile.workflowConsent"
-                  size="xs"
-                  variant="soft"
-                  color="warning"
-                  icon="i-tabler-shield-off"
-                  @click="revokeWorkflowUse(profile)"
-                >
-                  {{ t('settingsAI.consent.revoke') }}
-                </UButton>
-                <UButton
-                  v-else
-                  size="xs"
-                  variant="soft"
-                  color="primary"
-                  icon="i-tabler-shield-check"
-                  :disabled="!profile.persisted"
-                  @click="grantWorkflowUse(profile)"
-                >
-                  {{ t('settingsAI.consent.grant') }}
-                </UButton>
-              </div>
-            </div>
-
             <div class="flex flex-wrap items-center gap-2 border-t border-default/60 pt-4">
               <UButton
                 size="sm"
@@ -426,7 +373,6 @@ import {
 } from '@/lib/backend'
 import { useSettingsStore } from '@/stores/settings'
 import { useConfirm } from '@/composables/useConfirm'
-import SettingsRestartBadge from '@/components/settings/SettingsRestartBadge.vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import { errorMessage } from '@/lib/invoke'
@@ -639,7 +585,6 @@ function profileMetadata(profile: AIModelProfileDraft): AIModelProfile {
     evaluation: profile.evaluation,
     ...(profile.evaluationSuite ? { evaluationSuite: profile.evaluationSuite } : {}),
     ...(profile.evaluationReport ? { evaluationReport: { ...profile.evaluationReport } } : {}),
-    ...(profile.workflowConsent ? { workflowConsent: profile.workflowConsent } : {}),
   }
 }
 
@@ -723,23 +668,6 @@ async function testProfile(profile: AIModelProfileDraft): Promise<void> {
     showActionError(error)
   } finally {
     testing[profile.slot] = false
-  }
-}
-
-async function grantWorkflowUse(profile: AIModelProfileDraft): Promise<void> {
-  if (!(await commit())) return
-  try {
-    await backend.ai.grantWorkflowUse(profile.slot)
-  } catch (error) {
-    showActionError(error)
-  }
-}
-
-async function revokeWorkflowUse(profile: AIModelProfileDraft): Promise<void> {
-  try {
-    await backend.ai.revokeWorkflowUse(profile.slot)
-  } catch (error) {
-    showActionError(error)
   }
 }
 

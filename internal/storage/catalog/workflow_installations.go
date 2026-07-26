@@ -101,9 +101,8 @@ func (r *WorkflowInstallationRepository) Commit(
 	}
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO workflow_installation_configurations(
-			installation_id, generation, target_profiles, target_bindings, credential_bindings,
-			run_consent_release, schedule_consent_release, updated_at
-		) VALUES (?, ?, ?, ?, ?, NULL, NULL, ?)
+			installation_id, generation, target_profiles, target_bindings, credential_bindings, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?)
 	`, configuration.InstallationID, configuration.Generation, profiles, targets, credentials,
 		configuration.UpdatedAt.Format(time.RFC3339Nano)); err != nil {
 		return errors.Join(err, tx.Rollback())
@@ -175,11 +174,9 @@ func (r *WorkflowInstallationRepository) SwitchRelease(
 	}
 	result, err = tx.ExecContext(ctx, `
 		UPDATE workflow_installation_configurations
-		SET generation = ?, target_profiles = ?, target_bindings = ?, credential_bindings = ?,
-		    run_consent_release = ?, schedule_consent_release = ?, updated_at = ?
+		SET generation = ?, target_profiles = ?, target_bindings = ?, credential_bindings = ?, updated_at = ?
 		WHERE installation_id = ? AND generation = ?
 	`, configuration.Generation, profiles, targets, credentials,
-		nullableDigest(configuration.RunConsentRelease), nullableDigest(configuration.ScheduleConsentRelease),
 		configuration.UpdatedAt.Format(time.RFC3339Nano), configuration.InstallationID, expectedGeneration)
 	if err != nil {
 		return errors.Join(err, tx.Rollback())
@@ -341,11 +338,9 @@ func (r *WorkflowInstallationRepository) ReplaceConfiguration(
 	}
 	result, err := r.database.db.ExecContext(ctx, `
 		UPDATE workflow_installation_configurations
-		SET generation = ?, target_profiles = ?, target_bindings = ?, credential_bindings = ?,
-		    run_consent_release = ?, schedule_consent_release = ?, updated_at = ?
+		SET generation = ?, target_profiles = ?, target_bindings = ?, credential_bindings = ?, updated_at = ?
 		WHERE installation_id = ? AND generation = ?
-	`, next.Generation, profiles, targets, credentials, nullableDigest(next.RunConsentRelease),
-		nullableDigest(next.ScheduleConsentRelease), next.UpdatedAt.Format(time.RFC3339Nano),
+	`, next.Generation, profiles, targets, credentials, next.UpdatedAt.Format(time.RFC3339Nano),
 		next.InstallationID, expectedGeneration)
 	if err != nil {
 		return err
@@ -457,17 +452,15 @@ func getWorkflowInstallationConfiguration(
 		return workflowinstallation.Configuration{}, false, errors.New("Workflow Installation identity is invalid")
 	}
 	row := query.QueryRowContext(ctx, `
-		SELECT installation_id, generation, target_profiles, target_bindings, credential_bindings,
-		       run_consent_release, schedule_consent_release, updated_at
+		SELECT installation_id, generation, target_profiles, target_bindings, credential_bindings, updated_at
 		FROM workflow_installation_configurations WHERE installation_id = ?
 	`, installationID)
 	var configuration workflowinstallation.Configuration
 	var profiles, targets, credentials []byte
-	var runConsent, scheduleConsent sql.NullString
 	var updatedAt string
 	if err := row.Scan(
 		&configuration.InstallationID, &configuration.Generation, &profiles, &targets, &credentials,
-		&runConsent, &scheduleConsent, &updatedAt,
+		&updatedAt,
 	); errors.Is(err, sql.ErrNoRows) {
 		return workflowinstallation.Configuration{}, false, nil
 	} else if err != nil {
@@ -481,12 +474,6 @@ func getWorkflowInstallationConfiguration(
 	}
 	if err := decodeCanonicalBindings(credentials, &configuration.CredentialBindings); err != nil {
 		return workflowinstallation.Configuration{}, false, ErrSchemaDrift
-	}
-	if runConsent.Valid {
-		configuration.RunConsentRelease = artifact.Digest(runConsent.String)
-	}
-	if scheduleConsent.Valid {
-		configuration.ScheduleConsentRelease = artifact.Digest(scheduleConsent.String)
 	}
 	configuration.UpdatedAt, _ = time.Parse(time.RFC3339Nano, updatedAt)
 	if workflowinstallation.ValidateConfiguration(configuration) != nil {
@@ -531,13 +518,6 @@ func decodeCanonicalTargetProfiles(raw []byte, target *map[string]workflowinstal
 		return errors.New("Workflow Target Profiles are invalid")
 	}
 	return nil
-}
-
-func nullableDigest(value artifact.Digest) any {
-	if value == "" {
-		return nil
-	}
-	return value.String()
 }
 
 var _ workflowinstallation.Repository = (*WorkflowInstallationRepository)(nil)

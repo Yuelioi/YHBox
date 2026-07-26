@@ -38,6 +38,7 @@ type Option func(*Service)
 
 type InstallationRuntime interface {
 	ListWorkflowInstallations(context.Context) ([]workflowinstallation.InstallationRecord, error)
+	ListWorkflowLibrary(context.Context) ([]workflowinstallation.LibraryEntry, error)
 	ListWorkflowInstallationUpdateCandidates(context.Context, string) ([]workflowinstallation.UpdateCandidate, error)
 	StageWorkflowInstallationUpdate(context.Context, string, artifact.Digest) (workflowinstallation.UpdatePreview, error)
 	StageWorkflowInstallationRollback(context.Context, string) (workflowinstallation.UpdatePreview, error)
@@ -47,7 +48,6 @@ type InstallationRuntime interface {
 	WorkflowInstallationSettings(context.Context, string) (workflowinstallation.SettingsSnapshot, error)
 	UpdateWorkflowInstallationTargetProfile(context.Context, string, int64, string, []byte, string) (workflowinstallation.SettingsSnapshot, error)
 	UpdateWorkflowInstallationCredentialBinding(context.Context, string, int64, string, string) (workflowinstallation.SettingsSnapshot, error)
-	GrantWorkflowInstallationConsent(context.Context, string, workflowinstallation.ExecutionScope) (workflowinstallation.ReadinessReport, error)
 	StartInstallationRun(context.Context, string, workflowinstallation.ExecutionScope) (appcore.StartRunResult, error)
 }
 
@@ -81,17 +81,25 @@ func NewService(application *appcore.Application, options ...Option) (*Service, 
 }
 
 type SourceView struct {
-	WorkflowID  string          `json:"workflowId"`
-	Name        string          `json:"name"`
-	Description string          `json:"description,omitempty"`
-	Category    string          `json:"category,omitempty"`
-	Tags        []string        `json:"tags,omitempty"`
-	CreatedAt   string          `json:"createdAt,omitempty"`
-	UpdatedAt   string          `json:"updatedAt,omitempty"`
-	NodeCount   int             `json:"nodeCount"`
-	Revision    int64           `json:"revision"`
-	SourceHash  artifact.Digest `json:"sourceHash"`
-	SourceJSON  string          `json:"sourceJson,omitempty"`
+	WorkflowID         string                     `json:"workflowId"`
+	Name               string                     `json:"name"`
+	Description        string                     `json:"description,omitempty"`
+	Category           string                     `json:"category,omitempty"`
+	Tags               []string                   `json:"tags,omitempty"`
+	CreatedAt          string                     `json:"createdAt,omitempty"`
+	UpdatedAt          string                     `json:"updatedAt,omitempty"`
+	NodeCount          int                        `json:"nodeCount"`
+	Revision           int64                      `json:"revision"`
+	SourceHash         artifact.Digest            `json:"sourceHash"`
+	SourceJSON         string                     `json:"sourceJson,omitempty"`
+	Kind               string                     `json:"kind"`
+	ReadOnly           bool                       `json:"readOnly"`
+	InstallationID     string                     `json:"installationId,omitempty"`
+	ReleaseID          artifact.Digest            `json:"releaseId,omitempty"`
+	ReleaseVersion     string                     `json:"releaseVersion,omitempty"`
+	PublisherNamespace string                     `json:"publisherNamespace,omitempty"`
+	Lifecycle          string                     `json:"lifecycle,omitempty"`
+	Readiness          *InstallationReadinessView `json:"readiness,omitempty"`
 }
 
 type InstallationView struct {
@@ -487,6 +495,30 @@ func (s *Service) ListSources() ([]SourceView, error) {
 	return result, nil
 }
 
+func (s *Service) listLibrarySources() ([]SourceView, error) {
+	editable, err := s.ListSources()
+	if err != nil {
+		return nil, err
+	}
+	if s.installations == nil {
+		return editable, nil
+	}
+	installed, err := s.installations.ListWorkflowLibrary(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	result := make([]SourceView, 0, len(editable)+len(installed))
+	result = append(result, editable...)
+	for _, entry := range installed {
+		view, err := installedSourceView(entry)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, view)
+	}
+	return result, nil
+}
+
 func (s *Service) ListSourceRecoveries() []SourceRecoveryView {
 	recoveries := s.application.ListSourceRecoveries()
 	result := make([]SourceRecoveryView, 0, len(recoveries))
@@ -536,7 +568,7 @@ func (s *Service) QuerySources(query SourceQuery) (SourcePage, error) {
 	search := strings.ToLower(strings.TrimSpace(query.Search))
 	category := strings.ToLower(strings.TrimSpace(query.Category))
 	wantedTags := normalizedSourceTags(query.Tags)
-	views, err := s.ListSources()
+	views, err := s.listLibrarySources()
 	if err != nil {
 		return SourcePage{}, err
 	}
@@ -1043,26 +1075,6 @@ func (s *Service) UpdateInstallationCredentialBinding(
 	return installationSettingsView(snapshot), nil
 }
 
-func (s *Service) GrantInstallationConsent(
-	installationID string,
-	scope string,
-) (InstallationReadinessView, error) {
-	if s.installations == nil {
-		return InstallationReadinessView{}, errors.New("Workflow Installation runtime is unavailable")
-	}
-	executionScope := workflowinstallation.ExecutionScope(scope)
-	if executionScope != workflowinstallation.ScopeRun && executionScope != workflowinstallation.ScopeSchedule {
-		return InstallationReadinessView{}, errors.New("Workflow Installation consent scope is invalid")
-	}
-	report, err := s.installations.GrantWorkflowInstallationConsent(
-		context.Background(), installationID, executionScope,
-	)
-	if err != nil {
-		return InstallationReadinessView{}, err
-	}
-	return installationReadinessView(report), nil
-}
-
 func (s *Service) StartInstallationRun(installationID string) (StartRunView, error) {
 	if s.installations == nil {
 		return StartRunView{}, errors.New("Workflow Installation runtime is unavailable")
@@ -1287,11 +1299,39 @@ func sourceView(snapshot workflowstore.SourceSnapshot, includeSource bool) (Sour
 		Tags: append([]string(nil), document.Workflow.Tags...), CreatedAt: document.Workflow.CreatedAt,
 		UpdatedAt: document.Workflow.UpdatedAt, NodeCount: sourceNodeCount(document),
 		Revision: snapshot.Revision(), SourceHash: snapshot.Hash(),
+		Kind: "editable",
 	}
 	if includeSource {
 		view.SourceJSON = string(snapshot.Artifact())
 	}
 	return view, nil
+}
+
+func installedSourceView(entry workflowinstallation.LibraryEntry) (SourceView, error) {
+	document, diagnostics := schema.ParseSource(entry.Release.SourceArtifact)
+	if len(diagnostics) != 0 {
+		return SourceView{}, errors.New("installed Workflow Source failed strict reopen")
+	}
+	readiness := installationReadinessView(entry.Readiness)
+	return SourceView{
+		WorkflowID:         "installation." + entry.Installation.ID,
+		Name:               entry.Installation.Name,
+		Description:        document.Workflow.Description,
+		Category:           document.Workflow.Category,
+		Tags:               append([]string(nil), document.Workflow.Tags...),
+		CreatedAt:          entry.Installation.CreatedAt.Format(time.RFC3339Nano),
+		UpdatedAt:          entry.Installation.UpdatedAt.Format(time.RFC3339Nano),
+		NodeCount:          sourceNodeCount(document),
+		SourceHash:         entry.Release.SourceHash,
+		Kind:               "imported",
+		ReadOnly:           true,
+		InstallationID:     entry.Installation.ID,
+		ReleaseID:          entry.Release.ID,
+		ReleaseVersion:     entry.Release.ReleaseVersion,
+		PublisherNamespace: entry.Release.PublisherNamespace,
+		Lifecycle:          string(entry.Installation.Lifecycle),
+		Readiness:          &readiness,
+	}, nil
 }
 
 func sourceNodeCount(source schema.WorkflowSource) int {

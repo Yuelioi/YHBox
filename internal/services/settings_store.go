@@ -247,6 +247,10 @@ func decodeSettingsEnvelope(raw []byte) (*Settings, settingsEnvelope, error) {
 	if err != nil || checksum != envelope.Checksum {
 		return nil, settingsEnvelope{}, errors.New("settings payload checksum mismatch")
 	}
+	canonical, err = removeLegacyWorkflowConsent(canonical)
+	if err != nil {
+		return nil, settingsEnvelope{}, err
+	}
 	settings := defaultSettings()
 	payloadDecoder := json.NewDecoder(bytes.NewReader(canonical))
 	payloadDecoder.DisallowUnknownFields()
@@ -256,11 +260,44 @@ func decodeSettingsEnvelope(raw []byte) (*Settings, settingsEnvelope, error) {
 	if err := payloadDecoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 		return nil, settingsEnvelope{}, errors.New("settings payload must contain exactly one JSON value")
 	}
-	settings.revokeStaleWorkflowConsents()
 	if err := settings.Validate(); err != nil {
 		return nil, settingsEnvelope{}, err
 	}
 	return settings, envelope, nil
+}
+
+// removeLegacyWorkflowConsent is the one-way compatibility reader for
+// settings written before configured capabilities became immediately usable.
+// Unknown fields remain strict; only the four retired consent fields are
+// removed before decoding the current model.
+func removeLegacyWorkflowConsent(raw []byte) ([]byte, error) {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	var payload map[string]any
+	if err := decoder.Decode(&payload); err != nil {
+		return nil, err
+	}
+	for _, path := range [][2]string{
+		{"ai", "profiles"},
+		{"network", "httpOrigins"},
+		{"applications", "profiles"},
+		{"automation", "targets"},
+	} {
+		section, ok := payload[path[0]].(map[string]any)
+		if !ok {
+			continue
+		}
+		entries, ok := section[path[1]].([]any)
+		if !ok {
+			continue
+		}
+		for _, entry := range entries {
+			if object, ok := entry.(map[string]any); ok {
+				delete(object, "workflowConsent")
+			}
+		}
+	}
+	return artifact.Marshal(payload)
 }
 
 func (s *SettingsStore) preserveCurrent() error {

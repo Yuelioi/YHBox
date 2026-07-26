@@ -76,10 +76,6 @@ export interface WorkflowTransport {
     requirementSlot: string,
     credentialBindingId: string,
   ): Promise<InstallationSettingsView>
-  grantInstallationConsent(
-    installationId: string,
-    scope: 'run' | 'schedule',
-  ): Promise<InstallationReadinessView>
   querySources(query: SourceQuery): Promise<SourcePage>
   listSourceRecoveries(): Promise<SourceRecoveryView[]>
   repairSourceRecovery(recoveryId: string, sourceJson: string): Promise<SourceView>
@@ -173,8 +169,6 @@ export const workflowTransport: WorkflowTransport = {
       requirementSlot,
       credentialBindingId,
     ),
-  grantInstallationConsent: (installationId, scope) =>
-    invoke(WorkflowService.GrantInstallationConsent, installationId, scope),
   querySources: (query) => invoke(WorkflowService.QuerySources, query),
   listSourceRecoveries: () => invoke(WorkflowService.ListSourceRecoveries),
   repairSourceRecovery: (recoveryId, sourceJson) =>

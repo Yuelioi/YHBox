@@ -100,6 +100,7 @@ var contentMigrations = []migration{
 	{id: "content.workflow-installation-configurations.5", from: 4, to: 5, statements: workflowInstallationConfigurationStatements},
 	{id: "content.workflow-target-profiles.6", from: 5, to: 6, statements: workflowTargetProfileStatements},
 	{id: "content.workflow-installation-rollback.7", from: 6, to: 7, statements: workflowInstallationRollbackStatements},
+	{id: "content.remove-workflow-consent.8", from: 7, to: 8, statements: workflowConsentRemovalStatements},
 }
 
 var runMigrations = []migration{
@@ -320,6 +321,11 @@ var workflowInstallationRollbackStatements = []string{
 		ADD COLUMN previous_release_id TEXT
 		REFERENCES workflow_releases(release_id) ON DELETE RESTRICT
 		CHECK (previous_release_id IS NULL OR length(previous_release_id) = 71)`,
+}
+
+var workflowConsentRemovalStatements = []string{
+	`ALTER TABLE workflow_installation_configurations DROP COLUMN run_consent_release`,
+	`ALTER TABLE workflow_installation_configurations DROP COLUMN schedule_consent_release`,
 }
 
 func (d *database) prepare(ctx context.Context, faults faultHooks) error {

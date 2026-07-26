@@ -178,26 +178,7 @@ async function ensureScheduleCanEnable(schedule: Schedule): Promise<boolean> {
   for (const installationId of new Set(schedule.targets.map((target) => target.id))) {
     const readiness = await workflowTransport.getInstallationReadiness(installationId)
     const blockers = readiness.blockers.filter((blocker) => blocker.blocks.includes('schedule'))
-    if (blockers.length === 0) continue
-    if (blockers.some((blocker) => blocker.kind !== 'schedule-consent')) {
-      throw new Error(t('schedule.readiness_blocked'))
-    }
-    const installation = installations.value.find(
-      (candidate) => candidate.installationId === installationId,
-    )
-    const accepted = await confirm({
-      title: t('schedule.consent_title'),
-      description: t('schedule.consent_desc', {
-        name: installation?.name ?? installationId,
-      }),
-      confirmText: t('schedule.consent_confirm'),
-    })
-    if (accepted !== true) return false
-    const afterConsent = await workflowTransport.grantInstallationConsent(
-      installationId,
-      'schedule',
-    )
-    if (!afterConsent.scheduleAllowed) throw new Error(t('schedule.readiness_blocked'))
+    if (blockers.length !== 0) throw new Error(t('schedule.readiness_blocked'))
   }
   return true
 }

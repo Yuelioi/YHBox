@@ -30,7 +30,7 @@ func sealApplicationLifecycleCapability() (capability.Definition, error) {
 			"properties":{"operation":{"enum":["launch","terminate"]}},"required":["operation"],"additionalProperties":false
 		}`, scopeID))}},
 		Credential: capability.CredentialNone, Risk: capability.RiskDangerous,
-		Consent: capability.ConsentOnce, ProviderABI: appcontrol.ProviderABI,
+		Consent: capability.ConsentNone, ProviderABI: appcontrol.ProviderABI,
 	})
 }
 

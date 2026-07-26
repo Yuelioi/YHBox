@@ -10,14 +10,11 @@ import (
 	"github.com/yottaapp/yotta/internal/resource"
 )
 
-const workflowConsentDomain = "yotta/http-egress-workflow-consent/v1"
-
 var slotPattern = regexp.MustCompile(`^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$`)
 
 type InstallationDraft struct {
 	Slot    string
 	Profile ProfileDraft
-	Consent artifact.Digest
 }
 type Installation struct {
 	Slot             string
@@ -25,7 +22,6 @@ type Installation struct {
 	ProviderID       string
 	ProviderArtifact artifact.Digest
 	TargetID         string
-	Consent          artifact.Digest
 	Provider         resource.Provider
 }
 type installationState struct {
@@ -50,13 +46,6 @@ func Install(drafts []InstallationDraft) (Installations, error) {
 		if err != nil {
 			return Installations{}, fmt.Errorf("seal HTTP profile for slot %q: %w", draft.Slot, err)
 		}
-		expected, err := WorkflowConsentDigest(draft.Slot, profile)
-		if err != nil {
-			return Installations{}, err
-		}
-		if draft.Consent != "" && draft.Consent != expected {
-			return Installations{}, fmt.Errorf("HTTP installation slot %q has stale workflow consent", draft.Slot)
-		}
 		installed, exists := shared[profile.Digest()]
 		if !exists {
 			provider, err := NewProvider(profile)
@@ -72,7 +61,7 @@ func Install(drafts []InstallationDraft) (Installations, error) {
 			shared[profile.Digest()] = installed
 			providers = append(providers, provider)
 		}
-		installed.Slot, installed.TargetID, installed.Consent = draft.Slot, TargetID(draft.Slot), draft.Consent
+		installed.Slot, installed.TargetID = draft.Slot, TargetID(draft.Slot)
 		entries = append(entries, installed)
 	}
 	return Installations{state: &installationState{entries: entries, providers: providers}}, nil
@@ -101,14 +90,4 @@ func ValidateInstallationSlot(slot string) error {
 		return errors.New("invalid HTTP installation slot")
 	}
 	return nil
-}
-func WorkflowConsentDigest(slot string, profile Profile) (artifact.Digest, error) {
-	if !slotPattern.MatchString(slot) || !profile.Valid() {
-		return "", errors.New("HTTP workflow consent identity is invalid")
-	}
-	raw, err := artifact.Marshal(map[string]any{"slot": slot, "profileDigest": profile.Digest(), "providerAbi": ProviderABI, "operations": []string{OperationGet}})
-	if err != nil {
-		return "", err
-	}
-	return artifact.Sum(workflowConsentDomain, raw)
 }

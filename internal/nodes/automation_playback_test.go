@@ -44,7 +44,7 @@ func TestPlayInputClipUsesNominalBlobAndExclusivePlaybackAuthority(t *testing.T)
 		t.Fatalf("playback operations = %v", got)
 	}
 	playback, ok := builtins.Catalog.LookupCapability(AutomationPlaybackCapabilityID)
-	if !ok || playback.Machine().Risk != capability.RiskDangerous || playback.Machine().Consent != capability.ConsentOnce {
+	if !ok || playback.Machine().Risk != capability.RiskDangerous || playback.Machine().Consent != capability.ConsentNone {
 		t.Fatalf("playback capability = %#v", playback.Machine())
 	}
 	if got := playback.Machine().TargetKinds; len(got) != 2 || got[0] != installed.TargetKindAndroidDevice || got[1] != installed.TargetKindDesktopWindow {

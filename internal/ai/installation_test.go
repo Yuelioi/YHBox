@@ -55,24 +55,13 @@ func TestInstallationsShareProviderByProfileAndBindExactSlots(t *testing.T) {
 	installations.CloseIdleConnections()
 }
 
-func TestInstallationsRejectDuplicateSlotsAndStaleConsent(t *testing.T) {
+func TestInstallationsRejectDuplicateSlotsAndRequireCredentialsAndEvaluation(t *testing.T) {
 	profileDraft := ModelProfileDraft{
 		Provider: ProviderAnthropicMessages, Model: "claude-test", MaxOutputTokens: 4096,
 		Capabilities: ProfileCapabilities{StructuredOutput: true}, Evaluation: EvaluationUnverified,
 	}
 	if _, err := Install([]InstallationDraft{{Slot: "same", Profile: profileDraft}, {Slot: "same", Profile: profileDraft}}, installationCredentials{}); err == nil {
 		t.Fatal("accepted duplicate AI installation slots")
-	}
-	profile, err := SealModelProfile(profileDraft)
-	if err != nil {
-		t.Fatal(err)
-	}
-	consent, err := WorkflowConsentDigest("other", profile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := Install([]InstallationDraft{{Slot: "same", Profile: profileDraft, Consent: consent}}, installationCredentials{}); err == nil {
-		t.Fatal("accepted stale workflow consent")
 	}
 	if _, err := Install([]InstallationDraft{{Slot: "same", Profile: profileDraft}}, nil); err == nil {
 		t.Fatal("accepted a model installation without credential storage")

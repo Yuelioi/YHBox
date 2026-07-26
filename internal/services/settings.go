@@ -46,13 +46,12 @@ type AutomationSettings struct {
 // adapter-owned profile intent. Workflows receive only Slot; native identity
 // and backend details never enter graph data.
 type InstalledAutomationTargetSettings struct {
-	Slot            string          `json:"slot"`
-	Label           string          `json:"label"`
-	TargetKind      string          `json:"targetKind"`
-	AdapterKind     string          `json:"adapterKind"`
-	ProfileVersion  string          `json:"profileVersion"`
-	Profile         json.RawMessage `json:"profile"`
-	WorkflowConsent artifact.Digest `json:"workflowConsent,omitempty"`
+	Slot           string          `json:"slot"`
+	Label          string          `json:"label"`
+	TargetKind     string          `json:"targetKind"`
+	AdapterKind    string          `json:"adapterKind"`
+	ProfileVersion string          `json:"profileVersion"`
+	Profile        json.RawMessage `json:"profile"`
 }
 
 func (configured InstalledAutomationTargetSettings) profileDraft(application InstalledApplicationSettings) (automationinstalled.ProfileDraft, error) {
@@ -103,7 +102,7 @@ func (settings AutomationSettings) InstallationDrafts(applications ApplicationSe
 			return nil, fmt.Errorf("automation target %q profile: %w", configured.Slot, err)
 		}
 		result = append(result, automationinstalled.InstallationDraft{
-			Slot: configured.Slot, Label: configured.Label, Profile: profile, Consent: configured.WorkflowConsent,
+			Slot: configured.Slot, Label: configured.Label, Profile: profile,
 			RuntimeMouseCounts360: int64(runtimeMouseCounts360),
 		})
 	}
@@ -118,14 +117,13 @@ type InstalledApplicationSettings struct {
 	Executable       string          `json:"executable"`
 	ExecutableDigest artifact.Digest `json:"executableDigest"`
 	Arguments        []string        `json:"arguments"`
-	WorkflowConsent  artifact.Digest `json:"workflowConsent,omitempty"`
 }
 
 func (configured InstalledApplicationSettings) profileDraft() appcontrol.ProfileDraft {
 	return appcontrol.ProfileDraft{Executable: configured.Executable, Arguments: append([]string(nil), configured.Arguments...)}
 }
 func (configured InstalledApplicationSettings) installationDraft() appcontrol.InstallationDraft {
-	return appcontrol.InstallationDraft{Slot: configured.Slot, Profile: configured.profileDraft(), Consent: configured.WorkflowConsent}
+	return appcontrol.InstallationDraft{Slot: configured.Slot, Profile: configured.profileDraft()}
 }
 func (settings ApplicationSettings) InstallationDrafts() []appcontrol.InstallationDraft {
 	result := make([]appcontrol.InstallationDraft, 0, len(settings.Profiles))
@@ -138,13 +136,12 @@ func (settings ApplicationSettings) InstallationDrafts() []appcontrol.Installati
 // HTTPOriginSettings is an installed network authority. Workflows bind the
 // logical Slot and can only issue GET requests beneath the exact Origin.
 type HTTPOriginSettings struct {
-	Slot                string          `json:"slot"`
-	Label               string          `json:"label"`
-	Origin              string          `json:"origin"`
-	AllowPrivateNetwork bool            `json:"allowPrivateNetwork"`
-	ResponseByteLimit   int64           `json:"responseByteLimit"`
-	TimeoutMilliseconds int64           `json:"timeoutMilliseconds"`
-	WorkflowConsent     artifact.Digest `json:"workflowConsent,omitempty"`
+	Slot                string `json:"slot"`
+	Label               string `json:"label"`
+	Origin              string `json:"origin"`
+	AllowPrivateNetwork bool   `json:"allowPrivateNetwork"`
+	ResponseByteLimit   int64  `json:"responseByteLimit"`
+	TimeoutMilliseconds int64  `json:"timeoutMilliseconds"`
 }
 
 func (origin HTTPOriginSettings) profileDraft() httpegress.ProfileDraft {
@@ -152,7 +149,7 @@ func (origin HTTPOriginSettings) profileDraft() httpegress.ProfileDraft {
 }
 
 func (origin HTTPOriginSettings) installationDraft() httpegress.InstallationDraft {
-	return httpegress.InstallationDraft{Slot: origin.Slot, Profile: origin.profileDraft(), Consent: origin.WorkflowConsent}
+	return httpegress.InstallationDraft{Slot: origin.Slot, Profile: origin.profileDraft()}
 }
 
 func (settings NetworkSettings) InstallationDrafts() []httpegress.InstallationDraft {
@@ -179,7 +176,6 @@ type AIModelSettings struct {
 	Evaluation       ai.EvaluationStatus    `json:"evaluation"`
 	EvaluationSuite  artifact.Digest        `json:"evaluationSuite,omitempty"`
 	EvaluationReport ai.EvalReportArtifact  `json:"evaluationReport,omitempty"`
-	WorkflowConsent  artifact.Digest        `json:"workflowConsent,omitempty"`
 }
 
 func (p AIModelSettings) profileDraft() ai.ModelProfileDraft {
@@ -191,7 +187,7 @@ func (p AIModelSettings) profileDraft() ai.ModelProfileDraft {
 }
 
 func (p AIModelSettings) installationDraft() ai.InstallationDraft {
-	return ai.InstallationDraft{Slot: p.Slot, Profile: p.profileDraft(), Evaluation: p.EvaluationReport, Consent: p.WorkflowConsent}
+	return ai.InstallationDraft{Slot: p.Slot, Profile: p.profileDraft(), Evaluation: p.EvaluationReport}
 }
 
 func (s AISettings) InstallationDrafts() []ai.InstallationDraft {
@@ -342,66 +338,6 @@ func defaultSettings() *Settings {
 	}
 }
 
-// revokeStaleWorkflowConsents turns persisted grants into explicit
-// unconsented installations when their current sealed profile/manifest digest
-// changes. Consent digests are never rewritten as a compatibility shortcut:
-// the local user must authorize the changed installation again.
-func (s *Settings) revokeStaleWorkflowConsents() {
-	for index := range s.AI.Profiles {
-		configured := &s.AI.Profiles[index]
-		if configured.WorkflowConsent == "" {
-			continue
-		}
-		profile, err := ai.SealModelProfile(configured.profileDraft())
-		expected, digestErr := ai.WorkflowConsentDigest(configured.Slot, profile)
-		if err != nil || digestErr != nil || ai.ValidateEvaluation(profile, configured.EvaluationReport) != nil || configured.WorkflowConsent != expected {
-			configured.WorkflowConsent = ""
-		}
-	}
-	for index := range s.Network.HTTPOrigins {
-		configured := &s.Network.HTTPOrigins[index]
-		if configured.WorkflowConsent == "" {
-			continue
-		}
-		profile, err := httpegress.SealProfile(configured.profileDraft())
-		expected, digestErr := httpegress.WorkflowConsentDigest(configured.Slot, profile)
-		if err != nil || digestErr != nil || configured.WorkflowConsent != expected {
-			configured.WorkflowConsent = ""
-		}
-	}
-	for index := range s.Applications.Profiles {
-		configured := &s.Applications.Profiles[index]
-		if configured.WorkflowConsent == "" {
-			continue
-		}
-		profile, err := appcontrol.SealProfile(configured.profileDraft())
-		expected, digestErr := appcontrol.WorkflowConsentDigest(configured.Slot, profile)
-		if err != nil || digestErr != nil || configured.WorkflowConsent != expected {
-			configured.WorkflowConsent = ""
-		}
-	}
-	applications := make(map[string]InstalledApplicationSettings, len(s.Applications.Profiles))
-	for _, configured := range s.Applications.Profiles {
-		applications[configured.Slot] = configured
-	}
-	for index := range s.Automation.Targets {
-		configured := &s.Automation.Targets[index]
-		if configured.WorkflowConsent == "" {
-			continue
-		}
-		var application InstalledApplicationSettings
-		if configured.requiresApplication() {
-			application = applications[configured.applicationSlot()]
-		}
-		draft, err := configured.profileDraft(application)
-		profile, sealErr := automationinstalled.SealProfile(draft)
-		expected, digestErr := automationinstalled.WorkflowConsentDigest(configured.Slot, profile)
-		if err != nil || sealErr != nil || digestErr != nil || configured.WorkflowConsent != expected {
-			configured.WorkflowConsent = ""
-		}
-	}
-}
-
 type settingsCommittedError struct{ err error }
 
 func (e *settingsCommittedError) Error() string   { return e.err.Error() }
@@ -502,15 +438,6 @@ func (settings *AISettings) validate() error {
 		if evaluationErr != nil && !errors.Is(evaluationErr, ai.ErrEvaluationNotApproved) {
 			return fmt.Errorf("ai.profiles[%s]: %w", configured.Slot, evaluationErr)
 		}
-		if configured.WorkflowConsent != "" {
-			if evaluationErr != nil {
-				return fmt.Errorf("ai.profiles[%s] workflow consent requires an approved evaluation", configured.Slot)
-			}
-			expected, err := ai.WorkflowConsentDigest(configured.Slot, profile)
-			if err != nil || configured.WorkflowConsent != expected {
-				return fmt.Errorf("ai.profiles[%s] has stale workflow consent", configured.Slot)
-			}
-		}
 	}
 	return nil
 }
@@ -529,15 +456,8 @@ func (settings *NetworkSettings) validate() error {
 			return fmt.Errorf("network.httpOrigins has an invalid or duplicate slot %q", configured.Slot)
 		}
 		seenSlots[configured.Slot] = true
-		profile, err := httpegress.SealProfile(configured.profileDraft())
-		if err != nil {
+		if _, err := httpegress.SealProfile(configured.profileDraft()); err != nil {
 			return fmt.Errorf("network.httpOrigins[%s]: %w", configured.Slot, err)
-		}
-		if configured.WorkflowConsent != "" {
-			expected, err := httpegress.WorkflowConsentDigest(configured.Slot, profile)
-			if err != nil || configured.WorkflowConsent != expected {
-				return fmt.Errorf("network.httpOrigins[%s] has stale workflow consent", configured.Slot)
-			}
 		}
 	}
 	return nil
@@ -557,15 +477,8 @@ func (settings *ApplicationSettings) validate() error {
 			return fmt.Errorf("applications.profiles has an invalid or duplicate slot %q", configured.Slot)
 		}
 		seenSlots[configured.Slot] = true
-		profile, err := appcontrol.SealProfile(configured.profileDraft())
-		if err != nil {
+		if _, err := appcontrol.SealProfile(configured.profileDraft()); err != nil {
 			return fmt.Errorf("applications.profiles[%s]: %w", configured.Slot, err)
-		}
-		if configured.WorkflowConsent != "" {
-			expected, err := appcontrol.WorkflowConsentDigest(configured.Slot, profile)
-			if err != nil || configured.WorkflowConsent != expected {
-				return fmt.Errorf("applications.profiles[%s] has stale workflow consent", configured.Slot)
-			}
 		}
 	}
 	return nil
@@ -606,15 +519,8 @@ func (settings *AutomationSettings) validate(applications ApplicationSettings) e
 		if err != nil {
 			return fmt.Errorf("automation.targets[%s]: %w", configured.Slot, err)
 		}
-		profile, err := automationinstalled.SealProfile(draft)
-		if err != nil {
+		if _, err := automationinstalled.SealProfile(draft); err != nil {
 			return fmt.Errorf("automation.targets[%s]: %w", configured.Slot, err)
-		}
-		if configured.WorkflowConsent != "" {
-			expected, err := automationinstalled.WorkflowConsentDigest(configured.Slot, profile)
-			if err != nil || configured.WorkflowConsent != expected {
-				return fmt.Errorf("automation.targets[%s] has stale workflow consent", configured.Slot)
-			}
 		}
 	}
 	return nil

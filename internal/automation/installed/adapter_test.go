@@ -171,7 +171,7 @@ func TestMacOSNoRuntimeAdapterRegistersAndSealsWithoutCoreChanges(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := sealInstallationManifestForProfile("mac-preview", "macOS preview", profile, false, registry)
+	manifest, err := sealInstallationManifestForProfile("mac-preview", "macOS preview", profile, registry)
 	if err != nil {
 		t.Fatal(err)
 	}

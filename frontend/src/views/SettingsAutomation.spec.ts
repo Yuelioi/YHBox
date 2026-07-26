@@ -5,10 +5,11 @@ import { describe, expect, it } from 'vitest'
 const source = readFileSync(join(process.cwd(), 'src/views/SettingsAutomation.vue'), 'utf8')
 
 describe('SettingsAutomation', () => {
-  it('binds adapter-specific exact targets behind slots and explicit consent', () => {
+  it('binds configured adapter-specific exact targets behind slots without extra consent', () => {
     expect(source).toContain('applicationSlot')
-    expect(source).toContain('backend.automation.grantWorkflowConsent')
-    expect(source).toContain('backend.automation.revokeWorkflowConsent')
+    expect(source).not.toContain('grantWorkflowConsent')
+    expect(source).not.toContain('revokeWorkflowConsent')
+    expect(source).not.toContain('workflowConsent')
     expect(source).toContain('captureBackend')
     expect(source).toContain('backend.automation.listTargetTypes()')
     expect(source).toContain("profileFieldOptions(desktopTargetType.value, 'captureBackend')")
@@ -27,8 +28,6 @@ describe('SettingsAutomation', () => {
     expect(source).not.toContain(':disabled="applications.length === 0 || !desktopTargetType"')
     expect(source).toContain('startWin32WindowTargetCapture')
     expect(source).toContain('cancelWin32WindowTargetCapture')
-    expect(source).toContain('backend.automation.grantAllWorkflowConsents()')
-    expect(source).toContain('backend.automation.revokeAllWorkflowConsents()')
     expect(source).toContain("useWailsEvent<unknown>('win32windowtarget:captured'")
     expect(source).toContain('target.windowTitle.trim()')
     expect(source).toContain('target.windowClass.trim()')
@@ -67,7 +66,7 @@ describe('SettingsAutomation', () => {
     expect(source).toContain(':aria-expanded="expandedSlot === target.slot"')
     expect(source).toContain(':aria-controls="`automation-target-${target.slot}`"')
     expect(source).toContain('<UFormField')
-    expect(source).toContain(':loading="busy[target.slot]"')
+    expect(source).toContain(':loading="healthLoading[target.slot]"')
   })
 
   it('keeps dense target identity and window selectors in a single-column flow', () => {
@@ -75,8 +74,9 @@ describe('SettingsAutomation', () => {
     expect(source).toContain('data-testid="automation-target-window-fields" class="space-y-4"')
   })
 
-  it('activates and authorizes a captured target in the same process', () => {
-    expect(source).toContain('await backend.automation.grantWorkflowConsent(target.slot)')
+  it('activates a captured target in the same process after saving it', () => {
+    expect(source).toContain('await store.patch({')
+    expect(source).not.toContain('grantWorkflowConsent')
     expect(source).not.toContain('captureFeedback.activationRequired')
     expect(source).not.toContain('settingsAutomation.capture.runtime_activation_required')
   })

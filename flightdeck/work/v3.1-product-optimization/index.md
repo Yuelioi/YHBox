@@ -10,17 +10,28 @@ Open
 
 ## Current
 
-Stage M5 已完成并通过 review remediation。随后修复新 EXE 的发布阻断：root layout 2→3 在任何
-domain Store 打开前把 Blob Store v1 平铺对象迁到 v2 分片布局，对账 Catalog inventory，并保留
-resume/rollback 与迁移快照；真实 profile 已完成迁移并连续两次启动成功。
+M5f 已完成：用户只面对一个工作流列表；外部导入项在同一列表中明确只读，Release 退回内部版本/
+来源/回滚事实。配置 AI、HTTP、桌面应用或自动化目标后即可使用，手动运行、计划和版本更新不再要求
+Yotta 二次授权。
 
 ## Next
 
-下一执行阶段为 [Stage M6](plan.md) 的外部 Site Foundation prerelease；进入兄弟仓库前先核对对应
-依赖 Work 与发布授权。
+1. 评估并启动 [M6 — Site Foundation prerelease](plan.md#m6--公开-site-foundation-prerelease外部仓库)。
 
 ## Progress
 
+- 2026-07-26 M5f 完成：Workflow library query 统一 editable Source 与 imported/read-only Installation，
+  工作流页删除第二个“已安装”区域；外部项同一行提供运行、设置、更新/回退与编辑副本。Workflow、
+  AI、HTTP、Application、Automation 的二次 consent API、持久字段与 UI 已删除，计划只检查真实
+  dependency/target/credential readiness；Content schema 8 删除旧 consent 列并保留所有工作流、本机
+  binding、schedule 和版本历史。`task check` 通过 37 个受影响 Go 包、Wails 16/149/235 和前端
+  84 文件/357 项；Windows WebView smoke `20260726-165705` 通过统一列表、设置、更新、回退、派生、
+  编辑器、资源与计划旅程，关键截图已目检。
+- 2026-07-26 测试工作流迁移完成：保留旧 `bin/data/workspace/workflows/fishing-v2.json` 原文件，
+  通过正式 Blob Store、Catalog 与 Source publish seam 将 revision 12 重建为生产 profile 的
+  `fishing-v2@0`，36 个去重 PNG Blob 全部按摘要/大小验证后进入 CAS。production CLI compile
+  生成 Program `sha256:47dc6c58286866c84626b589b79b82e05214a1501ca1234e85474640673964c7`
+  且零诊断；storage health 显示 layout 3、Content schema 7、Run schema 2、双库 healthy。
 - 2026-07-26 R8 Blob layout 发布迁移修复完成：真实失败来自 root layout 1→2 已提交，但 Blob marker
   仍为 `yotta/blob-store/1`；CAS v2 构造器只接受 marker 2，导致新 EXE 启动失败。新增正式 root
   layout 2→3 step，逐对象验 SHA-256、幂等迁入两级分片、对账 Catalog inventory，marker 与 root

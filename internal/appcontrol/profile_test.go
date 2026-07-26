@@ -53,12 +53,8 @@ func TestProfileRejectsAmbientAndScriptEntrypoints(t *testing.T) {
 	}
 }
 
-func TestAuthorizedInstallationSurvivesExecutableUpdate(t *testing.T) {
+func TestConfiguredInstallationSurvivesExecutableUpdate(t *testing.T) {
 	profile, path := testProfile(t)
-	consent, err := WorkflowConsentDigest("tool", profile)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err := VerifyProfile(profile); err != nil {
 		t.Fatal(err)
 	}
@@ -68,9 +64,9 @@ func TestAuthorizedInstallationSurvivesExecutableUpdate(t *testing.T) {
 	if err := VerifyProfile(profile); err != nil {
 		t.Fatalf("normal application update invalidated the authorized profile: %v", err)
 	}
-	installed, err := Install([]InstallationDraft{{Slot: "tool", Profile: profile.Machine(), Consent: consent}})
-	if err != nil || len(installed.Entries()) != 1 || installed.Entries()[0].Consent != consent {
-		t.Fatalf("updated authorized application did not install: %#v, %v", installed, err)
+	installed, err := Install([]InstallationDraft{{Slot: "tool", Profile: profile.Machine()}})
+	if err != nil || len(installed.Entries()) != 1 {
+		t.Fatalf("updated configured application did not install: %#v, %v", installed, err)
 	}
 }
 
@@ -85,27 +81,16 @@ func TestInstallationDefersMissingExecutableToInvocation(t *testing.T) {
 	}
 }
 
-func TestInstallationRequiresExactConsent(t *testing.T) {
+func TestConfiguredInstallationIsImmediatelyAvailable(t *testing.T) {
 	if !PlatformSupported() {
 		t.Skip("application lifecycle provider is intentionally unavailable")
 	}
 	profile, _ := testProfile(t)
 	draft := InstallationDraft{Slot: "after-effects", Profile: profile.Machine()}
-	withoutConsent, err := Install([]InstallationDraft{draft})
-	if err != nil || len(withoutConsent.Entries()) != 1 || withoutConsent.Entries()[0].Consent != "" {
-		t.Fatalf("Install without consent = %#v, %v", withoutConsent, err)
-	}
-	consent, err := WorkflowConsentDigest(draft.Slot, profile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	draft.Consent = consent
 	installed, err := Install([]InstallationDraft{draft})
-	if err != nil || installed.Entries()[0].Consent != consent {
-		t.Fatalf("Install with consent = %#v, %v", installed, err)
-	}
-	draft.Consent = profile.Digest()
-	if _, err := Install([]InstallationDraft{draft}); err == nil {
-		t.Fatal("Install accepted stale consent")
+	if err != nil || len(installed.Entries()) != 1 ||
+		installed.Entries()[0].TargetID != TargetID(draft.Slot) ||
+		installed.Entries()[0].Provider == nil {
+		t.Fatalf("configured application = %#v, %v", installed, err)
 	}
 }

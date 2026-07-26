@@ -5,10 +5,7 @@ import (
 	"fmt"
 
 	"github.com/yottaapp/yotta/internal/ai"
-	"github.com/yottaapp/yotta/internal/appcontrol"
 	"github.com/yottaapp/yotta/internal/artifact"
-	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
-	"github.com/yottaapp/yotta/internal/httpegress"
 )
 
 // SettingsService 是 wails3 binding 暴露给 JS 的设置 RPC 入口。
@@ -32,62 +29,28 @@ func (s *SettingsService) Get() Settings {
 func (s *SettingsService) Update(patchJSON string) error {
 	patch := json.RawMessage(patchJSON)
 	_, cur, err := s.app.MutateSettings(func(settings *Settings) error {
-		previous := make(map[string]consentState, len(settings.AI.Profiles))
+		previousAI := make(map[string]evaluationState, len(settings.AI.Profiles))
 		for _, profile := range settings.AI.Profiles {
-			previous[profile.Slot] = consentState{
-				consent: profile.WorkflowConsent, expected: expectedAIConsent(profile), evaluationSubject: expectedAIEvaluationSubject(profile),
+			previousAI[profile.Slot] = evaluationState{
+				subject:          expectedAIEvaluationSubject(profile),
 				evaluationReport: profile.EvaluationReport.Digest, evaluated: profile.Evaluation != ai.EvaluationUnverified,
 			}
 		}
-		previousHTTP := make(map[string]consentState, len(settings.Network.HTTPOrigins))
-		for _, origin := range settings.Network.HTTPOrigins {
-			previousHTTP[origin.Slot] = consentState{consent: origin.WorkflowConsent, expected: expectedHTTPConsent(origin)}
-		}
-		previousApplications := make(map[string]consentState, len(settings.Applications.Profiles))
+		previousApplications := make(map[string]struct{}, len(settings.Applications.Profiles))
 		for _, configured := range settings.Applications.Profiles {
-			previousApplications[configured.Slot] = consentState{consent: configured.WorkflowConsent, expected: expectedApplicationConsent(configured)}
-		}
-		previousAutomation := make(map[string]consentState, len(settings.Automation.Targets))
-		for _, configured := range settings.Automation.Targets {
-			previousAutomation[configured.Slot] = consentState{consent: configured.WorkflowConsent, expected: expectedAutomationConsent(*settings, configured)}
+			previousApplications[configured.Slot] = struct{}{}
 		}
 		if err := ApplyMergePatch(settings, patch); err != nil {
 			return fmt.Errorf("apply patch: %w", err)
 		}
 		removeTargetsForRemovedApplications(settings, previousApplications)
-		// Consent is tied to the exact slot/profile artifact. Editing semantic
-		// profile fields revokes an unchanged prior consent automatically.
 		for index := range settings.AI.Profiles {
 			profile := &settings.AI.Profiles[index]
-			old, exists := previous[profile.Slot]
-			if exists && old.evaluated && old.evaluationSubject != expectedAIEvaluationSubject(*profile) && profile.EvaluationReport.Digest == old.evaluationReport {
+			old, exists := previousAI[profile.Slot]
+			if exists && old.evaluated && old.subject != expectedAIEvaluationSubject(*profile) && profile.EvaluationReport.Digest == old.evaluationReport {
 				profile.Evaluation = ai.EvaluationUnverified
 				profile.EvaluationSuite = ""
 				profile.EvaluationReport = ai.EvalReportArtifact{}
-			}
-			if exists && old.consent != "" && profile.WorkflowConsent == old.consent && expectedAIConsent(*profile) != old.expected {
-				profile.WorkflowConsent = ""
-			}
-		}
-		for index := range settings.Network.HTTPOrigins {
-			origin := &settings.Network.HTTPOrigins[index]
-			old, exists := previousHTTP[origin.Slot]
-			if exists && old.consent != "" && origin.WorkflowConsent == old.consent && expectedHTTPConsent(*origin) != old.expected {
-				origin.WorkflowConsent = ""
-			}
-		}
-		for index := range settings.Applications.Profiles {
-			configured := &settings.Applications.Profiles[index]
-			old, exists := previousApplications[configured.Slot]
-			if exists && old.consent != "" && configured.WorkflowConsent == old.consent && expectedApplicationConsent(*configured) != old.expected {
-				configured.WorkflowConsent = ""
-			}
-		}
-		for index := range settings.Automation.Targets {
-			configured := &settings.Automation.Targets[index]
-			old, exists := previousAutomation[configured.Slot]
-			if exists && old.consent != "" && configured.WorkflowConsent == old.consent && expectedAutomationConsent(*settings, *configured) != old.expected {
-				configured.WorkflowConsent = ""
 			}
 		}
 		return nil
@@ -117,7 +80,7 @@ func (s *SettingsService) Update(patchJSON string) error {
 	return commitErr
 }
 
-func removeTargetsForRemovedApplications(settings *Settings, previous map[string]consentState) {
+func removeTargetsForRemovedApplications(settings *Settings, previous map[string]struct{}) {
 	remainingApplications := make(map[string]struct{}, len(settings.Applications.Profiles))
 	for _, application := range settings.Applications.Profiles {
 		remainingApplications[application.Slot] = struct{}{}
@@ -142,12 +105,10 @@ func removeTargetsForRemovedApplications(settings *Settings, previous map[string
 	settings.Automation.Targets = targets
 }
 
-type consentState struct {
-	consent           artifact.Digest
-	expected          artifact.Digest
-	evaluationSubject artifact.Digest
-	evaluationReport  artifact.Digest
-	evaluated         bool
+type evaluationState struct {
+	subject          artifact.Digest
+	evaluationReport artifact.Digest
+	evaluated        bool
 }
 
 func expectedAIEvaluationSubject(configured AIModelSettings) artifact.Digest {
@@ -156,71 +117,6 @@ func expectedAIEvaluationSubject(configured AIModelSettings) artifact.Digest {
 		return ""
 	}
 	digest, err := ai.EvaluationSubjectDigest(profile)
-	if err != nil {
-		return ""
-	}
-	return digest
-}
-
-func expectedAIConsent(configured AIModelSettings) artifact.Digest {
-	profile, err := ai.SealModelProfile(configured.profileDraft())
-	if err != nil {
-		return ""
-	}
-	digest, err := ai.WorkflowConsentDigest(configured.Slot, profile)
-	if err != nil {
-		return ""
-	}
-	return digest
-}
-
-func expectedHTTPConsent(configured HTTPOriginSettings) artifact.Digest {
-	profile, err := httpegress.SealProfile(configured.profileDraft())
-	if err != nil {
-		return ""
-	}
-	digest, err := httpegress.WorkflowConsentDigest(configured.Slot, profile)
-	if err != nil {
-		return ""
-	}
-	return digest
-}
-
-func expectedApplicationConsent(configured InstalledApplicationSettings) artifact.Digest {
-	profile, err := appcontrol.SealProfile(configured.profileDraft())
-	if err != nil {
-		return ""
-	}
-	digest, err := appcontrol.WorkflowConsentDigest(configured.Slot, profile)
-	if err != nil {
-		return ""
-	}
-	return digest
-}
-
-func expectedAutomationConsent(settings Settings, configured InstalledAutomationTargetSettings) artifact.Digest {
-	var application InstalledApplicationSettings
-	if configured.requiresApplication() {
-		found := false
-		for _, candidate := range settings.Applications.Profiles {
-			if candidate.Slot == configured.applicationSlot() {
-				application, found = candidate, true
-				break
-			}
-		}
-		if !found {
-			return ""
-		}
-	}
-	draft, err := configured.profileDraft(application)
-	if err != nil {
-		return ""
-	}
-	profile, err := automationinstalled.SealProfile(draft)
-	if err != nil {
-		return ""
-	}
-	digest, err := automationinstalled.WorkflowConsentDigest(configured.Slot, profile)
 	if err != nil {
 		return ""
 	}

@@ -152,16 +152,14 @@
         </div>
 
         <div
+          v-if="preview.readiness.blockers.length"
           class="rounded-lg border border-warning/35 bg-warning/10 px-4 py-3 text-xs text-warning"
         >
-          {{ t('workflow.installation.update_consent_warning') }}
-          <span v-if="preview.readiness.blockers.length">
-            {{
-              t('workflow.installation.update_blocker_count', {
-                n: preview.readiness.blockers.length,
-              })
-            }}
-          </span>
+          {{
+            t('workflow.installation.update_blocker_count', {
+              n: preview.readiness.blockers.length,
+            })
+          }}
         </div>
       </template>
     </div>

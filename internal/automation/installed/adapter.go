@@ -76,21 +76,20 @@ type TargetTypeDescriptor struct {
 // installed target generation. It is projected into authoring, admission,
 // provider and policy views; those projections must not add authority.
 type InstallationManifestDocument struct {
-	Format            string                 `json:"format"`
-	Version           int                    `json:"version"`
-	Slot              string                 `json:"slot"`
-	Label             string                 `json:"label"`
-	TargetID          string                 `json:"targetId"`
-	TargetKind        string                 `json:"targetKind"`
-	AdapterKind       string                 `json:"adapterKind"`
-	ProfileKind       string                 `json:"profileKind"`
-	ProfileVersion    string                 `json:"profileVersion"`
-	ProfileDigest     artifact.Digest        `json:"profileDigest"`
-	ProviderID        string                 `json:"providerId"`
-	ProviderABI       string                 `json:"providerAbi"`
-	ProviderArtifact  artifact.Digest        `json:"providerArtifact"`
-	Capabilities      []CapabilityDescriptor `json:"capabilities"`
-	WorkflowConsented bool                   `json:"workflowConsented"`
+	Format           string                 `json:"format"`
+	Version          int                    `json:"version"`
+	Slot             string                 `json:"slot"`
+	Label            string                 `json:"label"`
+	TargetID         string                 `json:"targetId"`
+	TargetKind       string                 `json:"targetKind"`
+	AdapterKind      string                 `json:"adapterKind"`
+	ProfileKind      string                 `json:"profileKind"`
+	ProfileVersion   string                 `json:"profileVersion"`
+	ProfileDigest    artifact.Digest        `json:"profileDigest"`
+	ProviderID       string                 `json:"providerId"`
+	ProviderABI      string                 `json:"providerAbi"`
+	ProviderArtifact artifact.Digest        `json:"providerArtifact"`
+	Capabilities     []CapabilityDescriptor `json:"capabilities"`
 }
 
 type manifestState struct {
@@ -129,7 +128,6 @@ func (manifest InstallationManifest) Descriptor() InstallationDescriptor {
 		TargetKind: document.TargetKind, AdapterKind: document.AdapterKind,
 		ProviderID: document.ProviderID, ProviderABI: document.ProviderABI,
 		ResourceKinds: resourceKinds(document.Capabilities), Operations: operations(document.Capabilities),
-		WorkflowConsented: document.WorkflowConsented,
 	}
 }
 
@@ -148,16 +146,15 @@ func (manifest InstallationManifest) SupportsResourceKind(kind string) bool {
 // InstallationDescriptor is the compact workflow-facing projection exposed
 // by an installed target. The versioned manifest remains its sole fact source.
 type InstallationDescriptor struct {
-	Slot              string   `json:"slot"`
-	Label             string   `json:"label"`
-	TargetID          string   `json:"targetId"`
-	TargetKind        string   `json:"targetKind"`
-	AdapterKind       string   `json:"adapterKind"`
-	ProviderID        string   `json:"providerId"`
-	ProviderABI       string   `json:"providerAbi"`
-	ResourceKinds     []string `json:"resourceKinds"`
-	Operations        []string `json:"operations"`
-	WorkflowConsented bool     `json:"workflowConsented"`
+	Slot          string   `json:"slot"`
+	Label         string   `json:"label"`
+	TargetID      string   `json:"targetId"`
+	TargetKind    string   `json:"targetKind"`
+	AdapterKind   string   `json:"adapterKind"`
+	ProviderID    string   `json:"providerId"`
+	ProviderABI   string   `json:"providerAbi"`
+	ResourceKinds []string `json:"resourceKinds"`
+	Operations    []string `json:"operations"`
 }
 
 func TargetTypes() []TargetTypeDescriptor {
@@ -337,7 +334,7 @@ func defaultAdapterRegistry() adapterRegistry {
 	return registry
 }
 
-func sealInstallationManifest(slot, label, targetID, providerID string, providerArtifact artifact.Digest, profile Profile, registered adapterRegistration, consented bool) (InstallationManifest, error) {
+func sealInstallationManifest(slot, label, targetID, providerID string, providerArtifact artifact.Digest, profile Profile, registered adapterRegistration) (InstallationManifest, error) {
 	if slot == "" || targetID == "" || providerID == "" || !providerArtifact.Valid() || !profile.Valid() {
 		return InstallationManifest{}, errors.New("automation installation manifest identity is incomplete")
 	}
@@ -347,7 +344,7 @@ func sealInstallationManifest(slot, label, targetID, providerID string, provider
 		Slot: slot, Label: label, TargetID: targetID, TargetKind: targetType.TargetKind, AdapterKind: targetType.AdapterKind,
 		ProfileKind: targetType.ProfileKind, ProfileVersion: targetType.ProfileVersion, ProfileDigest: profile.Digest(),
 		ProviderID: providerID, ProviderABI: ProviderABI, ProviderArtifact: providerArtifact,
-		Capabilities: cloneCapabilities(targetType.Capabilities), WorkflowConsented: consented,
+		Capabilities: cloneCapabilities(targetType.Capabilities),
 	}
 	raw, err := artifact.Marshal(document)
 	if err != nil {
