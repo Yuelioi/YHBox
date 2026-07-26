@@ -227,6 +227,43 @@ func TestRuntimeStartsOnlyReadyWorkflowInstallationThroughSharedApplication(t *t
 	if err != nil || started.Run == nil || started.SourceHash != release.SourceHash {
 		t.Fatalf("StartInstallationRun() = %#v, %v", started, err)
 	}
+	candidateSource, diagnostics := schema.ParseSource(release.SourceArtifact)
+	if schema.HasErrors(diagnostics) {
+		t.Fatalf("candidate Source diagnostics = %#v", diagnostics)
+	}
+	candidateSource.Workflow.Name = "Installed release v2"
+	candidateArtifact, err := artifact.Marshal(candidateSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidate, err := workflowinstallation.NewVerifiedRelease(
+		candidateArtifact,
+		workflowinstallation.VerificationReceipt{
+			ReleaseDigest: testDigest(t, "workflow-release-v2"), AttestationDigest: testDigest(t, "publisher-attestation-v2"),
+			PublisherNamespace: release.PublisherNamespace, ReleaseVersion: "2.0.0", VerifiedAt: now.Add(time.Minute),
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preparedUpdate, err := runtime.PrepareWorkflowInstallationUpdate(
+		context.Background(), installation.ID, candidate,
+	)
+	if err != nil || !preparedUpdate.Valid() || len(preparedUpdate.Conflicts()) != 0 {
+		t.Fatalf("PrepareWorkflowInstallationUpdate() = %#v, %v", preparedUpdate, err)
+	}
+	updatedInstallation, err := runtime.ApplyWorkflowInstallationUpdate(context.Background(), preparedUpdate)
+	if err != nil || updatedInstallation.ReleaseID != candidate.ID {
+		t.Fatalf("ApplyWorkflowInstallationUpdate() = %#v, %v", updatedInstallation, err)
+	}
+	afterUpdate, err := service.GetInstallationReadiness(installation.ID)
+	if err != nil || afterUpdate.ReleaseID != candidate.ID || afterUpdate.RunAllowed ||
+		afterUpdate.ScheduleAllowed || len(afterUpdate.Blockers) != 2 {
+		t.Fatalf("readiness after update = %#v, %v", afterUpdate, err)
+	}
+	if _, err := service.StartInstallationRun(installation.ID); err == nil {
+		t.Fatal("updated Installation retained execution consent from the previous Release")
+	}
 	if _, err := runtime.StartInstallationRun(
 		context.Background(), installation.ID, workflowinstallation.ScopeSchedule,
 	); err == nil {

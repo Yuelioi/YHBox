@@ -131,6 +131,78 @@ func TestWorkflowInstallationRepositoryRejectsIdentityCollisionsAtomically(t *te
 	}
 }
 
+func TestWorkflowInstallationRepositorySwitchesReleaseAndConfigurationAtomically(t *testing.T) {
+	foundation, err := Open(context.Background(), testRoots(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer foundation.Close()
+	repository := foundation.WorkflowInstallations()
+	current := catalogTestVerifiedRelease(t)
+	candidate := catalogTestUpdatedRelease(t, current, "2.0.0")
+	now := time.Date(2026, 7, 26, 9, 0, 0, 0, time.UTC)
+	installation := workflowinstallation.InstallationRecord{
+		ID: "installation-update", ReleaseID: current.ID, Name: "Installed",
+		Lifecycle: workflowinstallation.LifecycleActive, CreatedAt: now, UpdatedAt: now,
+	}
+	configuration, err := workflowinstallation.NewConfigurationForRelease(installation, current)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.Commit(context.Background(), current, installation, configuration); err != nil {
+		t.Fatal(err)
+	}
+	switchedAt := now.Add(time.Minute)
+	nextInstallation := installation
+	nextInstallation.ReleaseID = candidate.ID
+	nextInstallation.UpdatedAt = switchedAt
+	nextConfiguration := workflowinstallation.CloneConfiguration(configuration)
+	nextConfiguration.Generation++
+	nextConfiguration.UpdatedAt = switchedAt
+	profile := nextConfiguration.TargetProfiles["desktop"]
+	profile.ReleaseID = candidate.ID
+	nextConfiguration.TargetProfiles["desktop"] = profile
+	if err := repository.SwitchRelease(
+		context.Background(), current.ID, configuration.Generation,
+		candidate, nextInstallation, nextConfiguration,
+	); err != nil {
+		t.Fatal(err)
+	}
+	loaded, found, err := repository.GetInstallation(context.Background(), installation.ID)
+	if err != nil || !found || loaded.ReleaseID != candidate.ID ||
+		!loaded.UpdatedAt.Equal(switchedAt) {
+		t.Fatalf("updated Installation = %#v, found=%v err=%v", loaded, found, err)
+	}
+	loadedConfiguration, found, err := repository.GetConfiguration(context.Background(), installation.ID)
+	if err != nil || !found || loadedConfiguration.Generation != 2 ||
+		loadedConfiguration.TargetProfiles["desktop"].ReleaseID != candidate.ID {
+		t.Fatalf("updated configuration = %#v, found=%v err=%v", loadedConfiguration, found, err)
+	}
+
+	staleCandidate := catalogTestUpdatedRelease(t, current, "3.0.0")
+	staleInstallation := nextInstallation
+	staleInstallation.ReleaseID = staleCandidate.ID
+	staleInstallation.UpdatedAt = switchedAt.Add(time.Minute)
+	staleConfiguration := workflowinstallation.CloneConfiguration(nextConfiguration)
+	staleConfiguration.UpdatedAt = staleInstallation.UpdatedAt
+	profile = staleConfiguration.TargetProfiles["desktop"]
+	profile.ReleaseID = staleCandidate.ID
+	staleConfiguration.TargetProfiles["desktop"] = profile
+	if err := repository.SwitchRelease(
+		context.Background(), candidate.ID, configuration.Generation,
+		staleCandidate, staleInstallation, staleConfiguration,
+	); !errors.Is(err, workflowinstallation.ErrInstallationConflict) {
+		t.Fatalf("stale SwitchRelease error = %v", err)
+	}
+	if _, found, err := repository.GetRelease(context.Background(), staleCandidate.ID); err != nil || found {
+		t.Fatalf("stale transaction published candidate Release: found=%v err=%v", found, err)
+	}
+	loaded, found, err = repository.GetInstallation(context.Background(), installation.ID)
+	if err != nil || !found || loaded.ReleaseID != candidate.ID {
+		t.Fatalf("stale transaction changed Installation: %#v found=%v err=%v", loaded, found, err)
+	}
+}
+
 func catalogTestVerifiedRelease(t *testing.T) workflowinstallation.ReleaseRecord {
 	t.Helper()
 	raw := []byte(`{
@@ -164,6 +236,40 @@ func catalogTestVerifiedRelease(t *testing.T) workflowinstallation.ReleaseRecord
 		ReleaseDigest: releaseID, AttestationDigest: attestationID,
 		PublisherNamespace: "https://example.test/publishers/acme", ReleaseVersion: "1.0.0",
 		VerifiedAt: time.Date(2026, 7, 26, 1, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return release
+}
+
+func catalogTestUpdatedRelease(
+	t *testing.T,
+	current workflowinstallation.ReleaseRecord,
+	version string,
+) workflowinstallation.ReleaseRecord {
+	t.Helper()
+	source, diagnostics := schema.ParseSource(current.SourceArtifact)
+	if schema.HasErrors(diagnostics) {
+		t.Fatalf("current Source diagnostics = %#v", diagnostics)
+	}
+	source.Workflow.Name = "Released " + version
+	raw, err := artifact.Marshal(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	releaseID, err := artifact.Sum("yotta/test/workflow-release/v1", raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	attestationID, err := artifact.Sum("yotta/test/attestation/v1", raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	release, err := workflowinstallation.NewVerifiedRelease(raw, workflowinstallation.VerificationReceipt{
+		ReleaseDigest: releaseID, AttestationDigest: attestationID,
+		PublisherNamespace: current.PublisherNamespace, ReleaseVersion: version,
+		VerifiedAt: current.VerifiedAt.Add(time.Minute),
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -10,17 +10,21 @@ Open
 
 ## Current
 
-Stage M5 进行中；M5a 显式本地派生已完成。Installation 可从 exact immutable Release 创建带
-`derivedFrom` provenance 的独立 editable Source，本机 target、credential、consent 与 schedule
-不进入派生内容，原 Installation 保持不变。
+Stage M5 进行中；M5a 显式本地派生与 M5b Installation staged update 已完成。更新候选先锁定
+identity、diff、本机配置迁移与 Readiness，确认后以 expected Release + generation 单事务切换。
 
 ## Next
 
-开始 [Stage M5](plan.md) 的未派生 Installation staged update：先建立候选 Release、diff、blocker 与
-确认切换的深 Module 边界，保证切换前失败不影响当前 Installation。
+继续 [Stage M5](plan.md)：能力范围变化必须暂停相关计划并重新授权，同时保留前一 Release 引用供显式
+rollback；旁装仍创建独立 Installation。
 
 ## Progress
 
+- 2026-07-26 M5b 完成：opaque `PreparedUpdate` 锁定 current Release/configuration generation、
+  candidate、确定性 graph/resource/variable/target/credential/dependency diff、迁移结果与候选 Readiness。
+  兼容本机值原样保留、新增 target 只补默认值、exact consent 清空；会误解释或丢失本机值的变化 fail closed。
+  Catalog 以 expected Release + generation 单事务插入 Release、切换 Installation、更新 configuration；
+  两个相关包 race 与 `task check`（34 个 Go 包）退出 0。
 - 2026-07-26 M5a 完成：Workflow Source 增加 exact `derivedFrom` Release provenance；
   `workflowinstallation` 深 Module 从 Installation 当前 Release 生成 opaque candidate，唯一 Application/
   Source Store seam 发布独立 Source，不复制 target、credential、consent 或 schedule。工作流列表提供显式

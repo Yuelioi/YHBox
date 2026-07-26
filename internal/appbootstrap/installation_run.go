@@ -57,6 +57,27 @@ func (r *Runtime) DeriveWorkflowInstallationSource(
 	return r.Application.PublishImportedSource(ctx, prepared.SourceArtifact(), -1, "")
 }
 
+func (r *Runtime) PrepareWorkflowInstallationUpdate(
+	ctx context.Context,
+	installationID string,
+	candidate workflowinstallation.ReleaseRecord,
+) (workflowinstallation.PreparedUpdate, error) {
+	if r == nil || r.Installations == nil {
+		return workflowinstallation.PreparedUpdate{}, errors.New("workflow installation runtime is unavailable")
+	}
+	return r.Installations.PrepareUpdate(ctx, installationID, candidate)
+}
+
+func (r *Runtime) ApplyWorkflowInstallationUpdate(
+	ctx context.Context,
+	prepared workflowinstallation.PreparedUpdate,
+) (workflowinstallation.InstallationRecord, error) {
+	if r == nil || r.Installations == nil {
+		return workflowinstallation.InstallationRecord{}, errors.New("workflow installation runtime is unavailable")
+	}
+	return r.Installations.ApplyUpdate(ctx, prepared)
+}
+
 func (r *Runtime) WorkflowInstallationReadiness(
 	ctx context.Context,
 	installationID string,

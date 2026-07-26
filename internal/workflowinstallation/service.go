@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -141,8 +142,90 @@ func (p PreparedDerivedSource) SourceArtifact() []byte {
 	return append([]byte(nil), p.sourceArtifact...)
 }
 
+type UpdateConflictKind string
+
+const (
+	UpdateConflictTarget     UpdateConflictKind = "target"
+	UpdateConflictCredential UpdateConflictKind = "credential"
+)
+
+type UpdateConflict struct {
+	Kind          UpdateConflictKind
+	RequirementID string
+}
+
+type UpdateDiff struct {
+	CurrentReleaseID    artifact.Digest
+	CandidateReleaseID  artifact.Digest
+	CurrentVersion      string
+	CandidateVersion    string
+	AddedTargets        []string
+	ChangedTargets      []string
+	RemovedTargets      []string
+	AddedCredentials    []string
+	ChangedCredentials  []string
+	RemovedCredentials  []string
+	GraphsChanged       bool
+	ResourcesChanged    bool
+	VariablesChanged    bool
+	DependenciesChanged bool
+}
+
+// PreparedUpdate is an immutable staged transition from one exact Release and
+// configuration generation to another. Only the Module can construct the
+// candidate configuration committed by ApplyUpdate.
+type PreparedUpdate struct{ state *preparedUpdateState }
+
+type preparedUpdateState struct {
+	expectedRelease    artifact.Digest
+	expectedGeneration int64
+	candidate          ReleaseRecord
+	installation       InstallationRecord
+	configuration      Configuration
+	diff               UpdateDiff
+	conflicts          []UpdateConflict
+	readiness          ReadinessReport
+}
+
+func (p PreparedUpdate) Valid() bool {
+	return p.state != nil && p.state.expectedRelease.Valid() &&
+		p.state.expectedGeneration > 0 && p.state.candidate.ID.Valid() &&
+		p.state.installation.ReleaseID == p.state.candidate.ID &&
+		p.state.configuration.InstallationID == p.state.installation.ID &&
+		p.state.configuration.Generation == p.state.expectedGeneration+1
+}
+
+func (p PreparedUpdate) Diff() UpdateDiff {
+	if !p.Valid() {
+		return UpdateDiff{}
+	}
+	return cloneUpdateDiff(p.state.diff)
+}
+
+func (p PreparedUpdate) Conflicts() []UpdateConflict {
+	if !p.Valid() {
+		return nil
+	}
+	return append([]UpdateConflict(nil), p.state.conflicts...)
+}
+
+func (p PreparedUpdate) CandidateReadiness() ReadinessReport {
+	if !p.Valid() {
+		return ReadinessReport{}
+	}
+	return cloneReadinessReport(p.state.readiness)
+}
+
 type Repository interface {
 	Commit(context.Context, ReleaseRecord, InstallationRecord, Configuration) error
+	SwitchRelease(
+		context.Context,
+		artifact.Digest,
+		int64,
+		ReleaseRecord,
+		InstallationRecord,
+		Configuration,
+	) error
 	GetInstallation(context.Context, string) (InstallationRecord, bool, error)
 	ListInstallations(context.Context) ([]InstallationRecord, error)
 	GetRelease(context.Context, artifact.Digest) (ReleaseRecord, bool, error)
@@ -284,6 +367,129 @@ func (m *Module) PrepareDerivedSource(
 		originReleaseID: release.ID,
 		sourceArtifact:  canonical,
 	}, nil
+}
+
+// PrepareUpdate validates a verified candidate Release, computes a
+// deterministic diff, and projects the exact post-switch local configuration
+// and readiness without changing durable Installation state.
+func (m *Module) PrepareUpdate(
+	ctx context.Context,
+	installationID string,
+	candidate ReleaseRecord,
+) (PreparedUpdate, error) {
+	if ctx == nil {
+		return PreparedUpdate{}, errors.New("prepare Workflow Installation update requires a context")
+	}
+	if err := ctx.Err(); err != nil {
+		return PreparedUpdate{}, err
+	}
+	if err := ValidateReleaseRecord(candidate); err != nil {
+		return PreparedUpdate{}, err
+	}
+	installation, err := m.Get(ctx, installationID)
+	if err != nil {
+		return PreparedUpdate{}, err
+	}
+	current, found, err := m.repository.GetRelease(ctx, installation.ReleaseID)
+	if err != nil {
+		return PreparedUpdate{}, err
+	}
+	if !found {
+		return PreparedUpdate{}, errors.New("Workflow Installation references a missing Release")
+	}
+	configuration, err := m.configuration(ctx, installation, current)
+	if err != nil {
+		return PreparedUpdate{}, err
+	}
+	if candidate.ID == current.ID {
+		return PreparedUpdate{}, errors.New("Workflow Installation already uses the candidate Release")
+	}
+	if candidate.PublisherNamespace != current.PublisherNamespace ||
+		candidate.WorkflowID != current.WorkflowID {
+		return PreparedUpdate{}, errors.New("Workflow Installation update candidate has a different publisher or workflow identity")
+	}
+	if candidate.ReleaseVersion == current.ReleaseVersion {
+		return PreparedUpdate{}, errors.New("Workflow Installation update candidate reuses the current immutable version")
+	}
+	currentSource, diagnostics := schema.ParseSource(current.SourceArtifact)
+	if schema.HasErrors(diagnostics) {
+		return PreparedUpdate{}, errors.New("current Workflow Release Source is invalid")
+	}
+	candidateSource, diagnostics := schema.ParseSource(candidate.SourceArtifact)
+	if schema.HasErrors(diagnostics) {
+		return PreparedUpdate{}, errors.New("candidate Workflow Release Source is invalid")
+	}
+	nextConfiguration, diff, conflicts, err := prepareUpdateConfiguration(
+		configuration, current, candidate, currentSource, candidateSource,
+	)
+	if err != nil {
+		return PreparedUpdate{}, err
+	}
+	now := m.now().UTC()
+	nextInstallation := installation
+	nextInstallation.ReleaseID = candidate.ID
+	nextInstallation.UpdatedAt = now
+	nextConfiguration.Generation = configuration.Generation + 1
+	nextConfiguration.RunConsentRelease = ""
+	nextConfiguration.ScheduleConsentRelease = ""
+	nextConfiguration.UpdatedAt = now
+	if err := ValidateInstallationRecord(nextInstallation); err != nil {
+		return PreparedUpdate{}, err
+	}
+	if err := ValidateConfiguration(nextConfiguration); err != nil {
+		return PreparedUpdate{}, err
+	}
+	dependencies, err := m.dependencies(ctx)
+	if err != nil {
+		return PreparedUpdate{}, err
+	}
+	targets, err := m.targets(ctx)
+	if err != nil {
+		return PreparedUpdate{}, err
+	}
+	credentials, err := m.credentials(ctx)
+	if err != nil {
+		return PreparedUpdate{}, err
+	}
+	readiness, err := EvaluateReadiness(
+		nextInstallation, candidate, nextConfiguration,
+		ReadinessEnvironment{Dependencies: dependencies, Targets: targets, Credentials: credentials},
+	)
+	if err != nil {
+		return PreparedUpdate{}, err
+	}
+	return PreparedUpdate{state: &preparedUpdateState{
+		expectedRelease: current.ID, expectedGeneration: configuration.Generation,
+		candidate: CloneReleaseRecord(candidate), installation: nextInstallation,
+		configuration: CloneConfiguration(nextConfiguration), diff: cloneUpdateDiff(diff),
+		conflicts: append([]UpdateConflict(nil), conflicts...), readiness: cloneReadinessReport(readiness),
+	}}, nil
+}
+
+// ApplyUpdate performs the single repository transaction captured by a
+// conflict-free PreparedUpdate. Repository CAS rejects stale Release or
+// configuration state.
+func (m *Module) ApplyUpdate(
+	ctx context.Context,
+	prepared PreparedUpdate,
+) (InstallationRecord, error) {
+	if ctx == nil || !prepared.Valid() {
+		return InstallationRecord{}, errors.New("prepared Workflow Installation update is invalid")
+	}
+	if err := ctx.Err(); err != nil {
+		return InstallationRecord{}, err
+	}
+	if len(prepared.state.conflicts) != 0 {
+		return InstallationRecord{}, errors.New("Workflow Installation update has unresolved local configuration conflicts")
+	}
+	if err := m.repository.SwitchRelease(
+		ctx, prepared.state.expectedRelease, prepared.state.expectedGeneration,
+		CloneReleaseRecord(prepared.state.candidate), prepared.state.installation,
+		CloneConfiguration(prepared.state.configuration),
+	); err != nil {
+		return InstallationRecord{}, err
+	}
+	return prepared.state.installation, nil
 }
 
 func (m *Module) Get(ctx context.Context, installationID string) (InstallationRecord, error) {
@@ -760,4 +966,180 @@ func targetProfilesEqual(left, right map[string]TargetProfile) bool {
 		}
 	}
 	return true
+}
+
+func prepareUpdateConfiguration(
+	current Configuration,
+	currentRelease ReleaseRecord,
+	candidateRelease ReleaseRecord,
+	currentSource schema.WorkflowSource,
+	candidateSource schema.WorkflowSource,
+) (Configuration, UpdateDiff, []UpdateConflict, error) {
+	next := CloneConfiguration(current)
+	next.TargetProfiles = make(map[string]TargetProfile, len(candidateSource.TargetProfileDefinitions))
+	next.TargetBindings = make(map[string]string, len(candidateSource.TargetProfileDefinitions))
+	next.CredentialBindings = make(map[string]string, len(candidateSource.CredentialRequirements))
+	diff := UpdateDiff{
+		CurrentReleaseID: currentRelease.ID, CandidateReleaseID: candidateRelease.ID,
+		CurrentVersion: currentRelease.ReleaseVersion, CandidateVersion: candidateRelease.ReleaseVersion,
+		GraphsChanged: currentSource.EntryGraph != candidateSource.EntryGraph ||
+			!canonicalEqual(currentSource.Graphs, candidateSource.Graphs),
+		ResourcesChanged:    !canonicalEqual(currentSource.Resources, candidateSource.Resources),
+		VariablesChanged:    !canonicalEqual(currentSource.Variables, candidateSource.Variables),
+		DependenciesChanged: !canonicalEqual(currentSource.Dependencies, candidateSource.Dependencies),
+	}
+	conflicts := make([]UpdateConflict, 0)
+	currentTargets := make(map[string]schema.TargetProfileDefinition, len(currentSource.TargetProfileDefinitions))
+	candidateTargets := make(map[string]schema.TargetProfileDefinition, len(candidateSource.TargetProfileDefinitions))
+	for _, definition := range currentSource.TargetProfileDefinitions {
+		currentTargets[definition.ID] = definition
+	}
+	for _, definition := range candidateSource.TargetProfileDefinitions {
+		candidateTargets[definition.ID] = definition
+		old, existed := currentTargets[definition.ID]
+		if !existed {
+			diff.AddedTargets = append(diff.AddedTargets, definition.ID)
+			profile, err := newTargetProfile(candidateRelease.ID, definition)
+			if err != nil {
+				return Configuration{}, UpdateDiff{}, nil, err
+			}
+			next.TargetProfiles[definition.ID] = profile
+			continue
+		}
+		if !canonicalEqual(old, definition) {
+			diff.ChangedTargets = append(diff.ChangedTargets, definition.ID)
+		}
+		currentProfile := current.TargetProfiles[definition.ID]
+		compatible := currentProfile.TargetKind == definition.TargetKind &&
+			currentProfile.AdapterKind == definition.AdapterKind &&
+			currentProfile.ProfileVersion == definition.ProfileVersion
+		settings, settingsErr := schema.ValidateTargetProfileSettings(definition, currentProfile.Settings)
+		if compatible && settingsErr == nil {
+			currentProfile.ReleaseID = candidateRelease.ID
+			currentProfile.Settings = settings
+			next.TargetProfiles[definition.ID] = currentProfile
+			if currentProfile.TargetInstallationID != "" {
+				next.TargetBindings[definition.ID] = currentProfile.TargetInstallationID
+			}
+			continue
+		}
+		if targetProfileHasLocalValue(currentProfile, old) {
+			conflicts = append(conflicts, UpdateConflict{Kind: UpdateConflictTarget, RequirementID: definition.ID})
+		}
+		profile, err := newTargetProfile(candidateRelease.ID, definition)
+		if err != nil {
+			return Configuration{}, UpdateDiff{}, nil, err
+		}
+		next.TargetProfiles[definition.ID] = profile
+	}
+	for _, definition := range currentSource.TargetProfileDefinitions {
+		if _, found := candidateTargets[definition.ID]; found {
+			continue
+		}
+		diff.RemovedTargets = append(diff.RemovedTargets, definition.ID)
+		if targetProfileHasLocalValue(current.TargetProfiles[definition.ID], definition) {
+			conflicts = append(conflicts, UpdateConflict{Kind: UpdateConflictTarget, RequirementID: definition.ID})
+		}
+	}
+	currentCredentials := make(map[string]schema.CredentialRequirement, len(currentSource.CredentialRequirements))
+	candidateCredentials := make(map[string]schema.CredentialRequirement, len(candidateSource.CredentialRequirements))
+	for _, requirement := range currentSource.CredentialRequirements {
+		currentCredentials[requirement.Slot] = requirement
+	}
+	for _, requirement := range candidateSource.CredentialRequirements {
+		candidateCredentials[requirement.Slot] = requirement
+		old, existed := currentCredentials[requirement.Slot]
+		if !existed {
+			diff.AddedCredentials = append(diff.AddedCredentials, requirement.Slot)
+			continue
+		}
+		if !canonicalEqual(old, requirement) {
+			diff.ChangedCredentials = append(diff.ChangedCredentials, requirement.Slot)
+		}
+		binding := current.CredentialBindings[requirement.Slot]
+		if binding != "" && old.Kind != requirement.Kind {
+			conflicts = append(conflicts, UpdateConflict{
+				Kind: UpdateConflictCredential, RequirementID: requirement.Slot,
+			})
+			continue
+		}
+		if binding != "" {
+			next.CredentialBindings[requirement.Slot] = binding
+		}
+	}
+	for _, requirement := range currentSource.CredentialRequirements {
+		if _, found := candidateCredentials[requirement.Slot]; found {
+			continue
+		}
+		diff.RemovedCredentials = append(diff.RemovedCredentials, requirement.Slot)
+		if current.CredentialBindings[requirement.Slot] != "" {
+			conflicts = append(conflicts, UpdateConflict{
+				Kind: UpdateConflictCredential, RequirementID: requirement.Slot,
+			})
+		}
+	}
+	sortUpdateDiff(&diff)
+	sort.Slice(conflicts, func(i, j int) bool {
+		if conflicts[i].Kind != conflicts[j].Kind {
+			return conflicts[i].Kind < conflicts[j].Kind
+		}
+		return conflicts[i].RequirementID < conflicts[j].RequirementID
+	})
+	return next, diff, conflicts, nil
+}
+
+func newTargetProfile(
+	releaseID artifact.Digest,
+	definition schema.TargetProfileDefinition,
+) (TargetProfile, error) {
+	settings, err := schema.ValidateTargetProfileSettings(definition, definition.InitialDefaults)
+	if err != nil {
+		return TargetProfile{}, err
+	}
+	return TargetProfile{
+		DefinitionID: definition.ID, ReleaseID: releaseID,
+		TargetKind: definition.TargetKind, AdapterKind: definition.AdapterKind,
+		ProfileVersion: definition.ProfileVersion, Settings: settings,
+	}, nil
+}
+
+func targetProfileHasLocalValue(
+	profile TargetProfile,
+	definition schema.TargetProfileDefinition,
+) bool {
+	defaults, err := schema.ValidateTargetProfileSettings(definition, definition.InitialDefaults)
+	return profile.TargetInstallationID != "" || err != nil || !bytes.Equal(profile.Settings, defaults)
+}
+
+func canonicalEqual(left, right any) bool {
+	leftRaw, leftErr := artifact.Marshal(left)
+	rightRaw, rightErr := artifact.Marshal(right)
+	return leftErr == nil && rightErr == nil && bytes.Equal(leftRaw, rightRaw)
+}
+
+func sortUpdateDiff(diff *UpdateDiff) {
+	sort.Strings(diff.AddedTargets)
+	sort.Strings(diff.ChangedTargets)
+	sort.Strings(diff.RemovedTargets)
+	sort.Strings(diff.AddedCredentials)
+	sort.Strings(diff.ChangedCredentials)
+	sort.Strings(diff.RemovedCredentials)
+}
+
+func cloneUpdateDiff(diff UpdateDiff) UpdateDiff {
+	diff.AddedTargets = append([]string(nil), diff.AddedTargets...)
+	diff.ChangedTargets = append([]string(nil), diff.ChangedTargets...)
+	diff.RemovedTargets = append([]string(nil), diff.RemovedTargets...)
+	diff.AddedCredentials = append([]string(nil), diff.AddedCredentials...)
+	diff.ChangedCredentials = append([]string(nil), diff.ChangedCredentials...)
+	diff.RemovedCredentials = append([]string(nil), diff.RemovedCredentials...)
+	return diff
+}
+
+func cloneReadinessReport(report ReadinessReport) ReadinessReport {
+	report.Blockers = append([]Blocker(nil), report.Blockers...)
+	for index := range report.Blockers {
+		report.Blockers[index].Blocks = append([]ExecutionScope(nil), report.Blockers[index].Blocks...)
+	}
+	return report
 }

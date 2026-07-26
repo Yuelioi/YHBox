@@ -110,6 +110,107 @@ func (r *WorkflowInstallationRepository) Commit(
 	return tx.Commit()
 }
 
+func (r *WorkflowInstallationRepository) SwitchRelease(
+	ctx context.Context,
+	expectedRelease artifact.Digest,
+	expectedGeneration int64,
+	release workflowinstallation.ReleaseRecord,
+	installation workflowinstallation.InstallationRecord,
+	configuration workflowinstallation.Configuration,
+) error {
+	if err := r.ready(); err != nil {
+		return err
+	}
+	if ctx == nil || !expectedRelease.Valid() || expectedGeneration < 1 {
+		return workflowinstallation.ErrInstallationConflict
+	}
+	if err := workflowinstallation.ValidateReleaseRecord(release); err != nil {
+		return err
+	}
+	if err := workflowinstallation.ValidateInstallationRecord(installation); err != nil {
+		return err
+	}
+	if installation.ReleaseID != release.ID {
+		return errors.New("Workflow Installation update release identity is inconsistent")
+	}
+	if err := workflowinstallation.ValidateConfiguration(configuration); err != nil {
+		return err
+	}
+	if configuration.InstallationID != installation.ID ||
+		configuration.Generation != expectedGeneration+1 ||
+		!configuration.UpdatedAt.Equal(installation.UpdatedAt) {
+		return errors.New("Workflow Installation update configuration is inconsistent")
+	}
+	tx, err := r.database.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	result, err := tx.ExecContext(ctx, `
+		INSERT INTO workflow_releases(
+			release_id, source_hash, workflow_id, workflow_name, publisher_namespace,
+			release_version, attestation_digest, source_artifact, verified_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(release_id) DO NOTHING
+	`, release.ID.String(), release.SourceHash.String(), release.WorkflowID, release.WorkflowName,
+		release.PublisherNamespace, release.ReleaseVersion, release.AttestationDigest.String(),
+		release.SourceArtifact, release.VerifiedAt.Format(time.RFC3339Nano))
+	if err != nil {
+		return errors.Join(err, tx.Rollback())
+	}
+	inserted, err := result.RowsAffected()
+	if err != nil {
+		return errors.Join(err, tx.Rollback())
+	}
+	if inserted == 0 {
+		current, found, err := getWorkflowRelease(ctx, tx, release.ID)
+		if err != nil {
+			return errors.Join(err, tx.Rollback())
+		}
+		if !found || !equalWorkflowRelease(current, release) {
+			return errors.Join(workflowinstallation.ErrReleaseConflict, tx.Rollback())
+		}
+	}
+	result, err = tx.ExecContext(ctx, `
+		UPDATE workflow_installations
+		SET release_id = ?, name = ?, lifecycle = ?, updated_at = ?
+		WHERE installation_id = ? AND release_id = ?
+	`, installation.ReleaseID.String(), installation.Name, string(installation.Lifecycle),
+		installation.UpdatedAt.Format(time.RFC3339Nano), installation.ID, expectedRelease.String())
+	if err != nil {
+		return errors.Join(err, tx.Rollback())
+	}
+	updated, err := result.RowsAffected()
+	if err != nil {
+		return errors.Join(err, tx.Rollback())
+	}
+	if updated != 1 {
+		return errors.Join(workflowinstallation.ErrInstallationConflict, tx.Rollback())
+	}
+	profiles, targets, credentials, err := marshalConfiguration(configuration)
+	if err != nil {
+		return errors.Join(err, tx.Rollback())
+	}
+	result, err = tx.ExecContext(ctx, `
+		UPDATE workflow_installation_configurations
+		SET generation = ?, target_profiles = ?, target_bindings = ?, credential_bindings = ?,
+		    run_consent_release = ?, schedule_consent_release = ?, updated_at = ?
+		WHERE installation_id = ? AND generation = ?
+	`, configuration.Generation, profiles, targets, credentials,
+		nullableDigest(configuration.RunConsentRelease), nullableDigest(configuration.ScheduleConsentRelease),
+		configuration.UpdatedAt.Format(time.RFC3339Nano), configuration.InstallationID, expectedGeneration)
+	if err != nil {
+		return errors.Join(err, tx.Rollback())
+	}
+	updated, err = result.RowsAffected()
+	if err != nil {
+		return errors.Join(err, tx.Rollback())
+	}
+	if updated != 1 {
+		return errors.Join(workflowinstallation.ErrInstallationConflict, tx.Rollback())
+	}
+	return tx.Commit()
+}
+
 func (r *WorkflowInstallationRepository) GetInstallation(
 	ctx context.Context,
 	installationID string,

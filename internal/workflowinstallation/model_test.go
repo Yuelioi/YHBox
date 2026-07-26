@@ -136,6 +136,137 @@ func TestPrepareDerivedSourcePreservesReleaseContentWithoutLocalConfiguration(t 
 	}
 }
 
+func TestPreparedUpdatePreservesCompatibleLocalValuesAndResetsExactConsent(t *testing.T) {
+	current := testRelease(t)
+	candidate := testUpdatedRelease(t, func(source *schema.WorkflowSource) {
+		source.Workflow.Name = "Released workflow v2"
+		source.TargetProfileDefinitions[0].Name = "Desktop v2"
+		addedTarget := source.TargetProfileDefinitions[0]
+		addedTarget.ID = "mobile"
+		addedTarget.Name = "Mobile"
+		addedTarget.TargetKind = "mobile"
+		addedTarget.AdapterKind = "android"
+		source.TargetProfileDefinitions = append(source.TargetProfileDefinitions, addedTarget)
+		source.CredentialRequirements = append(source.CredentialRequirements, schema.CredentialRequirement{
+			Slot: "secondary", Kind: "https://example.test/credentials/secondary/v1", Purpose: "Secondary API",
+		})
+	})
+	repository := &memoryRepository{
+		releases: map[artifact.Digest]ReleaseRecord{}, installations: map[string]InstallationRecord{},
+	}
+	now := time.Date(2026, 7, 26, 8, 0, 0, 0, time.UTC)
+	module, err := New(repository, Options{
+		Now:   func() time.Time { return now },
+		NewID: func() string { return "installation-update" },
+		Dependencies: func(context.Context) ([]DependencyState, error) {
+			return []DependencyState{testDependency(t)}, nil
+		},
+		Targets: func(context.Context) ([]TargetState, error) {
+			return []TargetState{testTargetState("target-a")}, nil
+		},
+		Credentials: func(context.Context) ([]CredentialState, error) {
+			return []CredentialState{testCredentialState("credential-a")}, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	installation, err := module.InstallVerified(context.Background(), current, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := repository.configurations[installation.ID]
+	config.TargetBindings["desktop"] = "target-a"
+	desktop := config.TargetProfiles["desktop"]
+	desktop.TargetInstallationID = "target-a"
+	config.TargetProfiles["desktop"] = desktop
+	config.CredentialBindings["api"] = "credential-a"
+	config.RunConsentRelease = current.ID
+	config.ScheduleConsentRelease = current.ID
+	repository.configurations[installation.ID] = config
+
+	prepared, err := module.PrepareUpdate(context.Background(), installation.ID, candidate)
+	if err != nil || !prepared.Valid() || len(prepared.Conflicts()) != 0 {
+		t.Fatalf("PrepareUpdate() = %#v conflicts=%#v err=%v", prepared, prepared.Conflicts(), err)
+	}
+	diff := prepared.Diff()
+	if diff.CurrentReleaseID != current.ID || diff.CandidateReleaseID != candidate.ID ||
+		len(diff.AddedTargets) != 1 || diff.AddedTargets[0] != "mobile" ||
+		len(diff.ChangedTargets) != 1 || diff.ChangedTargets[0] != "desktop" ||
+		len(diff.AddedCredentials) != 1 || diff.AddedCredentials[0] != "secondary" {
+		t.Fatalf("update diff = %#v", diff)
+	}
+	readiness := prepared.CandidateReadiness()
+	if readiness.ReleaseID != candidate.ID || readiness.RunAllowed || readiness.ScheduleAllowed ||
+		len(readiness.Blockers) < 4 {
+		t.Fatalf("candidate readiness = %#v", readiness)
+	}
+	updated, err := module.ApplyUpdate(context.Background(), prepared)
+	if err != nil || updated.ReleaseID != candidate.ID {
+		t.Fatalf("ApplyUpdate() = %#v, %v", updated, err)
+	}
+	next := repository.configurations[installation.ID]
+	if next.Generation != config.Generation+1 ||
+		next.TargetBindings["desktop"] != "target-a" ||
+		next.TargetProfiles["desktop"].TargetInstallationID != "target-a" ||
+		next.TargetProfiles["desktop"].ReleaseID != candidate.ID ||
+		next.TargetProfiles["mobile"].ReleaseID != candidate.ID ||
+		next.CredentialBindings["api"] != "credential-a" ||
+		next.CredentialBindings["secondary"] != "" ||
+		next.RunConsentRelease != "" || next.ScheduleConsentRelease != "" {
+		t.Fatalf("updated configuration = %#v", next)
+	}
+}
+
+func TestPreparedUpdateFailsClosedForIdentityAndConfiguredTargetConflicts(t *testing.T) {
+	current := testRelease(t)
+	incompatible := testUpdatedRelease(t, func(source *schema.WorkflowSource) {
+		source.TargetProfileDefinitions[0].AdapterKind = "android"
+		source.CredentialRequirements[0].Kind = "https://example.test/credentials/replacement/v1"
+	})
+	repository := &memoryRepository{
+		releases: map[artifact.Digest]ReleaseRecord{}, installations: map[string]InstallationRecord{},
+	}
+	module, err := New(repository, Options{
+		Now:   func() time.Time { return time.Date(2026, 7, 26, 8, 30, 0, 0, time.UTC) },
+		NewID: func() string { return "installation-update-conflict" },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	installation, err := module.InstallVerified(context.Background(), current, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := repository.configurations[installation.ID]
+	config.TargetBindings["desktop"] = "target-private"
+	profile := config.TargetProfiles["desktop"]
+	profile.TargetInstallationID = "target-private"
+	config.TargetProfiles["desktop"] = profile
+	config.CredentialBindings["api"] = "credential-private"
+	repository.configurations[installation.ID] = config
+
+	prepared, err := module.PrepareUpdate(context.Background(), installation.ID, incompatible)
+	conflicts := prepared.Conflicts()
+	if err != nil || len(conflicts) != 2 ||
+		conflicts[0] != (UpdateConflict{Kind: UpdateConflictCredential, RequirementID: "api"}) ||
+		conflicts[1] != (UpdateConflict{Kind: UpdateConflictTarget, RequirementID: "desktop"}) {
+		t.Fatalf("PrepareUpdate() conflicts = %#v, err=%v", prepared.Conflicts(), err)
+	}
+	if _, err := module.ApplyUpdate(context.Background(), prepared); err == nil {
+		t.Fatal("ApplyUpdate accepted an unresolved local target conflict")
+	}
+	if repository.installations[installation.ID].ReleaseID != current.ID ||
+		repository.configurations[installation.ID].TargetBindings["desktop"] != "target-private" {
+		t.Fatal("failed update changed current Installation state")
+	}
+	wrongPublisher := incompatible
+	wrongPublisher.PublisherNamespace = "https://other.example.test/publishers/other"
+	if _, err := module.PrepareUpdate(context.Background(), installation.ID, wrongPublisher); err == nil {
+		t.Fatal("PrepareUpdate accepted a different publisher identity")
+	}
+}
+
 func TestUpdateTargetProfileValidatesExactReleaseSchemaAndGeneration(t *testing.T) {
 	release := testRelease(t)
 	repository := &memoryRepository{
@@ -460,6 +591,41 @@ func testRelease(t *testing.T) ReleaseRecord {
 	return release
 }
 
+func testUpdatedRelease(t *testing.T, mutate func(*schema.WorkflowSource)) ReleaseRecord {
+	t.Helper()
+	source, diagnostics := schema.ParseSource(testRelease(t).SourceArtifact)
+	if schema.HasErrors(diagnostics) {
+		t.Fatalf("test update Source diagnostics = %#v", diagnostics)
+	}
+	mutate(&source)
+	raw, err := artifact.Marshal(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonical, err := artifact.Canonicalize(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	releaseDigest, err := artifact.Sum("yotta/test/workflow-release/v1", canonical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	attestationDigest, err := artifact.Sum("yotta/test/publisher-attestation/v1", canonical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	release, err := NewVerifiedRelease(canonical, VerificationReceipt{
+		ReleaseDigest: releaseDigest, AttestationDigest: attestationDigest,
+		PublisherNamespace: "https://example.test/publishers/acme", ReleaseVersion: "2.0.0",
+		VerifiedAt: time.Date(2026, 7, 26, 0, 30, 0, 0, time.UTC),
+	})
+	if err != nil {
+		_, diagnostics := schema.ParseSource(canonical)
+		t.Fatalf("%v; diagnostics=%#v", err, diagnostics)
+	}
+	return release
+}
+
 func testReceipt(t *testing.T) VerificationReceipt {
 	t.Helper()
 	releaseDigest, err := artifact.Sum("yotta/test/workflow-release/v1", []byte("release"))
@@ -553,6 +719,31 @@ func (r *memoryRepository) Commit(
 	if r.configurations == nil {
 		r.configurations = map[string]Configuration{}
 	}
+	r.configurations[installation.ID] = CloneConfiguration(configuration)
+	return nil
+}
+
+func (r *memoryRepository) SwitchRelease(
+	_ context.Context,
+	expectedRelease artifact.Digest,
+	expectedGeneration int64,
+	release ReleaseRecord,
+	installation InstallationRecord,
+	configuration Configuration,
+) error {
+	currentInstallation, found := r.installations[installation.ID]
+	currentConfiguration, configured := r.configurations[installation.ID]
+	if !found || !configured || currentInstallation.ReleaseID != expectedRelease ||
+		currentConfiguration.Generation != expectedGeneration ||
+		configuration.Generation != expectedGeneration+1 {
+		return ErrInstallationConflict
+	}
+	if current, found := r.releases[release.ID]; found &&
+		(current.SourceHash != release.SourceHash || current.AttestationDigest != release.AttestationDigest) {
+		return ErrReleaseConflict
+	}
+	r.releases[release.ID] = CloneReleaseRecord(release)
+	r.installations[installation.ID] = installation
 	r.configurations[installation.ID] = CloneConfiguration(configuration)
 	return nil
 }
