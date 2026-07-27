@@ -10,46 +10,46 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/httpegress"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodes"
-	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
-func httpGet(builtins nodes.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
-		action := compiler.AdapterAction{EffectID: nodes.HTTPGetEffectID, Action: "network.http-response", SummaryCode: "network.http-get", Counters: map[string]int64{}, Facts: map[string]string{}}
+func httpGet(builtins nodes.Builtins) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
+		action := nodeadapter.AdapterAction{EffectID: nodes.HTTPGetEffectID, Action: "network.http-response", SummaryCode: "network.http-get", Counters: map[string]int64{}, Facts: map[string]string{}}
 		defer func() {
 			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, action, httpegress.CodeRequestFailed, runErr))
 		}()
 
 		request, err := httpGetRequest(invocation)
 		if err != nil {
-			return compiler.AdapterResult{}, httpFailure(httpegress.CodeInvalidRequest, err)
+			return nodeadapter.AdapterResult{}, httpFailure(httpegress.CodeInvalidRequest, err)
 		}
 		pathDigest, err := artifact.Sum("yotta/http-relative-path/v1", []byte(request.Path))
 		if err != nil {
-			return compiler.AdapterResult{}, httpFailure(httpegress.CodeContractViolation, err)
+			return nodeadapter.AdapterResult{}, httpFailure(httpegress.CodeContractViolation, err)
 		}
 		action.Facts["path_digest"] = pathDigest.String()
 		session := invocation.Sessions["origin"]
 		if session == nil {
-			return compiler.AdapterResult{}, httpFailure(httpegress.CodeContractViolation, errors.New("HTTP origin capability session is missing"))
+			return nodeadapter.AdapterResult{}, httpFailure(httpegress.CodeContractViolation, errors.New("HTTP origin capability session is missing"))
 		}
 		handle, err := session.Open(ctx, []string{httpegress.OperationGet}, []byte(`{}`))
 		if err != nil {
-			return compiler.AdapterResult{}, mapHTTPFailure(err)
+			return nodeadapter.AdapterResult{}, mapHTTPFailure(err)
 		}
 		defer func() { runErr = errors.Join(runErr, session.Drop(context.WithoutCancel(ctx), handle)) }()
 		payload, err := artifact.Marshal(request)
 		if err != nil {
-			return compiler.AdapterResult{}, httpFailure(httpegress.CodeContractViolation, err)
+			return nodeadapter.AdapterResult{}, httpFailure(httpegress.CodeContractViolation, err)
 		}
 		raw, err := session.Invoke(ctx, handle, httpegress.OperationGet, payload)
 		if err != nil {
-			return compiler.AdapterResult{}, mapHTTPFailure(err)
+			return nodeadapter.AdapterResult{}, mapHTTPFailure(err)
 		}
 		response, err := httpegress.OpenGetResponse(raw, httpegress.MaxResponseBytes)
 		if err != nil {
-			return compiler.AdapterResult{}, mapHTTPFailure(err)
+			return nodeadapter.AdapterResult{}, mapHTTPFailure(err)
 		}
 		action.Counters["response_bytes"] = int64(len(response.Body))
 		action.Counters["status_code"] = int64(response.StatusCode)
@@ -62,25 +62,25 @@ func httpGet(builtins nodes.Builtins) compiler.Adapter {
 			outputs["content-type"], err = json.Marshal(response.ContentType)
 		}
 		if err != nil {
-			return compiler.AdapterResult{}, httpFailure(httpegress.CodeContractViolation, err)
+			return nodeadapter.AdapterResult{}, httpFailure(httpegress.CodeContractViolation, err)
 		}
 		sealed := make(map[string]datatype.ValueEnvelope, len(outputs))
 		for id, rawValue := range outputs {
 			resolved, ok := invocation.OutputTypes[id]
 			if !ok {
-				return compiler.AdapterResult{}, httpFailure(httpegress.CodeContractViolation, fmt.Errorf("HTTP output %q is unresolved", id))
+				return nodeadapter.AdapterResult{}, httpFailure(httpegress.CodeContractViolation, fmt.Errorf("HTTP output %q is unresolved", id))
 			}
 			value, err := datatype.SealInlineJSON(builtins.Catalog, resolved, rawValue)
 			if err != nil {
-				return compiler.AdapterResult{}, httpFailure(httpegress.CodeContractViolation, err)
+				return nodeadapter.AdapterResult{}, httpFailure(httpegress.CodeContractViolation, err)
 			}
 			sealed[id] = value
 		}
-		return compiler.AdapterResult{Outputs: sealed, ExecOutputs: []string{"completed"}}, nil
+		return nodeadapter.AdapterResult{Outputs: sealed, ExecOutputs: []string{"completed"}}, nil
 	}
 }
 
-func httpGetRequest(invocation compiler.Invocation) (httpegress.GetRequest, error) {
+func httpGetRequest(invocation nodeadapter.Invocation) (httpegress.GetRequest, error) {
 	pathInput, ok := invocation.Inputs["path"]
 	if !ok {
 		return httpegress.GetRequest{}, errors.New("HTTP path input is missing")
@@ -146,5 +146,5 @@ func mapHTTPFailure(err error) error {
 }
 
 func httpFailure(code string, cause error) error {
-	return &compiler.NodeFailure{Code: code, Output: "failed", Cause: cause}
+	return &nodeadapter.NodeFailure{Code: code, Output: "failed", Cause: cause}
 }

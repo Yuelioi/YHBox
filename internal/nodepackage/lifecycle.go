@@ -593,6 +593,15 @@ func loadRegistry(ctx context.Context, root string) (map[string]PackageInstallat
 			grants[key] = grant
 		}
 	}
+	if document.Version == legacyRegistryVersion {
+		current, err := marshalRegistry(entries, policy, grants)
+		if err != nil {
+			return nil, TrustPolicy{}, nil, false, fmt.Errorf("migrate node package registry: %w", err)
+		}
+		if err := durablefs.WriteFile(registryPath, current, 0o600); err != nil {
+			return nil, TrustPolicy{}, nil, false, fmt.Errorf("publish migrated node package registry: %w", err)
+		}
+	}
 	return entries, policy, grants, true, nil
 }
 

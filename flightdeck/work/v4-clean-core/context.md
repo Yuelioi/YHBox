@@ -37,6 +37,10 @@
 - 持久化合同独立演进；迁移必须可验证、可恢复，失败时不得发布部分结果或丢弃旧数据。
 - 不建立永久 `internal/v4`、第二套 runtime 或只有一个实现的预留 interface。
 - Go 清扫按决策归属和 Module 深度推进，不以文件行数、目录搬迁或 interface 数量作为完成证据。
+- 结构收敛和体积收缩必须分别验收：生产 Go 相对阶段基线净增时，不得宣称轻量化完成；测试与 smoke
+  工具单独记账。净减必须来自删除浅 Module、重复决策或无价值防御，不来自压缩排版或删除有效说明。
+- Go 清扫中间切片只运行受影响包的定向测试；`task check`、Windows build 和完整旅程只在整个清扫
+  最终收尾时统一运行，避免每个切片重复消耗十几分钟。
 - source compatibility 与 durable compatibility 分开处理：无生产调用的别名可直接删除；已发布的
   settings、node package、Run 与 Blob 读取路径只有在完成持久化改写和版本退役证明后才能移除。
 - Workflow Source 和 Program 都使用 canonical JSON，但含义不同：Source 是可编辑文档，Program 是

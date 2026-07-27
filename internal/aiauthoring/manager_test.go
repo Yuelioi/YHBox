@@ -235,7 +235,7 @@ func testRuntime(t *testing.T, now time.Time) *appbootstrap.Runtime {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := runtime.Start(context.Background()); err != nil {
+	if err := runtime.Application.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = runtime.Close(context.Background()) })

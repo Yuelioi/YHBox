@@ -220,7 +220,7 @@ func buildReleaseRehearsalRuntime(t *testing.T, aiInstallations ai.Installations
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := runtime.Start(context.Background()); err != nil {
+	if err := runtime.Application.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {

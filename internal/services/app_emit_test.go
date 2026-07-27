@@ -13,7 +13,7 @@ import (
 )
 
 func TestAppEmitUsesAttachedTransport(t *testing.T) {
-	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	app := newTestApp(t, filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
 	var mu sync.Mutex
 	var names []string
 	if err := app.AttachEmitter(func(name string, _ any) {
@@ -23,7 +23,7 @@ func TestAppEmitUsesAttachedTransport(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(app.Shutdown)
+	t.Cleanup(func() { _ = app.ShutdownContext(context.Background()) })
 
 	app.Emit("settings:changed", map[string]any{})
 	mu.Lock()
@@ -34,22 +34,22 @@ func TestAppEmitUsesAttachedTransport(t *testing.T) {
 }
 
 func TestAppAttachEmitterIsSingleAssignment(t *testing.T) {
-	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	app := newTestApp(t, filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
 	if err := app.AttachEmitter(func(string, any) {}); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(app.Shutdown)
+	t.Cleanup(func() { _ = app.ShutdownContext(context.Background()) })
 	if err := app.AttachEmitter(func(string, any) {}); err == nil {
 		t.Fatal("second emitter attachment succeeded")
 	}
 }
 
 func TestAppPresentationLifecycleCannotReopenAfterShutdown(t *testing.T) {
-	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	app := newTestApp(t, filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
 	if err := app.AttachEmitter(func(string, any) {}); err != nil {
 		t.Fatal(err)
 	}
-	app.Shutdown()
+	_ = app.ShutdownContext(context.Background())
 	if err := app.AttachEmitter(func(string, any) {}); err == nil {
 		t.Fatal("emitter attachment succeeded after shutdown")
 	}
@@ -64,7 +64,7 @@ func TestAppShutdownDeadlineDoesNotLeaveLogFileOpen(t *testing.T) {
 		<-releaseCallback
 	})
 	sink.SetFileWriter(dir)
-	app := NewApp(filepath.Join(dir, "settings.json"), sink, zerolog.Nop())
+	app := newTestApp(t, filepath.Join(dir, "settings.json"), sink, zerolog.Nop())
 	if err := app.AttachEmitter(func(string, any) {}); err != nil {
 		t.Fatal(err)
 	}

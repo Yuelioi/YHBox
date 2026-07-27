@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodes"
-	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
 func TestConnectedVisionColorBlobsAreDeterministicAndOffsetToFrame(t *testing.T) {
@@ -70,7 +70,7 @@ func TestVisionColorRangeInputAndOutputSealingAreStrict(t *testing.T) {
 		return value
 	}
 	valid := seal(builtins.ColorRangeType, `{"space":"hsv","minimum":[0,90,90],"maximum":[5,100,100]}`)
-	got, err := visionColorRangeInput(compiler.Invocation{Inputs: map[string]datatype.ValueEnvelope{"range": valid}})
+	got, err := visionColorRangeInput(nodeadapter.Invocation{Inputs: map[string]datatype.ValueEnvelope{"range": valid}})
 	if err != nil || got.Space != "hsv" || got.Maximum != [3]int{5, 100, 100} {
 		t.Fatalf("color range = %#v, %v", got, err)
 	}
@@ -79,26 +79,26 @@ func TestVisionColorRangeInputAndOutputSealingAreStrict(t *testing.T) {
 		`{"space":"rgb","minimum":[10,0,0],"maximum":[5,255,255]}`,
 	} {
 		invalid := seal(builtins.JSONType, raw)
-		if _, err := visionColorRangeInput(compiler.Invocation{Inputs: map[string]datatype.ValueEnvelope{"range": invalid}}); err == nil {
+		if _, err := visionColorRangeInput(nodeadapter.Invocation{Inputs: map[string]datatype.ValueEnvelope{"range": invalid}}); err == nil {
 			t.Fatalf("visionColorRangeInput accepted %s", raw)
 		}
 	}
-	if _, err := visionColorRangeInput(compiler.Invocation{}); err == nil {
+	if _, err := visionColorRangeInput(nodeadapter.Invocation{}); err == nil {
 		t.Fatal("visionColorRangeInput accepted missing input")
 	}
 
 	integerType := datatype.RefResolvedType(builtins.IntegerType.TypeRef())
-	sealed, err := sealVisionOutputs(builtins, compiler.Invocation{OutputTypes: map[string]datatype.ResolvedType{"count": integerType}}, map[string]any{"count": 3})
+	sealed, err := sealVisionOutputs(builtins, nodeadapter.Invocation{OutputTypes: map[string]datatype.ResolvedType{"count": integerType}}, map[string]any{"count": 3})
 	if err != nil || string(sealed.Outputs["count"].InlineJSON()) != "3" {
 		t.Fatalf("sealed outputs = %#v, %v", sealed, err)
 	}
-	if _, err := sealVisionOutputs(builtins, compiler.Invocation{}, map[string]any{"count": 3}); err == nil {
+	if _, err := sealVisionOutputs(builtins, nodeadapter.Invocation{}, map[string]any{"count": 3}); err == nil {
 		t.Fatal("sealVisionOutputs accepted an unresolved output")
 	}
-	if _, err := findColorBlobs(builtins)(context.Background(), compiler.Invocation{}); err == nil {
+	if _, err := findColorBlobs(builtins)(context.Background(), nodeadapter.Invocation{}); err == nil {
 		t.Fatal("findColorBlobs accepted missing minimum area")
 	}
-	if _, err := trackDualColorBar(builtins)(context.Background(), compiler.Invocation{}); err == nil {
+	if _, err := trackDualColorBar(builtins)(context.Background(), nodeadapter.Invocation{}); err == nil {
 		t.Fatal("trackDualColorBar accepted missing inputs")
 	}
 }

@@ -45,7 +45,7 @@ Audited
 
 ## Verification
 
-- 每阶段运行受影响包测试与 `task check`。
+- 中间阶段只运行受影响包测试；整个 Go 清扫最终收尾时统一运行 `task check`。
 - 影响 Source、Program、Target、Run 或 storage 时验证 `fishing-v2` 隔离副本。
 - 影响 desktop composition 时运行 production Windows build 和完整 WebView smoke。
 - 兼容读取删除前必须用旧版本 fixture 证明已完成一次性持久化改写，并明确最低支持版本。

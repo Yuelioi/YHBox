@@ -193,7 +193,7 @@ describe('EditorSession', () => {
     ])
   })
 
-  it('owns revision, history, compile, save and Program Run facts', async () => {
+  it('owns revision, history, checks, save and Program Run facts', async () => {
     const source = emptySource()
     const saved = sourceView(source)
     const run = runView('QUEUED')
@@ -227,6 +227,29 @@ describe('EditorSession', () => {
       expect.arrayContaining([expect.objectContaining({ kind: 'add-node' })]),
     )
     expect(transport.startRun).toHaveBeenCalledWith(source.workflow.id)
+  })
+
+  it('checks the current unsaved draft without persisting it', async () => {
+    const source = emptySource()
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    const session = new EditorSession(transport, () => 'node_concat')
+    await session.load(source.workflow.id)
+
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: concat.nodeRef.nodeTypeId,
+      position: { x: 10, y: 20 },
+    })
+
+    await session.check()
+
+    expect(transport.applyPatch).not.toHaveBeenCalled()
+    expect(transport.checkDraft).toHaveBeenCalledOnce()
+    const checked = JSON.parse(
+      vi.mocked(transport.checkDraft).mock.calls[0]![0],
+    ) as YottaWorkflowSource
+    expect(checked.graphs[0]!.nodes.map((candidate) => candidate.id)).toContain('node_concat')
+    expect(session.dirty).toBe(true)
   })
 
   it('starts and controls a true debug Run through the admitted Run transport', async () => {
@@ -1982,7 +2005,7 @@ function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
       source.revision = baseRevision + 1
       return { source: sourceView(source), generatedNodes: [] }
     }),
-    compileSource: vi.fn(
+    checkDraft: vi.fn(
       async () =>
         ({
           sourceHash: 'sha256:source-next',

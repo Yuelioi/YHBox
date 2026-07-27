@@ -90,7 +90,7 @@ export interface WorkflowTransport {
     baseRevision: number,
     commands: WorkflowPatchCommand[],
   ): Promise<PatchView>
-  compileSource(workflowId: string): Promise<CompileView>
+  checkDraft(sourceJson: string): Promise<CompileView>
   startRun(workflowId: string): Promise<WorkflowStartRunView>
   startDebugRun(workflowId: string, breakpoints: DebugBreakpoint[]): Promise<WorkflowStartRunView>
   getDebugSnapshot(runId: string): Promise<DebugSnapshot>
@@ -164,7 +164,7 @@ export const workflowTransport: WorkflowTransport = {
       baseRevision,
       commands as Parameters<typeof WorkflowService.ApplyPatch>[2],
     ),
-  compileSource: (workflowId) => invoke(WorkflowService.CompileSource, workflowId),
+  checkDraft: (sourceJson) => invoke(WorkflowService.CheckDraft, sourceJson),
   startRun: async (workflowId) =>
     (await invoke(WorkflowService.StartRun, workflowId)) as WorkflowStartRunView,
   startDebugRun: (workflowId, breakpoints) =>

@@ -160,7 +160,7 @@ func TestBuildRuntimeStartsWithAnEmptyInstallationSet(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := runtime.Start(ctx); err != nil {
+	if err := runtime.Workflow.Application.Start(ctx); err != nil {
 		t.Fatalf("start runtime: %v", err)
 	}
 	if err := runtime.Close(ctx); err != nil {

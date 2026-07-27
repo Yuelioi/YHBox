@@ -17,20 +17,13 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
-	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/aiauthoring"
-	"github.com/yottaapp/yotta/internal/appbootstrap"
-	"github.com/yottaapp/yotta/internal/appcontrol"
 	"github.com/yottaapp/yotta/internal/apperr"
 	yottaapplication "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/appruntime"
-	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
-	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/hotkey"
-	"github.com/yottaapp/yotta/internal/httpegress"
-	"github.com/yottaapp/yotta/internal/nodepackage"
+	"github.com/yottaapp/yotta/internal/localruntime"
 	"github.com/yottaapp/yotta/internal/noderuntime"
-	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/securestore"
 	"github.com/yottaapp/yotta/internal/services"
 	"github.com/yottaapp/yotta/internal/services/asset"
@@ -41,10 +34,7 @@ import (
 	"github.com/yottaapp/yotta/internal/services/snippet"
 	"github.com/yottaapp/yotta/internal/services/tools"
 	"github.com/yottaapp/yotta/internal/services/workflow"
-	"github.com/yottaapp/yotta/internal/storage"
-	"github.com/yottaapp/yotta/internal/storage/catalog"
 	storagemigrate "github.com/yottaapp/yotta/internal/storage/migrate"
-	"github.com/yottaapp/yotta/internal/wasmrunner"
 	"github.com/yottaapp/yotta/pkg/locale"
 	"github.com/yottaapp/yotta/pkg/screenshot"
 	"github.com/yottaapp/yotta/pkg/version"
@@ -62,42 +52,54 @@ func Run(config Config) error {
 	}); err != nil {
 		return runStorageRecovery(config, err)
 	}
-	profile, err := storage.Open(context.Background(), storage.OpenOptions{Root: config.StorageRoot})
-	if err != nil {
-		return fmt.Errorf("open storage profile: %w", err)
-	}
-	defer func() {
-		if closeErr := profile.Close(); closeErr != nil {
-			fmt.Fprintf(os.Stderr, "close storage profile: %v\n", closeErr)
-		}
-	}()
-	roots := profile.Roots
-	catalogFoundation, err := catalog.Open(context.Background(), roots)
-	if err != nil {
-		return fmt.Errorf("open catalog foundation: %w", err)
-	}
-	defer func() {
-		if closeErr := catalogFoundation.Close(); closeErr != nil {
-			fmt.Fprintf(os.Stderr, "close catalog foundation: %v\n", closeErr)
-		}
-	}()
-
 	// 日志栈：zerolog process/Workflow diagnostics → LogSink → 单一 log:batch 事件 + 可选 JSONL.
 	logSink := services.NewLogSink(nil) // emit 在 wailsApp 构造后装配
 	rootLog := zerolog.New(logSink).With().Timestamp().Logger()
-	// App 构造即加载并应用日志策略，让 persisted off/level 在任何启动日志前生效。
-	app, err := services.OpenConfiguredApp(roots.SettingsFile(), roots.Logs, logSink, rootLog)
+	aiSecrets := services.NewAISecrets(securestore.New())
+	executable, err := os.Executable()
 	if err != nil {
-		return fmt.Errorf("open application settings: %w", err)
+		return fmt.Errorf("resolve local runtime executable: %w", err)
 	}
+	var app *services.App
+	local, err := localruntime.Open(context.Background(), localruntime.Config{
+		StorageRoot:       config.StorageRoot,
+		Executable:        executable,
+		LogSink:           logSink,
+		RootLog:           rootLog,
+		ConfigureFileLogs: true,
+		AISecrets:         aiSecrets,
+		WorkflowLog:       newWorkflowLogEmitter(rootLog),
+		Now:               time.Now,
+		OnRunEvent: func(event yottaapplication.RunEvent) {
+			payload := map[string]any{
+				"runId": event.RunID, "status": event.Status, "generation": event.Generation, "recordDigest": event.Digest,
+			}
+			if event.Err != nil {
+				payload["failed"] = true
+				rootLog.Warn().Err(event.Err).Str("tag", "RUN").Str("runId", event.RunID).Msg("workflow Run completed with error")
+			}
+			app.Emit("run:changed", payload)
+		},
+		OnDebugEvent: func(event yottaapplication.DebugEvent) {
+			app.Emit("debug:changed", map[string]any{
+				"runId": event.RunID, "snapshot": event.Snapshot,
+			})
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("open local runtime: %w", err)
+	}
+	app = local.Settings
+	roots := local.Roots
+	workflowRuntime := local.Workflow
+	sharedBlobStore := workflowRuntime.BlobStore
 	defer func() {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if shutdownErr := app.ShutdownContext(shutdownCtx); shutdownErr != nil {
-			fmt.Fprintf(os.Stderr, "shutdown application settings/log runtime: %v\n", shutdownErr)
+		if shutdownErr := local.Close(shutdownCtx); shutdownErr != nil {
+			fmt.Fprintf(os.Stderr, "close local runtime: %v\n", shutdownErr)
 		}
 	}()
-	aiSecrets := services.NewAISecrets(securestore.New())
 
 	// Screenshot diagnostics belong to the active storage profile and never to
 	// the executable or process working directory.
@@ -125,17 +127,9 @@ func Run(config Config) error {
 
 	settingsSvc := services.NewSettingsService(app, aiSecrets)
 
-	sharedBlobStore, err := blob.Open(
-		roots.Objects,
-		blob.Limits{MaxBlobBytes: 256 << 20, MaxTotalBytes: 4 << 30},
-		catalogFoundation.Objects(),
-	)
-	if err != nil {
-		return fmt.Errorf("initialize shared Blob Store: %w", err)
-	}
 	assetStore, err := asset.NewStore(
-		catalogFoundation.Assets(),
-		catalogFoundation.Objects(),
+		local.Assets,
+		local.Objects,
 		sharedBlobStore,
 	)
 	if err != nil {
@@ -149,78 +143,6 @@ func Run(config Config) error {
 	snippetStore, err := snippet.NewStore(filepath.Join(roots.Data, "snippets"))
 	if err != nil {
 		return fmt.Errorf("initialize snippet store: %w", err)
-	}
-	const runGrantTTL = 5 * time.Minute
-	aiInstallations, err := ai.Install(app.Settings().AI.InstallationDrafts(), aiSecrets)
-	if err != nil {
-		return fmt.Errorf("initialize AI model installations: %w", err)
-	}
-	httpInstallations, err := httpegress.Install(app.Settings().Network.InstallationDrafts())
-	if err != nil {
-		return fmt.Errorf("initialize HTTP origin installations: %w", err)
-	}
-	applicationInstallations, err := appcontrol.Install(app.Settings().Applications.InstallationDrafts())
-	if err != nil {
-		return fmt.Errorf("initialize installed applications: %w", err)
-	}
-	automationDrafts, err := app.Settings().Automation.InstallationDrafts(app.Settings().Applications, app.Settings().ActiveMouseCounts360())
-	if err != nil {
-		return fmt.Errorf("read installed automation target settings: %w", err)
-	}
-	automationInstallations, err := automationinstalled.Install(automationDrafts)
-	if err != nil {
-		return fmt.Errorf("initialize installed automation targets: %w", err)
-	}
-	executable, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("resolve script worker location: %w", err)
-	}
-	scriptRuntime, err := scriptengine.NewRuntime(scriptengine.RuntimeOptions{
-		Executable:         filepath.Join(filepath.Dir(executable), scriptengine.WorkerExecutableName),
-		ProcessMemoryBytes: scriptengine.DefaultMemoryBytes,
-		JobMemoryBytes:     scriptengine.DefaultMemoryBytes,
-	})
-	if err != nil {
-		return fmt.Errorf("initialize script runtime: %w", err)
-	}
-	nodePackageStore, _, err := nodepackage.OpenStoreIfPresent(context.Background(), filepath.Join(roots.Packages, "node"))
-	if err != nil {
-		return fmt.Errorf("initialize node package store: %w", err)
-	}
-	workflowRuntime, err := appbootstrap.Build(appbootstrap.Config{
-		DataRoot: roots.Data, ProgramCacheRoot: filepath.Join(roots.Cache, "programs"),
-		WorkflowRepository: catalogFoundation.Workflows(),
-		RunRepository:      catalogFoundation.Runs(),
-		BlobStore:          sharedBlobStore,
-		Limits: appbootstrap.Limits{
-			MaxSources: 4096, MaxPrograms: 16384, MaxRuns: 65536,
-			MaxProgramCacheBytes:    2 << 30,
-			MaxResourcePayloadBytes: 4 << 20,
-			BlobChunkBytes:          64 << 10, BlobQueueCapacity: 8, StreamCapacity: 16, StreamChunkBytes: 64 << 10,
-		},
-		AIInstallations: aiInstallations, HTTPInstallations: httpInstallations, ApplicationInstallations: applicationInstallations, AutomationInstallations: automationInstallations,
-		ScriptRuntime:    scriptRuntime,
-		NodePackageStore: nodePackageStore, WasmRunnerExecutable: filepath.Join(filepath.Dir(executable), wasmrunner.WorkerExecutableName),
-		LogEmitter: newWorkflowLogEmitter(rootLog),
-		GrantTTL:   runGrantTTL, OwnerCloseTimeout: 10 * time.Second, Now: time.Now,
-		OnRunEvent: func(event yottaapplication.RunEvent) {
-			payload := map[string]any{
-				"runId": event.RunID, "status": event.Status, "generation": event.Generation, "recordDigest": event.Digest,
-			}
-			if event.Err != nil {
-				payload["failed"] = true
-				rootLog.Warn().Err(event.Err).Str("tag", "RUN").Str("runId", event.RunID).Msg("workflow Run completed with error")
-			}
-			app.Emit("run:changed", payload)
-		},
-		OnDebugEvent: func(event yottaapplication.DebugEvent) {
-			app.Emit("debug:changed", map[string]any{
-				"runId": event.RunID, "snapshot": event.Snapshot,
-			})
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("initialize workflow runtime: %w", err)
 	}
 	authoringTargets := workflowRuntime.AuthoringTargets()
 	if err := app.AttachSettingsActivator(func(before, after *services.Settings) (*services.SettingsActivationPlan, error) {
@@ -438,9 +360,9 @@ func Run(config Config) error {
 	// Triggers stop before the single Workflow worker and its Run Owners.
 	applicationRuntime := appruntime.New(
 		appruntime.Resource{
-			Name:  "workflow-runtime",
-			Start: workflowRuntime.Start,
-			Close: workflowRuntime.Close,
+			Name:  "local-runtime",
+			Start: local.Workflow.Application.Start,
+			Close: local.Close,
 		},
 		appruntime.Resource{
 			Name:  "hotkey-registry",
@@ -488,7 +410,7 @@ func Run(config Config) error {
 		application.NewService(macroSvc),
 		application.NewService(snippetSvc),
 		application.NewService(services.NewAIService(app, aiSecrets, aiAuthoring)),
-		application.NewService(services.NewApplicationService(app)),
+		application.NewService(services.NewApplicationService()),
 		application.NewService(services.NewAutomationService(app)),
 	)
 	// wails3 application
@@ -573,9 +495,6 @@ func Run(config Config) error {
 
 	if err := applicationRuntime.Start(context.Background()); err != nil {
 		rootLog.Error().Err(err).Str("tag", "STARTUP").Msg("application runtime start")
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		_ = app.ShutdownContext(shutdownCtx)
-		cancel()
 		return fmt.Errorf("start application runtime: %w", err)
 	}
 	rootLog.Info().Str("tag", "SYSTEM").Str("version", version.Version).Msg("Yotta started")
@@ -588,14 +507,6 @@ func Run(config Config) error {
 		rootLog.Warn().Err(err).Str("tag", "SHUTDOWN").Msg("application runtime close")
 	}
 	cancelShutdown()
-
-	// 最后排空 presentation/log transport；使用独立 deadline，不能复用已被
-	// runtime Close 消耗或取消的 context。
-	presentationCtx, cancelPresentation := context.WithTimeout(context.Background(), 5*time.Second)
-	if err := app.ShutdownContext(presentationCtx); err != nil {
-		fmt.Fprintf(os.Stderr, "application presentation shutdown failed: %v\n", err)
-	}
-	cancelPresentation()
 	if runErr != nil {
 		return fmt.Errorf("run Wails application: %w", runErr)
 	}

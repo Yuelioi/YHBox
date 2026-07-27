@@ -5,71 +5,28 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"time"
 
-	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/appcontrol"
-	appcore "github.com/yottaapp/yotta/internal/application"
-	"github.com/yottaapp/yotta/internal/artifact"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
-	"github.com/yottaapp/yotta/internal/httpegress"
-	"github.com/yottaapp/yotta/internal/nodes"
-	run "github.com/yottaapp/yotta/internal/run"
-	"github.com/yottaapp/yotta/internal/scriptengine"
 )
-
-// AutomationTargetRuntime is the single owner of installed target
-// generations. Settings submits intent; authoring and Runs hold stable handles
-// or leases and never coordinate provider publication themselves.
-type AutomationTargetRuntime struct {
-	mu          sync.Mutex
-	application *appcore.Application
-	ai          ai.Installations
-	http        httpegress.Installations
-	current     automationinstalled.Generation
-	retired     []automationinstalled.Generation
-	authoring   automationinstalled.AuthoringTargets
-	environment automationEnvironmentConfig
-	closed      bool
-	closeErr    error
-}
-
-type automationEnvironmentConfig struct {
-	builtins            nodes.Builtins
-	blobDigest          artifact.Digest
-	streamDigest        artifact.Digest
-	workspaceFileDigest artifact.Digest
-	scriptRuntime       *scriptengine.Runtime
-	pluginFeatures      []string
-	now                 func() time.Time
-	grantTTL            time.Duration
-	baseProviders       map[string]run.InstalledProvider
-}
 
 // PreparedAutomation is a fully constructed but unpublished target generation.
 // Commit and Abort are single-use terminal operations.
 type PreparedAutomation struct {
 	mu           sync.Mutex
-	runtime      *AutomationTargetRuntime
+	runtime      *Runtime
 	applications appcontrol.Installations
 	automation   automationinstalled.Installations
 	state        uint8
 }
 
-func (runtime *AutomationTargetRuntime) AuthoringTargets() automationinstalled.AuthoringTargets {
-	if runtime == nil {
-		return automationinstalled.AuthoringTargets{}
-	}
-	return runtime.authoring
-}
-
-func (runtime *AutomationTargetRuntime) Prepare(applicationDrafts []appcontrol.InstallationDraft, automationDrafts []automationinstalled.InstallationDraft) (*PreparedAutomation, error) {
-	if runtime == nil || runtime.application == nil {
+func (runtime *Runtime) PrepareAutomation(applicationDrafts []appcontrol.InstallationDraft, automationDrafts []automationinstalled.InstallationDraft) (*PreparedAutomation, error) {
+	if runtime == nil || runtime.Application == nil {
 		return nil, errors.New("automation target runtime is unavailable")
 	}
-	runtime.mu.Lock()
+	runtime.automationMu.Lock()
 	closed := runtime.closed
-	runtime.mu.Unlock()
+	runtime.automationMu.Unlock()
 	if closed {
 		return nil, errors.New("automation target runtime is closed")
 	}
@@ -122,79 +79,49 @@ func (prepared *PreparedAutomation) Abort() {
 	_ = prepared.automation.Close()
 }
 
-func (runtime *AutomationTargetRuntime) publish(applications appcontrol.Installations, installations automationinstalled.Installations) error {
-	if runtime == nil || runtime.application == nil || !applications.Valid() || !installations.Valid() {
+func (runtime *Runtime) publish(applications appcontrol.Installations, installations automationinstalled.Installations) error {
+	if runtime == nil || runtime.Application == nil || !applications.Valid() || !installations.Valid() {
 		return errors.New("replacement automation installations are unavailable")
 	}
-	nextGeneration, err := automationinstalled.NewGeneration(installations)
+	next, err := runtime.factory.seal(applications, installations)
 	if err != nil {
 		return err
 	}
 	published := false
 	defer func() {
 		if !published {
-			_ = nextGeneration.Retire()
+			_ = next.generation.Retire()
 		}
 	}()
 
-	runtime.mu.Lock()
+	runtime.automationMu.Lock()
 	if runtime.closed {
-		runtime.mu.Unlock()
+		runtime.automationMu.Unlock()
 		return errors.New("automation target runtime is closed")
 	}
-	environment := runtime.environment
-	profile, err := buildHostProfile(
-		environment.builtins, environment.blobDigest, environment.streamDigest, environment.workspaceFileDigest,
-		environment.scriptRuntime, environment.pluginFeatures, runtime.ai, runtime.http, applications, installations,
-	)
-	if err != nil {
-		runtime.mu.Unlock()
-		return err
-	}
-	policy, err := NewBuiltinPolicy(environment.now, environment.grantTTL, runtime.ai, runtime.http, applications, installations)
-	if err != nil {
-		runtime.mu.Unlock()
-		return err
-	}
-	providers := cloneProviders(environment.baseProviders)
-	for _, installed := range applications.Entries() {
-		if existing, ok := providers[installed.ProviderID]; ok && (existing.ArtifactDigest != installed.ProviderArtifact || existing.ABI != appcontrol.ProviderABI) {
-			runtime.mu.Unlock()
-			return errors.New("conflicting replacement application provider")
-		}
-		providers[installed.ProviderID] = run.InstalledProvider{ArtifactDigest: installed.ProviderArtifact, ABI: appcontrol.ProviderABI, Provider: installed.Provider}
-	}
-	for _, installed := range installations.Entries() {
-		if existing, ok := providers[installed.ProviderID]; ok && (existing.ArtifactDigest != installed.ProviderArtifact || existing.ABI != automationinstalled.ProviderABI) {
-			runtime.mu.Unlock()
-			return errors.New("conflicting replacement automation provider")
-		}
-		providers[installed.ProviderID] = run.InstalledProvider{ArtifactDigest: installed.ProviderArtifact, ABI: automationinstalled.ProviderABI, Provider: installed.Provider}
-	}
-
 	previous := runtime.current
-	if err := runtime.authoring.Replace(nextGeneration); err != nil {
-		runtime.mu.Unlock()
+	if err := runtime.authoring.Replace(next.generation); err != nil {
+		runtime.automationMu.Unlock()
 		return err
 	}
-	if err := runtime.application.ReplaceExecutionEnvironment(profile, policy, providers, providerLease(nextGeneration)); err != nil {
-		_ = runtime.authoring.Replace(previous)
-		runtime.mu.Unlock()
+	if err := runtime.Application.ReplaceExecutionEnvironment(next.profile, next.policy, next.providers, next.acquire); err != nil {
+		_ = runtime.authoring.Replace(previous.generation)
+		runtime.automationMu.Unlock()
 		return err
 	}
-	runtime.current = nextGeneration
+	runtime.current = next
 	published = true
-	runtime.mu.Unlock()
+	runtime.automationMu.Unlock()
 
-	_ = previous.Retire()
-	runtime.mu.Lock()
-	runtime.retired = append(runtime.retired, previous)
+	_ = previous.generation.Retire()
+	runtime.automationMu.Lock()
+	runtime.retired = append(runtime.retired, previous.generation)
 	runtime.reapRetiredLocked()
-	runtime.mu.Unlock()
+	runtime.automationMu.Unlock()
 	return nil
 }
 
-func (runtime *AutomationTargetRuntime) reapRetiredLocked() {
+func (runtime *Runtime) reapRetiredLocked() {
 	remaining := runtime.retired[:0]
 	for _, generation := range runtime.retired {
 		closed, err := generation.Closed()
@@ -207,77 +134,30 @@ func (runtime *AutomationTargetRuntime) reapRetiredLocked() {
 	runtime.retired = remaining
 }
 
-func (runtime *AutomationTargetRuntime) Close(ctx context.Context) error {
-	if runtime == nil || runtime.application == nil {
+// AuthoringTargets returns the stable live handle shared by recording, assets
+// and local tools. Publication updates every copy of this handle.
+func (runtime *Runtime) AuthoringTargets() automationinstalled.AuthoringTargets {
+	if runtime == nil {
+		return automationinstalled.AuthoringTargets{}
+	}
+	return runtime.authoring
+}
+
+func (runtime *Runtime) Close(ctx context.Context) error {
+	if runtime == nil || runtime.Application == nil {
 		return nil
 	}
-	runtime.mu.Lock()
+	runtime.automationMu.Lock()
 	runtime.closed = true
 	runtime.reapRetiredLocked()
 	current, retired, closeErr := runtime.current, append([]automationinstalled.Generation(nil), runtime.retired...), runtime.closeErr
 	runtime.retired = nil
-	runtime.mu.Unlock()
-	err := runtime.application.Close(ctx)
-	err = errors.Join(err, closeErr, current.Retire(), current.WaitClosed(ctx))
+	runtime.automationMu.Unlock()
+	err := runtime.Application.Close(ctx)
+	err = errors.Join(err, closeErr, current.generation.Retire(), current.generation.WaitClosed(ctx))
 	for _, generation := range retired {
 		err = errors.Join(err, generation.WaitClosed(ctx))
 	}
-	return err
-}
-
-func providerLease(generation automationinstalled.Generation) func() (func(), error) {
-	return func() (func(), error) {
-		lease, err := generation.Acquire()
-		if err != nil {
-			return nil, err
-		}
-		return lease.Release, nil
-	}
-}
-
-func cloneProviders(source map[string]run.InstalledProvider) map[string]run.InstalledProvider {
-	result := make(map[string]run.InstalledProvider, len(source))
-	for id, provider := range source {
-		result[id] = provider
-	}
-	return result
-}
-
-// AuthoringTargets returns the stable live handle shared by recording, assets
-// and local tools. Publication updates every copy of this handle.
-func (runtime *Runtime) AuthoringTargets() automationinstalled.AuthoringTargets {
-	if runtime == nil || runtime.automationTargets == nil {
-		return automationinstalled.AuthoringTargets{}
-	}
-	return runtime.automationTargets.AuthoringTargets()
-}
-
-func (runtime *Runtime) PrepareAutomation(applicationDrafts []appcontrol.InstallationDraft, automationDrafts []automationinstalled.InstallationDraft) (*PreparedAutomation, error) {
-	if runtime == nil || runtime.automationTargets == nil {
-		return nil, errors.New("automation target runtime is unavailable")
-	}
-	return runtime.automationTargets.Prepare(applicationDrafts, automationDrafts)
-}
-
-func (runtime *Runtime) ReplaceAutomation(applications appcontrol.Installations, installations automationinstalled.Installations) error {
-	if runtime == nil || runtime.automationTargets == nil {
-		return errors.New("automation target runtime is unavailable")
-	}
-	return runtime.automationTargets.publish(applications, installations)
-}
-
-func (runtime *Runtime) Start(ctx context.Context) error {
-	if runtime == nil || runtime.Application == nil {
-		return errors.New("app runtime is unavailable")
-	}
-	return runtime.Application.Start(ctx)
-}
-
-func (runtime *Runtime) Close(ctx context.Context) error {
-	if runtime == nil {
-		return nil
-	}
-	err := runtime.automationTargets.Close(ctx)
 	runtime.ai.CloseIdleConnections()
 	runtime.http.CloseIdleConnections()
 	return err

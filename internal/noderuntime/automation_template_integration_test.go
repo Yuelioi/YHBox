@@ -125,7 +125,7 @@ func TestClickTemplateCapturesMatchesAndClicksTheSameExactTarget(t *testing.T) {
 			{Capability: inputCapability.Ref(), ResourceKind: automationinstalled.KindInput},
 		},
 	})
-	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKind, ProviderID: providerID})
+	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKindDesktopWindow, ProviderID: providerID})
 	profileDraft.TargetSlots = append(profileDraft.TargetSlots, admission.TargetSlotBinding{Slot: slot, TargetID: targetID})
 	program := compilePrimitiveProgram(t, builtins, clickTemplateSource(builtins, slot, templateRef))
 	now := time.Date(2026, 7, 17, 15, 0, 0, 0, time.UTC)

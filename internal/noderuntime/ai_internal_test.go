@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/ai"
-	"github.com/yottaapp/yotta/internal/workflow/compiler"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 )
 
 func TestAIRequestSummaryRecordsCompleteArtifactLineage(t *testing.T) {
@@ -32,7 +32,7 @@ func TestAIRequestSummaryRecordsCompleteArtifactLineage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	action := compiler.AdapterAction{Facts: map[string]string{}}
+	action := nodeadapter.AdapterAction{Facts: map[string]string{}}
 	addAIRequestSummary(&action, ai.GenerateRequest{Prompt: rendered, Output: &output, ToolSet: toolSet.Digest()})
 	outputDigest, err := output.Digest()
 	if err != nil {

@@ -34,12 +34,13 @@ type settingsEnvelope struct {
 }
 
 type settingsCandidate struct {
-	path       string
-	raw        []byte
-	settings   *Settings
-	generation uint64
-	checksum   artifact.Digest
-	priority   int
+	path            string
+	raw             []byte
+	settings        *Settings
+	generation      uint64
+	checksum        artifact.Digest
+	priority        int
+	requiresRewrite bool
 }
 
 // SettingsStore owns versioned settings generations and crash recovery.
@@ -85,6 +86,11 @@ func OpenSettingsStore(path string) (*SettingsStore, *Settings, error) {
 		}
 	}
 	store.generation = selected.generation
+	if selected.requiresRewrite {
+		if err := store.Save(selected.settings); err != nil {
+			return nil, nil, fmt.Errorf("rewrite migrated settings: %w", err)
+		}
+	}
 	return store, selected.settings.Clone(), nil
 }
 
@@ -211,72 +217,74 @@ func (s *SettingsStore) readCandidates() ([]settingsCandidate, bool, error) {
 		if err != nil {
 			return nil, true, fmt.Errorf("read settings candidate %q: %w", source.path, err)
 		}
-		settings, envelope, err := decodeSettingsEnvelope(raw)
+		settings, envelope, requiresRewrite, err := decodeSettingsEnvelope(raw)
 		if err != nil {
 			continue
 		}
 		candidates = append(candidates, settingsCandidate{
 			path: source.path, raw: raw, settings: settings,
 			generation: envelope.Generation, checksum: envelope.Checksum, priority: source.priority,
+			requiresRewrite: requiresRewrite,
 		})
 	}
 	return candidates, discovered, nil
 }
 
-func decodeSettingsEnvelope(raw []byte) (*Settings, settingsEnvelope, error) {
+func decodeSettingsEnvelope(raw []byte) (*Settings, settingsEnvelope, bool, error) {
 	if len(raw) == 0 || len(raw) > maxSettingsBytes {
-		return nil, settingsEnvelope{}, errors.New("settings envelope exceeds byte budget")
+		return nil, settingsEnvelope{}, false, errors.New("settings envelope exceeds byte budget")
 	}
 	var envelope settingsEnvelope
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&envelope); err != nil {
-		return nil, settingsEnvelope{}, err
+		return nil, settingsEnvelope{}, false, err
 	}
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return nil, settingsEnvelope{}, errors.New("settings envelope must contain exactly one JSON value")
+		return nil, settingsEnvelope{}, false, errors.New("settings envelope must contain exactly one JSON value")
 	}
 	if envelope.Format != SettingsFormat || envelope.Version != SettingsSchemaVersion || envelope.Generation == 0 || !envelope.Checksum.Valid() {
-		return nil, settingsEnvelope{}, errors.New("unsupported settings envelope")
+		return nil, settingsEnvelope{}, false, errors.New("unsupported settings envelope")
 	}
 	canonical, err := artifact.Canonicalize(envelope.Payload)
 	if err != nil {
-		return nil, settingsEnvelope{}, err
+		return nil, settingsEnvelope{}, false, err
 	}
 	checksum, err := artifact.Sum(settingsPayloadDomain, canonical)
 	if err != nil || checksum != envelope.Checksum {
-		return nil, settingsEnvelope{}, errors.New("settings payload checksum mismatch")
+		return nil, settingsEnvelope{}, false, errors.New("settings payload checksum mismatch")
 	}
-	canonical, err = removeLegacyWorkflowConsent(canonical)
+	canonical, requiresRewrite, err := removeLegacyWorkflowConsent(canonical)
 	if err != nil {
-		return nil, settingsEnvelope{}, err
+		return nil, settingsEnvelope{}, false, err
 	}
 	settings := defaultSettings()
 	payloadDecoder := json.NewDecoder(bytes.NewReader(canonical))
 	payloadDecoder.DisallowUnknownFields()
 	if err := payloadDecoder.Decode(settings); err != nil {
-		return nil, settingsEnvelope{}, err
+		return nil, settingsEnvelope{}, false, err
 	}
 	if err := payloadDecoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return nil, settingsEnvelope{}, errors.New("settings payload must contain exactly one JSON value")
+		return nil, settingsEnvelope{}, false, errors.New("settings payload must contain exactly one JSON value")
 	}
 	if err := settings.Validate(); err != nil {
-		return nil, settingsEnvelope{}, err
+		return nil, settingsEnvelope{}, false, err
 	}
-	return settings, envelope, nil
+	return settings, envelope, requiresRewrite, nil
 }
 
 // removeLegacyWorkflowConsent is the one-way compatibility reader for
 // settings written before configured capabilities became immediately usable.
 // Unknown fields remain strict; only the four retired consent fields are
 // removed before decoding the current model.
-func removeLegacyWorkflowConsent(raw []byte) ([]byte, error) {
+func removeLegacyWorkflowConsent(raw []byte) ([]byte, bool, error) {
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.UseNumber()
 	var payload map[string]any
 	if err := decoder.Decode(&payload); err != nil {
-		return nil, err
+		return nil, false, err
 	}
+	removed := false
 	for _, path := range [][2]string{
 		{"ai", "profiles"},
 		{"network", "httpOrigins"},
@@ -293,11 +301,15 @@ func removeLegacyWorkflowConsent(raw []byte) ([]byte, error) {
 		}
 		for _, entry := range entries {
 			if object, ok := entry.(map[string]any); ok {
-				delete(object, "workflowConsent")
+				if _, exists := object["workflowConsent"]; exists {
+					delete(object, "workflowConsent")
+					removed = true
+				}
 			}
 		}
 	}
-	return artifact.Marshal(payload)
+	migrated, err := artifact.Marshal(payload)
+	return migrated, removed, err
 }
 
 func (s *SettingsStore) preserveCurrent() error {
@@ -308,7 +320,7 @@ func (s *SettingsStore) preserveCurrent() error {
 	if err != nil {
 		return fmt.Errorf("read current settings: %w", err)
 	}
-	if _, _, decodeErr := decodeSettingsEnvelope(raw); decodeErr == nil {
+	if _, _, _, decodeErr := decodeSettingsEnvelope(raw); decodeErr == nil {
 		if err := durablefs.WriteFile(s.path+".bak", raw, 0o600); err != nil {
 			return fmt.Errorf("backup current settings: %w", err)
 		}

@@ -16,18 +16,24 @@
   画布创建入口和窄窗口回归完成。
 - [x] [稳定交付](slices/v4-k-stability-delivery.md)：`fishing-v2`、Windows build、性能预算、
   `task check` 与完整 WebView 旅程通过。
+- [x] [工作流检查反馈](slices/v4-m-workflow-check.md)：产品层统一为“检查工作流”，检查当前内存草稿，
+  缺少必填输入时展示可定位问题，断开草稿警告不阻断可达运行。
 
-## Active: Go 全仓清扫
+## Completed: Go 清扫与瘦身
 
 - [x] [Go 清扫审计](slices/v4-l-go-cleanup.md)：完成规模、依赖、执行链、组合根、兼容读取和
   可删除表面的证据化审计。
-- [ ] 收敛启动与执行环境装配：桌面和 CLI 共享本地 runtime 打开路径；安装事实只派生一次
-  Host Profile、Policy、Provider 集合与 generation lease。
-- [ ] 校正运行边界：分离 Program、Adapter ABI、Compiler 与 Executor，但只保留一个 production
-  Executor；将产品层“编译”改为符合实际行为的“检查工作流”。
-- [ ] 深化 Application 与 Workflow use case：Source authoring、Run coordination、library
-  query/batch decision 进入各自的具体 Module。
-- [ ] 删除已证明无生产调用的兼容别名、测试便利 API 和浅转发；为 settings、node package、
-  Run 与 Blob 的持久化兼容入口建立退役证据。
-- [ ] 清理 `cmd/workflow-editor-smoke` 与架构文档，并以 `task check`、Windows build、
+- [x] [收敛启动与执行环境装配](slices/v4-n-local-runtime.md)：桌面和 CLI 共享本地 runtime 打开
+  路径；安装事实只派生一次 Host Profile、Policy、Provider 集合与 generation lease。
+- [x] [校正运行边界](slices/v4-o-runtime-boundaries.md)：分离 Program、Adapter ABI、Compiler 与
+  Executor，但只保留一个 production Executor。
+- [x] [深化 Application 与 Workflow use case](slices/v4-p-application-modules.md)：Source
+  authoring、Run coordination、library query/batch decision 进入各自的具体 Module。
+- [x] [清理 Compatibility 与无调用表面](slices/v4-q-compatibility-deletion.md)：删除已证明无
+  production 调用的兼容别名、测试便利接口和浅转发；为 settings、node package、Run 与 Blob 的
+  持久化兼容入口建立退役证据。
+- [x] [Go 清扫最终交付](slices/v4-r-go-cleanup-delivery.md)：清理 `cmd/workflow-editor-smoke`
+  与架构文档，并以 `task check`、Windows build、
   `fishing-v2` 和完整 WebView 旅程验收。
+- [x] [Go 生产代码瘦身](slices/v4-s-go-slimming.md)：以 `2d2c2226` 为基线单独核算生产代码，
+  删除浅 Module、重复决策和过度防御，使生产 Go 从净增转为净减。

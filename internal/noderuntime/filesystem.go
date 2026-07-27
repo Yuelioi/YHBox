@@ -14,14 +14,14 @@ import (
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodes"
-	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/internal/workspacefs"
 )
 
-func fileRead(builtins nodes.Builtins, structured bool) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
-		action := compiler.AdapterAction{
+func fileRead(builtins nodes.Builtins, structured bool) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
+		action := nodeadapter.AdapterAction{
 			EffectID: nodes.FileReadEffectID, Action: "filesystem.file-read", SummaryCode: "filesystem.read",
 			Counters: map[string]int64{}, Facts: map[string]string{},
 		}
@@ -31,71 +31,71 @@ func fileRead(builtins nodes.Builtins, structured bool) compiler.Adapter {
 
 		path, err := filePath(invocation)
 		if err != nil {
-			return compiler.AdapterResult{}, err
+			return nodeadapter.AdapterResult{}, err
 		}
 		maxBytes, err := fileReadBudget(invocation.Config)
 		if err != nil {
-			return compiler.AdapterResult{}, err
+			return nodeadapter.AdapterResult{}, err
 		}
 		pathDigest, err := artifact.Sum("yotta/workspace-file-path/v1", []byte(path))
 		if err != nil {
-			return compiler.AdapterResult{}, fileFailure(workspacefs.CodeContractViolation, err)
+			return nodeadapter.AdapterResult{}, fileFailure(workspacefs.CodeContractViolation, err)
 		}
 		action.Facts["path_digest"] = pathDigest.String()
 
 		session := invocation.Sessions["workspace-files"]
 		if session == nil {
-			return compiler.AdapterResult{}, fileFailure(workspacefs.CodeContractViolation, errors.New("workspace filesystem capability session is missing"))
+			return nodeadapter.AdapterResult{}, fileFailure(workspacefs.CodeContractViolation, errors.New("workspace filesystem capability session is missing"))
 		}
 		handle, err := session.Open(ctx, []string{workspacefs.OperationRead}, []byte(`{}`))
 		if err != nil {
-			return compiler.AdapterResult{}, mapFileFailure(err)
+			return nodeadapter.AdapterResult{}, mapFileFailure(err)
 		}
 		defer func() { runErr = errors.Join(runErr, session.Drop(context.WithoutCancel(ctx), handle)) }()
 		payload, err := artifact.Marshal(workspacefs.ReadRequest{Path: path, MaxBytes: maxBytes})
 		if err != nil {
-			return compiler.AdapterResult{}, fileFailure(workspacefs.CodeContractViolation, err)
+			return nodeadapter.AdapterResult{}, fileFailure(workspacefs.CodeContractViolation, err)
 		}
 		raw, err := session.Invoke(ctx, handle, workspacefs.OperationRead, payload)
 		if err != nil {
-			return compiler.AdapterResult{}, mapFileFailure(err)
+			return nodeadapter.AdapterResult{}, mapFileFailure(err)
 		}
 		response, err := workspacefs.OpenReadResponse(raw, maxBytes)
 		if err != nil {
-			return compiler.AdapterResult{}, mapFileFailure(err)
+			return nodeadapter.AdapterResult{}, mapFileFailure(err)
 		}
 		action.Counters["bytes"] = int64(len(response.Data))
 
 		text, err := decodeWorkspaceText(response.Data, fileEncoding(invocation.Config, structured))
 		if err != nil {
-			return compiler.AdapterResult{}, fileFailure("filesystem.decode_failed", err)
+			return nodeadapter.AdapterResult{}, fileFailure("filesystem.decode_failed", err)
 		}
 		outputs := map[string]json.RawMessage{}
 		outputs["text"], err = json.Marshal(text)
 		if err != nil {
-			return compiler.AdapterResult{}, fileFailure(workspacefs.CodeContractViolation, err)
+			return nodeadapter.AdapterResult{}, fileFailure(workspacefs.CodeContractViolation, err)
 		}
 		outputs["metadata"], err = artifact.Marshal(response.Metadata)
 		if err != nil {
-			return compiler.AdapterResult{}, fileFailure(workspacefs.CodeContractViolation, err)
+			return nodeadapter.AdapterResult{}, fileFailure(workspacefs.CodeContractViolation, err)
 		}
 		if structured {
 			outputs["value"], err = canonicalJSONDocument([]byte(text))
 			if err != nil {
-				return compiler.AdapterResult{}, fileFailure("filesystem.invalid_json", err)
+				return nodeadapter.AdapterResult{}, fileFailure("filesystem.invalid_json", err)
 			}
 		}
 		sealed, err := sealFileOutputs(builtins, invocation, outputs)
 		if err != nil {
-			return compiler.AdapterResult{}, fileFailure(workspacefs.CodeContractViolation, err)
+			return nodeadapter.AdapterResult{}, fileFailure(workspacefs.CodeContractViolation, err)
 		}
-		return compiler.AdapterResult{Outputs: sealed, ExecOutputs: []string{"completed"}}, nil
+		return nodeadapter.AdapterResult{Outputs: sealed, ExecOutputs: []string{"completed"}}, nil
 	}
 }
 
-func fileStat(builtins nodes.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
-		action := compiler.AdapterAction{
+func fileStat(builtins nodes.Builtins) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
+		action := nodeadapter.AdapterAction{
 			EffectID: nodes.FileStatEffectID, Action: "filesystem.file-statted", SummaryCode: "filesystem.stat",
 			Counters: map[string]int64{}, Facts: map[string]string{},
 		}
@@ -104,48 +104,48 @@ func fileStat(builtins nodes.Builtins) compiler.Adapter {
 		}()
 		path, err := filePath(invocation)
 		if err != nil {
-			return compiler.AdapterResult{}, err
+			return nodeadapter.AdapterResult{}, err
 		}
 		pathDigest, err := artifact.Sum("yotta/workspace-file-path/v1", []byte(path))
 		if err != nil {
-			return compiler.AdapterResult{}, fileFailure(workspacefs.CodeContractViolation, err)
+			return nodeadapter.AdapterResult{}, fileFailure(workspacefs.CodeContractViolation, err)
 		}
 		action.Facts["path_digest"] = pathDigest.String()
 		session := invocation.Sessions["workspace-files"]
 		if session == nil {
-			return compiler.AdapterResult{}, fileFailure(workspacefs.CodeContractViolation, errors.New("workspace filesystem capability session is missing"))
+			return nodeadapter.AdapterResult{}, fileFailure(workspacefs.CodeContractViolation, errors.New("workspace filesystem capability session is missing"))
 		}
 		handle, err := session.Open(ctx, []string{workspacefs.OperationStat}, []byte(`{}`))
 		if err != nil {
-			return compiler.AdapterResult{}, mapFileFailure(err)
+			return nodeadapter.AdapterResult{}, mapFileFailure(err)
 		}
 		defer func() { runErr = errors.Join(runErr, session.Drop(context.WithoutCancel(ctx), handle)) }()
 		payload, err := artifact.Marshal(workspacefs.StatRequest{Path: path})
 		if err != nil {
-			return compiler.AdapterResult{}, fileFailure(workspacefs.CodeContractViolation, err)
+			return nodeadapter.AdapterResult{}, fileFailure(workspacefs.CodeContractViolation, err)
 		}
 		raw, err := session.Invoke(ctx, handle, workspacefs.OperationStat, payload)
 		if err != nil {
-			return compiler.AdapterResult{}, mapFileFailure(err)
+			return nodeadapter.AdapterResult{}, mapFileFailure(err)
 		}
 		metadata, err := workspacefs.OpenMetadata(raw)
 		if err != nil {
-			return compiler.AdapterResult{}, mapFileFailure(err)
+			return nodeadapter.AdapterResult{}, mapFileFailure(err)
 		}
 		action.Counters["bytes"] = metadata.Size
 		metadataJSON, err := artifact.Marshal(metadata)
 		if err != nil {
-			return compiler.AdapterResult{}, fileFailure(workspacefs.CodeContractViolation, err)
+			return nodeadapter.AdapterResult{}, fileFailure(workspacefs.CodeContractViolation, err)
 		}
 		sealed, err := sealFileOutputs(builtins, invocation, map[string]json.RawMessage{"metadata": metadataJSON})
 		if err != nil {
-			return compiler.AdapterResult{}, fileFailure(workspacefs.CodeContractViolation, err)
+			return nodeadapter.AdapterResult{}, fileFailure(workspacefs.CodeContractViolation, err)
 		}
-		return compiler.AdapterResult{Outputs: sealed, ExecOutputs: []string{"completed"}}, nil
+		return nodeadapter.AdapterResult{Outputs: sealed, ExecOutputs: []string{"completed"}}, nil
 	}
 }
 
-func filePath(invocation compiler.Invocation) (string, error) {
+func filePath(invocation nodeadapter.Invocation) (string, error) {
 	envelope, ok := invocation.Inputs["path"]
 	if !ok || len(envelope.InlineJSON()) == 0 {
 		return "", fileFailure(workspacefs.CodeInvalidPath, errors.New("workspace file path is missing"))
@@ -212,7 +212,7 @@ func canonicalJSONDocument(raw []byte) (json.RawMessage, error) {
 	return artifact.Marshal(value)
 }
 
-func sealFileOutputs(builtins nodes.Builtins, invocation compiler.Invocation, raw map[string]json.RawMessage) (map[string]datatype.ValueEnvelope, error) {
+func sealFileOutputs(builtins nodes.Builtins, invocation nodeadapter.Invocation, raw map[string]json.RawMessage) (map[string]datatype.ValueEnvelope, error) {
 	outputs := make(map[string]datatype.ValueEnvelope, len(raw))
 	for id, value := range raw {
 		resolved, ok := invocation.OutputTypes[id]
@@ -240,5 +240,5 @@ func mapFileFailure(err error) error {
 }
 
 func fileFailure(code string, cause error) error {
-	return &compiler.NodeFailure{Code: code, Output: "failed", Cause: cause}
+	return &nodeadapter.NodeFailure{Code: code, Output: "failed", Cause: cause}
 }

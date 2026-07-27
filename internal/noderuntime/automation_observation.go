@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/yottaapp/yotta/internal/automation/installed"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodes"
-	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	visionpkg "github.com/yottaapp/yotta/pkg/vision"
 )
 
@@ -22,43 +22,43 @@ type frameSignature struct {
 	grid []uint8
 }
 
-func automationObservation(builtins nodes.Builtins, nodeTypeID string) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+func automationObservation(builtins nodes.Builtins, nodeTypeID string) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		counters := map[string]int64{}
 		effectID, action := nodes.WaitChangeEffectID, "automation.wait-change"
 		if nodeTypeID == nodes.WaitStableNodeID {
 			effectID, action = nodes.WaitStableEffectID, "automation.wait-stable"
 		}
 		defer func() {
-			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, nodeadapter.AdapterAction{
 				EffectID: effectID, Action: action, SummaryCode: action, Counters: counters,
 			}, nodes.ObservationFailedCode, runErr))
 		}()
 
 		threshold, err := numberInput(invocation, "threshold")
 		if err != nil || threshold < 0 || threshold > 1 {
-			return compiler.AdapterResult{}, observationFailure(installed.CodeInvalidRequest, errors.Join(err, errors.New("observation threshold must be between 0 and 1")))
+			return nodeadapter.AdapterResult{}, observationFailure(installed.CodeInvalidRequest, errors.Join(err, errors.New("observation threshold must be between 0 and 1")))
 		}
 		timeout, poll, stableDuration, err := observationDurations(invocation, nodeTypeID)
 		if err != nil {
-			return compiler.AdapterResult{}, observationFailure(installed.CodeInvalidRequest, err)
+			return nodeadapter.AdapterResult{}, observationFailure(installed.CodeInvalidRequest, err)
 		}
 		gridSize, err := integerInput(invocation, "grid-size")
 		if err != nil || gridSize < 1 || gridSize > 256 {
-			return compiler.AdapterResult{}, observationFailure(installed.CodeInvalidRequest, errors.Join(err, errors.New("grid size must be between 1 and 256")))
+			return nodeadapter.AdapterResult{}, observationFailure(installed.CodeInvalidRequest, errors.Join(err, errors.New("grid size must be between 1 and 256")))
 		}
 		cellDelta, err := integerInput(invocation, "cell-delta")
 		if err != nil || cellDelta < 0 || cellDelta > 255 {
-			return compiler.AdapterResult{}, observationFailure(installed.CodeInvalidRequest, errors.Join(err, errors.New("cell delta must be between 0 and 255")))
+			return nodeadapter.AdapterResult{}, observationFailure(installed.CodeInvalidRequest, errors.Join(err, errors.New("cell delta must be between 0 and 255")))
 		}
 		region, err := visionRegionInput(invocation)
 		if err != nil {
-			return compiler.AdapterResult{}, observationFailure(nodes.VisionRegionInvalidCode, err)
+			return nodeadapter.AdapterResult{}, observationFailure(nodes.VisionRegionInvalidCode, err)
 		}
 		baseline, bytesRead, err := captureFrameSignature(ctx, invocation, region, int(gridSize))
 		counters["captures"], counters["capture_bytes"] = 1, bytesRead
 		if err != nil {
-			return compiler.AdapterResult{}, observationNodeFailure(err)
+			return nodeadapter.AdapterResult{}, observationNodeFailure(err)
 		}
 		last := frameDifference{}
 		if nodeTypeID == nodes.WaitStableNodeID && stableDuration == 0 {
@@ -68,14 +68,14 @@ func automationObservation(builtins nodes.Builtins, nodeTypeID string) compiler.
 		for elapsed < timeout {
 			delay := min(poll, timeout-elapsed)
 			if err := invocation.Wait(ctx, delay); err != nil {
-				return compiler.AdapterResult{}, err
+				return nodeadapter.AdapterResult{}, err
 			}
 			elapsed += delay
 			current, capturedBytes, err := captureFrameSignature(ctx, invocation, region, int(gridSize))
 			counters["captures"]++
 			counters["capture_bytes"] += capturedBytes
 			if err != nil {
-				return compiler.AdapterResult{}, observationNodeFailure(err)
+				return nodeadapter.AdapterResult{}, observationNodeFailure(err)
 			}
 			last = compareFrameSignatures(baseline, current, int(cellDelta))
 			if nodeTypeID == nodes.WaitChangeNodeID {
@@ -98,7 +98,7 @@ func automationObservation(builtins nodes.Builtins, nodeTypeID string) compiler.
 	}
 }
 
-func observationDurations(invocation compiler.Invocation, nodeTypeID string) (time.Duration, time.Duration, time.Duration, error) {
+func observationDurations(invocation nodeadapter.Invocation, nodeTypeID string) (time.Duration, time.Duration, time.Duration, error) {
 	timeoutMillis, err := integerInput(invocation, "timeout")
 	if err != nil {
 		return 0, 0, 0, err
@@ -125,7 +125,7 @@ func observationDurations(invocation compiler.Invocation, nodeTypeID string) (ti
 	return time.Duration(timeoutMillis) * time.Millisecond, poll, stable, nil
 }
 
-func captureFrameSignature(ctx context.Context, invocation compiler.Invocation, region visionRegion, gridSize int) (frameSignature, int64, error) {
+func captureFrameSignature(ctx context.Context, invocation nodeadapter.Invocation, region visionRegion, gridSize int) (frameSignature, int64, error) {
 	raw, err := captureTemplateFrame(ctx, invocation)
 	if err != nil {
 		return frameSignature{}, 0, err
@@ -148,25 +148,25 @@ func compareFrameSignatures(before, after frameSignature, cellDelta int) frameDi
 	}
 }
 
-func observationResult(builtins nodes.Builtins, invocation compiler.Invocation, difference frameDifference, output string) (compiler.AdapterResult, error) {
+func observationResult(builtins nodes.Builtins, invocation nodeadapter.Invocation, difference frameDifference, output string) (nodeadapter.AdapterResult, error) {
 	result, err := sealVisionOutputs(builtins, invocation, map[string]any{
 		"changed-ratio": difference.changedRatio, "mean-difference": difference.meanDifference,
 	})
 	if err != nil {
-		return compiler.AdapterResult{}, observationFailure(nodes.ObservationFailedCode, err)
+		return nodeadapter.AdapterResult{}, observationFailure(nodes.ObservationFailedCode, err)
 	}
 	result.ExecOutputs = []string{output}
 	return result, nil
 }
 
 func observationNodeFailure(err error) error {
-	var failure *compiler.NodeFailure
+	var failure *nodeadapter.NodeFailure
 	if errors.As(err, &failure) {
-		return &compiler.NodeFailure{Code: failure.Code, Output: "failed", Cause: failure.Cause}
+		return &nodeadapter.NodeFailure{Code: failure.Code, Output: "failed", Cause: failure.Cause}
 	}
 	return observationFailure(nodes.ObservationFailedCode, err)
 }
 
 func observationFailure(code string, cause error) error {
-	return &compiler.NodeFailure{Code: code, Output: "failed", Cause: fmt.Errorf("frame observation: %w", cause)}
+	return &nodeadapter.NodeFailure{Code: code, Output: "failed", Cause: fmt.Errorf("frame observation: %w", cause)}
 }

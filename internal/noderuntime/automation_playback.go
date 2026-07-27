@@ -10,9 +10,9 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/blob"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/services/inputclip"
-	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
 const playbackReadChunkBytes = int64(64 << 10)
@@ -23,18 +23,18 @@ type playbackCommands struct {
 	Play func(installed.PlaybackEvent) error
 }
 
-func playInputClip() compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+func playInputClip() nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		counters := map[string]int64{}
 		defer func() {
-			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, nodeadapter.AdapterAction{
 				EffectID: nodes.PlayInputClipEffectID, Action: "automation.play-input-clip", SummaryCode: "automation.play-input-clip", Counters: counters,
 			}, installed.CodePlaybackFailed, runErr))
 		}()
 
 		clip, ref, err := readInputClip(ctx, invocation)
 		if err != nil {
-			return compiler.AdapterResult{}, inputClipFailure(err)
+			return nodeadapter.AdapterResult{}, inputClipFailure(err)
 		}
 		counters["blob_bytes"] = ref.Size
 		counters["events"] = int64(len(clip.Events))
@@ -43,13 +43,13 @@ func playInputClip() compiler.Adapter {
 			return playInputClipTimeline(clip.Events, clip.Meta, commands)
 		})
 		if err != nil {
-			return compiler.AdapterResult{}, err
+			return nodeadapter.AdapterResult{}, err
 		}
-		return compiler.AdapterResult{ExecOutputs: []string{"completed"}}, nil
+		return nodeadapter.AdapterResult{ExecOutputs: []string{"completed"}}, nil
 	}
 }
 
-func runPlaybackSession(ctx context.Context, invocation compiler.Invocation, sequence func(playbackCommands) error) (runErr error) {
+func runPlaybackSession(ctx context.Context, invocation nodeadapter.Invocation, sequence func(playbackCommands) error) (runErr error) {
 	targetSession := invocation.Sessions["target"]
 	if targetSession == nil {
 		return automationFailure(installed.CodeContractViolation, errors.New("automation playback capability session is missing"))
@@ -132,7 +132,7 @@ func playInputClipTimeline(events []inputclip.Event, meta inputclip.ClipMeta, co
 	return nil
 }
 
-func readInputClip(ctx context.Context, invocation compiler.Invocation) (*inputclip.InputClip, blob.BlobRef, error) {
+func readInputClip(ctx context.Context, invocation nodeadapter.Invocation) (*inputclip.InputClip, blob.BlobRef, error) {
 	carrier, ref, err := readPlaybackBlob(ctx, invocation, "clip", inputclip.MediaType, inputclip.MaxEncodedInputClipBytes)
 	if err != nil {
 		return nil, blob.BlobRef{}, err
@@ -144,7 +144,7 @@ func readInputClip(ctx context.Context, invocation compiler.Invocation) (*inputc
 	return clip, ref, nil
 }
 
-func readPlaybackBlob(ctx context.Context, invocation compiler.Invocation, inputID, mediaType string, maxBytes int) ([]byte, blob.BlobRef, error) {
+func readPlaybackBlob(ctx context.Context, invocation nodeadapter.Invocation, inputID, mediaType string, maxBytes int) ([]byte, blob.BlobRef, error) {
 	input, ok := invocation.Inputs[inputID]
 	if !ok {
 		return nil, blob.BlobRef{}, fmt.Errorf("%s is missing", inputID)
@@ -223,5 +223,5 @@ func playbackEvent(event inputclip.Event, meta inputclip.ClipMeta) installed.Pla
 }
 
 func inputClipFailure(cause error) error {
-	return &compiler.NodeFailure{Code: nodes.InputClipInvalidCode, Output: "failed", Cause: fmt.Errorf("input clip: %w", cause)}
+	return &nodeadapter.NodeFailure{Code: nodes.InputClipInvalidCode, Output: "failed", Cause: fmt.Errorf("input clip: %w", cause)}
 }

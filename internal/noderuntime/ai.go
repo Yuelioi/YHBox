@@ -10,12 +10,12 @@ import (
 	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/runid"
-	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
-func aiGenerate(builtins nodes.Builtins, structured bool) compiler.Adapter {
+func aiGenerate(builtins nodes.Builtins, structured bool) nodeadapter.Adapter {
 	effectID := nodes.AIGenerateEffectID
 	operation := ai.OperationGenerate
 	promptManifest := builtins.AIGeneratePrompt
@@ -24,8 +24,8 @@ func aiGenerate(builtins nodes.Builtins, structured bool) compiler.Adapter {
 		operation = ai.OperationGenerateStructured
 		promptManifest = builtins.AIExtractPrompt
 	}
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
-		action := compiler.AdapterAction{
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
+		action := nodeadapter.AdapterAction{
 			EffectID: effectID, Action: "ai.provider-response", SummaryCode: "ai.generation",
 			Counters: map[string]int64{}, Facts: map[string]string{},
 		}
@@ -34,75 +34,75 @@ func aiGenerate(builtins nodes.Builtins, structured bool) compiler.Adapter {
 		}()
 		promptEnvelope, ok := invocation.Inputs["prompt"]
 		if !ok || len(promptEnvelope.InlineJSON()) == 0 {
-			return compiler.AdapterResult{}, errors.New("AI prompt input is missing")
+			return nodeadapter.AdapterResult{}, errors.New("AI prompt input is missing")
 		}
 		var prompt string
 		if err := json.Unmarshal(promptEnvelope.InlineJSON(), &prompt); err != nil || prompt == "" {
-			return compiler.AdapterResult{}, errors.New("AI prompt input must be a non-empty string")
+			return nodeadapter.AdapterResult{}, errors.New("AI prompt input must be a non-empty string")
 		}
 		request, err := aiRequest(invocation.Config, prompt, structured, promptManifest)
 		if err != nil {
-			return compiler.AdapterResult{}, err
+			return nodeadapter.AdapterResult{}, err
 		}
 		addAIRequestSummary(&action, request)
 		session := invocation.Sessions["model"]
 		if session == nil {
-			return compiler.AdapterResult{}, errors.New("AI model capability session is missing")
+			return nodeadapter.AdapterResult{}, errors.New("AI model capability session is missing")
 		}
 		handle, err := session.Open(ctx, []string{operation}, []byte(`{}`))
 		if err != nil {
-			return compiler.AdapterResult{}, err
+			return nodeadapter.AdapterResult{}, err
 		}
 		defer func() { runErr = errors.Join(runErr, session.Drop(context.WithoutCancel(ctx), handle)) }()
 		payload, err := artifact.Marshal(request)
 		if err != nil {
-			return compiler.AdapterResult{}, err
+			return nodeadapter.AdapterResult{}, err
 		}
 		rawOutcome, err := session.Invoke(ctx, handle, operation, payload)
 		if err != nil {
-			return compiler.AdapterResult{}, err
+			return nodeadapter.AdapterResult{}, err
 		}
 		outcome, err := ai.OpenOutcome(rawOutcome)
 		if err != nil {
-			return compiler.AdapterResult{}, err
+			return nodeadapter.AdapterResult{}, err
 		}
 		addAIOutcomeSummary(&action, outcome)
 		if outcome.Finish.Kind != ai.FinishCompleted {
-			return compiler.AdapterResult{}, &compiler.NodeFailure{
+			return nodeadapter.AdapterResult{}, &nodeadapter.NodeFailure{
 				Code: "ai.generation_failed", Output: "failed", Cause: fmt.Errorf("AI generation finished as %s", outcome.Finish.Kind),
 			}
 		}
 		var rawValue json.RawMessage
 		if structured {
 			if len(outcome.Items) != 1 || outcome.Items[0].Kind != ai.OutputStructured || outcome.Items[0].Structured == nil {
-				return compiler.AdapterResult{}, errors.New("AI structured generation returned no exact structured item")
+				return nodeadapter.AdapterResult{}, errors.New("AI structured generation returned no exact structured item")
 			}
 			rawValue = outcome.Items[0].Structured.Value
 		} else {
 			var text strings.Builder
 			for _, item := range outcome.Items {
 				if item.Kind != ai.OutputText || item.Text == nil {
-					return compiler.AdapterResult{}, errors.New("AI text generation returned a non-text item")
+					return nodeadapter.AdapterResult{}, errors.New("AI text generation returned a non-text item")
 				}
 				text.WriteString(item.Text.Text)
 			}
 			if text.Len() == 0 {
-				return compiler.AdapterResult{}, errors.New("AI text generation returned an empty result")
+				return nodeadapter.AdapterResult{}, errors.New("AI text generation returned an empty result")
 			}
 			rawValue, err = json.Marshal(text.String())
 			if err != nil {
-				return compiler.AdapterResult{}, err
+				return nodeadapter.AdapterResult{}, err
 			}
 		}
 		resolved, ok := invocation.OutputTypes["result"]
 		if !ok {
-			return compiler.AdapterResult{}, errors.New("AI result output type is unresolved")
+			return nodeadapter.AdapterResult{}, errors.New("AI result output type is unresolved")
 		}
 		envelope, err := datatype.SealInlineJSON(builtins.Catalog, resolved, rawValue)
 		if err != nil {
-			return compiler.AdapterResult{}, err
+			return nodeadapter.AdapterResult{}, err
 		}
-		return compiler.AdapterResult{Outputs: map[string]datatype.ValueEnvelope{"result": envelope}, ExecOutputs: []string{"completed"}}, nil
+		return nodeadapter.AdapterResult{Outputs: map[string]datatype.ValueEnvelope{"result": envelope}, ExecOutputs: []string{"completed"}}, nil
 	}
 }
 
@@ -147,7 +147,7 @@ func aiRequest(config map[string]any, prompt string, structured bool, manifest a
 	return request, nil
 }
 
-func addAIRequestSummary(action *compiler.AdapterAction, request ai.GenerateRequest) {
+func addAIRequestSummary(action *nodeadapter.AdapterAction, request ai.GenerateRequest) {
 	addFact(action.Facts, "prompt_manifest", request.Prompt.ManifestDigest.String())
 	addFact(action.Facts, "tool_set", request.ToolSet.String())
 	if request.Output != nil {
@@ -183,7 +183,7 @@ func configInt64(value any) (int64, error) {
 	}
 }
 
-func addAIOutcomeSummary(action *compiler.AdapterAction, outcome ai.Outcome) {
+func addAIOutcomeSummary(action *nodeadapter.AdapterAction, outcome ai.Outcome) {
 	addCounter := func(name string, value *int64) {
 		if value != nil {
 			action.Counters[name] = *value

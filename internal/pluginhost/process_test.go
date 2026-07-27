@@ -11,12 +11,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodepackage"
 	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/pluginprotocol"
 	run "github.com/yottaapp/yotta/internal/run"
-	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
@@ -26,7 +26,7 @@ func TestProcessSessionMediatesHostCallsStatusActionsAndResult(t *testing.T) {
 	defer guestSide.Close()
 	var statusCalls, actionCalls int32
 	session := processSession{
-		invocation: compiler.Invocation{
+		invocation: nodeadapter.Invocation{
 			ReadEntropy: func(buffer []byte) error {
 				for index := range buffer {
 					buffer[index] = byte(index + 1)
@@ -40,7 +40,7 @@ func TestProcessSessionMediatesHostCallsStatusActionsAndResult(t *testing.T) {
 				atomic.AddInt32(&statusCalls, 1)
 				return nil
 			},
-			RecordAction: func(_ context.Context, action compiler.AdapterAction) error {
+			RecordAction: func(_ context.Context, action nodeadapter.AdapterAction) error {
 				if action.EffectID != "write" || action.Action != "plugin.write" || action.SummaryCode != "plugin.write_completed" {
 					t.Fatalf("unexpected action %#v", action)
 				}
@@ -104,7 +104,7 @@ func TestProcessSessionChecksBudgetBeforeExecutingHostCall(t *testing.T) {
 	defer guestSide.Close()
 	var entropyCalls int32
 	session := processSession{
-		invocation: compiler.Invocation{ReadEntropy: func([]byte) error {
+		invocation: nodeadapter.Invocation{ReadEntropy: func([]byte) error {
 			atomic.AddInt32(&entropyCalls, 1)
 			return nil
 		}},
@@ -128,7 +128,7 @@ func TestProcessSessionReturnsCapabilityDenialWithoutGrantingAuthority(t *testin
 	defer hostSide.Close()
 	defer guestSide.Close()
 	session := processSession{
-		invocation: compiler.Invocation{Sessions: map[string]*run.Session{}},
+		invocation: nodeadapter.Invocation{Sessions: map[string]*run.Session{}},
 		reader:     hostSide, writer: hostSide, nextSequence: 2, maxHostCalls: 1, maxStatusEvents: 1,
 	}
 	guestError := make(chan error, 1)
@@ -196,7 +196,7 @@ func TestSharedResultBoundaryRejectsSchemaViolationAndOutputOversize(t *testing.
 
 func TestSharedSessionContainsGuestCrashToCurrentInvocation(t *testing.T) {
 	session := processSession{
-		invocation: compiler.Invocation{}, reader: bytes.NewReader(nil), writer: io.Discard,
+		invocation: nodeadapter.Invocation{}, reader: bytes.NewReader(nil), writer: io.Discard,
 		nextSequence: 2, maxHostCalls: 1, maxStatusEvents: 1,
 	}
 	if _, err := session.serve(context.Background(), &testProcessControl{}); err == nil || !strings.Contains(err.Error(), "read process plugin frame") {
@@ -216,7 +216,7 @@ func TestExecutionHostHelpersFailClosedWithoutAuthority(t *testing.T) {
 		t.Fatal("normalizeExecutionOptions accepted an excessive timeout")
 	}
 
-	session := processSession{ctx: context.Background(), invocation: compiler.Invocation{Sessions: map[string]*run.Session{}, State: map[string]compiler.StateBinding{}}}
+	session := processSession{ctx: context.Background(), invocation: nodeadapter.Invocation{Sessions: map[string]*run.Session{}, State: map[string]nodeadapter.StateBinding{}}}
 	if response := session.open(&pluginprotocol.HostOpenRequest{RequestId: "open", RequirementId: "missing", Operations: []string{"read"}, ConfigJson: []byte(`{}`)}).GetHostOpenResponse(); response.GetFailure() == nil || len(response.GetHandleJson()) != 0 {
 		t.Fatal("open granted missing authority")
 	}
@@ -271,7 +271,7 @@ func TestExecutionHostProjectsTriggerAndActionMetadata(t *testing.T) {
 	if trigger, err := marshalTrigger(nil); err != nil || trigger != nil {
 		t.Fatalf("marshalTrigger(nil) = %#v, %v", trigger, err)
 	}
-	trigger, err := marshalTrigger(&compiler.SignalTrigger{Channel: schema.EdgeExec, InputPort: "in", From: schema.Endpoint{NodeID: "source", PortID: "out"}, Failure: &compiler.RoutedFailure{Code: "node.failed"}})
+	trigger, err := marshalTrigger(&nodeadapter.SignalTrigger{Channel: schema.EdgeExec, InputPort: "in", From: schema.Endpoint{NodeID: "source", PortID: "out"}, Failure: &nodeadapter.RoutedFailure{Code: "node.failed"}})
 	if err != nil || trigger.Channel == "" || len(trigger.FailureJson) == 0 {
 		t.Fatalf("marshalTrigger = %#v, %v", trigger, err)
 	}
@@ -285,7 +285,7 @@ func TestExecutionHostProjectsTriggerAndActionMetadata(t *testing.T) {
 	if _, err := (*ProcessHost)(nil).Adapters(nil); err == nil {
 		t.Fatal("nil host projected adapters")
 	}
-	if _, _, err := (&executionHost{}).invocationFrame(context.Background(), nodepackage.RuntimeNode{}, compiler.Invocation{}); err == nil {
+	if _, _, err := (&executionHost{}).invocationFrame(context.Background(), nodepackage.RuntimeNode{}, nodeadapter.Invocation{}); err == nil {
 		t.Fatal("invocationFrame accepted missing identity")
 	}
 }
@@ -296,16 +296,16 @@ func TestProcessSessionRejectsInvalidEventAndSequencePaths(t *testing.T) {
 	cases := []struct {
 		name       string
 		frame      *pluginprotocol.Frame
-		invocation compiler.Invocation
+		invocation nodeadapter.Invocation
 		maxStatus  uint32
 	}{
-		{"status budget", status, compiler.Invocation{}, 0},
-		{"missing status emitter", status, compiler.Invocation{}, 1},
-		{"status emitter failure", status, compiler.Invocation{EmitStatus: func(context.Context, string, map[string]int64) error { return errors.New("emit failed") }}, 1},
-		{"missing action recorder", action, compiler.Invocation{}, 1},
-		{"action recorder failure", action, compiler.Invocation{RecordAction: func(context.Context, compiler.AdapterAction) error { return errors.New("record failed") }}, 1},
-		{"host-only payload", &pluginprotocol.Frame{Protocol: pluginprotocol.Protocol, Sequence: 2, Payload: &pluginprotocol.Frame_HostOpenResponse{HostOpenResponse: &pluginprotocol.HostOpenResponse{RequestId: "open", Failure: hostFailure("denied")}}}, compiler.Invocation{}, 1},
-		{"sequence mismatch", &pluginprotocol.Frame{Protocol: pluginprotocol.Protocol, Sequence: 3, Payload: &pluginprotocol.Frame_Result{Result: &pluginprotocol.Result{Outcome: pluginprotocol.Outcome_OUTCOME_SUCCEEDED, TerminationStrength: "cooperative"}}}, compiler.Invocation{}, 1},
+		{"status budget", status, nodeadapter.Invocation{}, 0},
+		{"missing status emitter", status, nodeadapter.Invocation{}, 1},
+		{"status emitter failure", status, nodeadapter.Invocation{EmitStatus: func(context.Context, string, map[string]int64) error { return errors.New("emit failed") }}, 1},
+		{"missing action recorder", action, nodeadapter.Invocation{}, 1},
+		{"action recorder failure", action, nodeadapter.Invocation{RecordAction: func(context.Context, nodeadapter.AdapterAction) error { return errors.New("record failed") }}, 1},
+		{"host-only payload", &pluginprotocol.Frame{Protocol: pluginprotocol.Protocol, Sequence: 2, Payload: &pluginprotocol.Frame_HostOpenResponse{HostOpenResponse: &pluginprotocol.HostOpenResponse{RequestId: "open", Failure: hostFailure("denied")}}}, nodeadapter.Invocation{}, 1},
+		{"sequence mismatch", &pluginprotocol.Frame{Protocol: pluginprotocol.Protocol, Sequence: 3, Payload: &pluginprotocol.Frame_Result{Result: &pluginprotocol.Result{Outcome: pluginprotocol.Outcome_OUTCOME_SUCCEEDED, TerminationStrength: "cooperative"}}}, nodeadapter.Invocation{}, 1},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {

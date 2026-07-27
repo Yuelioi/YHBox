@@ -10,17 +10,17 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodes"
-	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
-func automationInput(nodeTypeID, operation string) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+func automationInput(nodeTypeID, operation string) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		effectID, ok := nodes.AutomationInputEffectID(nodeTypeID)
 		if !ok {
-			return compiler.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("automation input effect is not installed"))
+			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("automation input effect is not installed"))
 		}
-		action := compiler.AdapterAction{
+		action := nodeadapter.AdapterAction{
 			EffectID: effectID, Action: "automation." + operation, SummaryCode: "automation." + operation,
 			Counters: map[string]int64{}, Facts: map[string]string{},
 		}
@@ -30,36 +30,36 @@ func automationInput(nodeTypeID, operation string) compiler.Adapter {
 
 		request, counters, err := automationInputRequest(invocation, operation)
 		if err != nil {
-			return compiler.AdapterResult{}, automationFailure(installed.CodeInvalidRequest, err)
+			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeInvalidRequest, err)
 		}
 		for key, value := range counters {
 			action.Counters[key] = value
 		}
 		payload, err := artifact.Marshal(request)
 		if err != nil {
-			return compiler.AdapterResult{}, automationFailure(installed.CodeContractViolation, err)
+			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, err)
 		}
 		session := invocation.Sessions["target"]
 		if session == nil {
-			return compiler.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("automation input capability session is missing"))
+			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("automation input capability session is missing"))
 		}
 		handle, err := session.Open(ctx, []string{operation}, []byte(`{}`))
 		if err != nil {
-			return compiler.AdapterResult{}, mapAutomationFailure(err)
+			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}
 		defer func() { runErr = errors.Join(runErr, session.Drop(context.WithoutCancel(ctx), handle)) }()
 		raw, err := session.Invoke(ctx, handle, operation, payload)
 		if err != nil {
-			return compiler.AdapterResult{}, mapAutomationFailure(err)
+			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}
 		if err := installed.OpenEffectResponse(raw); err != nil {
-			return compiler.AdapterResult{}, mapAutomationFailure(err)
+			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}
-		return compiler.AdapterResult{ExecOutputs: []string{"completed"}}, nil
+		return nodeadapter.AdapterResult{ExecOutputs: []string{"completed"}}, nil
 	}
 }
 
-func automationInputRequest(invocation compiler.Invocation, operation string) (any, map[string]int64, error) {
+func automationInputRequest(invocation nodeadapter.Invocation, operation string) (any, map[string]int64, error) {
 	counters := map[string]int64{}
 	switch operation {
 	case installed.OperationClick:
@@ -174,30 +174,30 @@ func automationInputRequest(invocation compiler.Invocation, operation string) (a
 	}
 }
 
-func holdInput(catalog datatype.ValueTypeCatalog, operation, effectID, actionName string) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
-		action := compiler.AdapterAction{EffectID: effectID, Action: actionName, SummaryCode: actionName, Counters: map[string]int64{}, Facts: map[string]string{}}
+func holdInput(catalog datatype.ValueTypeCatalog, operation, effectID, actionName string) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
+		action := nodeadapter.AdapterAction{EffectID: effectID, Action: actionName, SummaryCode: actionName, Counters: map[string]int64{}, Facts: map[string]string{}}
 		defer func() {
 			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, action, installed.CodeInputFailed, runErr))
 		}()
 		request, counters, err := automationInputRequest(invocation, operation)
 		if err != nil {
-			return compiler.AdapterResult{}, automationFailure(installed.CodeInvalidRequest, err)
+			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeInvalidRequest, err)
 		}
 		for key, value := range counters {
 			action.Counters[key] = value
 		}
 		payload, err := artifact.Marshal(request)
 		if err != nil {
-			return compiler.AdapterResult{}, automationFailure(installed.CodeContractViolation, err)
+			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, err)
 		}
 		session := invocation.Sessions["target"]
 		if session == nil {
-			return compiler.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("held input capability session is missing"))
+			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("held input capability session is missing"))
 		}
 		handle, err := session.Open(ctx, installed.HeldInputOperations(), []byte(`{}`))
 		if err != nil {
-			return compiler.AdapterResult{}, mapAutomationFailure(err)
+			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}
 		owned := true
 		defer func() {
@@ -207,58 +207,58 @@ func holdInput(catalog datatype.ValueTypeCatalog, operation, effectID, actionNam
 		}()
 		raw, err := session.Invoke(ctx, handle, operation, payload)
 		if err != nil {
-			return compiler.AdapterResult{}, mapAutomationFailure(err)
+			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}
 		if err := installed.OpenEffectResponse(raw); err != nil {
-			return compiler.AdapterResult{}, mapAutomationFailure(err)
+			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}
 		resolved, ok := invocation.OutputTypes["held"]
 		if !ok {
-			return compiler.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("held input output type is missing"))
+			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("held input output type is missing"))
 		}
 		envelope, err := datatype.SealHandleRef(catalog, resolved, handle)
 		if err != nil {
-			return compiler.AdapterResult{}, automationFailure(installed.CodeContractViolation, err)
+			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, err)
 		}
 		owned = false
-		return compiler.AdapterResult{Outputs: map[string]datatype.ValueEnvelope{"held": envelope}, ExecOutputs: []string{"completed"}}, nil
+		return nodeadapter.AdapterResult{Outputs: map[string]datatype.ValueEnvelope{"held": envelope}, ExecOutputs: []string{"completed"}}, nil
 	}
 }
 
-func releaseHeldInput() compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
-		action := compiler.AdapterAction{EffectID: nodes.ReleaseHeldInputEffectID, Action: "automation.release-held-input", SummaryCode: "automation.release-held-input", Counters: map[string]int64{}, Facts: map[string]string{}}
+func releaseHeldInput() nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
+		action := nodeadapter.AdapterAction{EffectID: nodes.ReleaseHeldInputEffectID, Action: "automation.release-held-input", SummaryCode: "automation.release-held-input", Counters: map[string]int64{}, Facts: map[string]string{}}
 		defer func() {
 			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, action, installed.CodeInputFailed, runErr))
 		}()
 		input, ok := invocation.Inputs["held"]
 		if !ok {
-			return compiler.AdapterResult{}, automationFailure(installed.CodeInvalidRequest, errors.New("held input lease is missing"))
+			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeInvalidRequest, errors.New("held input lease is missing"))
 		}
 		handle, ok := input.HandleRef()
 		if !ok || handle.Kind != installed.KindHeldInput {
-			return compiler.AdapterResult{}, automationFailure(installed.CodeInvalidRequest, errors.New("held input lease is invalid"))
+			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeInvalidRequest, errors.New("held input lease is invalid"))
 		}
 		session := invocation.Sessions["target"]
 		if session == nil {
-			return compiler.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("held input capability session is missing"))
+			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("held input capability session is missing"))
 		}
 		payload, err := artifact.Marshal(struct{}{})
 		if err != nil {
-			return compiler.AdapterResult{}, automationFailure(installed.CodeContractViolation, err)
+			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, err)
 		}
 		raw, err := session.Invoke(ctx, handle, installed.OperationReleaseHeld, payload)
 		if err != nil {
-			return compiler.AdapterResult{}, mapAutomationFailure(err)
+			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}
 		if err := installed.OpenEffectResponse(raw); err != nil {
-			return compiler.AdapterResult{}, mapAutomationFailure(err)
+			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}
-		return compiler.AdapterResult{ExecOutputs: []string{"completed"}}, nil
+		return nodeadapter.AdapterResult{ExecOutputs: []string{"completed"}}, nil
 	}
 }
 
-func decodeAutomationInput(invocation compiler.Invocation, id string, target any) error {
+func decodeAutomationInput(invocation nodeadapter.Invocation, id string, target any) error {
 	input, ok := invocation.Inputs[id]
 	if !ok || len(input.InlineJSON()) == 0 {
 		return fmt.Errorf("automation input %q is missing", id)
@@ -281,5 +281,5 @@ func mapAutomationFailure(err error) error {
 }
 
 func automationFailure(code string, cause error) error {
-	return &compiler.NodeFailure{Code: code, Output: "failed", Cause: fmt.Errorf("automation: %w", cause)}
+	return &nodeadapter.NodeFailure{Code: code, Output: "failed", Cause: fmt.Errorf("automation: %w", cause)}
 }

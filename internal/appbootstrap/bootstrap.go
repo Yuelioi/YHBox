@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/yottaapp/yotta/internal/admission"
@@ -21,6 +22,7 @@ import (
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/hostapi"
 	"github.com/yottaapp/yotta/internal/httpegress"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/nodepackage"
@@ -74,13 +76,19 @@ type Config struct {
 }
 
 type Runtime struct {
-	Application       *appcore.Application
-	Builtins          nodes.Builtins
-	BlobStore         *blob.Store
-	Bundles           *workflowbundle.Manager
-	ai                ai.Installations
-	http              httpegress.Installations
-	automationTargets *AutomationTargetRuntime
+	Application  *appcore.Application
+	Builtins     nodes.Builtins
+	BlobStore    *blob.Store
+	Bundles      *workflowbundle.Manager
+	ai           ai.Installations
+	http         httpegress.Installations
+	automationMu sync.Mutex
+	current      *sealedExecutionEnvironment
+	retired      []automationinstalled.Generation
+	authoring    automationinstalled.AuthoringTargets
+	factory      executionEnvironmentFactory
+	closed       bool
+	closeErr     error
 }
 
 func Build(config Config) (*Runtime, error) {
@@ -220,15 +228,31 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	profile, err := buildHostProfile(builtins, blobDigest, streamDigest, workspaceFileDigest, config.ScriptRuntime, pluginFeatures, config.AIInstallations, config.HTTPInstallations, config.ApplicationInstallations, config.AutomationInstallations)
+	environmentFactory, err := newExecutionEnvironmentFactory(executionEnvironmentFactory{
+		builtins: builtins, blobDigest: blobDigest, streamDigest: streamDigest, workspaceFileDigest: workspaceFileDigest,
+		scriptRuntime: config.ScriptRuntime, pluginFeatures: pluginFeatures,
+		now: config.Now, grantTTL: config.GrantTTL,
+		ai: config.AIInstallations, http: config.HTTPInstallations,
+		baseProviders: map[string]run.InstalledProvider{
+			blob.ProviderID:        {ArtifactDigest: blobDigest, ABI: blob.ProviderABI, Provider: blobProvider},
+			stream.ProviderID:      {ArtifactDigest: streamDigest, ABI: stream.ProviderABI, Provider: streamProvider},
+			workspacefs.ProviderID: {ArtifactDigest: workspaceFileDigest, ABI: workspacefs.ProviderABI, Provider: workspaceFileProvider},
+		},
+	})
 	if err != nil {
 		return nil, err
 	}
-	policy, err := NewBuiltinPolicy(config.Now, config.GrantTTL, config.AIInstallations, config.HTTPInstallations, config.ApplicationInstallations, config.AutomationInstallations)
+	environment, err := environmentFactory.seal(config.ApplicationInstallations, config.AutomationInstallations)
 	if err != nil {
 		return nil, err
 	}
-	admitter, err := admission.New(catalog, profile, runs, policy, admission.Options{
+	environmentOwned := false
+	defer func() {
+		if !environmentOwned {
+			_ = environment.generation.Retire()
+		}
+	}()
+	admitter, err := admission.New(catalog, environment.profile, runs, environment.policy, admission.Options{
 		Now: config.Now, MaxGrantTTL: config.GrantTTL,
 	})
 	if err != nil {
@@ -238,7 +262,7 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	mergePluginAdapters := func(installed map[string]compiler.InstalledAdapter, err error) error {
+	mergePluginAdapters := func(installed map[string]nodeadapter.InstalledAdapter, err error) error {
 		if err != nil {
 			return err
 		}
@@ -261,66 +285,12 @@ func Build(config Config) (*Runtime, error) {
 		}
 	}
 	executor := compiler.NewExecutor(catalog, adapters, compiler.ExecutorOptions{Now: config.Now})
-	providers := map[string]run.InstalledProvider{
-		blob.ProviderID:        {ArtifactDigest: blobDigest, ABI: blob.ProviderABI, Provider: blobProvider},
-		stream.ProviderID:      {ArtifactDigest: streamDigest, ABI: stream.ProviderABI, Provider: streamProvider},
-		workspacefs.ProviderID: {ArtifactDigest: workspaceFileDigest, ABI: workspacefs.ProviderABI, Provider: workspaceFileProvider},
-	}
-	for _, installed := range config.AIInstallations.Entries() {
-		if existing, ok := providers[installed.ProviderID]; ok {
-			if existing.ArtifactDigest != installed.ProviderArtifact || existing.ABI != ai.ProviderABI || existing.Provider != installed.Provider {
-				return nil, errors.New("conflicting AI provider installation")
-			}
-			continue
-		}
-		providers[installed.ProviderID] = run.InstalledProvider{
-			ArtifactDigest: installed.ProviderArtifact, ABI: ai.ProviderABI, Provider: installed.Provider,
-		}
-	}
-	for _, installed := range config.HTTPInstallations.Entries() {
-		if existing, ok := providers[installed.ProviderID]; ok {
-			if existing.ArtifactDigest != installed.ProviderArtifact || existing.ABI != httpegress.ProviderABI || existing.Provider != installed.Provider {
-				return nil, errors.New("conflicting HTTP provider installation")
-			}
-			continue
-		}
-		providers[installed.ProviderID] = run.InstalledProvider{ArtifactDigest: installed.ProviderArtifact, ABI: httpegress.ProviderABI, Provider: installed.Provider}
-	}
-	baseProviders := cloneProviders(providers)
-	for _, installed := range config.ApplicationInstallations.Entries() {
-		if existing, ok := providers[installed.ProviderID]; ok {
-			if existing.ArtifactDigest != installed.ProviderArtifact || existing.ABI != appcontrol.ProviderABI || existing.Provider != installed.Provider {
-				return nil, errors.New("conflicting application provider installation")
-			}
-			continue
-		}
-		providers[installed.ProviderID] = run.InstalledProvider{ArtifactDigest: installed.ProviderArtifact, ABI: appcontrol.ProviderABI, Provider: installed.Provider}
-	}
-	for _, installed := range config.AutomationInstallations.Entries() {
-		if existing, ok := providers[installed.ProviderID]; ok {
-			if existing.ArtifactDigest != installed.ProviderArtifact || existing.ABI != automationinstalled.ProviderABI || existing.Provider != installed.Provider {
-				return nil, errors.New("conflicting installed automation provider")
-			}
-			continue
-		}
-		providers[installed.ProviderID] = run.InstalledProvider{ArtifactDigest: installed.ProviderArtifact, ABI: automationinstalled.ProviderABI, Provider: installed.Provider}
-	}
-	automationGeneration, err := automationinstalled.NewGeneration(config.AutomationInstallations)
-	if err != nil {
-		return nil, err
-	}
-	generationOwned := false
-	defer func() {
-		if !generationOwned {
-			_ = automationGeneration.Retire()
-		}
-	}()
 	application, err := appcore.New(appcore.Config{
 		Catalog: catalog, Authoring: authoringProjection, CompilerBuild: build, ConfigValidators: builtins.ConfigValidators,
 		BlobVerifier: blobStore,
 		Sources:      sources, Programs: programs, Runs: runs,
 		Admitter: admitter, Executor: executor,
-		Providers: providers, ProviderLease: providerLease(automationGeneration),
+		Providers: environment.providers, ProviderLease: environment.acquire,
 		ResourceOptions: resource.Options{
 			Now: config.Now, MaxPayloadBytes: config.Limits.MaxResourcePayloadBytes,
 		},
@@ -330,7 +300,7 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	authoringTargets, err := automationinstalled.NewAuthoringTargets(automationGeneration)
+	authoringTargets, err := automationinstalled.NewAuthoringTargets(environment.generation)
 	if err != nil {
 		return nil, err
 	}
@@ -338,19 +308,11 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	generationOwned = true
-	automationTargets := &AutomationTargetRuntime{
-		application: application, ai: config.AIInstallations, http: config.HTTPInstallations,
-		current: automationGeneration, authoring: authoringTargets,
-		environment: automationEnvironmentConfig{
-			builtins: builtins, blobDigest: blobDigest, streamDigest: streamDigest, workspaceFileDigest: workspaceFileDigest,
-			scriptRuntime: config.ScriptRuntime, pluginFeatures: append([]string(nil), pluginFeatures...), now: config.Now,
-			grantTTL: config.GrantTTL, baseProviders: baseProviders,
-		},
-	}
+	environmentOwned = true
 	return &Runtime{
 		Application: application, Builtins: builtins, BlobStore: blobStore, Bundles: bundles,
-		ai: config.AIInstallations, http: config.HTTPInstallations, automationTargets: automationTargets,
+		ai: config.AIInstallations, http: config.HTTPInstallations,
+		current: environment, authoring: authoringTargets, factory: environmentFactory,
 	}, nil
 }
 

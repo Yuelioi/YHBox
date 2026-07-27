@@ -13,8 +13,8 @@ import (
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodes"
-	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/pkg/vision"
 )
 
@@ -48,43 +48,43 @@ type visionMatchResult struct {
 	TemplatePixels          int64
 }
 
-func matchTemplate(builtins nodes.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+func matchTemplate(builtins nodes.Builtins) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		counters := map[string]int64{}
 		defer func() {
-			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, nodeadapter.AdapterAction{
 				EffectID: nodes.MatchTemplateEffectID, Action: "vision.match-template", SummaryCode: "vision.match-template", Counters: counters,
 			}, nodes.VisionMatchFailedCode, runErr))
 		}()
 
 		threshold, err := numberInput(invocation, "threshold")
 		if err != nil || threshold < 0 || threshold > 1 {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionMatchFailedCode, errors.Join(err, errors.New("threshold must be between 0 and 1")))
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionMatchFailedCode, errors.Join(err, errors.New("threshold must be between 0 and 1")))
 		}
 		region, err := visionRegionInput(invocation)
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
 		}
 
 		imageRef, err := visionBlobInput(invocation, "image")
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionImageInvalidCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionImageInvalidCode, err)
 		}
 		templateRef, err := visionBlobInput(invocation, "template")
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionTemplateInvalidCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionTemplateInvalidCode, err)
 		}
 		imageBytes, err := readVisionBlob(ctx, invocation, imageRef)
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionMatchFailedCode, fmt.Errorf("read image: %w", err))
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionMatchFailedCode, fmt.Errorf("read image: %w", err))
 		}
 		templateBytes, err := readVisionBlob(ctx, invocation, templateRef)
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionMatchFailedCode, fmt.Errorf("read template: %w", err))
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionMatchFailedCode, fmt.Errorf("read template: %w", err))
 		}
 		match, err := matchTemplateBytes(imageBytes, templateBytes, region, threshold)
 		if err != nil {
-			return compiler.AdapterResult{}, err
+			return nodeadapter.AdapterResult{}, err
 		}
 		counters["image_bytes"] = imageRef.Size
 		counters["template_bytes"] = templateRef.Size
@@ -139,7 +139,7 @@ func matchTemplateBytes(imageBytes, templateBytes []byte, region visionRegion, t
 	return result, nil
 }
 
-func visionRegionInput(invocation compiler.Invocation) (visionRegion, error) {
+func visionRegionInput(invocation nodeadapter.Invocation) (visionRegion, error) {
 	input, ok := invocation.Inputs["region"]
 	if !ok || len(input.InlineJSON()) == 0 {
 		return visionRegion{}, errors.New("search region is missing")
@@ -151,7 +151,7 @@ func visionRegionInput(invocation compiler.Invocation) (visionRegion, error) {
 	return region, nil
 }
 
-func visionBlobInput(invocation compiler.Invocation, id string) (blob.BlobRef, error) {
+func visionBlobInput(invocation nodeadapter.Invocation, id string) (blob.BlobRef, error) {
 	input, ok := invocation.Inputs[id]
 	if !ok {
 		return blob.BlobRef{}, fmt.Errorf("%s input is missing", id)
@@ -163,7 +163,7 @@ func visionBlobInput(invocation compiler.Invocation, id string) (blob.BlobRef, e
 	return ref, nil
 }
 
-func readVisionBlob(ctx context.Context, invocation compiler.Invocation, ref blob.BlobRef) ([]byte, error) {
+func readVisionBlob(ctx context.Context, invocation nodeadapter.Invocation, ref blob.BlobRef) ([]byte, error) {
 	session := invocation.Sessions["blob-read"]
 	if session == nil {
 		return nil, errors.New("blob-read capability session is missing")
@@ -262,10 +262,10 @@ func boundedVisionScore(score float32) float64 {
 	return math.Max(-1, math.Min(1, float64(score)))
 }
 
-func sealVisionMatchOutputs(builtins nodes.Builtins, invocation compiler.Invocation, matched bool, score float64, center visionPoint, bounds visionRegion) (compiler.AdapterResult, error) {
+func sealVisionMatchOutputs(builtins nodes.Builtins, invocation nodeadapter.Invocation, matched bool, score float64, center visionPoint, bounds visionRegion) (nodeadapter.AdapterResult, error) {
 	return sealVisionOutputs(builtins, invocation, map[string]any{"matched": matched, "score": score, "center": center, "bounds": bounds})
 }
 
 func visionFailure(code string, cause error) error {
-	return &compiler.NodeFailure{Code: code, Cause: cause}
+	return &nodeadapter.NodeFailure{Code: code, Cause: cause}
 }

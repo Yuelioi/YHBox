@@ -564,13 +564,14 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, resou
 			diagnostics = append(diagnostics, diagnostic(CodeNoExecutionRoot, []string{"graphs", fmt.Sprint(graphIndex)}, graph.ID))
 		}
 		for _, node := range compiled.Nodes {
-			if !active[node.ID] {
-				continue
-			}
 			for _, port := range node.Ports.DataInputs {
 				if port.Required {
 					if _, present := node.Inputs[port.ID]; !present {
-						diagnostics = append(diagnostics, diagnosticAtNode(CodeMissingInputBinding, []string{"bindings", port.ID}, graph.ID, node.ID))
+						missing := diagnosticAtNode(CodeMissingInputBinding, []string{"bindings", port.ID}, graph.ID, node.ID)
+						if !active[node.ID] {
+							missing.Severity = schema.SeverityWarning
+						}
+						diagnostics = append(diagnostics, missing)
 					}
 				}
 			}

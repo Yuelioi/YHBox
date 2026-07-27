@@ -46,7 +46,7 @@ func TestProfileUsesProviderNativeGenerationAndStoredCredential(t *testing.T) {
 }
 
 func TestProfileEditDowngradesStaleEvaluation(t *testing.T) {
-	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	app := newTestApp(t, filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
 	configured := evaluatedModelSettingsForTest(t, "primary", "Primary")
 	_, _, err := app.MutateSettings(func(settings *Settings) error {
 		settings.AI.Profiles = []AIModelSettings{configured}
@@ -71,7 +71,7 @@ func TestProfileEditDowngradesStaleEvaluation(t *testing.T) {
 }
 
 func TestApplyAndRevokeEvaluationUsesExactCurrentArtifacts(t *testing.T) {
-	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	app := newTestApp(t, filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
 	configured := modelSettingsForTest("primary", "Primary")
 	_, _, err := app.MutateSettings(func(settings *Settings) error {
 		settings.AI.Profiles = []AIModelSettings{configured}

@@ -10,8 +10,8 @@ import (
 
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodes"
-	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/pkg/vision"
 )
 
@@ -29,50 +29,50 @@ type visionColorBlob struct {
 	Bounds visionRegion `json:"bounds"`
 }
 
-func findTemplateMatches(builtins nodes.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+func findTemplateMatches(builtins nodes.Builtins) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		counters := map[string]int64{}
 		defer func() {
-			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, nodeadapter.AdapterAction{
 				EffectID: nodes.FindTemplateMatchesEffectID, Action: "vision.find-template-matches", SummaryCode: "vision.find-template-matches", Counters: counters,
 			}, nodes.VisionAnalysisFailedCode, runErr))
 		}()
 		threshold, err := numberInput(invocation, "threshold")
 		if err != nil || threshold < 0 || threshold > 1 {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, errors.Join(err, errors.New("threshold must be between 0 and 1")))
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, errors.Join(err, errors.New("threshold must be between 0 and 1")))
 		}
 		minimumDistance, err := integerInput(invocation, "minimum-distance")
 		if err != nil || minimumDistance < 0 || minimumDistance > maxVisionImagePixels {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, errors.Join(err, errors.New("minimum distance is outside its supported range")))
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, errors.Join(err, errors.New("minimum distance is outside its supported range")))
 		}
 		region, err := visionRegionInput(invocation)
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
 		}
 		frame, frameRef, err := loadVisionImage(ctx, invocation, "image")
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionImageInvalidCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionImageInvalidCode, err)
 		}
 		templateImage, templateRef, err := loadVisionImage(ctx, invocation, "template")
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionTemplateInvalidCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionTemplateInvalidCode, err)
 		}
 		searchRect, err := resolveVisionRegion(frame.Bounds(), region)
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
 		}
 		if templateImage.Bounds().Dx() > searchRect.Dx() || templateImage.Bounds().Dy() > searchRect.Dy() {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionTemplateInvalidCode, errors.New("template exceeds the search region"))
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionTemplateInvalidCode, errors.New("template exceeds the search region"))
 		}
 		searchGray, searchWidth, searchHeight := vision.RGBAToGray(frame.SubImage(searchRect).(*image.RGBA))
 		templateGray, templateWidth, templateHeight := vision.RGBAToGray(templateImage)
 		if uniformVisionTemplate(templateGray) {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionTemplateInvalidCode, errors.New("template has no grayscale variance"))
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionTemplateInvalidCode, errors.New("template has no grayscale variance"))
 		}
 		hits := vision.MatchAll(searchGray, searchWidth, searchHeight, &vision.Template{Gray: templateGray, W: templateWidth, H: templateHeight},
 			vision.DefaultParallel(), float32(threshold), int(minimumDistance))
 		if len(hits) > maxVisionAnalysisResults {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, errors.New("template match result exceeds the output budget"))
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, errors.New("template match result exceeds the output budget"))
 		}
 		matches := make([]any, 0, len(hits))
 		for _, hit := range hits {
@@ -89,41 +89,41 @@ func findTemplateMatches(builtins nodes.Builtins) compiler.Adapter {
 	}
 }
 
-func compareImages(builtins nodes.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+func compareImages(builtins nodes.Builtins) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		counters := map[string]int64{}
 		defer func() {
-			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, nodeadapter.AdapterAction{
 				EffectID: nodes.CompareImagesEffectID, Action: "vision.compare-images", SummaryCode: "vision.compare-images", Counters: counters,
 			}, nodes.VisionAnalysisFailedCode, runErr))
 		}()
 		gridSize, err := integerInput(invocation, "grid-size")
 		if err != nil || gridSize < 1 || gridSize > 256 {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, errors.Join(err, errors.New("grid size must be between 1 and 256")))
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, errors.Join(err, errors.New("grid size must be between 1 and 256")))
 		}
 		cellDelta, err := integerInput(invocation, "cell-delta")
 		if err != nil || cellDelta < 0 || cellDelta > 255 {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, errors.Join(err, errors.New("cell delta must be between 0 and 255")))
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, errors.Join(err, errors.New("cell delta must be between 0 and 255")))
 		}
 		region, err := visionRegionInput(invocation)
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
 		}
 		before, beforeRef, err := loadVisionImage(ctx, invocation, "before")
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionImageInvalidCode, fmt.Errorf("before: %w", err))
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionImageInvalidCode, fmt.Errorf("before: %w", err))
 		}
 		after, afterRef, err := loadVisionImage(ctx, invocation, "after")
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionImageInvalidCode, fmt.Errorf("after: %w", err))
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionImageInvalidCode, fmt.Errorf("after: %w", err))
 		}
 		beforeRect, err := resolveVisionRegion(before.Bounds(), region)
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, fmt.Errorf("before: %w", err))
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, fmt.Errorf("before: %w", err))
 		}
 		afterRect, err := resolveVisionRegion(after.Bounds(), region)
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, fmt.Errorf("after: %w", err))
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, fmt.Errorf("after: %w", err))
 		}
 		beforeSignature := vision.Downsample(before.SubImage(beforeRect).(*image.RGBA), int(gridSize))
 		afterSignature := vision.Downsample(after.SubImage(afterRect).(*image.RGBA), int(gridSize))
@@ -135,32 +135,32 @@ func compareImages(builtins nodes.Builtins) compiler.Adapter {
 	}
 }
 
-func decodeQR(builtins nodes.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+func decodeQR(builtins nodes.Builtins) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		counters := map[string]int64{}
 		defer func() {
-			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, nodeadapter.AdapterAction{
 				EffectID: nodes.DecodeQREffectID, Action: "vision.decode-qr", SummaryCode: "vision.decode-qr", Counters: counters,
 			}, nodes.VisionAnalysisFailedCode, runErr))
 		}()
 		region, err := visionRegionInput(invocation)
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
 		}
 		frame, ref, err := loadVisionImage(ctx, invocation, "image")
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionImageInvalidCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionImageInvalidCode, err)
 		}
 		searchRect, err := resolveVisionRegion(frame.Bounds(), region)
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
 		}
 		hits, err := vision.DecodeQRFromImage(frame.SubImage(searchRect))
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
 		}
 		if len(hits) > maxVisionAnalysisResults {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, errors.New("QR result exceeds the output budget"))
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, errors.New("QR result exceeds the output budget"))
 		}
 		codes := make([]any, 0, len(hits))
 		for _, hit := range hits {
@@ -175,29 +175,29 @@ func decodeQR(builtins nodes.Builtins) compiler.Adapter {
 	}
 }
 
-func analyzeColor(builtins nodes.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+func analyzeColor(builtins nodes.Builtins) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		counters := map[string]int64{}
 		defer func() {
-			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, nodeadapter.AdapterAction{
 				EffectID: nodes.AnalyzeColorEffectID, Action: "vision.analyze-color", SummaryCode: "vision.analyze-color", Counters: counters,
 			}, nodes.VisionAnalysisFailedCode, runErr))
 		}()
 		colorRange, err := visionColorRangeInput(invocation)
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionColorRangeInvalidCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionColorRangeInvalidCode, err)
 		}
 		region, err := visionRegionInput(invocation)
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
 		}
 		frame, ref, err := loadVisionImage(ctx, invocation, "image")
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionImageInvalidCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionImageInvalidCode, err)
 		}
 		searchRect, err := resolveVisionRegion(frame.Bounds(), region)
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
 		}
 		count, sumX, sumY := scanVisionColor(frame, searchRect, colorRange, nil)
 		centroid := visionPoint{Unit: "px"}
@@ -211,39 +211,39 @@ func analyzeColor(builtins nodes.Builtins) compiler.Adapter {
 	}
 }
 
-func findColorBlobs(builtins nodes.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+func findColorBlobs(builtins nodes.Builtins) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		counters := map[string]int64{}
 		defer func() {
-			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, nodeadapter.AdapterAction{
 				EffectID: nodes.FindColorBlobsEffectID, Action: "vision.find-color-blobs", SummaryCode: "vision.find-color-blobs", Counters: counters,
 			}, nodes.VisionAnalysisFailedCode, runErr))
 		}()
 		minimumArea, err := integerInput(invocation, "minimum-area")
 		if err != nil || minimumArea < 1 || minimumArea > maxVisionImagePixels {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, errors.Join(err, errors.New("minimum area is outside its supported range")))
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, errors.Join(err, errors.New("minimum area is outside its supported range")))
 		}
 		colorRange, err := visionColorRangeInput(invocation)
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionColorRangeInvalidCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionColorRangeInvalidCode, err)
 		}
 		region, err := visionRegionInput(invocation)
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
 		}
 		frame, ref, err := loadVisionImage(ctx, invocation, "image")
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionImageInvalidCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionImageInvalidCode, err)
 		}
 		searchRect, err := resolveVisionRegion(frame.Bounds(), region)
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
 		}
 		mask := make([]bool, searchRect.Dx()*searchRect.Dy())
 		scanVisionColor(frame, searchRect, colorRange, mask)
 		blobs, err := connectedVisionColorBlobs(mask, searchRect, int(minimumArea))
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
 		}
 		values := make([]any, len(blobs))
 		for index := range blobs {
@@ -254,65 +254,65 @@ func findColorBlobs(builtins nodes.Builtins) compiler.Adapter {
 	}
 }
 
-func trackDualColorBar(builtins nodes.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+func trackDualColorBar(builtins nodes.Builtins) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		counters := map[string]int64{}
 		defer func() {
-			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, nodeadapter.AdapterAction{
 				EffectID: nodes.TrackDualColorBarEffectID, Action: "vision.track-dual-color-bar", SummaryCode: "vision.track-dual-color-bar", Counters: counters,
 			}, nodes.VisionAnalysisFailedCode, runErr))
 		}()
 		innerRange, err := visionColorRangeNamedInput(invocation, "inner-range")
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionColorRangeInvalidCode, fmt.Errorf("inner range: %w", err))
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionColorRangeInvalidCode, fmt.Errorf("inner range: %w", err))
 		}
 		outerRange, err := visionColorRangeNamedInput(invocation, "outer-range")
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionColorRangeInvalidCode, fmt.Errorf("outer range: %w", err))
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionColorRangeInvalidCode, fmt.Errorf("outer range: %w", err))
 		}
 		region, err := visionRegionInput(invocation)
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
 		}
 		frame, ref, err := loadVisionImage(ctx, invocation, "image")
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionImageInvalidCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionImageInvalidCode, err)
 		}
 		searchRect, err := resolveVisionRegion(frame.Bounds(), region)
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
 		}
 		innerMinimumWidth, err := integerInput(invocation, "inner-minimum-width")
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
 		}
 		innerMaximumWidth, err := integerInput(invocation, "inner-maximum-width")
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
 		}
 		outerMinimumWidth, err := integerInput(invocation, "outer-minimum-width")
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
 		}
 		bandHeightRatio, err := numberInput(invocation, "band-height-ratio")
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
 		}
 		bandInnerHeightRatio, err := numberInput(invocation, "band-inner-height-ratio")
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
 		}
 		innerWeight, err := numberInput(invocation, "inner-confidence-weight")
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
 		}
 		outerWeight, err := numberInput(invocation, "outer-confidence-weight")
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
 		}
 		if innerMinimumWidth < 1 || innerMaximumWidth < 0 || outerMinimumWidth < 0 ||
 			bandHeightRatio <= 0 || bandInnerHeightRatio <= 0 || innerWeight < 0 || outerWeight < 0 || innerWeight+outerWeight <= 0 {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, errors.New("dual color bar options are outside their supported ranges"))
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, errors.New("dual color bar options are outside their supported ranges"))
 		}
 		result := vision.AnalyzeDualColorBar(frame, searchRect,
 			vision.ColorRange{Space: innerRange.Space, Minimum: innerRange.Minimum, Maximum: innerRange.Maximum},
@@ -330,7 +330,7 @@ func trackDualColorBar(builtins nodes.Builtins) compiler.Adapter {
 	}
 }
 
-func loadVisionImage(ctx context.Context, invocation compiler.Invocation, id string) (*image.RGBA, blob.BlobRef, error) {
+func loadVisionImage(ctx context.Context, invocation nodeadapter.Invocation, id string) (*image.RGBA, blob.BlobRef, error) {
 	ref, err := visionBlobInput(invocation, id)
 	if err != nil {
 		return nil, blob.BlobRef{}, err
@@ -346,11 +346,11 @@ func loadVisionImage(ctx context.Context, invocation compiler.Invocation, id str
 	return decoded, ref, nil
 }
 
-func visionColorRangeInput(invocation compiler.Invocation) (visionColorRange, error) {
+func visionColorRangeInput(invocation nodeadapter.Invocation) (visionColorRange, error) {
 	return visionColorRangeNamedInput(invocation, "range")
 }
 
-func visionColorRangeNamedInput(invocation compiler.Invocation, id string) (visionColorRange, error) {
+func visionColorRangeNamedInput(invocation nodeadapter.Invocation, id string) (visionColorRange, error) {
 	input, ok := invocation.Inputs[id]
 	if !ok || len(input.InlineJSON()) == 0 {
 		return visionColorRange{}, errors.New("color range is missing")
@@ -460,22 +460,22 @@ func connectedVisionColorBlobs(mask []bool, region image.Rectangle, minimumArea 
 	return blobs, nil
 }
 
-func sealVisionOutputs(builtins nodes.Builtins, invocation compiler.Invocation, values map[string]any) (compiler.AdapterResult, error) {
+func sealVisionOutputs(builtins nodes.Builtins, invocation nodeadapter.Invocation, values map[string]any) (nodeadapter.AdapterResult, error) {
 	outputs := make(map[string]datatype.ValueEnvelope, len(values))
 	for id, value := range values {
 		resolved, ok := invocation.OutputTypes[id]
 		if !ok {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, fmt.Errorf("output type %q is unresolved", id))
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, fmt.Errorf("output type %q is unresolved", id))
 		}
 		raw, err := json.Marshal(value)
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
 		}
 		envelope, err := datatype.SealInlineJSON(builtins.Catalog, resolved, raw)
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, fmt.Errorf("seal output %q: %w", id, err))
+			return nodeadapter.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, fmt.Errorf("seal output %q: %w", id, err))
 		}
 		outputs[id] = envelope
 	}
-	return compiler.AdapterResult{Outputs: outputs}, nil
+	return nodeadapter.AdapterResult{Outputs: outputs}, nil
 }

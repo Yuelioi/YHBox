@@ -14,6 +14,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/nodepackage"
@@ -21,7 +22,6 @@ import (
 	"github.com/yottaapp/yotta/internal/processsandbox"
 	"github.com/yottaapp/yotta/internal/resource"
 	run "github.com/yottaapp/yotta/internal/run"
-	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
 const (
@@ -108,11 +108,11 @@ func (host *ProcessHost) HostFeatures() []string {
 
 // Adapters projects only process-ABI nodes and pins each closure to its exact
 // runtime payload and implementation lock.
-func (host *ProcessHost) Adapters(packages []nodepackage.RuntimePackage) (map[string]compiler.InstalledAdapter, error) {
+func (host *ProcessHost) Adapters(packages []nodepackage.RuntimePackage) (map[string]nodeadapter.InstalledAdapter, error) {
 	if host == nil || host.runner == nil || !host.catalog.Valid() {
 		return nil, errors.New("process plugin host is not initialized")
 	}
-	result := map[string]compiler.InstalledAdapter{}
+	result := map[string]nodeadapter.InstalledAdapter{}
 	for _, runtimePackage := range packages {
 		for _, node := range runtimePackage.Nodes {
 			if node.Implementation.ABI.Kind != nodecontract.ABIProcess {
@@ -129,9 +129,9 @@ func (host *ProcessHost) Adapters(packages []nodepackage.RuntimePackage) (map[st
 				return nil, fmt.Errorf("duplicate process plugin entrypoint %q", node.Lock.Entrypoint)
 			}
 			pinned := node
-			result[node.Lock.Entrypoint] = compiler.InstalledAdapter{
+			result[node.Lock.Entrypoint] = nodeadapter.InstalledAdapter{
 				Implementation: node.Lock,
-				Run: func(ctx context.Context, invocation compiler.Invocation) (compiler.AdapterResult, error) {
+				Run: func(ctx context.Context, invocation nodeadapter.Invocation) (nodeadapter.AdapterResult, error) {
 					return host.invoke(ctx, pinned, invocation)
 				},
 			}
@@ -163,18 +163,18 @@ func (host *executionHost) validateRuntimeNode(runtimePackage nodepackage.Runtim
 	return nil
 }
 
-func (host *ProcessHost) invoke(parent context.Context, node nodepackage.RuntimeNode, invocation compiler.Invocation) (compiler.AdapterResult, error) {
+func (host *ProcessHost) invoke(parent context.Context, node nodepackage.RuntimeNode, invocation nodeadapter.Invocation) (nodeadapter.AdapterResult, error) {
 	initial, deadline, err := host.invocationFrame(parent, node, invocation)
 	if err != nil {
-		return compiler.AdapterResult{}, err
+		return nodeadapter.AdapterResult{}, err
 	}
 	payload, err := node.Payload.Read(parent, processsandbox.MaxImageBytes)
 	if err != nil {
-		return compiler.AdapterResult{}, fmt.Errorf("read process plugin payload: %w", err)
+		return nodeadapter.AdapterResult{}, fmt.Errorf("read process plugin payload: %w", err)
 	}
 	image, err := processsandbox.NewImage(filepath.Base(node.Payload.Metadata().Path), payload)
 	if err != nil {
-		return compiler.AdapterResult{}, fmt.Errorf("seal process plugin image: %w", err)
+		return nodeadapter.AdapterResult{}, fmt.Errorf("seal process plugin image: %w", err)
 	}
 	executionContext, cancelExecution := context.WithDeadline(parent, deadline)
 	defer cancelExecution()
@@ -188,7 +188,7 @@ func (host *ProcessHost) invoke(parent context.Context, node nodepackage.Runtime
 		return pluginprotocol.WriteFrame(writer, initial)
 	})
 	if err != nil {
-		return compiler.AdapterResult{}, err
+		return nodeadapter.AdapterResult{}, err
 	}
 	return host.openResult(result)
 }
@@ -260,7 +260,7 @@ type processControl interface {
 type processSession struct {
 	ctx             context.Context
 	catalog         nodecatalog.Snapshot
-	invocation      compiler.Invocation
+	invocation      nodeadapter.Invocation
 	reader          io.Reader
 	writer          io.Writer
 	nextSequence    uint64
@@ -483,7 +483,7 @@ func (session *processSession) cancel(process processControl, reason string) {
 	_ = process.Terminate()
 }
 
-func (host *executionHost) invocationFrame(parent context.Context, node nodepackage.RuntimeNode, invocation compiler.Invocation) (*pluginprotocol.Frame, time.Time, error) {
+func (host *executionHost) invocationFrame(parent context.Context, node nodepackage.RuntimeNode, invocation nodeadapter.Invocation) (*pluginprotocol.Frame, time.Time, error) {
 	if parent == nil || invocation.InvocationID == "" || invocation.Attempt <= 0 || invocation.ObservedAt.IsZero() {
 		return nil, time.Time{}, errors.New("process plugin invocation identity is invalid")
 	}
@@ -535,35 +535,35 @@ func (host *executionHost) invocationFrame(parent context.Context, node nodepack
 	return frame, deadline, nil
 }
 
-func (host *executionHost) openResult(result *pluginprotocol.Result) (compiler.AdapterResult, error) {
+func (host *executionHost) openResult(result *pluginprotocol.Result) (nodeadapter.AdapterResult, error) {
 	if result == nil {
-		return compiler.AdapterResult{}, errors.New("process plugin omitted its result")
+		return nodeadapter.AdapterResult{}, errors.New("process plugin omitted its result")
 	}
 	if result.Outcome == pluginprotocol.Outcome_OUTCOME_FAILED {
-		return compiler.AdapterResult{}, &compiler.NodeFailure{
+		return nodeadapter.AdapterResult{}, &nodeadapter.NodeFailure{
 			Code: result.Failure.Code, Output: result.Failure.Output, Cause: errors.New(result.Failure.Message),
 		}
 	}
 	if result.TerminationStrength != "cooperative" {
-		return compiler.AdapterResult{}, errors.New("process plugin claimed a host-only termination strength")
+		return nodeadapter.AdapterResult{}, errors.New("process plugin claimed a host-only termination strength")
 	}
 	opened := make(map[string]datatype.ValueEnvelope, len(result.Outputs))
 	var total uint64
 	for _, output := range result.Outputs {
 		total += uint64(len(output.ValueEnvelope))
 		if total > host.options.MaxOutputBytes {
-			return compiler.AdapterResult{}, errors.New("process plugin exceeded its output byte budget")
+			return nodeadapter.AdapterResult{}, errors.New("process plugin exceeded its output byte budget")
 		}
 		envelope, err := datatype.OpenValueEnvelope(host.catalog, output.ValueEnvelope)
 		if err != nil {
-			return compiler.AdapterResult{}, fmt.Errorf("open process plugin output %q: %w", output.PortId, err)
+			return nodeadapter.AdapterResult{}, fmt.Errorf("open process plugin output %q: %w", output.PortId, err)
 		}
 		opened[output.PortId] = envelope
 	}
-	return compiler.AdapterResult{Outputs: opened, ExecOutputs: append([]string(nil), result.ExecOutputs...)}, nil
+	return nodeadapter.AdapterResult{Outputs: opened, ExecOutputs: append([]string(nil), result.ExecOutputs...)}, nil
 }
 
-func marshalTrigger(trigger *compiler.SignalTrigger) (*pluginprotocol.Trigger, error) {
+func marshalTrigger(trigger *nodeadapter.SignalTrigger) (*pluginprotocol.Trigger, error) {
 	if trigger == nil {
 		return nil, nil
 	}
@@ -609,12 +609,12 @@ func counters(source []*pluginprotocol.Counter) map[string]int64 {
 	return result
 }
 
-func adapterAction(source *pluginprotocol.ActionEvent) compiler.AdapterAction {
+func adapterAction(source *pluginprotocol.ActionEvent) nodeadapter.AdapterAction {
 	facts := make(map[string]string, len(source.Facts))
 	for _, fact := range source.Facts {
 		facts[fact.Key] = fact.Value
 	}
-	return compiler.AdapterAction{
+	return nodeadapter.AdapterAction{
 		EffectID: source.EffectId, Action: source.Action, Outcome: run.ActionOutcome(source.Outcome), ErrorCode: source.ErrorCode,
 		SummaryCode: source.SummaryCode, Counters: counters(source.Counters), Facts: facts,
 	}

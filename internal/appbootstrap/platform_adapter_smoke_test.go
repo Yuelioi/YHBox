@@ -219,7 +219,7 @@ func buildPlatformSmokeRuntime(t *testing.T, installations automationinstalled.I
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := runtime.Start(context.Background()); err != nil {
+	if err := runtime.Application.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {

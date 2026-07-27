@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/nodes"
+	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
 func TestCompileAllowsDisconnectedDraftNodesBesideReachableExecution(t *testing.T) {
@@ -41,8 +42,18 @@ func TestCompileAllowsDisconnectedDraftNodesBesideReachableExecution(t *testing.
 	if !ok {
 		t.Fatalf("disconnected draft blocked Program: %#v", result.Diagnostics)
 	}
-	if len(result.Diagnostics) != 0 {
-		t.Fatalf("disconnected draft emitted diagnostics: %#v", result.Diagnostics)
+	if schema.HasErrors(result.Diagnostics) {
+		t.Fatalf("disconnected draft emitted blocking diagnostics: %#v", result.Diagnostics)
+	}
+	if len(result.Diagnostics) != 2 {
+		t.Fatalf("disconnected draft diagnostics = %#v", result.Diagnostics)
+	}
+	for _, diagnostic := range result.Diagnostics {
+		if diagnostic.Code != CodeMissingInputBinding ||
+			diagnostic.Severity != schema.SeverityWarning ||
+			diagnostic.NodeID != "draft-node" {
+			t.Fatalf("disconnected draft diagnostic = %#v", diagnostic)
+		}
 	}
 	nodes := program.Nodes()
 	if len(nodes) != 2 {

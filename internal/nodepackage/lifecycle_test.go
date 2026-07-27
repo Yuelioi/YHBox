@@ -324,6 +324,17 @@ func TestLegacyRegistryInfersTrustOnlyForAlreadyInstalledPackages(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
+	migratedRaw, err := os.ReadFile(registryPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var migrated registryDocument
+	if err := json.Unmarshal(migratedRaw, &migrated); err != nil {
+		t.Fatal(err)
+	}
+	if migrated.Version != RegistryVersion || len(migrated.Grants) != 1 {
+		t.Fatalf("migrated registry = version %q, grants %#v", migrated.Version, migrated.Grants)
+	}
 	installed, err := reopened.InspectArchiveTrust(ctx, archivePath)
 	if err != nil || !installed.Granted {
 		t.Fatalf("legacy installed package trust = %#v, %v", installed, err)
@@ -334,6 +345,9 @@ func TestLegacyRegistryInfersTrustOnlyForAlreadyInstalledPackages(t *testing.T) 
 	sibling, err := reopened.InspectArchiveTrust(ctx, siblingArchive)
 	if err != nil || sibling.Granted {
 		t.Fatalf("legacy sibling package trust = %#v, %v", sibling, err)
+	}
+	if _, err := OpenStore(ctx, root); err != nil {
+		t.Fatalf("reopen migrated registry: %v", err)
 	}
 }
 

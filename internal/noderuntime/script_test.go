@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/nodes"
 	run "github.com/yottaapp/yotta/internal/run"
@@ -124,8 +125,8 @@ func TestScriptExecuteRoutesTypedWorkerFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var action compiler.AdapterAction
-	_, runErr := installed[definition.Implementation.Entrypoint].Run(context.Background(), compiler.Invocation{
+	var action nodeadapter.AdapterAction
+	_, runErr := installed[definition.Implementation.Entrypoint].Run(context.Background(), nodeadapter.Invocation{
 		InvocationID: "attempt-1", Attempt: 1, GraphID: "main", NodeID: "script",
 		Config:      map[string]any{"source": `throw new Error("secret")`, "timeoutMilliseconds": json.Number("1000")},
 		Inputs:      map[string]datatype.ValueEnvelope{"input": input},
@@ -134,9 +135,9 @@ func TestScriptExecuteRoutesTypedWorkerFailure(t *testing.T) {
 			copy(target, bytes.Repeat([]byte{1}, len(target)))
 			return nil
 		},
-		RecordAction: func(_ context.Context, value compiler.AdapterAction) error { action = value; return nil },
+		RecordAction: func(_ context.Context, value nodeadapter.AdapterAction) error { action = value; return nil },
 	})
-	var failure *compiler.NodeFailure
+	var failure *nodeadapter.NodeFailure
 	if !errors.As(runErr, &failure) || failure.Code != scriptengine.CodeGuestThrown || failure.Output != "failed" {
 		t.Fatalf("script failure = %#v / %v", failure, runErr)
 	}

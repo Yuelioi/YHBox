@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
@@ -15,14 +16,14 @@ import (
 type regionSignal struct {
 	nodeID  string
 	input   string
-	failure *RoutedFailure
+	failure *nodeadapter.RoutedFailure
 }
 
 func (s *regionSignal) Error() string {
 	return fmt.Sprintf("region signal %s.%s escaped its activation", s.nodeID, s.input)
 }
 
-func (s *scheduler) dispatch(ctx context.Context, nodeID string, trigger *SignalTrigger, evaluation map[string]bool) error {
+func (s *scheduler) dispatch(ctx context.Context, nodeID string, trigger *nodeadapter.SignalTrigger, evaluation map[string]bool) error {
 	if s.invocations >= MaxScheduledInvocations {
 		return errors.New("scheduler invocation budget exceeded")
 	}
@@ -47,7 +48,7 @@ func (s *scheduler) dispatch(ctx context.Context, nodeID string, trigger *Signal
 	}
 }
 
-func (s *scheduler) executeRunRoot(ctx context.Context, node programNode, trigger *SignalTrigger) error {
+func (s *scheduler) executeRunRoot(ctx context.Context, node programNode, trigger *nodeadapter.SignalTrigger) error {
 	if trigger != nil || node.Instruction.RunRoot == nil {
 		return errors.New("run-root instruction received a signal or invalid payload")
 	}
@@ -65,7 +66,7 @@ func (s *scheduler) executeRunRoot(ctx context.Context, node programNode, trigge
 	return nil
 }
 
-func (s *scheduler) executeCountedLoop(ctx context.Context, node programNode, trigger *SignalTrigger) (returnErr error) {
+func (s *scheduler) executeCountedLoop(ctx context.Context, node programNode, trigger *nodeadapter.SignalTrigger) (returnErr error) {
 	spec := node.Instruction.CountedLoop
 	if spec == nil || trigger == nil {
 		return errors.New("counted-loop instruction requires a signal and payload")
@@ -125,7 +126,7 @@ func (s *scheduler) executeCountedLoop(ctx context.Context, node programNode, tr
 	return nil
 }
 
-func (s *scheduler) executeForEach(ctx context.Context, node programNode, trigger *SignalTrigger) (returnErr error) {
+func (s *scheduler) executeForEach(ctx context.Context, node programNode, trigger *nodeadapter.SignalTrigger) (returnErr error) {
 	spec := node.Instruction.ForEach
 	if spec == nil || trigger == nil {
 		return errors.New("for-each instruction requires a signal and payload")
@@ -193,7 +194,7 @@ func (s *scheduler) executeForEach(ctx context.Context, node programNode, trigge
 	return nil
 }
 
-func (s *scheduler) executeRetry(ctx context.Context, node programNode, trigger *SignalTrigger) (returnErr error) {
+func (s *scheduler) executeRetry(ctx context.Context, node programNode, trigger *nodeadapter.SignalTrigger) (returnErr error) {
 	spec := node.Instruction.Retry
 	if spec == nil || trigger == nil {
 		return errors.New("retry instruction requires a signal and payload")
@@ -228,7 +229,7 @@ func (s *scheduler) executeRetry(ctx context.Context, node programNode, trigger 
 	if err != nil || limit < 1 || limit > int64(spec.MaxAttempts) {
 		return errors.Join(errors.New("retry attempts exceed the frozen budget"), err)
 	}
-	var lastFailure *RoutedFailure
+	var lastFailure *nodeadapter.RoutedFailure
 	for current := int64(1); current <= limit; current++ {
 		if err := s.setInstructionIntegerOutput(node, spec.AttemptOutput, current, attempt); err != nil {
 			return err
@@ -273,18 +274,18 @@ func (s *scheduler) runActivation(ctx context.Context, queue []scheduledInvocati
 	return nil
 }
 
-func (s *scheduler) instructionRoutes(nodeID, output string, failure *RoutedFailure) []scheduledInvocation {
+func (s *scheduler) instructionRoutes(nodeID, output string, failure *nodeadapter.RoutedFailure) []scheduledInvocation {
 	routes := s.routes[routeKey{channel: schema.EdgeExec, nodeID: nodeID, portID: output}]
 	result := make([]scheduledInvocation, 0, len(routes))
 	for _, route := range routes {
-		result = append(result, scheduledInvocation{nodeID: route.To.NodeID, trigger: &SignalTrigger{
+		result = append(result, scheduledInvocation{nodeID: route.To.NodeID, trigger: &nodeadapter.SignalTrigger{
 			Channel: schema.EdgeExec, InputPort: route.To.PortID, From: route.From, Failure: cloneRoutedFailure(failure),
 		}})
 	}
 	return result
 }
 
-func (s *scheduler) enqueueInstructionOutput(nodeID, output string, failure *RoutedFailure) {
+func (s *scheduler) enqueueInstructionOutput(nodeID, output string, failure *nodeadapter.RoutedFailure) {
 	s.queue = append(s.queue, s.instructionRoutes(nodeID, output, failure)...)
 }
 

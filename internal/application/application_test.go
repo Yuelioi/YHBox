@@ -14,6 +14,7 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/nodes"
@@ -80,13 +81,13 @@ func TestRunKeepsExactProviderGenerationLeaseAcrossHotReplacement(t *testing.T) 
 	entered, unblock := make(chan struct{}), make(chan struct{})
 	var unblockOnce sync.Once
 	releaseRun := func() { unblockOnce.Do(func() { close(unblock) }) }
-	application, _, _, _, events, _ := newTestApplication(t, now, func(ctx context.Context, _ compiler.Invocation) (compiler.AdapterResult, error) {
+	application, _, _, _, events, _ := newTestApplication(t, now, func(ctx context.Context, _ nodeadapter.Invocation) (nodeadapter.AdapterResult, error) {
 		close(entered)
 		select {
 		case <-unblock:
-			return compiler.AdapterResult{}, errors.New("fixture completed")
+			return nodeadapter.AdapterResult{}, errors.New("fixture completed")
 		case <-ctx.Done():
-			return compiler.AdapterResult{}, ctx.Err()
+			return nodeadapter.AdapterResult{}, ctx.Err()
 		}
 	})
 	if err := application.Start(context.Background()); err != nil {
@@ -474,10 +475,10 @@ func TestPreparedPatchCannotCommitAfterIndependentRevision(t *testing.T) {
 func TestApplicationCancellationOwnsRunningWorkerAndPersistsTerminalState(t *testing.T) {
 	now := time.Date(2026, 7, 15, 11, 0, 0, 0, time.UTC)
 	invoked := make(chan struct{})
-	adapter := func(ctx context.Context, _ compiler.Invocation) (compiler.AdapterResult, error) {
+	adapter := func(ctx context.Context, _ nodeadapter.Invocation) (nodeadapter.AdapterResult, error) {
 		close(invoked)
 		<-ctx.Done()
-		return compiler.AdapterResult{}, ctx.Err()
+		return nodeadapter.AdapterResult{}, ctx.Err()
 	}
 	application, _, _, _, events, _ := newTestApplication(t, now, adapter)
 	if err := application.Start(context.Background()); err != nil {
@@ -590,7 +591,7 @@ func waitApplicationDebug(t *testing.T, events <-chan appcore.DebugEvent, runID 
 	}
 }
 
-func newTestApplication(t *testing.T, now time.Time, adapterOverride compiler.Adapter, observed ...blob.Object) (*appcore.Application, *workflowstore.SourceStore, *workflowstore.ProgramStore, nodes.Builtins, chan appcore.RunEvent, chan appcore.DebugEvent) {
+func newTestApplication(t *testing.T, now time.Time, adapterOverride nodeadapter.Adapter, observed ...blob.Object) (*appcore.Application, *workflowstore.SourceStore, *workflowstore.ProgramStore, nodes.Builtins, chan appcore.RunEvent, chan appcore.DebugEvent) {
 	t.Helper()
 	builtins, err := nodes.Build()
 	if err != nil {
@@ -658,7 +659,7 @@ func newTestApplication(t *testing.T, now time.Time, adapterOverride compiler.Ad
 		if !ok {
 			t.Fatal("Concat implementation is missing")
 		}
-		adapters[entry.Implementation.Entrypoint] = compiler.InstalledAdapter{Implementation: entry.Implementation, Run: adapterOverride}
+		adapters[entry.Implementation.Entrypoint] = nodeadapter.InstalledAdapter{Implementation: entry.Implementation, Run: adapterOverride}
 	}
 	executor := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }})
 	events := make(chan appcore.RunEvent, 16)

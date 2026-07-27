@@ -49,7 +49,7 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := runtime.Start(context.Background()); err != nil {
+	if err := runtime.Application.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
@@ -148,7 +148,7 @@ func TestBuildStartsWithOneCorruptWorkflowSourceIsolatedAndRepairable(t *testing
 		if err != nil {
 			t.Fatalf("Build = %v", err)
 		}
-		if err := runtime.Start(context.Background()); err != nil {
+		if err := runtime.Application.Start(context.Background()); err != nil {
 			t.Fatalf("Start = %v", err)
 		}
 		return runtime
@@ -225,7 +225,7 @@ func TestRuntimeHotReplacesApplicationAutomationAndAuthoringGeneration(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := runtime.Start(context.Background()); err != nil {
+	if err := runtime.Application.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
@@ -292,7 +292,11 @@ func TestRuntimeHotReplacesApplicationAutomationAndAuthoringGeneration(t *testin
 	if err != nil || started.Run == nil || started.Run.RunID == "" {
 		t.Fatalf("same-process target admission = %#v, %v", started, err)
 	}
-	if err := runtime.ReplaceAutomation(emptyApplicationInstallations(t), emptyAutomationInstallations(t)); err != nil {
+	replacement, err := runtime.PrepareAutomation(nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := replacement.Commit(); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := runtime.AuthoringTargets().CaptureBackend("editor-window"); err == nil {
@@ -494,7 +498,7 @@ func TestBuiltinPolicyApprovesExactConfiguredAutomationTarget(t *testing.T) {
 	entry := installed.Entries()[0]
 	binding := capability.Binding{
 		ProviderID: entry.ProviderID, ProviderArtifactDigest: entry.ProviderArtifact, ProviderABI: automationinstalled.ProviderABI,
-		TargetID: entry.TargetID, TargetKind: automationinstalled.TargetKind, ResourceKind: automationinstalled.KindInput, PluginInstanceID: "builtin",
+		TargetID: entry.TargetID, TargetKind: automationinstalled.TargetKindDesktopWindow, ResourceKind: automationinstalled.KindInput, PluginInstanceID: "builtin",
 	}
 	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return time.Now().UTC() }, time.Minute, emptyAIInstallations(t), emptyHTTPInstallations(t), emptyApplicationInstallations(t), installed)
 	if err != nil {

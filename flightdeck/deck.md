@@ -2,7 +2,7 @@
 
 ## Open Work
 
-- **Focus:** [V4 清爽高效工作台](work/v4-clean-core/index.md)
+- None.
 
 ## Project links
 

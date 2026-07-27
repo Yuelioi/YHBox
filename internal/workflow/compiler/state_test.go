@@ -31,8 +31,8 @@ func TestRunStateIsIsolatedTypedAndOperationAttenuated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	read := StateBinding{mode: nodecontract.StateRead, slot: left.slots["value"]}
-	write := StateBinding{mode: nodecontract.StateWrite, slot: left.slots["value"]}
+	read := stateBinding{mode: nodecontract.StateRead, slot: left.slots["value"]}
+	write := stateBinding{mode: nodecontract.StateWrite, slot: left.slots["value"]}
 	if _, err := read.Write(initial); err == nil {
 		t.Fatal("read binding widened itself to write")
 	}
@@ -73,8 +73,8 @@ func TestStateBindingUpdateIsOneAtomicWriteTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	write := StateBinding{mode: nodecontract.StateWrite, slot: state.slots["count"]}
-	read := StateBinding{mode: nodecontract.StateRead, slot: state.slots["count"]}
+	write := stateBinding{mode: nodecontract.StateWrite, slot: state.slots["count"]}
+	read := stateBinding{mode: nodecontract.StateRead, slot: state.slots["count"]}
 	if _, err := read.Update(func(value datatype.ValueEnvelope) (datatype.ValueEnvelope, error) { return value, nil }); err == nil {
 		t.Fatal("read binding widened itself to atomic update")
 	}

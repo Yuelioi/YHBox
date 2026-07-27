@@ -8,119 +8,119 @@ import (
 	"math"
 
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodes"
-	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
-func stateRead(_ nodes.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+func stateRead(_ nodes.Builtins) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		counters := map[string]int64{}
 		defer func() {
-			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, nodeadapter.AdapterAction{
 				EffectID: nodes.StateReadEffectID, Action: "state.read", SummaryCode: "state.read", Counters: counters,
 			}, nodes.StateReadFailedCode, runErr))
 		}()
 		binding, ok := invocation.State["state"]
 		if !ok {
-			return compiler.AdapterResult{}, stateFailure(nodes.StateReadFailedCode, errors.New("state read binding is missing"))
+			return nodeadapter.AdapterResult{}, stateFailure(nodes.StateReadFailedCode, errors.New("state read binding is missing"))
 		}
 		snapshot, err := binding.Read()
 		if err != nil {
-			return compiler.AdapterResult{}, stateFailure(nodes.StateReadFailedCode, err)
+			return nodeadapter.AdapterResult{}, stateFailure(nodes.StateReadFailedCode, err)
 		}
 		counters["revision"] = snapshot.Revision
-		return compiler.AdapterResult{Outputs: map[string]datatype.ValueEnvelope{"result": snapshot.Value}}, nil
+		return nodeadapter.AdapterResult{Outputs: map[string]datatype.ValueEnvelope{"result": snapshot.Value}}, nil
 	}
 }
 
-func stateWrite(_ nodes.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+func stateWrite(_ nodes.Builtins) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		counters := map[string]int64{}
 		defer func() {
-			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, nodeadapter.AdapterAction{
 				EffectID: nodes.StateWriteEffectID, Action: "state.written", SummaryCode: "state.write", Counters: counters,
 			}, nodes.StateWriteFailedCode, runErr))
 		}()
 		binding, bindingOK := invocation.State["state"]
 		value, valueOK := invocation.Inputs["value"]
 		if !bindingOK || !valueOK {
-			return compiler.AdapterResult{}, stateFailure(nodes.StateWriteFailedCode, errors.New("state write binding or value is missing"))
+			return nodeadapter.AdapterResult{}, stateFailure(nodes.StateWriteFailedCode, errors.New("state write binding or value is missing"))
 		}
 		snapshot, err := binding.Write(value)
 		if err != nil {
-			return compiler.AdapterResult{}, stateFailure(nodes.StateWriteFailedCode, err)
+			return nodeadapter.AdapterResult{}, stateFailure(nodes.StateWriteFailedCode, err)
 		}
 		counters["revision"] = snapshot.Revision
-		return compiler.AdapterResult{
+		return nodeadapter.AdapterResult{
 			Outputs: map[string]datatype.ValueEnvelope{"result": snapshot.Value}, ExecOutputs: []string{"done"},
 		}, nil
 	}
 }
 
-func stateMetadata(builtins nodes.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+func stateMetadata(builtins nodes.Builtins) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		counters := map[string]int64{}
 		defer func() {
-			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, nodeadapter.AdapterAction{
 				EffectID: nodes.StateReadEffectID, Action: "state.metadata-read", SummaryCode: "state.metadata", Counters: counters,
 			}, nodes.StateReadFailedCode, runErr))
 		}()
 		binding, ok := invocation.State["state"]
 		if !ok {
-			return compiler.AdapterResult{}, stateFailure(nodes.StateReadFailedCode, errors.New("state metadata binding is missing"))
+			return nodeadapter.AdapterResult{}, stateFailure(nodes.StateReadFailedCode, errors.New("state metadata binding is missing"))
 		}
 		snapshot, err := binding.Read()
 		if err != nil {
-			return compiler.AdapterResult{}, stateFailure(nodes.StateReadFailedCode, err)
+			return nodeadapter.AdapterResult{}, stateFailure(nodes.StateReadFailedCode, err)
 		}
 		counters["revision"] = snapshot.Revision
 		revision, err := sealStateOutput(builtins, invocation, "revision", snapshot.Revision)
 		if err != nil {
-			return compiler.AdapterResult{}, stateFailure(nodes.StateReadFailedCode, err)
+			return nodeadapter.AdapterResult{}, stateFailure(nodes.StateReadFailedCode, err)
 		}
 		changedAt, err := sealStateOutput(builtins, invocation, "changed-at", snapshot.ChangedAt.UnixMilli())
 		if err != nil {
-			return compiler.AdapterResult{}, stateFailure(nodes.StateReadFailedCode, err)
+			return nodeadapter.AdapterResult{}, stateFailure(nodes.StateReadFailedCode, err)
 		}
-		return compiler.AdapterResult{Outputs: map[string]datatype.ValueEnvelope{"revision": revision, "changed-at": changedAt}}, nil
+		return nodeadapter.AdapterResult{Outputs: map[string]datatype.ValueEnvelope{"revision": revision, "changed-at": changedAt}}, nil
 	}
 }
 
-func stateLastChange(builtins nodes.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+func stateLastChange(builtins nodes.Builtins) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		defer func() {
-			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, nodeadapter.AdapterAction{
 				EffectID: nodes.StateReadEffectID, Action: "state.last-change-read", SummaryCode: "state.last-change",
 			}, nodes.StateReadFailedCode, runErr))
 		}()
 		binding, ok := invocation.State["state"]
 		if !ok {
-			return compiler.AdapterResult{}, stateFailure(nodes.StateReadFailedCode, errors.New("state last-change binding is missing"))
+			return nodeadapter.AdapterResult{}, stateFailure(nodes.StateReadFailedCode, errors.New("state last-change binding is missing"))
 		}
 		snapshot, err := binding.Read()
 		if err != nil {
-			return compiler.AdapterResult{}, stateFailure(nodes.StateReadFailedCode, err)
+			return nodeadapter.AdapterResult{}, stateFailure(nodes.StateReadFailedCode, err)
 		}
 		changedAt, err := sealStateOutput(builtins, invocation, "changed-at", snapshot.ChangedAt.UnixMilli())
 		if err != nil {
-			return compiler.AdapterResult{}, stateFailure(nodes.StateReadFailedCode, err)
+			return nodeadapter.AdapterResult{}, stateFailure(nodes.StateReadFailedCode, err)
 		}
-		return compiler.AdapterResult{Outputs: map[string]datatype.ValueEnvelope{"changed-at": changedAt}}, nil
+		return nodeadapter.AdapterResult{Outputs: map[string]datatype.ValueEnvelope{"changed-at": changedAt}}, nil
 	}
 }
 
-func stateIncrement(builtins nodes.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+func stateIncrement(builtins nodes.Builtins) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		counters := map[string]int64{}
 		defer func() {
-			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, nodeadapter.AdapterAction{
 				EffectID: nodes.StateWriteEffectID, Action: "state.incremented", SummaryCode: "state.increment", Counters: counters,
 			}, nodes.StateUpdateFailedCode, runErr))
 		}()
 		binding, bindingOK := invocation.State["state"]
 		delta, deltaOK := invocation.Inputs["delta"]
 		if !bindingOK || !deltaOK {
-			return compiler.AdapterResult{}, stateUpdateFailure(errors.New("state increment binding or delta is missing"))
+			return nodeadapter.AdapterResult{}, stateUpdateFailure(errors.New("state increment binding or delta is missing"))
 		}
 		snapshot, err := binding.Update(func(current datatype.ValueEnvelope) (datatype.ValueEnvelope, error) {
 			if current.Type().Kind != datatype.ResolvedTypeRef || current.Type().Ref == nil {
@@ -161,18 +161,18 @@ func stateIncrement(builtins nodes.Builtins) compiler.Adapter {
 			}
 		})
 		if err != nil {
-			return compiler.AdapterResult{}, stateUpdateFailure(err)
+			return nodeadapter.AdapterResult{}, stateUpdateFailure(err)
 		}
 		counters["revision"] = snapshot.Revision
-		return compiler.AdapterResult{Outputs: map[string]datatype.ValueEnvelope{"result": snapshot.Value}, ExecOutputs: []string{"done"}}, nil
+		return nodeadapter.AdapterResult{Outputs: map[string]datatype.ValueEnvelope{"result": snapshot.Value}, ExecOutputs: []string{"done"}}, nil
 	}
 }
 
 func stateUpdateFailure(cause error) error {
-	return &compiler.NodeFailure{Code: nodes.StateUpdateFailedCode, Output: "failed", Cause: cause}
+	return &nodeadapter.NodeFailure{Code: nodes.StateUpdateFailedCode, Output: "failed", Cause: cause}
 }
 
-func sealStateOutput(builtins nodes.Builtins, invocation compiler.Invocation, portID string, value any) (datatype.ValueEnvelope, error) {
+func sealStateOutput(builtins nodes.Builtins, invocation nodeadapter.Invocation, portID string, value any) (datatype.ValueEnvelope, error) {
 	resolved, ok := invocation.OutputTypes[portID]
 	if !ok {
 		return datatype.ValueEnvelope{}, fmt.Errorf("state output %q has no resolved type", portID)
@@ -185,5 +185,5 @@ func sealStateOutput(builtins nodes.Builtins, invocation compiler.Invocation, po
 }
 
 func stateFailure(code string, cause error) error {
-	return &compiler.NodeFailure{Code: code, Cause: cause}
+	return &nodeadapter.NodeFailure{Code: code, Cause: cause}
 }

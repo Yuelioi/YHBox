@@ -16,7 +16,7 @@ import (
 )
 
 func TestAppSettingsReturnsDeepSnapshot(t *testing.T) {
-	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	app := newTestApp(t, filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
 	first := app.Settings()
 	first.Locale = "en"
 	first.UI.MouseProfiles = append(first.UI.MouseProfiles, MouseProfile{Label: "mutated", Counts360: 1})
@@ -27,7 +27,7 @@ func TestAppSettingsReturnsDeepSnapshot(t *testing.T) {
 }
 
 func TestAppMutateSettingsSerializesWritersWithoutLostUpdates(t *testing.T) {
-	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	app := newTestApp(t, filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
 	start := make(chan struct{})
 	var wg sync.WaitGroup
 	updates := []func(*Settings){
@@ -54,7 +54,7 @@ func TestAppMutateSettingsSerializesWritersWithoutLostUpdates(t *testing.T) {
 }
 
 func TestAppMutateSettingsSerializesCommitSideEffects(t *testing.T) {
-	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	app := newTestApp(t, filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
 	app.settingsSaver = func(string, *Settings) error { return nil }
 	firstEffectStarted := make(chan struct{})
 	releaseFirstEffect := make(chan struct{})
@@ -117,7 +117,7 @@ func TestAppMutateSettingsSerializesCommitSideEffects(t *testing.T) {
 
 func TestAppMutateSettingsSaveFailureKeepsPublishedSnapshot(t *testing.T) {
 	dir := t.TempDir()
-	app := NewApp(filepath.Join(dir, "settings.json"), nil, zerolog.Nop())
+	app := newTestApp(t, filepath.Join(dir, "settings.json"), nil, zerolog.Nop())
 	blocker := filepath.Join(dir, "not-a-directory")
 	if err := os.WriteFile(blocker, []byte("block"), 0o644); err != nil {
 		t.Fatal(err)
@@ -138,7 +138,7 @@ func TestAppMutateSettingsSaveFailureKeepsPublishedSnapshot(t *testing.T) {
 }
 
 func TestAppMutateSettingsPublishesPostCommitSyncFailure(t *testing.T) {
-	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	app := newTestApp(t, filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
 	wantErr := errors.New("directory sync failed")
 	app.settingsSaver = func(string, *Settings) error {
 		return &settingsCommittedError{err: wantErr}
@@ -156,7 +156,7 @@ func TestAppMutateSettingsPublishesPostCommitSyncFailure(t *testing.T) {
 }
 
 func TestAppMutateSettingsPreparesAndCommitsRuntimeActivation(t *testing.T) {
-	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	app := newTestApp(t, filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
 	prepared, committed, aborted := 0, 0, 0
 	if err := app.AttachSettingsActivator(func(before, after *Settings) (*SettingsActivationPlan, error) {
 		prepared++
@@ -179,7 +179,7 @@ func TestAppMutateSettingsPreparesAndCommitsRuntimeActivation(t *testing.T) {
 }
 
 func TestAppMutateSettingsAbortsPreparedRuntimeOnSaveFailure(t *testing.T) {
-	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	app := newTestApp(t, filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
 	app.settingsSaver = func(string, *Settings) error { return errors.New("disk unavailable") }
 	committed, aborted := 0, 0
 	if err := app.AttachSettingsActivator(func(*Settings, *Settings) (*SettingsActivationPlan, error) {
@@ -201,7 +201,7 @@ func TestAppMutateSettingsAbortsPreparedRuntimeOnSaveFailure(t *testing.T) {
 func TestUpdateWindowSizeLogsPersistenceFailure(t *testing.T) {
 	sink := NewLogSink(nil)
 	logger := zerolog.New(sink)
-	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), sink, logger)
+	app := newTestApp(t, filepath.Join(t.TempDir(), "settings.json"), sink, logger)
 	app.settingsSaver = func(string, *Settings) error { return errors.New("disk unavailable") }
 	app.UpdateWindowSize(1200, 800)
 	log := sink.Snapshot()
@@ -226,7 +226,7 @@ func TestSettingsValidateRejectsUnknownLoggerLevel(t *testing.T) {
 }
 
 func TestSettingsServiceRemovingApplicationAlsoRemovesDependentTargets(t *testing.T) {
-	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	app := newTestApp(t, filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
 	_, _, err := app.MutateSettings(func(settings *Settings) error {
 		settings.Applications.Profiles = []InstalledApplicationSettings{{
 			Slot: "htgame", Label: "HTGame", Executable: `C:\Apps\HTGame.exe`,
@@ -332,9 +332,24 @@ func TestLoadSettingsAcceptsLegacyWorkflowConsentWithoutDiscardingConfiguration(
 	path := filepath.Join(t.TempDir(), "settings.json")
 	settings := defaultSettings()
 	settings.Locale = "en"
+	settings.AI.Profiles = []AIModelSettings{modelSettingsForTest("assistant", "Assistant")}
 	settings.Network.HTTPOrigins = []HTTPOriginSettings{{
 		Slot: "status-api", Label: "Status API", Origin: "https://example.test/",
 		ResponseByteLimit: 8192, TimeoutMilliseconds: 1000,
+	}}
+	settings.Applications.Profiles = []InstalledApplicationSettings{{
+		Slot: "game", Label: "Game", Executable: `C:\Apps\Game.exe`,
+		ExecutableDigest: artifact.Digest("sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+		Arguments:        []string{},
+	}}
+	settings.Automation.Targets = []InstalledAutomationTargetSettings{{
+		Slot: "game-window", Label: "Game Window",
+		TargetKind: automationinstalled.TargetKindDesktopWindow, AdapterKind: automationinstalled.AdapterKindWin32,
+		ProfileVersion: automationinstalled.ProfileVersionV1,
+		Profile: automationTargetProfile(DesktopAutomationTargetSettings{
+			ApplicationSlot: "game", WindowTitle: "Game", WindowTitleMatch: "exact", WindowSelection: "unique",
+			WindowClass: "GameWindow", InputBackend: "sendinput", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
+		}),
 	}}
 	payload, err := artifact.Marshal(settings)
 	if err != nil {
@@ -344,9 +359,16 @@ func TestLoadSettingsAcceptsLegacyWorkflowConsentWithoutDiscardingConfiguration(
 	if err := json.Unmarshal(payload, &legacy); err != nil {
 		t.Fatal(err)
 	}
-	network := legacy["network"].(map[string]any)
-	origins := network["httpOrigins"].([]any)
-	origins[0].(map[string]any)["workflowConsent"] = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	for _, path := range [][2]string{
+		{"ai", "profiles"},
+		{"network", "httpOrigins"},
+		{"applications", "profiles"},
+		{"automation", "targets"},
+	} {
+		section := legacy[path[0]].(map[string]any)
+		entries := section[path[1]].([]any)
+		entries[0].(map[string]any)["workflowConsent"] = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	}
 	legacyPayload, err := artifact.Marshal(legacy)
 	if err != nil {
 		t.Fatal(err)
@@ -370,18 +392,28 @@ func TestLoadSettingsAcceptsLegacyWorkflowConsentWithoutDiscardingConfiguration(
 	if err != nil {
 		t.Fatalf("OpenSettingsStore: %v", err)
 	}
-	if loaded.Locale != "en" || len(loaded.Network.HTTPOrigins) != 1 || loaded.Network.HTTPOrigins[0].Slot != "status-api" {
+	if loaded.Locale != "en" || len(loaded.AI.Profiles) != 1 || len(loaded.Network.HTTPOrigins) != 1 ||
+		len(loaded.Applications.Profiles) != 1 || len(loaded.Automation.Targets) != 1 {
 		t.Fatalf("legacy configuration was discarded: %#v", loaded)
 	}
-	if err := store.Save(loaded); err != nil {
-		t.Fatal(err)
+	if store.Generation() != 2 {
+		t.Fatalf("generation = %d, want atomic migration generation 2", store.Generation())
 	}
 	current, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(string(current), "workflowConsent") {
-		t.Fatal("retired workflowConsent field was written into the current settings generation")
+		t.Fatal("retired workflowConsent field remains after opening the settings store")
+	}
+	reopened, reloaded, err := OpenSettingsStore(path)
+	if err != nil {
+		t.Fatalf("reopen migrated settings: %v", err)
+	}
+	if reopened.Generation() != 2 || reloaded.Locale != "en" || len(reloaded.AI.Profiles) != 1 ||
+		len(reloaded.Network.HTTPOrigins) != 1 || len(reloaded.Applications.Profiles) != 1 ||
+		len(reloaded.Automation.Targets) != 1 {
+		t.Fatalf("reopened migrated settings = generation %d, settings %#v", reopened.Generation(), reloaded)
 	}
 }
 

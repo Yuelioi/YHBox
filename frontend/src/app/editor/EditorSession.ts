@@ -1066,9 +1066,8 @@ export class EditorSession {
     this.graphPath.pop()
   }
 
-  async validate(): Promise<CompileView> {
-    if (this.dirty) await this.save()
-    const result = await this.transport.compileSource(this.workflowId)
+  async check(): Promise<CompileView> {
+    const result = await this.transport.checkDraft(this.serialize())
     this.sourceHash = result.sourceHash ?? ''
     this.compiledHash = result.programHash ?? ''
     this.diagnostics = [...result.diagnostics]
@@ -1176,9 +1175,10 @@ export class EditorSession {
     this.failure = ''
     this.lastRunOutcome = null
     try {
-      const compile = await this.validate()
-      if (compile.diagnostics.some((diagnostic) => diagnostic.severity === 'error')) return null
-      if (!compile.programHash) throw new Error('compiler produced no Program hash')
+      if (this.dirty) await this.save()
+      const checked = await this.check()
+      if (checked.diagnostics.some((diagnostic) => diagnostic.severity === 'error')) return null
+      if (!checked.programHash) throw new Error('workflow check produced no Program hash')
       this.phase = 'running'
       if (debug) {
         this.debugStartPending = true

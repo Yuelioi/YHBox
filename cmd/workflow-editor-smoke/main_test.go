@@ -259,6 +259,8 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	var lastState pageState
 	probeReads := 0
 	quickSelectionPending := false
+	workflowCheckPending := false
+	workflowIssuesClosePending := false
 	analyzeColorUsedQuickAdd := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/json" {
@@ -303,7 +305,37 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 				strings.Contains(expression, "vision/analyze-color") {
 				analyzeColorUsedQuickAdd = true
 			}
+			if call.Method == "Runtime.evaluate" &&
+				strings.Contains(expression, `const selector = '[data-testid=' + "workflow-check"`) {
+				workflowCheckPending = true
+			}
+			if call.Method == "Runtime.evaluate" &&
+				strings.Contains(expression, `const selector = '[data-testid=' + "workflow-diagnostics-open"`) {
+				workflowIssuesClosePending = true
+			}
 			if call.Method == "Runtime.evaluate" && strings.Contains(expression, "const probe = document.createElement") {
+				if workflowCheckPending || workflowIssuesClosePending {
+					checked := lastState
+					checked.Dirty = true
+					if workflowCheckPending {
+						checked.Diagnostics = true
+						checked.MissingInputWarnings = 1
+					} else {
+						checked.Diagnostics = false
+						checked.MissingInputWarnings = 0
+					}
+					lastState = checked
+					raw, _ := json.Marshal(checked)
+					workflowCheckPending = false
+					workflowIssuesClosePending = false
+					result = map[string]any{"result": map[string]any{"value": string(raw)}}
+					if err := wsjson.Write(context.Background(), connection, map[string]any{
+						"id": call.ID, "result": result,
+					}); err != nil {
+						return
+					}
+					continue
+				}
 				if quickSelectionPending {
 					selected := lastState
 					selected.SelectedNodes = 1

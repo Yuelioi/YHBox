@@ -82,6 +82,19 @@ func TestRunStoreImportsLegacyJSONRecordsIdempotently(t *testing.T) {
 		_ = foundation.Close()
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(
+		filepath.Join(legacyRoot, testRunID+".json"),
+		[]byte("{broken"), 0o600,
+	); err != nil {
+		_ = foundation.Close()
+		t.Fatal(err)
+	}
+	if err := run.ImportLegacyStore(
+		context.Background(), foundation.Runs(), valueCatalog, legacyRoot, options.MaxRecords,
+	); err != nil {
+		_ = foundation.Close()
+		t.Fatalf("repeat import consulted retired Run JSON after durable marker: %v", err)
+	}
 	if err := foundation.Close(); err != nil {
 		t.Fatal(err)
 	}
