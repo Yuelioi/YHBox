@@ -63,11 +63,17 @@
         :statuses="statuses"
         :empty-label="t('floatingLauncher.no_results')"
         :run-label="(name: string) => t('floatingLauncher.run', { name })"
+        :cancel-label="(name: string) => t('floatingLauncher.cancel', { name })"
         :status-labels="statusLabels"
         :stale-label="t('floatingLauncher.stale_item')"
         @run="onRun"
         @select="selectItem"
       />
+
+      <div v-if="runIssue" class="launcher-health launcher-health--error" role="status">
+        <UIcon name="i-tabler-alert-circle" class="size-3.5 shrink-0" />
+        <span>{{ runIssue }}</span>
+      </div>
 
       <div v-if="resolution.staleBlocks.length" class="launcher-health">
         <UIcon name="i-tabler-alert-triangle" class="size-3.5" />
@@ -96,6 +102,8 @@ import { useToast } from '@nuxt/ui/composables'
 import { Events } from '@wailsio/runtime'
 import { backend } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
+import { runReadinessMessage, runStartOutcome } from '@/app/run/runReadiness'
+import { pollTerminalRunStatus } from '@/app/run/followRun'
 import { useSettingsStore } from '@/stores/settings'
 import { onRunChanged, workflowTransport, type SourceView } from '@/app/transport/workflow'
 import HudShell from '@/components/tools/HudShell.vue'
@@ -119,7 +127,8 @@ const query = ref('')
 const selectedId = ref('')
 const requestedId = ref('')
 const requestedRunId = ref('')
-const feedback = ref<{ id: string; status: 'success' | 'error' } | null>(null)
+const feedback = ref<{ id: string; status: 'success' | 'error' | 'cancelled' } | null>(null)
+const runIssue = ref('')
 let feedbackTimer: ReturnType<typeof setTimeout> | undefined
 
 const pinned = ref(true)
@@ -148,6 +157,7 @@ const statusLabels = computed(() => ({
   running: t('floatingLauncher.running'),
   success: t('floatingLauncher.success'),
   error: t('floatingLauncher.failed'),
+  cancelled: t('floatingLauncher.cancelled'),
 }))
 const statuses = computed<Record<string, LauncherCommandStatus>>(() => {
   const result: Record<string, LauncherCommandStatus> = {}
@@ -178,13 +188,17 @@ function moveSelection(delta: number) {
   selectedId.value = items[next]?.workflowId ?? ''
 }
 
-function settleRequest(status: 'success' | 'error') {
+function settleRequest(status: 'success' | 'error' | 'cancelled', issue = '') {
   if (!requestedId.value) return
   feedback.value = { id: requestedId.value, status }
+  runIssue.value = issue
   requestedId.value = ''
   requestedRunId.value = ''
   clearTimeout(feedbackTimer)
-  feedbackTimer = setTimeout(() => (feedback.value = null), 1800)
+  feedbackTimer = setTimeout(() => {
+    feedback.value = null
+    runIssue.value = ''
+  }, 10_000)
 }
 
 function settleTerminalStatus(status: string) {
@@ -192,7 +206,11 @@ function settleTerminalStatus(status: string) {
     settleRequest('success')
     return true
   }
-  if (status === 'failed' || status === 'cancelled' || status === 'interrupted') {
+  if (status === 'cancelled' || status === 'interrupted') {
+    settleRequest('cancelled')
+    return true
+  }
+  if (status === 'failed') {
     settleRequest('error')
     return true
   }
@@ -200,24 +218,40 @@ function settleTerminalStatus(status: string) {
 }
 
 async function onRun(id: string) {
-  if (!id || requestedId.value) return
+  if (!id) return
+  if (requestedId.value === id && requestedRunId.value) {
+    try {
+      const stopped = await workflowTransport.cancelRun(requestedRunId.value)
+      settleTerminalStatus(stopped.status || 'cancelled')
+    } catch (error) {
+      settleRequest('error', errorMessage(error))
+    }
+    return
+  }
+  if (requestedId.value) return
   requestedId.value = id
   feedback.value = null
+  runIssue.value = ''
   try {
     const started = await workflowTransport.startRun(id)
-    if (!started.run) {
-      settleRequest('error')
+    const outcome = runStartOutcome(started)
+    if (outcome.state !== 'started') {
+      settleRequest('error', runReadinessMessage(outcome))
       return
     }
-    requestedRunId.value = started.run.runId
+    requestedRunId.value = outcome.runId
+    if (!started.run) return
     if (settleTerminalStatus(started.run.status)) return
 
     // A short Run can finish before StartRun returns and before requestedRunId is known.
-    // Re-read the authoritative record once so the event/snapshot hand-off has no gap.
-    const current = await workflowTransport.getRunTimeline(started.run.runId)
-    settleTerminalStatus(current.status)
-  } catch {
-    settleRequest('error')
+    // Poll through a briefly stale timeline snapshot so the event/snapshot hand-off has no gap.
+    const terminal = await pollTerminalRunStatus(
+      async () => (await workflowTransport.getRunTimeline(outcome.runId)).status,
+      () => requestedRunId.value !== outcome.runId,
+    )
+    if (terminal) settleTerminalStatus(terminal)
+  } catch (error) {
+    settleRequest('error', errorMessage(error))
   }
 }
 
@@ -399,5 +433,9 @@ onUnmounted(() => {
   color: var(--ui-warning);
   font-size: 10px;
   line-height: 14px;
+}
+
+.launcher-health--error {
+  color: var(--ui-error);
 }
 </style>

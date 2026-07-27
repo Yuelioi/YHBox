@@ -152,10 +152,10 @@ func TestClipCompositionUsesTheGlobalAssetStore(t *testing.T) {
 	if service := newClipService(store); service == nil {
 		t.Fatal("clip composition returned nil")
 	}
-	if err := (&workflowRunStarter{}).StartWorkflow(context.Background(), "missing"); err == nil {
+	if _, err := (&workflowRunStarter{}).StartWorkflow(context.Background(), "missing"); err == nil {
 		t.Fatal("workflow starter accepted a missing runtime")
 	}
-	if err := (&workflowRunStarter{application: &appcore.Application{}}).StartWorkflow(context.Background(), "missing"); err == nil {
+	if _, err := (&workflowRunStarter{application: &appcore.Application{}}).StartWorkflow(context.Background(), "missing"); err == nil {
 		t.Fatal("workflow starter hid an unavailable Workflow runtime")
 	}
 }

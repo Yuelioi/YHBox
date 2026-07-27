@@ -11,10 +11,15 @@ import (
 
 // ChangeListener Schedule CRUD 后回调，main.go 注入 daemon.Reload。
 type ChangeListener func() error
+type ManualFire func(string) (FireResult, error)
 type ServiceOption func(*Service)
 
 func WithChangeListener(listener ChangeListener) ServiceOption {
 	return func(service *Service) { service.onChange = listener }
+}
+
+func WithManualFire(fire ManualFire) ServiceOption {
+	return func(service *Service) { service.manualFire = fire }
 }
 
 // PostCommitError means durable schedule state changed successfully, but the
@@ -32,8 +37,9 @@ func (e *PostCommitError) Unwrap() error   { return e.Err }
 func (e *PostCommitError) Committed() bool { return true }
 
 type Service struct {
-	store    *Store
-	onChange ChangeListener
+	store      *Store
+	onChange   ChangeListener
+	manualFire ManualFire
 }
 
 func NewService(store *Store, options ...ServiceOption) *Service {
@@ -63,6 +69,13 @@ func (s *Service) Get(id string) (Schedule, error) {
 		return Schedule{}, fmt.Errorf("schedule %q not found", id)
 	}
 	return sc, nil
+}
+
+func (s *Service) FireNow(id string) (FireResult, error) {
+	if s.manualFire == nil {
+		return FireResult{}, fmt.Errorf("schedule runner is unavailable")
+	}
+	return s.manualFire(id)
 }
 
 // Create 返一个 default Schedule，不持久化。前端拿到 default 让用户改 + 按"保存"调 Save。

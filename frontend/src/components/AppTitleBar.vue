@@ -26,7 +26,7 @@
         style="--wails-draggable: no-drag"
       >
         <RouterLink
-          v-for="item in navItems"
+          v-for="item in navigation.primary"
           :key="item.key"
           :to="item.to"
           :title="item.label"
@@ -50,7 +50,11 @@
     </div>
 
     <!-- CENTER: drag region with current view title -->
-    <div class="flex-1 flex items-center px-6 min-w-0" style="--wails-draggable: drag">
+    <div
+      class="flex-1 flex items-center px-6 min-w-0"
+      data-testid="app-context-title"
+      style="--wails-draggable: drag"
+    >
       <UIcon
         v-if="currentIcon"
         :name="currentIcon"
@@ -146,6 +150,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useWindowControls } from '@/composables/useWindowControls'
 import { backend } from '@/lib/backend'
+import { buildAppNavigation } from '@/app/navigation/appNavigation'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -156,50 +161,9 @@ const launcherOpening = ref(false)
 let stopMainNavigate: (() => void) | undefined
 const versionLabel = computed(() => (appVersion.value ? `v${appVersion.value}` : ''))
 
-const navItems = computed(() => [
-  {
-    key: 'workflows',
-    to: '/workflows',
-    icon: 'i-tabler-route',
-    label: t('sidebar.workflows'),
-    active: route.name === 'workflows' || route.name === 'workflow-edit',
-  },
-  {
-    key: 'assets',
-    to: '/assets',
-    icon: 'i-tabler-library',
-    label: t('sidebar.assets'),
-    active: route.name === 'assets',
-  },
-  {
-    key: 'schedules',
-    to: '/schedules',
-    icon: 'i-tabler-clock',
-    label: t('sidebar.schedules'),
-    active: route.name === 'schedules',
-  },
-])
-
-// route.name → i18n key. 标题文字走 t() (locale 切换刷新), icon 配静态 map.
-const VIEW_META: Record<string, { titleKey: string; icon: string }> = {
-  workflows: { titleKey: 'sidebar.workflows', icon: 'i-tabler-route' },
-  'workflow-edit': { titleKey: 'sidebar.workflow_edit', icon: 'i-tabler-schema' },
-  assets: { titleKey: 'sidebar.assets', icon: 'i-tabler-library' },
-  schedules: { titleKey: 'sidebar.schedules', icon: 'i-tabler-clock' },
-  settings: { titleKey: 'sidebar.settings', icon: 'i-tabler-settings' },
-  about: { titleKey: 'sidebar.about', icon: 'i-tabler-info-circle' },
-}
-// 左侧主导航已高亮工作流/计划，中间不重复显示同名标题。
-const SUPPRESS_CENTER = new Set(['workflows', 'assets', 'schedules'])
-const currentTitle = computed(() => {
-  if (SUPPRESS_CENTER.has(route.name as string)) return ''
-  const meta = VIEW_META[route.name as string]
-  return meta ? t(meta.titleKey) : ''
-})
-const currentIcon = computed(() => {
-  if (SUPPRESS_CENTER.has(route.name as string)) return ''
-  return VIEW_META[route.name as string]?.icon ?? ''
-})
+const navigation = computed(() => buildAppNavigation(String(route.name ?? ''), t))
+const currentTitle = computed(() => navigation.value.contextTitle)
+const currentIcon = computed(() => navigation.value.contextIcon)
 
 onMounted(async () => {
   const info = await backend.appInfo.info()

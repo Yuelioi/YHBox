@@ -254,6 +254,30 @@ tasks:
     cmds:
       - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-workflow-editor.ps1
 
+  workflow:retention:
+    summary: Validates the fishing-v2 Source, Blobs and current compiler without changing user data
+    vars:
+      SOURCE: '{{.SOURCE | default "bin/data/workspace/workflows/fishing-v2.json"}}'
+      BLOBS: '{{.BLOBS | default "bin/data/blobs"}}'
+    cmds:
+      - >-
+        go run ./cmd/workflow-editor-smoke
+        -retention-source "{{.SOURCE}}"
+        -retention-blobs "{{.BLOBS}}"
+
+  webview:smoke:fishing:
+    summary: Migrates a copy of fishing-v2 into an isolated profile and opens its real editor
+    vars:
+      SOURCE: '{{.SOURCE | default "bin/data/workspace/workflows/fishing-v2.json"}}'
+      BLOBS: '{{.BLOBS | default "bin/data/blobs"}}'
+    cmds:
+      - >-
+        powershell -NoProfile -ExecutionPolicy Bypass
+        -File ./scripts/smoke-workflow-editor.ps1
+        -SkipLauncher
+        -RetentionSource "{{.SOURCE}}"
+        -RetentionBlobs "{{.BLOBS}}"
+
   dll:
     summary: 单独打包 Rust WGC capture DLL → bin/capture_wgc.dll (改 .rs 后跑)
     cmds:

@@ -90,6 +90,9 @@ func (s *Store) load() error {
 			sc.SchemaVersion = CurrentSchemaVersion
 			sc.Enabled = false
 		}
+		if sc.SchemaVersion == "3" {
+			sc.SchemaVersion = CurrentSchemaVersion
+		}
 		if err := sc.Validate(); err != nil {
 			return fmt.Errorf("validate %s: %w", path, err)
 		}

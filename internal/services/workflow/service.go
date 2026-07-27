@@ -158,12 +158,12 @@ type DeleteSourceResult struct {
 }
 
 type BundleInfoView struct {
-	WorkflowID    string          `json:"workflowId"`
-	Name          string          `json:"name"`
-	Revision      int64           `json:"revision"`
-	SourceHash    artifact.Digest `json:"sourceHash"`
-	BlobCount     int             `json:"blobCount"`
-	BlobBytes     int64           `json:"blobBytes"`
+	WorkflowID string          `json:"workflowId"`
+	Name       string          `json:"name"`
+	Revision   int64           `json:"revision"`
+	SourceHash artifact.Digest `json:"sourceHash"`
+	BlobCount  int             `json:"blobCount"`
+	BlobBytes  int64           `json:"blobBytes"`
 }
 
 type BundleExportResult struct {
@@ -230,6 +230,16 @@ type StartRunView struct {
 	Diagnostics []schema.Diagnostic     `json:"diagnostics"`
 	Run         *RunView                `json:"run,omitempty"`
 	Debug       *compiler.DebugSnapshot `json:"debug,omitempty"`
+	Readiness   RunReadinessView        `json:"readiness"`
+}
+
+type RunReadinessView struct {
+	State         string `json:"state"`
+	Code          string `json:"code,omitempty"`
+	GraphID       string `json:"graphId,omitempty"`
+	NodeID        string `json:"nodeId,omitempty"`
+	RequirementID string `json:"requirementId,omitempty"`
+	Slot          string `json:"slot,omitempty"`
 }
 
 type PatchView struct {
@@ -719,10 +729,14 @@ func (s *Service) StartRun(workflowID string) (StartRunView, error) {
 	view := StartRunView{
 		SourceHash: result.SourceHash, ProgramHash: result.ProgramHash,
 		Diagnostics: append([]schema.Diagnostic(nil), result.Diagnostics...),
+		Readiness:   runReadinessView(result, err),
 	}
 	if result.Record.Valid() {
 		run := runView(result.Record)
 		view.Run = &run
+	}
+	if readinessErrorHandled(view.Readiness) {
+		return view, nil
 	}
 	return view, err
 }
@@ -732,6 +746,7 @@ func (s *Service) StartDebugRun(workflowID string, breakpoints []compiler.DebugB
 	view := StartRunView{
 		SourceHash: result.SourceHash, ProgramHash: result.ProgramHash,
 		Diagnostics: append([]schema.Diagnostic(nil), result.Diagnostics...),
+		Readiness:   runReadinessView(result, err),
 	}
 	if result.Record.Valid() {
 		run := runView(result.Record)
@@ -740,7 +755,27 @@ func (s *Service) StartDebugRun(workflowID string, breakpoints []compiler.DebugB
 			view.Debug = &snapshot
 		}
 	}
+	if readinessErrorHandled(view.Readiness) {
+		return view, nil
+	}
 	return view, err
+}
+
+func runReadinessView(result appcore.StartRunResult, startErr error) RunReadinessView {
+	readiness := appcore.ClassifyRunStart(result, startErr)
+	return RunReadinessView{
+		State: string(readiness.State), Code: readiness.Code, GraphID: readiness.GraphID,
+		NodeID: readiness.NodeID, RequirementID: readiness.RequirementID, Slot: readiness.Slot,
+	}
+}
+
+func readinessErrorHandled(readiness RunReadinessView) bool {
+	switch readiness.State {
+	case "workflow-invalid", "target-required", "credential-required", "environment-unavailable", "not-started":
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *Service) GetDebugSnapshot(runID string) (compiler.DebugSnapshot, error) {

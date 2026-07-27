@@ -14,6 +14,8 @@ describe('SettingsView navigation', () => {
     expect(source).toContain('role="tabpanel"')
     expect(source).toContain('route.query.section')
     expect(source).toContain('v-model="searchQuery"')
+    expect(source).toContain('v-for="group in filteredThemeGroups"')
+    expect(source).toContain('groupSettingsThemes(filteredThemes.value)')
   })
 
   it('uses the shared commercial settings shell and preserves theme drafts', () => {

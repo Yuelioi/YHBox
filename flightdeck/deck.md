@@ -2,7 +2,7 @@
 
 ## Open Work
 
-- **Focus:** [3.1 产品创作体验与运行工作台优化](work/v3.1-product-optimization/index.md)
+- **Focus:** [V4 清爽高效工作台](work/v4-clean-core/index.md)
 
 ## Project links
 

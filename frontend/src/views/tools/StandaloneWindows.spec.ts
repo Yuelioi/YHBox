@@ -66,6 +66,23 @@ describe('standalone window presentation contract', () => {
     expect(source).toMatch(/Events\.On\([\s\S]*'settings:changed'[\s\S]*refreshLauncherData/)
   })
 
+  it('polls through a stale short-run snapshot instead of leaving the launcher running forever', () => {
+    const source = readSource('src/views/tools/FloatingLauncherView.vue')
+
+    expect(source).toContain('pollTerminalRunStatus(')
+    expect(source).toContain('requestedRunId.value !== outcome.runId')
+  })
+
+  it('lets a running launcher command stop the exact Run without closing the launcher', () => {
+    const source = readSource('src/views/tools/FloatingLauncherView.vue')
+    const surface = readSource('src/components/launcher/LauncherSurface.vue')
+
+    expect(source).toContain('workflowTransport.cancelRun(requestedRunId.value)')
+    expect(source).toContain("settleRequest('cancelled')")
+    expect(surface).toContain("statusFor(item.workflowId) === 'running'")
+    expect(surface).toContain("case 'cancelled':")
+  })
+
   it('lets live HUD state regions fill spare height instead of pushing it above actions', () => {
     for (const filename of ['RecordingHUDView.vue', 'CalibrationHUDView.vue']) {
       const source = readSource(`src/views/tools/${filename}`)

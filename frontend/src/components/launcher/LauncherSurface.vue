@@ -25,7 +25,13 @@
               },
             ]"
             :title="item.label"
-            :aria-label="item.stale ? `${item.label}: ${staleLabel}` : runLabel(item.label)"
+            :aria-label="
+              item.stale
+                ? `${item.label}: ${staleLabel}`
+                : statusFor(item.workflowId) === 'running' && cancelLabel
+                  ? cancelLabel(item.label)
+                  : runLabel(item.label)
+            "
             :aria-current="selectedId === item.workflowId ? 'true' : undefined"
             :aria-disabled="item.stale ? 'true' : undefined"
             :tabindex="preview ? -1 : 0"
@@ -74,7 +80,7 @@
 <script setup lang="ts">
 import type { LauncherDisplay, ResolvedLauncherGroup, ResolvedLauncherItem } from './launcherModel'
 
-export type LauncherCommandStatus = 'idle' | 'running' | 'success' | 'error'
+export type LauncherCommandStatus = 'idle' | 'running' | 'success' | 'error' | 'cancelled'
 
 const {
   groups,
@@ -84,6 +90,7 @@ const {
   preview = false,
   emptyLabel,
   runLabel,
+  cancelLabel,
   statusLabels,
   staleLabel,
 } = defineProps<{
@@ -94,7 +101,11 @@ const {
   preview?: boolean
   emptyLabel: string
   runLabel: (name: string) => string
-  statusLabels: Pick<Record<LauncherCommandStatus, string>, 'running' | 'success' | 'error'>
+  cancelLabel?: (name: string) => string
+  statusLabels: Pick<
+    Record<LauncherCommandStatus, string>,
+    'running' | 'success' | 'error' | 'cancelled'
+  >
   staleLabel: string
 }>()
 
@@ -121,6 +132,8 @@ function statusIcon(workflowId: string, fallback: string) {
       return 'i-tabler-check'
     case 'error':
       return 'i-tabler-alert-circle'
+    case 'cancelled':
+      return 'i-tabler-square'
     default:
       return fallback
   }

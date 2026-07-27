@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 16,
-    "methods": 138,
-    "models": 220
+    "methods": 139,
+    "models": 223
   },
   "services": [
     {
@@ -1042,6 +1042,18 @@
             }
           ],
           "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "FireNow",
+          "bindingId": "3853667256",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.FireResult>"
         },
         {
           "name": "Get",
@@ -5361,6 +5373,22 @@
           ]
         },
         {
+          "kind": "class",
+          "name": "FireResult",
+          "fields": [
+            {
+              "name": "\"status\"",
+              "optional": false,
+              "type": "FireStatus"
+            },
+            {
+              "name": "\"readiness\"",
+              "optional": true,
+              "type": "RunReadiness | null"
+            }
+          ]
+        },
+        {
           "kind": "enum",
           "name": "FireStatus",
           "members": [
@@ -5393,6 +5421,47 @@
             {
               "name": "OnErrorContinue",
               "value": "\"continue\""
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "RunReadiness",
+          "fields": [
+            {
+              "name": "\"state\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"code\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"workflowId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"graphId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"requirementId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"slot\"",
+              "optional": true,
+              "type": "string"
             }
           ]
         },
@@ -5451,6 +5520,11 @@
               "type": "FireStatus"
             },
             {
+              "name": "\"lastReadiness\"",
+              "optional": true,
+              "type": "RunReadiness | null"
+            },
+            {
               "name": "\"createdAt\"",
               "optional": false,
               "type": "string"
@@ -5472,7 +5546,7 @@
             },
             {
               "name": "CurrentSchemaVersion",
-              "value": "\"3\""
+              "value": "\"4\""
             }
           ]
         },
@@ -6206,6 +6280,42 @@
         },
         {
           "kind": "class",
+          "name": "RunReadinessView",
+          "fields": [
+            {
+              "name": "\"state\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"code\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"graphId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"requirementId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"slot\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "RunView",
           "fields": [
             {
@@ -6483,6 +6593,11 @@
               "name": "\"debug\"",
               "optional": true,
               "type": "compiler$0.DebugSnapshot | null"
+            },
+            {
+              "name": "\"readiness\"",
+              "optional": false,
+              "type": "RunReadinessView"
             }
           ]
         },

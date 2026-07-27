@@ -3,36 +3,6 @@
     <div class="schedule-editor__form">
       <section class="schedule-editor__section">
         <div class="schedule-editor__section-heading">
-          <span><UIcon name="i-tabler-adjustments" class="size-4" /></span>
-          <h2>{{ t('schedule.basics_section') }}</h2>
-        </div>
-
-        <div class="schedule-editor__row">
-          <label class="schedule-editor__label" for="schedule-name">
-            {{ t('schedule.name_label') }} <span aria-hidden="true">*</span>
-          </label>
-          <UInput
-            id="schedule-name"
-            v-model="draft.name"
-            class="schedule-editor__control"
-            :aria-label="t('schedule.name_label')"
-          />
-        </div>
-        <p v-if="showValidation && nameError" class="schedule-editor__validation" role="alert">
-          {{ nameError }}
-        </p>
-
-        <div class="schedule-editor__row">
-          <span class="schedule-editor__label">{{ t('schedule.enabled_label') }}</span>
-          <div class="schedule-editor__control schedule-editor__switch">
-            <USwitch v-model="draft.enabled" :aria-label="t('schedule.enabled_label')" />
-            <span>{{ draft.enabled ? t('schedule.enable') : t('schedule.disable') }}</span>
-          </div>
-        </div>
-      </section>
-
-      <section class="schedule-editor__section">
-        <div class="schedule-editor__section-heading">
           <span><UIcon name="i-tabler-stack-2" class="size-4" /></span>
           <h2>{{ t('schedule.targets_section') }}</h2>
           <UBadge size="xs" color="neutral" variant="subtle">{{ draft.targets.length }}</UBadge>
@@ -166,37 +136,86 @@
         </p>
       </section>
 
-      <section class="schedule-editor__section">
-        <div class="schedule-editor__section-heading">
-          <span><UIcon name="i-tabler-shield-half" class="size-4" /></span>
-          <h2>{{ t('schedule.limit_label') }}</h2>
-        </div>
+      <UCollapsible v-model:open="advancedOpen" data-testid="schedule-advanced">
+        <UButton
+          :label="t('schedule.advanced_settings')"
+          icon="i-tabler-adjustments-horizontal"
+          :trailing-icon="advancedOpen ? 'i-tabler-chevron-up' : 'i-tabler-chevron-down'"
+          color="neutral"
+          variant="ghost"
+          class="w-full justify-start"
+          data-testid="schedule-advanced-toggle"
+        />
+        <template #content>
+          <div class="space-y-3 pt-3">
+            <section class="schedule-editor__section">
+              <div class="schedule-editor__section-heading">
+                <span><UIcon name="i-tabler-adjustments" class="size-4" /></span>
+                <h2>{{ t('schedule.basics_section') }}</h2>
+              </div>
 
-        <div class="schedule-editor__row">
-          <span class="schedule-editor__label">
-            {{ t('schedule.timeout_label') }}
-            <small>{{ t('schedule.timeout_hint') }}</small>
-          </span>
-          <UInputNumber
-            :model-value="draft.timeoutMinutes"
-            :min="0"
-            class="schedule-editor__control"
-            :aria-label="t('schedule.timeout_label')"
-            @update:model-value="draft.timeoutMinutes = Math.max(0, Number($event))"
-          />
-        </div>
+              <div class="schedule-editor__row">
+                <label class="schedule-editor__label" for="schedule-name">
+                  {{ t('schedule.name_label') }} <span aria-hidden="true">*</span>
+                </label>
+                <UInput
+                  id="schedule-name"
+                  v-model="draft.name"
+                  class="schedule-editor__control"
+                  :aria-label="t('schedule.name_label')"
+                />
+              </div>
+              <p
+                v-if="showValidation && nameError"
+                class="schedule-editor__validation"
+                role="alert"
+              >
+                {{ nameError }}
+              </p>
 
-        <div class="schedule-editor__row">
-          <span class="schedule-editor__label">{{ t('schedule.on_error_label') }}</span>
-          <AdaptiveSelect
-            v-model="draft.onError"
-            :items="onErrorOptions"
-            class="schedule-editor__control"
-            width-mode="fill"
-            :aria-label="t('schedule.on_error_label')"
-          />
-        </div>
-      </section>
+              <div class="schedule-editor__row">
+                <span class="schedule-editor__label">{{ t('schedule.enabled_label') }}</span>
+                <div class="schedule-editor__control schedule-editor__switch">
+                  <USwitch v-model="draft.enabled" :aria-label="t('schedule.enabled_label')" />
+                  <span>{{ draft.enabled ? t('schedule.enable') : t('schedule.disable') }}</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="schedule-editor__section">
+              <div class="schedule-editor__section-heading">
+                <span><UIcon name="i-tabler-shield-half" class="size-4" /></span>
+                <h2>{{ t('schedule.limit_label') }}</h2>
+              </div>
+
+              <div class="schedule-editor__row">
+                <span class="schedule-editor__label">
+                  {{ t('schedule.timeout_label') }}
+                  <small>{{ t('schedule.timeout_hint') }}</small>
+                </span>
+                <UInputNumber
+                  :model-value="draft.timeoutMinutes"
+                  :min="0"
+                  class="schedule-editor__control"
+                  :aria-label="t('schedule.timeout_label')"
+                  @update:model-value="draft.timeoutMinutes = Math.max(0, Number($event))"
+                />
+              </div>
+
+              <div class="schedule-editor__row">
+                <span class="schedule-editor__label">{{ t('schedule.on_error_label') }}</span>
+                <AdaptiveSelect
+                  v-model="draft.onError"
+                  :items="onErrorOptions"
+                  class="schedule-editor__control"
+                  width-mode="fill"
+                  :aria-label="t('schedule.on_error_label')"
+                />
+              </div>
+            </section>
+          </div>
+        </template>
+      </UCollapsible>
 
       <footer class="schedule-editor__actions">
         <UButton variant="ghost" color="neutral" @click="emit('cancel')">
@@ -231,12 +250,14 @@ const { schedule, workflows } = defineProps<{
 const emit = defineEmits<{ save: [schedule: Schedule]; cancel: [] }>()
 const draft = reactive<Schedule>(cloneSchedule(schedule))
 const showValidation = ref(false)
+const advancedOpen = ref(false)
 
 watch(
   () => schedule,
   (value) => {
     Object.assign(draft, cloneSchedule(value))
     showValidation.value = false
+    advancedOpen.value = false
   },
 )
 watch(
@@ -338,6 +359,7 @@ function moveTarget(from: number, to: number) {
 function submit(): void {
   normalizeSchedule(draft)
   showValidation.value = true
+  if (nameError.value) advancedOpen.value = true
   if (nameError.value || targetsError.value || triggerError.value) return
   emit('save', cloneSchedule(draft))
 }

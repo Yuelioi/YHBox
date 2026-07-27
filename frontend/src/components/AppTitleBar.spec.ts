@@ -8,6 +8,7 @@ describe('AppTitleBar accessibility', () => {
   it('labels primary navigation and current destinations', () => {
     expect(source).toContain(':aria-label="t(\'sidebar.primary_navigation\')"')
     expect(source).toContain(':aria-current="item.active ? \'page\' : undefined"')
+    expect(source).toContain('buildAppNavigation')
   })
 
   it('names utility destinations and native window controls', () => {

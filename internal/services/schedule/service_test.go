@@ -58,9 +58,35 @@ func TestScheduleServicePropagatesReloadFailure(t *testing.T) {
 	}
 }
 
+func TestScheduleServiceFireNowUsesInjectedDaemon(t *testing.T) {
+	store, _ := NewStore(t.TempDir())
+	want := FireResult{
+		Status: FireStatusFailed,
+		Readiness: &RunReadiness{
+			State: "credential-required", Slot: "account",
+		},
+	}
+	service := NewService(store, WithManualFire(func(id string) (FireResult, error) {
+		if id != "schedule-1" {
+			t.Fatalf("FireNow id = %q", id)
+		}
+		return want, nil
+	}))
+	got, err := service.FireNow("schedule-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != want.Status || got.Readiness == nil || got.Readiness.Slot != "account" {
+		t.Fatalf("FireNow = %#v", got)
+	}
+}
 
-
-
+func TestScheduleServiceFireNowRequiresRunner(t *testing.T) {
+	store, _ := NewStore(t.TempDir())
+	if _, err := NewService(store).FireNow("schedule-1"); err == nil {
+		t.Fatal("FireNow accepted a missing daemon")
+	}
+}
 
 func TestScheduleService_Update_PathTraversalProtected(t *testing.T) {
 	dir := t.TempDir()

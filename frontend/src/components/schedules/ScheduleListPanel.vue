@@ -16,6 +16,7 @@
       data-testid="schedule-row"
       :data-schedule-id="schedule.id"
       :data-target-ids="schedule.targets.map((target) => target.id).join(',')"
+      :data-last-status="schedule.lastStatus ?? ''"
       @dblclick="$emit('edit', schedule)"
     >
       <span class="schedule-row__trigger">
@@ -48,9 +49,27 @@
             {{ lastFiredLabel(schedule) }}
           </span>
         </div>
+        <p
+          v-if="schedule.lastStatus === 'failed' && schedule.lastReadiness"
+          class="mt-1.5 flex items-center gap-1.5 text-xs text-warning"
+          data-testid="schedule-readiness"
+        >
+          <UIcon name="i-tabler-alert-circle" class="size-3.5 shrink-0" />
+          <span class="min-w-0">{{ lastReadinessLabel(schedule) }}</span>
+          <UButton
+            size="xs"
+            variant="link"
+            color="warning"
+            class="ml-1 shrink-0 p-0"
+            data-testid="schedule-repair"
+            @click="$emit('repair', schedule)"
+          >
+            {{ t('schedule.repair_action') }}
+          </UButton>
+        </p>
       </div>
 
-      <div class="schedule-row__policy">
+      <div v-if="manageMode" class="schedule-row__policy">
         <span class="text-xs text-dimmed">{{ t('schedule.workspace.error_policy') }}</span>
         <strong class="text-xs font-medium text-toned">{{
           t(`schedule.error_mode.${schedule.onError}`)
@@ -63,6 +82,18 @@
           :aria-label="schedule.enabled ? t('schedule.disable') : t('schedule.enable')"
           @click.stop
           @update:model-value="(enabled: boolean) => $emit('toggle', schedule, enabled)"
+        />
+        <UButton
+          size="sm"
+          variant="ghost"
+          color="primary"
+          icon="i-tabler-player-play"
+          data-testid="schedule-run"
+          :loading="runningId === schedule.id"
+          :disabled="runningId !== ''"
+          :title="t('schedule.run_action', { name: schedule.name })"
+          :aria-label="t('schedule.run_action', { name: schedule.name })"
+          @click="$emit('run', schedule)"
         />
         <UButton
           size="sm"
@@ -92,18 +123,23 @@
 import { useI18n } from 'vue-i18n'
 import type { Schedule } from '@/lib/backend'
 import type { SourceView } from '@/app/transport/workflow'
+import { readinessOutcome, runReadinessMessage } from '@/app/run/runReadiness'
 import EmptyState from '@/components/common/EmptyState.vue'
 import StatusPill from '@/components/common/StatusPill.vue'
 
 const { t } = useI18n()
-const { list, workflows } = defineProps<{
+const { list, workflows, runningId, manageMode } = defineProps<{
   list: Schedule[]
   workflows: SourceView[]
+  runningId: string
+  manageMode: boolean
 }>()
 const emit = defineEmits<{
   edit: [schedule: Schedule]
   delete: [schedule: Schedule]
   toggle: [schedule: Schedule, enabled: boolean]
+  run: [schedule: Schedule]
+  repair: [schedule: Schedule]
 }>()
 
 function triggerIcon(schedule: Schedule): string {
@@ -143,7 +179,11 @@ function lastFiredLabel(schedule: Schedule): string {
 }
 
 function lastStatusLabel(status: string): string {
-  return status === 'queued' ? t('schedule.status.queued') : status
+  return status === 'queued' ? t('schedule.status.queued') : t('schedule.status.failed')
+}
+
+function lastReadinessLabel(schedule: Schedule): string {
+  return runReadinessMessage(readinessOutcome(schedule.lastReadiness))
 }
 
 function menuItems(schedule: Schedule) {

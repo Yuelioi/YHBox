@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { createApp, nextTick, reactive } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Schedule } from '@/lib/backend'
@@ -16,9 +18,25 @@ afterEach(() => {
 })
 
 describe('ScheduleEditorPanel', () => {
+  it('keeps the primary path to Workflow, trigger and save while preserving advanced fields', () => {
+    const source = readFileSync(
+      join(process.cwd(), 'src/components/schedules/ScheduleEditorPanel.vue'),
+      'utf8',
+    )
+    const advanced = source.slice(source.indexOf('<UCollapsible'), source.indexOf('<footer'))
+
+    expect(source).toContain('data-testid="schedule-add-target"')
+    expect(source).toContain('v-model="draft.trigger.kind"')
+    expect(source).toContain('data-testid="schedule-save"')
+    expect(advanced).toContain('id="schedule-name"')
+    expect(advanced).toContain('v-model="draft.enabled"')
+    expect(advanced).toContain(':model-value="draft.timeoutMinutes"')
+    expect(advanced).toContain('v-model="draft.onError"')
+  })
+
   it('opens from a reactive schedule returned by the management view', () => {
     const schedule = reactive({
-      schemaVersion: '3',
+      schemaVersion: '4',
       id: 'schedule-1',
       name: 'Morning run',
       enabled: true,
@@ -42,7 +60,7 @@ describe('ScheduleEditorPanel', () => {
 
   it('persists the visible interval default when the number field is untouched', async () => {
     const schedule = {
-      schemaVersion: '3',
+      schemaVersion: '4',
       id: 'schedule-2',
       name: 'Interval run',
       enabled: true,

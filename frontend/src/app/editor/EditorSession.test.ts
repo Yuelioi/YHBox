@@ -249,6 +249,7 @@ describe('EditorSession', () => {
       diagnostics: [],
       run,
       debug: paused,
+      readiness: { state: 'started' },
     } as StartRunView)
     vi.mocked(transport.controlDebugRun).mockResolvedValue({
       ...paused,
@@ -302,6 +303,7 @@ describe('EditorSession', () => {
       diagnostics: [],
       run,
       debug: { ...paused, status: 'running', generation: 1 },
+      readiness: { state: 'started' },
     } as StartRunView)
 
     await starting
@@ -332,6 +334,7 @@ describe('EditorSession', () => {
       diagnostics: [],
       run,
       debug: paused,
+      readiness: { state: 'started' },
     } as StartRunView)
     let resolveControl!: (snapshot: DebugSnapshot) => void
     vi.mocked(transport.controlDebugRun).mockImplementation(
@@ -1994,6 +1997,7 @@ function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
           programHash: 'sha256:program',
           diagnostics: [],
           run,
+          readiness: { state: 'started' },
         }) as StartRunView,
     ),
     startDebugRun: vi.fn(
@@ -2004,6 +2008,7 @@ function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
           diagnostics: [],
           run,
           debug: null,
+          readiness: { state: 'started' },
         }) as StartRunView,
     ),
     getDebugSnapshot: vi.fn(async () => ({ status: 'paused', generation: 1 }) as never),

@@ -15,7 +15,15 @@
           </div>
         </div>
       </div>
-      <div class="flex shrink-0 items-center justify-end">
+      <div class="flex shrink-0 items-center justify-end gap-2">
+        <UButton
+          data-testid="asset-manage-button"
+          color="neutral"
+          :variant="managementMode ? 'soft' : 'ghost'"
+          :icon="managementMode ? 'i-tabler-check' : 'i-tabler-adjustments-horizontal'"
+          :label="t(managementMode ? 'assets.manage_done' : 'assets.manage')"
+          @click="toggleManagementMode"
+        />
         <UDropdownMenu :items="libraryMenuItems">
           <UButton
             icon="i-tabler-dots-vertical"
@@ -27,7 +35,11 @@
       </div>
     </header>
 
-    <div class="flex min-h-0 flex-1">
+    <div
+      class="flex min-h-0 flex-1"
+      data-testid="asset-library"
+      :data-mode="managementMode ? 'manage' : 'browse'"
+    >
       <aside class="flex w-52 shrink-0 flex-col border-r border-default bg-elevated/15 p-2">
         <p class="px-2 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-wide text-dimmed">
           {{ t('assets.asset_types') }}
@@ -152,7 +164,7 @@
             />
           </form>
           <LibrarySelectionToolbar
-            v-if="selectedRows.length"
+            v-if="managementMode && selectedRows.length"
             :label="t('assets.selected_count', { n: selectedRows.length })"
             :hint="t('batchMetadata.selection_hint')"
             :clear-label="t('assets.clear_selection')"
@@ -181,7 +193,7 @@
               </UButton>
             </template>
           </LibrarySelectionToolbar>
-          <div v-else class="flex flex-wrap items-center gap-2 p-3">
+          <div v-else-if="managementMode" class="flex flex-wrap items-center gap-2 p-3">
             <AdaptiveSelect
               v-model="categoryFilter"
               :items="categoryFilterItems"
@@ -289,10 +301,12 @@
           <AssetLibraryList
             v-else-if="visibleItems.length"
             :items="visibleItems"
+            :selectable="managementMode"
             @preview-state="setPreviewState"
           >
             <template #select-all>
               <UCheckbox
+                v-if="managementMode"
                 :model-value="allCurrentPageSelected"
                 :aria-label="t('assets.select_page')"
                 @update:model-value="toggleCurrentPage(Boolean($event))"
@@ -300,6 +314,7 @@
             </template>
             <template #select="{ item }">
               <UCheckbox
+                v-if="managementMode"
                 :model-value="Boolean(selected[item.id])"
                 :aria-label="t('assets.select_named', { name: item.name })"
                 @update:model-value="toggleAsset(assetItem(item.id).source, Boolean($event))"
@@ -852,13 +867,14 @@ const recording = useRecordingStore()
 const { starting: recordingStarting, start: beginRecording } = useRecordingStart()
 const { show: showRecordingStartError } = useRecordingStartFeedback()
 const activeTab = ref<AssetTab>('macros')
+const managementMode = ref(false)
 const queryInput = ref('')
 const query = ref('')
 const categoryFilter = ref(allCategories)
 const tagFilters = ref<string[]>([])
 const categories = ref<Array<{ value: string; count: number }>>([])
 const tags = ref<Array<{ value: string; count: number }>>([])
-const sort = ref('name_asc')
+const sort = ref('recent_desc')
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
@@ -930,6 +946,7 @@ const allCurrentPageSelected = computed(
   () => assetPage.value.length > 0 && assetPage.value.every((asset) => selected.value[asset.guid]),
 )
 const sortItems = computed(() => [
+  { label: t('assets.sort_recent_desc'), value: 'recent_desc' },
   { label: t('assets.sort_name_asc'), value: 'name_asc' },
   { label: t('assets.sort_name_desc'), value: 'name_desc' },
   { label: t('assets.sort_created_desc'), value: 'created_desc' },
@@ -1180,7 +1197,7 @@ async function refreshAssets(): Promise<void> {
       page: page.value,
       pageSize: pageSize.value,
       thumbnailBudget: pageSize.value,
-      recentGUIDs: [],
+      recentGUIDs: assets.recentGUIDs,
     })
     assetPage.value = result?.items ?? []
     total.value = result?.total ?? 0
@@ -1214,6 +1231,17 @@ async function resetLibraryFilters(): Promise<void> {
   categoryFilter.value = allCategories
   tagFilters.value = []
   await changeQuery()
+}
+
+async function toggleManagementMode(): Promise<void> {
+  managementMode.value = !managementMode.value
+  clearSelection()
+  if (managementMode.value) return
+  categoryFilter.value = allCategories
+  tagFilters.value = []
+  sort.value = 'recent_desc'
+  page.value = 1
+  await refreshAssets()
 }
 
 async function goToPage(next: number): Promise<void> {

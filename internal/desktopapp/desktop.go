@@ -340,6 +340,7 @@ func Run(config Config) error {
 	scheduleSvc = schedule.NewService(
 		scheduleStore,
 		schedule.WithChangeListener(scheduleDaemon.Reload),
+		schedule.WithManualFire(scheduleDaemon.FireManual),
 	)
 	// InputClip remains an authoring asset service; playback reads the
 	// exposed nominal BlobRef through explicit blob-read and playback grants.

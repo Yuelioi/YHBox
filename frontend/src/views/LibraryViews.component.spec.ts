@@ -6,6 +6,9 @@ const {
   querySources,
   createSourceWithMetadata,
   batchUpdateSourceMetadata,
+  startRun,
+  getRunTimeline,
+  cancelRun,
   queryAssets,
   batchUpdateAssetMeta,
 } = vi.hoisted(() => ({
@@ -44,6 +47,9 @@ const {
   batchUpdateSourceMetadata: vi.fn(async (requests: Array<{ workflowId: string }>) =>
     requests.map((request) => ({ workflowId: request.workflowId, updated: true, error: '' })),
   ),
+  startRun: vi.fn(),
+  getRunTimeline: vi.fn(),
+  cancelRun: vi.fn(),
   queryAssets: vi.fn(async (query: { kind: string; page: number }) => ({
     items: [
       query.kind === 'macro'
@@ -139,13 +145,16 @@ vi.mock('@/composables/useConfirm', () => ({
   useConfirm: () => ({ confirm: vi.fn(async () => true) }),
 }))
 vi.mock('@/app/transport/workflow', () => ({
+  onRunChanged: vi.fn(() => vi.fn()),
   workflowTransport: {
     querySources,
     listSourceRecoveries: vi.fn(async () => []),
     createSourceWithMetadata,
     batchUpdateSourceMetadata,
     updateSourceMetadata: vi.fn(),
-    startRun: vi.fn(),
+    startRun,
+    getRunTimeline,
+    cancelRun,
   },
 }))
 vi.mock('@/stores/settings', () => ({
@@ -220,6 +229,9 @@ afterEach(() => {
   querySources.mockClear()
   createSourceWithMetadata.mockClear()
   batchUpdateSourceMetadata.mockClear()
+  startRun.mockReset()
+  getRunTimeline.mockReset()
+  cancelRun.mockReset()
   queryAssets.mockClear()
   batchUpdateAssetMeta.mockClear()
 })
@@ -232,7 +244,11 @@ describe('library management views', () => {
     expect(root.textContent).toContain('Exports the daily report')
     expect(root.textContent).toContain('Operations')
     expect(root.textContent).toContain('Daily')
-    expect(root.textContent).toContain('8')
+    expect(root.querySelector('[data-testid="workflow-browse-list"]')).toBeTruthy()
+    expect(root.querySelector('button[role="checkbox"]')).toBeNull()
+    ;(root.querySelector('[data-testid="workflow-library-open"]') as HTMLElement).click()
+    expect(push).toHaveBeenCalledWith('/workflows/workflow-1/edit')
+    push.mockClear()
 
     buttonByText(root, 'workflow.list.new_workflow').click()
     await nextTick()
@@ -295,6 +311,8 @@ describe('library management views', () => {
   it('replaces workflow filters with a contextual batch toolbar', async () => {
     const root = await mountView(WorkflowsView)
 
+    buttonByText(root, 'workflow.list.manage').click()
+    await flushView()
     rowCheckbox(root).click()
     await flushView()
 
@@ -308,9 +326,34 @@ describe('library management views', () => {
     expect(root.textContent).toContain('batchMetadata.description')
   })
 
+  it('replaces a running workflow action with a stop action for that exact Run', async () => {
+    vi.useFakeTimers()
+    startRun.mockResolvedValue({
+      run: { runId: 'run-1', status: 'running' },
+      diagnostics: [],
+    })
+    getRunTimeline.mockResolvedValue({ runId: 'run-1', status: 'running' })
+    cancelRun.mockResolvedValue({ runId: 'run-1', status: 'cancelled' })
+    const root = await mountView(WorkflowsView)
+
+    ;(root.querySelector('[data-testid="workflow-run"]') as HTMLButtonElement).click()
+    await vi.advanceTimersByTimeAsync(1_300)
+    await flushView()
+    const stop = root.querySelector('[data-testid="workflow-stop"]') as HTMLButtonElement
+    expect(stop).toBeTruthy()
+    stop.click()
+    await flushView()
+
+    expect(cancelRun).toHaveBeenCalledWith('run-1')
+    expect(root.querySelector('[data-testid="workflow-stop"]')).toBeNull()
+    expect(root.querySelector('[data-testid="workflow-run"]')).toBeTruthy()
+  })
+
   it('uses the same contextual batch toolbar for assets', async () => {
     const root = await mountView(AssetsView)
 
+    buttonByText(root, 'assets.manage').click()
+    await flushView()
     rowCheckbox(root).click()
     await flushView()
 
@@ -328,6 +371,8 @@ describe('library management views', () => {
     vi.useFakeTimers()
     const root = await mountView(AssetsView)
 
+    buttonByText(root, 'assets.manage').click()
+    await flushView()
     rowCheckbox(root).click()
     await flushView()
     buttonByText(root, 'assets.batch_delete').click()

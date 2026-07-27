@@ -172,6 +172,12 @@ textarea {
     overflow-y: auto;
   }
 
+  .settings-nav-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
   .settings-nav-item {
     width: 100%;
     min-height: 52px;
@@ -518,6 +524,22 @@ textarea {
       overflow-y: hidden;
     }
 
+    .settings-nav-group {
+      flex-direction: row;
+      align-items: center;
+      padding-right: 8px;
+      border-right: 1px solid var(--ui-border);
+    }
+
+    .settings-nav-group:last-child {
+      padding-right: 0;
+      border-right: 0;
+    }
+
+    .settings-nav-group > h2 {
+      display: none;
+    }
+
     .settings-nav-item {
       width: auto;
       min-width: max-content;
@@ -669,13 +691,6 @@ textarea {
     border: 1px solid var(--ui-border);
     border-radius: 8px;
     background: color-mix(in oklab, var(--ui-bg-elevated) 54%, transparent);
-  }
-
-  .schedule-toolbar {
-    padding: 10px 12px;
-    border: 1px solid var(--ui-border);
-    border-radius: 10px;
-    background: color-mix(in oklab, var(--ui-bg-elevated) 28%, transparent);
   }
 
   .schedule-toolbar {

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { backend, type Schedule } from '@/lib/backend'
+import { backend, type Schedule, type ScheduleFireResult } from '@/lib/backend'
 
 export const useSchedulesStore = defineStore('schedules', () => {
   const list = ref<Schedule[]>([])
@@ -18,6 +18,12 @@ export const useSchedulesStore = defineStore('schedules', () => {
     await reload()
   }
 
+  async function fireNow(id: string): Promise<ScheduleFireResult> {
+    const result = await backend.schedules.fireNow(id)
+    await reload()
+    return result
+  }
+
   async function update(id: string, patch: Partial<Schedule>): Promise<void> {
     await backend.schedules.update(id, JSON.stringify(patch))
     await reload()
@@ -28,5 +34,5 @@ export const useSchedulesStore = defineStore('schedules', () => {
     await reload()
   }
 
-  return { list, reload, createDraft, save, update, remove }
+  return { list, reload, createDraft, fireNow, save, update, remove }
 })

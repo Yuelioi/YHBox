@@ -6,20 +6,21 @@
 
 ## Status
 
-Open
+Stopped
 
 ## Current
 
-M5f 已完成：用户只面对一个工作流列表；外部导入项在同一列表中明确只读，Release 退回内部版本/
-来源/回滚事实。配置 AI、HTTP、桌面应用或自动化目标后即可使用，手动运行、计划和版本更新不再要求
-Yotta 二次授权。
+3.1 产品优化已由 V4 清爽高效工作台取代。M1–M5f 的桌面产品与运行基础保留为历史成果；原计划中的
+M6–M10 跨仓在线分发阶段不再从本 Work 继续。后续产品体验、功能与稳定性问题统一进入 V4。
 
 ## Next
 
-1. 评估并启动 [M6 — Site Foundation prerelease](plan.md#m6--公开-site-foundation-prerelease外部仓库)。
+None
 
 ## Progress
 
+- 2026-07-27 Work 停止：用户决定归档 3.1 产品优化路线，未完成的 M6–M10 不再推进；后续问题统一
+  作为 V4 优化处理，历史 Work 原地保留。
 - 2026-07-26 M5f 完成：Workflow library query 统一 editable Source 与 imported/read-only Installation，
   工作流页删除第二个“已安装”区域；外部项同一行提供运行、设置、更新/回退与编辑副本。Workflow、
   AI、HTTP、Application、Automation 的二次 consent API、持久字段与 UI 已删除，计划只检查真实

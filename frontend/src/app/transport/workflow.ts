@@ -42,6 +42,17 @@ export interface DebugChangedEvent {
   snapshot: DebugSnapshot
 }
 
+export interface RunReadinessView {
+  state: string
+  code?: string
+  graphId?: string
+  nodeId?: string
+  requirementId?: string
+  slot?: string
+}
+
+export type WorkflowStartRunView = StartRunView & { readiness?: RunReadinessView }
+
 export interface WorkflowTransport {
   listSources(): Promise<SourceView[]>
   querySources(query: SourceQuery): Promise<SourcePage>
@@ -80,8 +91,8 @@ export interface WorkflowTransport {
     commands: WorkflowPatchCommand[],
   ): Promise<PatchView>
   compileSource(workflowId: string): Promise<CompileView>
-  startRun(workflowId: string): Promise<StartRunView>
-  startDebugRun(workflowId: string, breakpoints: DebugBreakpoint[]): Promise<StartRunView>
+  startRun(workflowId: string): Promise<WorkflowStartRunView>
+  startDebugRun(workflowId: string, breakpoints: DebugBreakpoint[]): Promise<WorkflowStartRunView>
   getDebugSnapshot(runId: string): Promise<DebugSnapshot>
   controlDebugRun(runId: string, action: 'continue' | 'pause' | 'step'): Promise<DebugSnapshot>
   setDebugBreakpoints(runId: string, breakpoints: DebugBreakpoint[]): Promise<DebugSnapshot>
@@ -154,9 +165,10 @@ export const workflowTransport: WorkflowTransport = {
       commands as Parameters<typeof WorkflowService.ApplyPatch>[2],
     ),
   compileSource: (workflowId) => invoke(WorkflowService.CompileSource, workflowId),
-  startRun: (workflowId) => invoke(WorkflowService.StartRun, workflowId),
+  startRun: async (workflowId) =>
+    (await invoke(WorkflowService.StartRun, workflowId)) as WorkflowStartRunView,
   startDebugRun: (workflowId, breakpoints) =>
-    invoke(WorkflowService.StartDebugRun, workflowId, breakpoints),
+    invoke(WorkflowService.StartDebugRun, workflowId, breakpoints) as Promise<WorkflowStartRunView>,
   getDebugSnapshot: (runId) => invoke(WorkflowService.GetDebugSnapshot, runId),
   controlDebugRun: (runId, action) => invoke(WorkflowService.ControlDebugRun, runId, action),
   setDebugBreakpoints: (runId, breakpoints) =>

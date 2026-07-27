@@ -7,7 +7,6 @@
             <UIcon name="i-tabler-route" class="size-5" />
           </span>
           <div class="min-w-0">
-            <p class="workspace-page__eyebrow">{{ t('workflow.list.eyebrow') }}</p>
             <div class="flex min-w-0 items-center gap-2">
               <h1 class="workspace-page__title truncate">{{ t('workflow.list.title') }}</h1>
               <UBadge color="neutral" variant="soft" size="sm">{{ total }}</UBadge>
@@ -16,6 +15,14 @@
         </div>
       </div>
       <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
+        <UButton
+          data-testid="workflow-manage-button"
+          color="neutral"
+          :variant="managementMode ? 'soft' : 'ghost'"
+          :icon="managementMode ? 'i-tabler-check' : 'i-tabler-adjustments-horizontal'"
+          :label="t(managementMode ? 'workflow.list.manage_done' : 'workflow.list.manage')"
+          @click="toggleManagementMode"
+        />
         <UButton
           data-testid="workflow-new-button"
           icon="i-tabler-plus"
@@ -33,7 +40,12 @@
       </div>
     </header>
 
-    <main class="flex min-h-0 flex-1 flex-col px-6 py-4">
+    <main
+      class="flex min-h-0 flex-1 flex-col px-6 py-4"
+      data-testid="workflow-library"
+      :data-mode="managementMode ? 'manage' : 'browse'"
+      :data-total="total"
+    >
       <section
         v-if="recoveries.length"
         class="mb-3 shrink-0 rounded-lg border border-warning/35 bg-warning/10 px-3 py-2"
@@ -45,8 +57,18 @@
           <p class="min-w-0 flex-1 text-xs text-default">
             {{ t('workflow.list.recovery_title', { n: recoveries.length }) }}
           </p>
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="ghost"
+            :icon="recoveryExpanded ? 'i-tabler-chevron-up' : 'i-tabler-chevron-down'"
+            :label="
+              t(recoveryExpanded ? 'workflow.list.recovery_hide' : 'workflow.list.recovery_review')
+            "
+            @click="recoveryExpanded = !recoveryExpanded"
+          />
         </div>
-        <ul class="mt-2 grid gap-2 xl:grid-cols-2">
+        <ul v-if="recoveryExpanded" class="mt-2 grid gap-2 xl:grid-cols-2">
           <li
             v-for="recovery in recoveries"
             :key="recovery.recoveryId"
@@ -77,9 +99,13 @@
         </ul>
       </section>
 
-      <section class="shrink-0 overflow-hidden rounded-t-lg border border-default bg-elevated/15">
+      <section
+        class="shrink-0 overflow-hidden rounded-t-lg border border-default bg-elevated/15"
+        :class="managementMode ? '' : 'rounded-b-lg'"
+      >
         <form
-          class="flex items-center gap-2 border-b border-default p-3"
+          class="flex items-center gap-2 p-3"
+          :class="managementMode || selectedRows.length ? 'border-b border-default' : ''"
           role="search"
           @submit.prevent="applySearch"
         >
@@ -94,7 +120,7 @@
           </UButton>
         </form>
         <LibrarySelectionToolbar
-          v-if="selectedRows.length"
+          v-if="managementMode && selectedRows.length"
           :label="t('workflow.list.selected_count', { n: selectedRows.length })"
           :hint="t('batchMetadata.selection_hint')"
           :clear-label="t('workflow.list.clear_selection')"
@@ -134,7 +160,7 @@
             </UButton>
           </template>
         </LibrarySelectionToolbar>
-        <div v-else class="flex flex-wrap items-center gap-2 p-3">
+        <div v-else-if="managementMode" class="flex flex-wrap items-center gap-2 p-3">
           <AdaptiveSelect
             v-model="categoryFilter"
             :items="categoryFilterItems"
@@ -204,7 +230,14 @@
         </ul>
       </div>
 
-      <div class="min-h-0 flex-1 overflow-auto border-x border-default bg-default">
+      <div
+        class="min-h-0 flex-1 overflow-auto bg-default"
+        :class="
+          managementMode
+            ? 'border-x border-default'
+            : 'mt-3 rounded-t-lg border border-b-0 border-default'
+        "
+      >
         <div v-if="loading" class="space-y-px p-2" :aria-label="t('workflow.list.loading')">
           <USkeleton v-for="index in 10" :key="index" class="h-14 rounded-md" />
         </div>
@@ -248,7 +281,11 @@
             />
           </template>
         </EmptyState>
-        <div v-else class="min-w-[1100px]">
+        <div
+          v-else-if="managementMode"
+          class="min-w-[1100px]"
+          data-testid="workflow-management-table"
+        >
           <div
             class="grid h-9 items-center gap-3 border-b border-default bg-elevated/40 px-3 text-[10px] font-semibold uppercase tracking-wide text-dimmed"
             :style="{ gridTemplateColumns: workflowGridTemplate }"
@@ -361,6 +398,20 @@
             </time>
             <div class="flex justify-end gap-1">
               <UButton
+                v-if="activeRunIdByWorkflow[source.workflowId]"
+                data-testid="workflow-stop"
+                icon="i-tabler-square"
+                color="error"
+                variant="ghost"
+                size="sm"
+                :aria-label="t('workflow.action.stop_named', { name: source.name })"
+                :loading="runStartingId === source.workflowId"
+                :disabled="Boolean(runStartingId) || deleting"
+                @click="stopWorkflow(source.workflowId)"
+              />
+              <UButton
+                v-else
+                data-testid="workflow-run"
                 icon="i-tabler-player-play"
                 color="neutral"
                 variant="ghost"
@@ -375,6 +426,103 @@
                 size="sm"
                 :aria-label="t('workflow.action.edit_named', { name: source.name })"
                 @click="router.push(`/workflows/${source.workflowId}/edit`)"
+              />
+              <UDropdownMenu :items="rowMenuItems(source)">
+                <UButton
+                  data-testid="workflow-row-menu"
+                  icon="i-tabler-dots"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  :aria-label="t('workflow.list.row_actions', { name: source.name })"
+                />
+              </UDropdownMenu>
+            </div>
+          </article>
+        </div>
+        <div v-else class="divide-y divide-default/70" data-testid="workflow-browse-list">
+          <article
+            v-for="source in sources"
+            :key="source.workflowId"
+            class="flex min-h-20 items-stretch transition-colors hover:bg-elevated/30 focus-within:bg-elevated/40"
+            data-testid="workflow-library-row"
+          >
+            <button
+              type="button"
+              data-testid="workflow-library-open"
+              class="group flex min-w-0 flex-1 items-center gap-4 px-4 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+              @click="openWorkflow(source.workflowId)"
+            >
+              <span
+                class="flex size-10 shrink-0 items-center justify-center rounded-lg border border-default bg-elevated/45 text-muted transition-colors group-hover:border-primary/30 group-hover:text-primary"
+              >
+                <UIcon name="i-tabler-route" class="size-5" aria-hidden="true" />
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="flex min-w-0 items-center gap-2">
+                  <span class="truncate text-sm font-semibold text-highlighted">{{
+                    source.name
+                  }}</span>
+                  <UBadge
+                    v-if="runFeedbackById[source.workflowId]"
+                    :color="runFeedbackById[source.workflowId].tone"
+                    variant="soft"
+                    size="xs"
+                  >
+                    {{ runFeedbackById[source.workflowId].label }}
+                  </UBadge>
+                </span>
+                <span class="mt-1 block truncate text-xs text-muted">
+                  {{ source.description || t('workflow.list.no_description') }}
+                </span>
+                <span class="mt-1.5 flex min-w-0 items-center gap-1.5 overflow-hidden">
+                  <UBadge v-if="source.category" color="neutral" variant="soft" size="xs">
+                    {{ source.category }}
+                  </UBadge>
+                  <UBadge
+                    v-for="tag in (source.tags ?? []).slice(0, 2)"
+                    :key="tag"
+                    color="neutral"
+                    variant="subtle"
+                    size="xs"
+                  >
+                    {{ tag }}
+                  </UBadge>
+                </span>
+              </span>
+              <time
+                v-if="source.updatedAt"
+                :datetime="source.updatedAt"
+                class="hidden shrink-0 text-xs text-dimmed lg:block"
+                :title="formatExactDate(source.updatedAt)"
+              >
+                {{ formatListDate(source.updatedAt) }}
+              </time>
+            </button>
+            <div class="flex shrink-0 items-center gap-1 pr-4" @click.stop>
+              <UButton
+                v-if="activeRunIdByWorkflow[source.workflowId]"
+                data-testid="workflow-stop"
+                icon="i-tabler-square"
+                color="error"
+                variant="soft"
+                size="sm"
+                :aria-label="t('workflow.action.stop_named', { name: source.name })"
+                :loading="runStartingId === source.workflowId"
+                :disabled="Boolean(runStartingId) || deleting"
+                @click="stopWorkflow(source.workflowId)"
+              />
+              <UButton
+                v-else
+                data-testid="workflow-run"
+                icon="i-tabler-player-play"
+                color="neutral"
+                variant="soft"
+                size="sm"
+                :aria-label="t('workflow.action.run_named', { name: source.name })"
+                :loading="runStartingId === source.workflowId"
+                :disabled="Boolean(runStartingId) || deleting"
+                @click="runWorkflow(source.workflowId)"
               />
               <UDropdownMenu :items="rowMenuItems(source)">
                 <UButton
@@ -406,14 +554,16 @@
           show-edges
           @update:page="goToPage"
         />
-        <span class="text-xs text-dimmed">{{ t('workflow.list.per_page') }}</span>
-        <AdaptiveSelect
-          v-model="pageSize"
-          :items="pageSizeItems"
-          class="w-24"
-          width-mode="fixed"
-          @update:model-value="queryChanged"
-        />
+        <template v-if="managementMode">
+          <span class="text-xs text-dimmed">{{ t('workflow.list.per_page') }}</span>
+          <AdaptiveSelect
+            v-model="pageSize"
+            :items="pageSizeItems"
+            class="w-24"
+            width-mode="fixed"
+            @update:model-value="queryChanged"
+          />
+        </template>
       </footer>
     </main>
 
@@ -600,17 +750,20 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToast } from '@nuxt/ui/composables'
 import { useI18n } from 'vue-i18n'
 import {
+  onRunChanged,
   workflowTransport,
   type BundleInfoView,
   type DeleteSourcePreview,
   type SourceRecoveryView,
   type SourceView,
 } from '@/app/transport/workflow'
+import { runReadinessMessage, runStartOutcome } from '@/app/run/runReadiness'
+import { pollTerminalRunStatus } from '@/app/run/followRun'
 import { useConfirm } from '@/composables/useConfirm'
 import { useAutoDismissFeedback } from '@/composables/useAutoDismissFeedback'
 import { errorMessage } from '@/lib/invoke'
@@ -643,6 +796,8 @@ const { t, locale } = useI18n()
 const { confirm } = useConfirm()
 const sources = ref<SourceView[]>([])
 const recoveries = ref<SourceRecoveryView[]>([])
+const managementMode = ref(false)
+const recoveryExpanded = ref(false)
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
@@ -677,8 +832,12 @@ const portabilityFeedback = ref<Feedback | null>(null)
 useAutoDismissFeedback(deleteFeedback)
 useAutoDismissFeedback(portabilityFeedback)
 const runStartingId = ref('')
+const activeRunIdByWorkflow = reactive<Record<string, string>>({})
 const runFeedbackById = reactive<
-  Record<string, { tone: 'success' | 'warning'; label: string; detail: string }>
+  Record<
+    string,
+    { tone: 'success' | 'warning' | 'error' | 'neutral'; label: string; detail: string }
+  >
 >({})
 const metadataModalOpen = ref(false)
 const metadataBusy = ref(false)
@@ -710,15 +869,15 @@ const allCurrentPageSelected = computed(
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 const resultStart = computed(() => (total.value ? (page.value - 1) * pageSize.value + 1 : 0))
 const resultEnd = computed(() => Math.min(page.value * pageSize.value, total.value))
-const hasFilters = computed(() =>
+const hasAdvancedFilters = computed(() =>
   Boolean(
-    search.value ||
     categoryFilter.value !== allCategories ||
     tagFilters.value.length ||
     createdRange.value !== 'all' ||
     updatedRange.value !== 'all',
   ),
 )
+const hasFilters = computed(() => Boolean(search.value || hasAdvancedFilters.value))
 const activeFeedback = computed(() => portabilityFeedback.value ?? deleteFeedback.value)
 const feedbackClass = computed(() => {
   const tone = activeFeedback.value?.tone
@@ -862,7 +1021,13 @@ watch(
   (value) => localStorage.setItem('yotta.workflow.columns', JSON.stringify(value)),
   { deep: true },
 )
+const unsubscribeRun = onRunChanged((event) => {
+  const entry = Object.entries(activeRunIdByWorkflow).find(([, runId]) => runId === event.runId)
+  if (!entry) return
+  settleWorkflowRun(entry[0], event.runId, event.status)
+})
 onMounted(load)
+onBeforeUnmount(unsubscribeRun)
 
 async function load(): Promise<void> {
   loading.value = true
@@ -910,11 +1075,29 @@ async function applySearch(): Promise<void> {
 async function resetFilters(): Promise<void> {
   searchInput.value = ''
   search.value = ''
+  resetAdvancedFilters()
+  await queryChanged()
+}
+
+function resetAdvancedFilters(): void {
   categoryFilter.value = allCategories
   tagFilters.value = []
   createdRange.value = 'all'
   updatedRange.value = 'all'
+  sort.value = 'updated_desc'
+}
+
+async function toggleManagementMode(): Promise<void> {
+  managementMode.value = !managementMode.value
+  if (managementMode.value) return
+  clearSelection()
+  if (!hasAdvancedFilters.value && sort.value === 'updated_desc') return
+  resetAdvancedFilters()
   await queryChanged()
+}
+
+function openWorkflow(workflowId: string): void {
+  void router.push(`/workflows/${workflowId}/edit`)
 }
 
 async function goToPage(next: number): Promise<void> {
@@ -1449,20 +1632,33 @@ async function runWorkflow(workflowId: string): Promise<void> {
   runStartingId.value = workflowId
   try {
     const started = await workflowTransport.startRun(workflowId)
-    if (!started.run) {
+    const outcome = runStartOutcome(started)
+    if (outcome.state !== 'started') {
       runFeedbackById[workflowId] = {
         tone: 'warning',
         label: t('workflow.toast.not_started'),
-        detail: diagnosticText(started),
+        detail: runReadinessMessage(outcome),
       }
       return
     }
+    activeRunIdByWorkflow[workflowId] = outcome.runId
     runFeedbackById[workflowId] = {
-      tone: 'success',
-      label: t('workflow.toast.queued'),
-      detail: started.run.runId,
+      tone: 'warning',
+      label: t('workflow.status.running'),
+      detail: outcome.runId,
     }
+    const initialStatus = started.run?.status ?? ''
+    if (isTerminalRunStatus(initialStatus)) {
+      settleWorkflowRun(workflowId, outcome.runId, initialStatus)
+      return
+    }
+    const terminal = await pollTerminalRunStatus(
+      async () => (await workflowTransport.getRunTimeline(outcome.runId)).status,
+      () => activeRunIdByWorkflow[workflowId] !== outcome.runId,
+    )
+    if (terminal) settleWorkflowRun(workflowId, outcome.runId, terminal)
   } catch (error) {
+    delete activeRunIdByWorkflow[workflowId]
     delete runFeedbackById[workflowId]
     toast.add({
       title: t('workflow.toast.run_failed'),
@@ -1474,11 +1670,51 @@ async function runWorkflow(workflowId: string): Promise<void> {
   }
 }
 
-function diagnosticText(value: { diagnostics: Array<{ code: string }> }): string {
-  return (
-    value.diagnostics.map((diagnostic) => diagnostic.code).join(', ') ||
-    t('workflow.toast.no_run_created')
-  )
+async function stopWorkflow(workflowId: string): Promise<void> {
+  const runId = activeRunIdByWorkflow[workflowId]
+  if (!runId || runStartingId.value) return
+  runStartingId.value = workflowId
+  try {
+    const stopped = await workflowTransport.cancelRun(runId)
+    settleWorkflowRun(workflowId, runId, stopped.status || 'cancelled')
+  } catch (error) {
+    toast.add({
+      title: t('workflow.toast.stop_failed'),
+      description: errorText(error),
+      color: 'error',
+    })
+  } finally {
+    runStartingId.value = ''
+  }
+}
+
+function settleWorkflowRun(workflowId: string, runId: string, rawStatus: string): void {
+  if (activeRunIdByWorkflow[workflowId] !== runId) return
+  const status = rawStatus.toLowerCase()
+  if (status === 'queued' || status === 'running') {
+    runFeedbackById[workflowId] = {
+      tone: 'warning',
+      label: t(`workflow.status.${status}`),
+      detail: runId,
+    }
+    return
+  }
+  delete activeRunIdByWorkflow[workflowId]
+  const feedback =
+    status === 'succeeded'
+      ? { tone: 'success' as const, label: t('workflow.toast.run_completed') }
+      : status === 'cancelled' || status === 'interrupted'
+        ? { tone: 'neutral' as const, label: t('workflow.toast.run_cancelled') }
+        : { tone: 'error' as const, label: t('workflow.toast.run_failed') }
+  runFeedbackById[workflowId] = { ...feedback, detail: runId }
+  window.setTimeout(() => {
+    if (!activeRunIdByWorkflow[workflowId] && runFeedbackById[workflowId]?.detail === runId)
+      delete runFeedbackById[workflowId]
+  }, 3000)
+}
+
+function isTerminalRunStatus(status: string): boolean {
+  return ['succeeded', 'failed', 'cancelled', 'interrupted'].includes(status.toLowerCase())
 }
 
 function errorText(error: unknown): string {

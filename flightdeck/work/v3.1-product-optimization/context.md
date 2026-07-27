@@ -2,11 +2,9 @@
 
 ## What matters
 
-Yotta 3.1 的唯一产品事实是 Workflow、Catalog/Node Contract、Compiler 和统一 runtime。
-恢复旧体验只能复用用户心智和已验证交互，不得复制 3.0 Container、registry、localStorage store 或
-第二套执行路径。Stage M2 的资源归属与编辑旅程已完成：创建、Global Asset snapshot、显式提升、
-Source-native 内容编辑和 duplicate 都以 Workflow Resource/CAS 为事实。下一步进入 M3 的 Release、
-Installation、Readiness 与本机 target/credential 配置。
+本 Work 是 3.1 产品优化的历史上下文，已于 2026-07-27 被 V4 清爽高效工作台取代。已验证的
+Workflow、Catalog/Node Contract、Compiler、统一 runtime、资源与持久化边界继续有效；未完成的
+M6–M10 跨仓在线分发计划不再从这里恢复。后续产品体验、功能和稳定性问题统一记录到 V4 Work。
 
 ## Decisions
 

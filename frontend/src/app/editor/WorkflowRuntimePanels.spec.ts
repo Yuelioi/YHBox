@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest'
 
 const read = (name: string) => readFileSync(join(process.cwd(), 'src/app/editor', name), 'utf8')
 const toolbar = read('WorkflowEditorToolbar.vue')
+const toolbarModel = read('editorToolbarModel.ts')
+const runController = read('EditorRunController.ts')
 const diagnostics = read('WorkflowDiagnosticsPanel.vue')
 const timeline = read('RunTimelinePanel.vue')
 const debuggerPanel = read('WorkflowDebuggerPanel.vue')
@@ -14,16 +16,18 @@ const editor = readFileSync(join(process.cwd(), 'src/views/WorkflowEditorView.vu
 describe('workflow runtime inspection UI', () => {
   it('labels the admitted Run honestly and keeps both result panels recoverable', () => {
     expect(toolbar).not.toContain('workflow.action.debug')
-    expect(toolbar).toContain('workflow.action.run_timeline')
-    expect(toolbar).toContain("emit('toggle-diagnostics')")
-    expect(toolbar).toContain("emit('toggle-timeline')")
+    expect(toolbarModel).toContain("labelKey: 'workflow.action.run'")
+    expect(toolbarModel).toContain("action('toggle-diagnostics'")
+    expect(toolbarModel).toContain("action('toggle-timeline'")
+    expect(toolbar).toContain("emit('command', item.command)")
     expect(workbench).toContain("activate('diagnostics')")
   })
 
   it('uses the true debug transport and keeps breakpoints outside Workflow Source', () => {
-    expect(toolbar).toContain("emit('start-debug')")
-    expect(editor).toContain('session.startDebug(debugBreakpoints())')
-    expect(editor).toContain('session.controlDebug(action)')
+    expect(toolbarModel).toContain("action('start-debug')")
+    expect(editor).toContain('breakpoints: debugBreakpoints()')
+    expect(runController).toContain('dependencies.session.startDebug(breakpoints)')
+    expect(runController).toContain('dependencies.session.controlDebug(action)')
     expect(editor).toContain('breakpointKeys')
     expect(debuggerPanel).toContain("emit('step')")
     expect(debuggerPanel).toContain("emit('continue')")
@@ -40,18 +44,16 @@ describe('workflow runtime inspection UI', () => {
   })
 
   it('opens normal runs for inspection and unifies diagnostics, logs, timeline, and debug', () => {
-    const startRun = editor.slice(
-      editor.indexOf('async function startRun'),
-      editor.indexOf('async function startDebug'),
-    )
-    expect(startRun).toContain("openRuntimeWorkbench('timeline')")
+    expect(runController).toContain("dependencies.openWorkbench('timeline')")
+    expect(runController).toContain("dependencies.openWorkbench('diagnostics')")
+    expect(runController).toContain("dependencies.openWorkbench('debug')")
     expect(workbench).toContain("activate('logs')")
     expect(workbench).toContain("activate('diagnostics')")
     expect(workbench).toContain("activate('timeline')")
     expect(workbench).toContain("activate('debug')")
     expect(workbench).toContain('<WorkflowDiagnosticsPanel')
     expect(workbench).toContain('<LogPanel v-else-if=')
-    expect(editor).toContain("if (run?.failure) openRuntimeWorkbench('timeline')")
+    expect(runController).toContain("if (run?.failure) dependencies.openWorkbench('timeline')")
     expect(editor).toContain(
       "if (event.snapshot.status === 'paused') openRuntimeWorkbench('debug')",
     )
@@ -85,7 +87,7 @@ describe('workflow runtime inspection UI', () => {
     expect(workbench).toContain(':node-labels="nodeLabels"')
     expect(workbench).toContain(':unhandled-routes="unhandledRoutes"')
     expect(timeline).toContain('workflow.timeline.unhandled_route')
-    expect(editor).toContain("openRuntimeWorkbench('timeline')")
+    expect(runController).toContain("dependencies.openWorkbench('timeline')")
   })
 
   it('renders structured run and RPC failures as localized messages', () => {

@@ -7,8 +7,8 @@ import {
 } from './workflowCanvasInteraction'
 
 describe('workflow canvas interaction contract', () => {
-  it('reserves blank left drag for marquee and keeps space or middle drag for panning', () => {
-    expect(WORKFLOW_CANVAS_INTERACTION.selectionKeyCode).toBe(true)
+  it('uses Shift drag for marquee and keeps ordinary left, middle, or Space drag for panning', () => {
+    expect(WORKFLOW_CANVAS_INTERACTION.selectionKeyCode).toBe('Shift')
     expect(WORKFLOW_CANVAS_INTERACTION.panActivationKeyCode).toBe('Space')
     expect(WORKFLOW_CANVAS_INTERACTION.panOnDrag).toEqual([0, 1])
     expect(WORKFLOW_CANVAS_INTERACTION.multiSelectionKeyCode).toBe('Control')

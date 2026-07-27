@@ -7,12 +7,20 @@
             <UIcon name="i-tabler-calendar-time" class="size-5" />
           </span>
           <div class="min-w-0">
-            <p class="workspace-page__eyebrow">{{ t('schedule.workspace.eyebrow') }}</p>
-            <h1 class="workspace-page__title truncate">{{ t('schedule.workspace.title') }}</h1>
+            <h1 class="workspace-page__title truncate">{{ t('schedule.title') }}</h1>
           </div>
         </div>
       </div>
       <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          icon="i-tabler-adjustments-horizontal"
+          data-testid="schedule-manage-button"
+          @click="manageMode = !manageMode"
+        >
+          {{ manageMode ? t('schedule.manage_done') : t('schedule.manage') }}
+        </UButton>
         <UButton
           color="primary"
           icon="i-tabler-plus"
@@ -23,8 +31,17 @@
       </div>
     </header>
 
-    <main class="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-2 sm:px-8">
-      <section class="workspace-metrics mb-4" :aria-label="t('schedule.workspace.summary')">
+    <main
+      class="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-2 sm:px-8"
+      data-testid="schedule-library"
+      :data-mode="manageMode ? 'manage' : 'browse'"
+    >
+      <section
+        v-if="manageMode"
+        class="workspace-metrics mb-4"
+        data-testid="schedule-management"
+        :aria-label="t('schedule.workspace.summary')"
+      >
         <div class="workspace-metric workspace-metric--primary">
           <span>{{ t('schedule.workspace.total') }}</span
           ><strong>{{ store.list.length }}</strong>
@@ -51,13 +68,14 @@
           class="min-w-0 flex-1 sm:max-w-sm"
         />
         <AdaptiveSelect
+          v-if="manageMode"
           v-model="statusFilter"
           :items="statusItems"
           icon="i-tabler-adjustments-horizontal"
           class="shrink-0"
           :aria-label="t('schedule.status_filter')"
         />
-        <span class="text-xs text-dimmed">{{
+        <span v-if="manageMode" class="text-xs text-dimmed">{{
           t('schedule.workspace.showing', { n: filteredSchedules.length })
         }}</span>
       </div>
@@ -65,9 +83,13 @@
       <ScheduleListPanel
         :list="filteredSchedules"
         :workflows="workflows"
+        :running-id="runningId"
+        :manage-mode="manageMode"
         @edit="onEdit"
         @delete="onDelete"
         @toggle="onToggle"
+        @run="onRun"
+        @repair="onRepair"
       />
     </main>
 
@@ -75,7 +97,7 @@
       :open="!!editing"
       :title="editing?.name ?? t('schedule.create')"
       icon="i-tabler-calendar-time"
-      size="4xl"
+      size="3xl"
       tall
       @update:open="(open) => !open && (editing = null)"
     >
@@ -93,18 +115,21 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, shallowRef, toRaw } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import { useToast } from '@nuxt/ui/composables'
 import { useSchedulesStore } from '@/stores/schedules'
 import { useConfirm } from '@/composables/useConfirm'
 import { errorMessage } from '@/lib/invoke'
 import type { Schedule } from '@/lib/backend'
 import { workflowTransport, type SourceView } from '@/app/transport/workflow'
+import { readinessOutcome, runReadinessMessage } from '@/app/run/runReadiness'
 import ScheduleListPanel from '@/components/schedules/ScheduleListPanel.vue'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import ScheduleEditorPanel from '@/components/schedules/ScheduleEditorPanel.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 
 const { t } = useI18n()
+const router = useRouter()
 const store = useSchedulesStore()
 const toast = useToast()
 const { confirm } = useConfirm()
@@ -112,6 +137,8 @@ const editing = shallowRef<Schedule | null>(null)
 const search = ref('')
 const statusFilter = ref<'all' | 'enabled' | 'disabled'>('all')
 const workflows = ref<SourceView[]>([])
+const runningId = ref('')
+const manageMode = ref(false)
 
 const enabledCount = computed(() => store.list.filter((schedule) => schedule.enabled).length)
 const automaticCount = computed(
@@ -128,8 +155,8 @@ const statusItems = computed(() => [
 const filteredSchedules = computed(() => {
   const query = search.value.trim().toLocaleLowerCase()
   return store.list.filter((schedule) => {
-    if (statusFilter.value === 'enabled' && !schedule.enabled) return false
-    if (statusFilter.value === 'disabled' && schedule.enabled) return false
+    if (manageMode.value && statusFilter.value === 'enabled' && !schedule.enabled) return false
+    if (manageMode.value && statusFilter.value === 'disabled' && schedule.enabled) return false
     return !query || schedule.name.toLocaleLowerCase().includes(query)
   })
 })
@@ -169,6 +196,33 @@ async function onToggle(schedule: Schedule, enabled: boolean) {
   } catch (error) {
     showError(t('toast.operation_failed'), error)
   }
+}
+
+async function onRun(schedule: Schedule) {
+  if (runningId.value) return
+  runningId.value = schedule.id
+  try {
+    const result = await store.fireNow(schedule.id)
+    if (result.status === 'queued') {
+      toast.add({ title: t('schedule.run_queued'), color: 'success' })
+      return
+    }
+    toast.add({
+      title: t('schedule.run_not_started'),
+      description: runReadinessMessage(readinessOutcome(result.readiness)),
+      color: 'warning',
+    })
+  } catch (error) {
+    showError(t('schedule.run_failed'), error)
+  } finally {
+    runningId.value = ''
+  }
+}
+
+function onRepair(schedule: Schedule) {
+  const workflowId = schedule.lastReadiness?.workflowId ?? schedule.targets[0]?.id
+  if (!workflowId) return
+  void router.push(`/workflows/${workflowId}/edit`)
 }
 
 async function onDelete(schedule: Schedule) {
