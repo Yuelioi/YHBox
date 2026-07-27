@@ -229,6 +229,34 @@ describe('EditorSession', () => {
     expect(transport.startRun).toHaveBeenCalledWith(source.workflow.id)
   })
 
+  it('coalesces concurrent saves so one base revision is only committed once', async () => {
+    const source = emptySource()
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    let releaseSave!: () => void
+    const saveGate = new Promise<void>((resolve) => {
+      releaseSave = resolve
+    })
+    transport.applyPatch = vi.fn(async (_workflowId, baseRevision) => {
+      await saveGate
+      const persisted = structuredClone(source)
+      persisted.workflow.name = 'renamed'
+      persisted.revision = baseRevision + 1
+      return { source: sourceView(persisted), generatedNodes: [] }
+    })
+    const session = new EditorSession(transport)
+    await session.load(source.workflow.id)
+    session.apply({ kind: 'rename-workflow', name: 'renamed' })
+
+    const first = session.save()
+    const second = session.save()
+
+    expect(transport.applyPatch).toHaveBeenCalledTimes(1)
+    releaseSave()
+    await expect(Promise.all([first, second])).resolves.toHaveLength(2)
+    expect(session.baseRevision).toBe(1)
+    expect(session.dirty).toBe(false)
+  })
+
   it('checks the current unsaved draft without persisting it', async () => {
     const source = emptySource()
     const transport = mockTransport(sourceView(source), runView('QUEUED'))

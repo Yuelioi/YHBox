@@ -256,7 +256,7 @@
               :hint="t('settingsAI.profiles.apikey_hint')"
             >
               <UInput
-                v-model="profile.apiKey"
+                v-model="apiKeys[profile.slot]"
                 :type="revealed[profile.slot] ? 'text' : 'password'"
                 size="sm"
                 :placeholder="
@@ -378,7 +378,6 @@ import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import { errorMessage } from '@/lib/invoke'
 
 interface AIModelProfileDraft extends AIModelProfile {
-  apiKey: string
   persisted: boolean
 }
 
@@ -395,6 +394,7 @@ const testing = reactive<Record<string, boolean>>({})
 const results = reactive<Record<string, AIProfileTestResult>>({})
 const revealed = reactive<Record<string, boolean>>({})
 const secretStatus = reactive<Record<string, boolean>>({})
+const apiKeys = reactive<Record<string, string>>({})
 
 const providerItems = computed(() => [
   { label: t('settingsAI.provider.openai_responses'), value: 'openai-responses' },
@@ -433,15 +433,20 @@ const capabilityOptions = computed<Array<{ key: CapabilityKey; label: string; hi
 watch(
   profiles,
   () => {
-    draft.value = profiles.value.map((profile) => ({
+    const localProfiles = draft.value.filter((profile) => !profile.persisted)
+    const persistedProfiles = profiles.value.map((profile) => ({
       ...profile,
       endpoint: profile.endpoint || defaultProviderEndpoint(profile.provider),
       capabilities: { ...profile.capabilities },
       pricing: { ...profile.pricing },
       evaluationReport: profile.evaluationReport ? { ...profile.evaluationReport } : undefined,
-      apiKey: '',
       persisted: true,
     }))
+    const persistedSlots = new Set(persistedProfiles.map((profile) => profile.slot))
+    draft.value = [
+      ...persistedProfiles,
+      ...localProfiles.filter((profile) => !persistedSlots.has(profile.slot)),
+    ]
     void refreshSecretStatus()
   },
   { immediate: true },
@@ -504,31 +509,28 @@ function addProfile(): void {
       outputMicrounitsPerMillion: 0,
     },
     evaluation: 'unverified',
-    apiKey: '',
     persisted: false,
   })
   expandedSlot.value = slot
 }
 
 async function commit(): Promise<boolean> {
-  if (
-    draft.value.some(
-      (profile) =>
-        profile.persisted &&
-        (!profile.label.trim() || !profile.model.trim() || !profile.endpoint.trim()),
-    )
-  ) {
+  if (draft.value.some((profile) => profile.persisted && !profileComplete(profile))) {
     return false
   }
-  const savable = draft.value.filter(
-    (profile) =>
-      profile.slot && profile.label.trim() && profile.model.trim() && profile.endpoint.trim(),
-  )
+  const savable = draft.value.filter(profileComplete)
   const ok = await store.patchAIProfiles(savable.map(profileMetadata))
   if (ok) {
     for (const profile of savable) profile.persisted = true
+    await savePendingAPIKeys(savable)
   }
   return ok
+}
+
+function profileComplete(profile: AIModelProfileDraft): boolean {
+  return Boolean(
+    profile.slot && profile.label.trim() && profile.model.trim() && profile.endpoint.trim(),
+  )
 }
 
 async function onProvider(index: number, provider: AIProviderKind): Promise<void> {
@@ -618,15 +620,26 @@ async function refreshSecretStatus(): Promise<void> {
 }
 
 async function saveAPIKey(profile: AIModelProfileDraft): Promise<void> {
-  if (!profile.apiKey || !(await commit())) return
-  try {
-    await backend.ai.setAPIKey(profile.slot, profile.apiKey)
-    profile.apiKey = ''
-    revealed[profile.slot] = false
-    await refreshSecretStatus()
-  } catch (error) {
-    showActionError(error)
+  const apiKey = apiKeys[profile.slot]
+  if (!apiKey || !profileComplete(profile)) return
+  await commit()
+}
+
+async function savePendingAPIKeys(profilesToSave: AIModelProfileDraft[]): Promise<void> {
+  let saved = false
+  for (const profile of profilesToSave) {
+    const apiKey = apiKeys[profile.slot]
+    if (!apiKey) continue
+    try {
+      await backend.ai.setAPIKey(profile.slot, apiKey)
+      apiKeys[profile.slot] = ''
+      revealed[profile.slot] = false
+      saved = true
+    } catch (error) {
+      showActionError(error)
+    }
   }
+  if (saved) await refreshSecretStatus()
 }
 
 async function deleteAPIKey(slot: string): Promise<void> {
@@ -648,10 +661,11 @@ async function deleteAPIKey(slot: string): Promise<void> {
 
 async function testProfile(profile: AIModelProfileDraft): Promise<void> {
   if (!(await commit())) return
-  if (profile.apiKey) {
+  const apiKey = apiKeys[profile.slot]
+  if (apiKey) {
     try {
-      await backend.ai.setAPIKey(profile.slot, profile.apiKey)
-      profile.apiKey = ''
+      await backend.ai.setAPIKey(profile.slot, apiKey)
+      apiKeys[profile.slot] = ''
       revealed[profile.slot] = false
       await refreshSecretStatus()
     } catch (error) {

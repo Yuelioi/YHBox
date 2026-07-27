@@ -24,6 +24,7 @@ if (-not $InPlace) {
 }
 
 $process = $null
+$secondProcess = $null
 $previousStorageRoot = [System.Environment]::GetEnvironmentVariable("YOTTA_ROOT", "Process")
 try {
     if (-not $InPlace) {
@@ -70,14 +71,43 @@ try {
             throw "Yotta.exe wrote storage beside the executable: $unexpected"
         }
     }
+
+    # Windows PowerShell 5 may leave ExitCode unset on a Start-Process
+    # -PassThru object. Use Process directly for the short-lived handoff probe.
+    $secondStart = New-Object System.Diagnostics.ProcessStartInfo
+    $secondStart.FileName = Join-Path $smokeRoot "Yotta.exe"
+    $secondStart.WorkingDirectory = $smokeRoot
+    $secondStart.UseShellExecute = $false
+    $secondStart.CreateNoWindow = $true
+    $secondStart.EnvironmentVariables["__COMPAT_LAYER"] = "RunAsInvoker"
+    $secondStart.EnvironmentVariables["YOTTA_ROOT"] = $profileRoot
+    $secondProcess = New-Object System.Diagnostics.Process
+    $secondProcess.StartInfo = $secondStart
+    if (-not $secondProcess.Start()) {
+        throw "failed to start the second Yotta.exe instance"
+    }
+    if (-not $secondProcess.WaitForExit(10000)) {
+        throw "second Yotta.exe did not hand off to the existing profile owner within 10 seconds"
+    }
+    $secondExitCode = $secondProcess.ExitCode
+    if ($secondExitCode -ne 0) {
+        throw "second Yotta.exe exited with code $secondExitCode instead of handing off"
+    }
+    $process.Refresh()
+    if ($process.HasExited) {
+        throw "first Yotta.exe exited while handling the second-instance launch"
+    }
+
     $mode = if ($InPlace) { "in-place" } else { "isolated" }
-    Write-Host "$mode desktop startup smoke OK: Yotta.exe remained alive for $Seconds seconds with a separate RootSet"
+    Write-Host "$mode desktop startup smoke OK: one profile owner remained alive and a second launch handed off cleanly"
 } finally {
     [System.Environment]::SetEnvironmentVariable("YOTTA_ROOT", $previousStorageRoot, "Process")
-    if ($null -ne $process -and -not $process.HasExited) {
-        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-        if (-not $process.WaitForExit(10000)) {
-            throw "Yotta.exe did not exit within the smoke cleanup deadline"
+    foreach ($runningProcess in @($secondProcess, $process)) {
+        if ($null -ne $runningProcess -and -not $runningProcess.HasExited) {
+            Stop-Process -Id $runningProcess.Id -Force -ErrorAction SilentlyContinue
+            if (-not $runningProcess.WaitForExit(10000)) {
+                throw "Yotta.exe did not exit within the smoke cleanup deadline"
+            }
         }
     }
     $resolvedSmoke = [System.IO.Path]::GetFullPath($scratchRoot)

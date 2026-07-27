@@ -244,11 +244,17 @@ describe('library management views', () => {
     expect(root.textContent).toContain('Exports the daily report')
     expect(root.textContent).toContain('Operations')
     expect(root.textContent).toContain('Daily')
-    expect(root.querySelector('[data-testid="workflow-browse-list"]')).toBeTruthy()
-    expect(root.querySelector('button[role="checkbox"]')).toBeNull()
-    ;(root.querySelector('[data-testid="workflow-library-open"]') as HTMLElement).click()
+    expect(root.querySelector('[data-testid="workflow-management-table"]')).toBeTruthy()
+    expect(root.querySelector('button[role="checkbox"]')).toBeTruthy()
+    root
+      .querySelector('[data-testid="workflow-library-row"]')
+      ?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
     expect(push).toHaveBeenCalledWith('/workflows/workflow-1/edit')
     push.mockClear()
+    root
+      .querySelector('[data-testid="workflow-run"]')
+      ?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+    expect(push).not.toHaveBeenCalled()
 
     buttonByText(root, 'workflow.list.new_workflow').click()
     await nextTick()
@@ -311,8 +317,6 @@ describe('library management views', () => {
   it('replaces workflow filters with a contextual batch toolbar', async () => {
     const root = await mountView(WorkflowsView)
 
-    buttonByText(root, 'workflow.list.manage').click()
-    await flushView()
     rowCheckbox(root).click()
     await flushView()
 

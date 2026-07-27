@@ -20,16 +20,26 @@ import (
 // 复用 input.go 现成的 procSendInput / procMapVirtualKeyW / mouseInput / sendInputBlock /
 // sendInputMouseRel / VK / mapVKToVSC; 本文件只补键盘 INPUT + 按钮/滚轮/absolute flag + 封装.
 type sendInputBackend struct {
-	mu       sync.Mutex
-	heldKeys map[uint32]struct{} // vk 码 → 已按下
-	heldBtns map[uint32]struct{} // VK_LBUTTON(1)/RBUTTON(2)/MBUTTON(4) → 已按下
+	mu              sync.Mutex
+	heldKeys        map[uint32]struct{} // vk 码 → 已按下
+	heldBtns        map[uint32]struct{} // VK_LBUTTON(1)/RBUTTON(2)/MBUTTON(4) → 已按下
+	movePointer     func(win.HWND, float64, float64) error
+	verticalWheel   func(int) error
+	horizontalWheel func(int) error
 }
 
 func newSendInputBackend() *sendInputBackend {
-	return &sendInputBackend{
+	backend := &sendInputBackend{
 		heldKeys: map[uint32]struct{}{},
 		heldBtns: map[uint32]struct{}{},
 	}
+	backend.movePointer = func(hwnd win.HWND, xRatio, yRatio float64) error {
+		sx, sy := clientRatioToScreenRatio(hwnd, xRatio, yRatio)
+		return sendAbsMove(sx, sy)
+	}
+	backend.verticalWheel = sendWheel
+	backend.horizontalWheel = sendHWheel
+	return backend
 }
 
 func (b *sendInputBackend) Name() string { return "sendinput" }
@@ -284,19 +294,21 @@ func (b *sendInputBackend) Drag(hwnd win.HWND, x1Ratio, y1Ratio, x2Ratio, y2Rati
 }
 
 func (b *sendInputBackend) MoveTo(hwnd win.HWND, xRatio, yRatio float64) error {
-	sx, sy := clientRatioToScreenRatio(hwnd, xRatio, yRatio)
-	return sendAbsMove(sx, sy)
+	return b.movePointer(hwnd, xRatio, yRatio)
 }
 
 func (b *sendInputBackend) MouseMoveRel(_ win.HWND, dx, dy, _ int) error {
 	return sendInputMouseRel(int32(dx), int32(dy))
 }
 
-func (b *sendInputBackend) Scroll(_ win.HWND, _, _ float64, notches int, horizontal bool) error {
-	if horizontal {
-		return sendHWheel(notches)
+func (b *sendInputBackend) Scroll(hwnd win.HWND, xRatio, yRatio float64, notches int, horizontal bool) error {
+	if err := b.movePointer(hwnd, xRatio, yRatio); err != nil {
+		return err
 	}
-	return sendWheel(notches)
+	if horizontal {
+		return b.horizontalWheel(notches)
+	}
+	return b.verticalWheel(notches)
 }
 
 // CursorRatio 读 OS 光标 → 相对主屏比例 (全局注入无单窗口概念, 基准取主屏).

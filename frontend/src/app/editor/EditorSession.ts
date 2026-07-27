@@ -224,6 +224,7 @@ export class EditorSession {
   private readonly typeProjections = new Map<string, TypeProjection>()
   private readonly pendingDebugSnapshots = new Map<string, DebugSnapshot>()
   private debugStartPending = false
+  private saveInFlight: Promise<SourceView> | null = null
 
   constructor(
     private readonly transport: WorkflowTransport,
@@ -1074,17 +1075,32 @@ export class EditorSession {
     return result
   }
 
-  async save(): Promise<SourceView> {
+  save(): Promise<SourceView> {
+    if (this.saveInFlight) return this.saveInFlight
     if (!this.dirty) {
       const source = this.requireSource()
-      return {
+      return Promise.resolve({
         workflowId: source.workflow.id,
         name: source.workflow.name,
         revision: this.baseRevision,
         sourceHash: this.sourceHash,
         sourceJson: this.serialize(),
-      } as SourceView
+      } as SourceView)
     }
+    const operation = this.persistSave()
+    this.saveInFlight = operation
+    const clearInFlight = () => {
+      if (this.saveInFlight === operation) this.saveInFlight = null
+    }
+    void operation.then(clearInFlight, clearInFlight)
+    return operation
+  }
+
+  dismissSaveConflict(): void {
+    this.saveConflict = ''
+  }
+
+  private async persistSave(): Promise<SourceView> {
     this.phase = 'saving'
     this.saveConflict = ''
     try {

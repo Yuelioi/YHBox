@@ -294,6 +294,34 @@ describe('workflow authoring foundations', () => {
     expect(source).toContain('openResourceAction')
   })
 
+  it('uses one unified macro editor for metadata and recorded actions', () => {
+    const source = readSource('src/views/AssetsView.vue')
+    const menu = source.slice(
+      source.indexOf('function assetMenu'),
+      source.indexOf('async function openPreciseWorkbench'),
+    )
+    const editor = source.slice(
+      source.indexOf(':open="!!macroEditing"'),
+      source.indexOf(':open="!!variantAsset"'),
+    )
+
+    expect(menu).not.toContain("t('assets.macros.edit_actions')")
+    expect(menu).toContain("label: t('common.edit')")
+    expect(menu).toContain('openMacroEditor')
+    expect(editor).toContain('v-model="macroEditing.label"')
+    expect(editor).toContain('v-model="macroEditing.category"')
+    expect(editor).toContain('v-model="macroEditing.tags"')
+    expect(editor).toContain('<MacroActionEditor')
+  })
+
+  it('lets workflow metadata create a category from the editor dialog', () => {
+    const dialog = readSource('src/app/editor/WorkflowMetadataDialog.vue')
+
+    expect(dialog).toContain('<UInputMenu')
+    expect(dialog).toContain(`:create-item="'always'"`)
+    expect(dialog).toContain('@create="createCategory"')
+  })
+
   it('scales the asset library with server paging, cross-page batches, and guarded cleanup', () => {
     const source = readSource('src/views/AssetsView.vue')
     expect(source).toContain('assets.query')

@@ -34,13 +34,15 @@ describe('standalone window presentation contract', () => {
     }
   })
 
-  it('uses one launcher surface for the floating window and settings preview', () => {
+  it('keeps settings focused on editing while the real launcher provides live feedback', () => {
     const floatingSource = readSource('src/views/tools/FloatingLauncherView.vue')
     const settingsSource = readSource('src/views/SettingsLauncher.vue')
 
     expect(floatingSource).toContain('<LauncherSurface')
-    expect(settingsSource).toContain('<LauncherSurface')
-    expect(settingsSource).not.toContain('launcher-preview__button')
+    expect(settingsSource).not.toContain('<LauncherSurface')
+    expect(settingsSource).not.toContain('launcher-preview')
+    expect(settingsSource).toContain('<div class="settings-page">')
+    expect(settingsSource).not.toContain('settings-page--wide')
     expect(settingsSource).toContain('backend.tools.openLauncher()')
     expect(settingsSource).toContain("entry.key === 'system.launcher-toggle'")
     expect(floatingSource).toContain('backend.tools.openLauncherSettings()')
