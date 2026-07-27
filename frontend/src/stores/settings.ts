@@ -57,6 +57,7 @@ export interface Settings {
     activeMouseProfile: string // 指向 mouseProfiles 里某个 label；空/失配 → activeMouseCounts360 兜底
     launcherItems: LauncherBlock[] // 悬浮窗启动器块序列（设置里编排，有序，积木式）
     launcherDisplay: string // 'both'(默认)|'icon'|'text'
+    launcherSize: string // 'xsmall'|'small'|'medium'(默认)|'large'
     launcherToggleHotkey: string // 呼出/隐藏悬浮窗的全局热键（空=未绑）
   }
   locale: 'zh' | 'en' // i18n 口子

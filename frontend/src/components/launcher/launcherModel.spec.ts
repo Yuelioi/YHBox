@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { LauncherBlock } from '@/stores/settings'
-import { cleanupStaleLauncherBlocks, filterLauncherGroups, resolveLauncher } from './launcherModel'
+import {
+  cleanupStaleLauncherBlocks,
+  filterLauncherGroups,
+  normalizeLauncherSize,
+  resolveLauncher,
+} from './launcherModel'
 
 const blocks: LauncherBlock[] = [
   { id: 'heading', type: 'label', label: '战斗' },
@@ -53,5 +58,25 @@ describe('launcher model', () => {
       'split',
       'beta',
     ])
+  })
+
+  it('preserves distinct block identities for duplicate workflow entries', () => {
+    const result = resolveLauncher(
+      [
+        { id: 'first', type: 'workflow', workflowId: 'alpha' },
+        { id: 'second', type: 'workflow', workflowId: 'alpha' },
+      ],
+      workflows,
+    )
+
+    expect(result.items.map((item) => item.id)).toEqual(['first', 'second'])
+    expect(result.items.map((item) => item.workflowId)).toEqual(['alpha', 'alpha'])
+  })
+
+  it('normalizes launcher content size to medium', () => {
+    expect(normalizeLauncherSize('xsmall')).toBe('xsmall')
+    expect(normalizeLauncherSize('small')).toBe('small')
+    expect(normalizeLauncherSize('large')).toBe('large')
+    expect(normalizeLauncherSize('unknown')).toBe('medium')
   })
 })

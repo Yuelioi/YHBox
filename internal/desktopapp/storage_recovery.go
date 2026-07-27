@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"github.com/yottaapp/yotta/internal/storage"
 	storagemigrate "github.com/yottaapp/yotta/internal/storage/migrate"
@@ -53,16 +54,27 @@ func runStorageRecovery(config Config, cause error) error {
 		assets:  http.FileServer(http.FS(assets)),
 		message: safeStorageRecoveryError(config.StorageRoot, cause),
 	}
+	recoveryActivator := &mainWindowActivator{}
+	var singleInstance *application.SingleInstanceOptions
+	if instanceID, instanceErr := singleInstanceID(config.StorageRoot); instanceErr == nil {
+		singleInstance = &application.SingleInstanceOptions{
+			UniqueID: instanceID,
+			OnSecondInstanceLaunch: func(application.SecondInstanceData) {
+				recoveryActivator.request()
+			},
+		}
+	}
 	recoveryApp := application.New(application.Options{
-		Name:        "Yotta Storage Recovery",
-		Description: "Recover an interrupted Yotta storage migration",
+		Name:           "Yotta Storage Recovery",
+		Description:    "Recover an interrupted Yotta storage migration",
+		SingleInstance: singleInstance,
 		Assets: application.AssetOptions{
 			Handler:        controller,
 			DisableLogging: true,
 		},
 	})
 	controller.quit = recoveryApp.Quit
-	recoveryApp.Window.NewWithOptions(application.WebviewWindowOptions{
+	recoveryWindow := recoveryApp.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:            "Yotta 存储恢复",
 		Width:            900,
 		Height:           680,
@@ -70,6 +82,14 @@ func runStorageRecovery(config Config, cause error) error {
 		MinHeight:        560,
 		BackgroundColour: application.NewRGB(9, 9, 11),
 		URL:              "/",
+	})
+	recoveryActivator.attach(func() {
+		recoveryWindow.Show()
+		recoveryWindow.Restore()
+		recoveryWindow.Focus()
+	})
+	recoveryApp.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
+		recoveryActivator.markReady()
 	})
 	if err := recoveryApp.Run(); err != nil {
 		return fmt.Errorf("run storage recovery window: %w", err)

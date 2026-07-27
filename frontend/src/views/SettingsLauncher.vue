@@ -1,5 +1,5 @@
 <template>
-  <div class="settings-page settings-page--wide">
+  <div class="settings-page">
     <SettingsSection
       :title="t('settingsLauncher.access_title')"
       :description="t('settingsLauncher.access_hint')"
@@ -54,6 +54,21 @@
           :aria-label="t('settingsLauncher.display_label')"
           @update:model-value="setDisplay"
         />
+      </SettingsRow>
+      <SettingsRow :label="t('settingsLauncher.size_label')">
+        <div class="flex items-center rounded-lg border border-default p-0.5">
+          <UButton
+            v-for="item in sizeItems"
+            :key="item.value"
+            size="xs"
+            :color="size === item.value ? 'primary' : 'neutral'"
+            :variant="size === item.value ? 'soft' : 'ghost'"
+            :aria-pressed="size === item.value"
+            @click="setSize(item.value)"
+          >
+            {{ item.label }}
+          </UButton>
+        </div>
       </SettingsRow>
     </SettingsSection>
 
@@ -142,198 +157,187 @@
       icon="i-tabler-layout-list"
       :badge="String(editItems.length)"
     >
-      <div class="launcher-builder">
-        <div class="min-w-0 space-y-3">
-          <div v-if="editItems.length === 0" class="settings-empty-state">
-            <UIcon name="i-tabler-layout-off" class="size-6 text-dimmed" />
-            <p class="text-sm font-medium text-default">{{ t('settingsLauncher.empty') }}</p>
-          </div>
-          <VueDraggable
-            v-else
-            v-model="editItems"
-            :animation="150"
-            handle=".drag-h"
-            class="space-y-2"
-            @end="persist"
-          >
-            <article v-for="(block, index) in editItems" :key="block.id" class="launcher-block">
-              <UIcon
-                name="i-tabler-grip-vertical"
-                class="drag-h size-4 shrink-0 cursor-grab text-dimmed"
-              />
-              <template v-if="block.type === 'workflow'">
-                <UPopover :ui="{ content: 'w-[300px] p-2' }">
-                  <UButton
-                    size="xs"
-                    variant="outline"
-                    color="neutral"
-                    square
-                    :title="t('settingsLauncher.pick_icon')"
-                    :aria-label="t('settingsLauncher.pick_icon')"
-                  >
-                    <UIcon :name="block.icon || 'i-tabler-photo-plus'" class="size-4" />
-                  </UButton>
-                  <template #content>
-                    <div class="space-y-2">
-                      <IconPicker
-                        :model-value="block.icon"
-                        @update:model-value="(value: string) => setIcon(block.id, value)"
-                      />
-                      <UButton
-                        v-if="block.icon"
-                        size="xs"
-                        variant="ghost"
-                        color="neutral"
-                        block
-                        @click="setIcon(block.id, '')"
-                      >
-                        {{ t('settingsLauncher.clear_icon') }}
-                      </UButton>
-                    </div>
-                  </template>
-                </UPopover>
-                <div class="min-w-0 flex-1">
-                  <UInput
-                    :model-value="block.label"
-                    size="sm"
-                    :placeholder="workflowName(block.workflowId)"
-                    :aria-label="t('settingsLauncher.label_placeholder')"
-                    @update:model-value="
-                      (value: string | number) => setLabel(block.id, String(value))
-                    "
-                    @change="persist"
-                  />
-                  <p class="mt-1 truncate text-[11px] text-dimmed">
-                    {{
-                      t('settingsLauncher.from_workflow', {
-                        name: workflowName(block.workflowId),
-                      })
-                    }}
-                  </p>
-                </div>
-              </template>
-              <template v-else-if="block.type === 'label'">
-                <UIcon name="i-tabler-heading" class="size-4 shrink-0 text-dimmed" />
-                <UInput
-                  :model-value="block.label"
-                  class="min-w-0 flex-1"
-                  size="sm"
-                  :placeholder="t('settingsLauncher.label_placeholder')"
-                  @update:model-value="
-                    (value: string | number) => setLabel(block.id, String(value))
-                  "
-                  @change="persist"
-                />
-              </template>
-              <div v-else class="flex min-w-0 flex-1 items-center gap-2 text-xs text-dimmed">
-                <UIcon
-                  :name="
-                    block.type === 'hsep'
-                      ? 'i-tabler-separator-horizontal'
-                      : 'i-tabler-separator-vertical'
-                  "
-                  class="size-4"
-                />
-                {{ t(block.type === 'hsep' ? 'settingsLauncher.hsep' : 'settingsLauncher.vsep') }}
-              </div>
-              <div class="ml-auto flex shrink-0 items-center">
-                <UButton
-                  size="xs"
-                  variant="ghost"
-                  color="neutral"
-                  icon="i-tabler-arrow-up"
-                  :disabled="index === 0"
-                  :aria-label="t('settingsLauncher.move_up')"
-                  @click="moveBlock(index, index - 1)"
-                />
-                <UButton
-                  size="xs"
-                  variant="ghost"
-                  color="neutral"
-                  icon="i-tabler-arrow-down"
-                  :disabled="index === editItems.length - 1"
-                  :aria-label="t('settingsLauncher.move_down')"
-                  @click="moveBlock(index, index + 1)"
-                />
-                <UButton
-                  size="xs"
-                  variant="ghost"
-                  color="error"
-                  icon="i-tabler-trash"
-                  :aria-label="t('settingsLauncher.delete_block')"
-                  @click="removeBlock(block.id)"
-                />
-              </div>
-            </article>
-          </VueDraggable>
-
-          <div class="launcher-library">
-            <p class="text-xs font-medium text-default">
-              {{ t('settingsLauncher.library_title') }}
-            </p>
-            <div class="mt-2 flex flex-wrap items-center gap-2">
-              <AdaptiveSelect
-                v-if="workflowItems.length"
-                model-value=""
-                :items="workflowItems"
-                size="sm"
-                :max-width="32"
-                :placeholder="t('settingsLauncher.add_workflow')"
-                @update:model-value="addWorkflow"
-              />
-              <UButton
-                size="xs"
-                variant="soft"
-                color="neutral"
-                icon="i-tabler-heading"
-                @click="addLabel"
-                >{{ t('settingsLauncher.label_block') }}</UButton
-              >
+      <div class="min-w-0 space-y-3">
+        <div class="launcher-library">
+          <div class="flex flex-wrap items-center gap-2">
+            <UButton
+              size="sm"
+              color="primary"
+              variant="soft"
+              icon="i-tabler-layout-grid-add"
+              @click="workflowPickerOpen = true"
+            >
+              {{ t('settingsLauncher.add_workflow') }}
+            </UButton>
+            <UButton
+              size="xs"
+              variant="soft"
+              color="neutral"
+              icon="i-tabler-heading"
+              @click="addLabel"
+            >
+              {{ t('settingsLauncher.label_block') }}
+            </UButton>
+            <UDropdownMenu :items="separatorMenuItems">
               <UButton
                 size="xs"
                 variant="soft"
                 color="neutral"
                 icon="i-tabler-separator-horizontal"
-                @click="addHsep"
-                >{{ t('settingsLauncher.hsep') }}</UButton
+                trailing-icon="i-tabler-chevron-down"
               >
-              <UButton
-                size="xs"
-                variant="soft"
-                color="neutral"
-                icon="i-tabler-separator-vertical"
-                @click="addVsep"
-                >{{ t('settingsLauncher.vsep') }}</UButton
-              >
-            </div>
+                {{ t('settingsLauncher.separator_block') }}
+              </UButton>
+            </UDropdownMenu>
           </div>
+          <p class="mt-2 text-[11px] leading-4 text-dimmed">
+            {{ t('settingsLauncher.insert_hint') }}
+          </p>
         </div>
 
-        <aside class="launcher-preview" aria-live="polite">
-          <div class="mb-3 flex items-center justify-between">
-            <p class="text-xs font-medium text-default">
-              {{ t('settingsLauncher.preview_title') }}
-            </p>
-            <UBadge size="xs" variant="subtle" color="neutral">{{
-              t('settingsLauncher.live_badge')
-            }}</UBadge>
-          </div>
-          <div class="launcher-preview__window">
-            <div class="launcher-preview__handle" />
-            <LauncherSurface
-              :groups="resolution.groups"
-              :display="display"
-              preview
-              :empty-label="t('settingsLauncher.preview_empty')"
-              :run-label="(name: string) => t('floatingLauncher.run', { name })"
-              :cancel-label="(name: string) => t('floatingLauncher.cancel', { name })"
-              :status-labels="statusLabels"
-              :stale-label="t('floatingLauncher.stale_item')"
+        <div v-if="editItems.length === 0" class="settings-empty-state">
+          <UIcon name="i-tabler-layout-off" class="size-6 text-dimmed" />
+          <p class="text-sm font-medium text-default">{{ t('settingsLauncher.empty') }}</p>
+        </div>
+        <VueDraggable
+          v-else
+          v-model="editItems"
+          :animation="150"
+          handle=".drag-h"
+          class="space-y-2"
+          @end="persist"
+        >
+          <article
+            v-for="(block, index) in editItems"
+            :key="block.id"
+            class="launcher-block"
+            :class="{ 'launcher-block--selected': selectedBlockId === block.id }"
+            @click="selectBlock(block.id)"
+            @focusin="selectBlock(block.id)"
+          >
+            <UIcon
+              name="i-tabler-grip-vertical"
+              class="drag-h size-4 shrink-0 cursor-grab text-dimmed"
             />
-          </div>
-        </aside>
+            <template v-if="block.type === 'workflow'">
+              <UPopover :ui="{ content: 'w-[300px] p-2' }">
+                <UButton
+                  size="xs"
+                  variant="outline"
+                  color="neutral"
+                  square
+                  :title="t('settingsLauncher.pick_icon')"
+                  :aria-label="t('settingsLauncher.pick_icon')"
+                >
+                  <UIcon :name="block.icon || 'i-tabler-photo-plus'" class="size-4" />
+                </UButton>
+                <template #content>
+                  <div class="space-y-2">
+                    <IconPicker
+                      :model-value="block.icon"
+                      @update:model-value="(value: string) => setIcon(block.id, value)"
+                    />
+                    <UButton
+                      v-if="block.icon"
+                      size="xs"
+                      variant="ghost"
+                      color="neutral"
+                      block
+                      @click="setIcon(block.id, '')"
+                    >
+                      {{ t('settingsLauncher.clear_icon') }}
+                    </UButton>
+                  </div>
+                </template>
+              </UPopover>
+              <div class="min-w-0 flex-1">
+                <UInput
+                  :model-value="block.label"
+                  size="sm"
+                  :placeholder="workflowName(block.workflowId)"
+                  :aria-label="t('settingsLauncher.label_placeholder')"
+                  @update:model-value="
+                    (value: string | number) => setLabel(block.id, String(value))
+                  "
+                  @change="persist"
+                />
+                <p class="mt-1 truncate text-[11px] text-dimmed">
+                  {{
+                    t('settingsLauncher.from_workflow', {
+                      name: workflowName(block.workflowId),
+                    })
+                  }}
+                  <span v-if="addedCounts[block.workflowId ?? ''] > 1">
+                    ·
+                    {{
+                      t('settingsLauncher.entry_count', {
+                        n: addedCounts[block.workflowId ?? ''],
+                      })
+                    }}
+                  </span>
+                </p>
+              </div>
+            </template>
+            <template v-else-if="block.type === 'label'">
+              <UIcon name="i-tabler-heading" class="size-4 shrink-0 text-dimmed" />
+              <UInput
+                :model-value="block.label"
+                class="min-w-0 flex-1"
+                size="sm"
+                :placeholder="t('settingsLauncher.label_placeholder')"
+                @update:model-value="(value: string | number) => setLabel(block.id, String(value))"
+                @change="persist"
+              />
+            </template>
+            <div v-else class="flex min-w-0 flex-1 items-center gap-2 text-xs text-dimmed">
+              <UIcon
+                :name="
+                  block.type === 'hsep'
+                    ? 'i-tabler-separator-horizontal'
+                    : 'i-tabler-separator-vertical'
+                "
+                class="size-4"
+              />
+              {{ t(block.type === 'hsep' ? 'settingsLauncher.hsep' : 'settingsLauncher.vsep') }}
+            </div>
+            <div class="ml-auto flex shrink-0 items-center">
+              <UButton
+                size="xs"
+                variant="ghost"
+                color="neutral"
+                icon="i-tabler-arrow-up"
+                :disabled="index === 0"
+                :aria-label="t('settingsLauncher.move_up')"
+                @click="moveBlock(index, index - 1)"
+              />
+              <UButton
+                size="xs"
+                variant="ghost"
+                color="neutral"
+                icon="i-tabler-arrow-down"
+                :disabled="index === editItems.length - 1"
+                :aria-label="t('settingsLauncher.move_down')"
+                @click="moveBlock(index, index + 1)"
+              />
+              <UButton
+                size="xs"
+                variant="ghost"
+                color="error"
+                icon="i-tabler-trash"
+                :aria-label="t('settingsLauncher.delete_block')"
+                @click="removeBlock(block.id)"
+              />
+            </div>
+          </article>
+        </VueDraggable>
       </div>
     </SettingsSection>
+
+    <WorkflowPickerModal
+      v-model:open="workflowPickerOpen"
+      :added-counts="addedCounts"
+      @add="addWorkflows"
+    />
   </div>
 </template>
 
@@ -347,14 +351,16 @@ import { backend } from '@/lib/backend'
 import { workflowTransport, type SourceView } from '@/app/transport/workflow'
 import IconPicker from '@/components/common/IconPicker.vue'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
+import WorkflowPickerModal from '@/components/launcher/WorkflowPickerModal.vue'
 import SettingsRow from '@/components/settings/SettingsRow.vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
-import LauncherSurface from '@/components/launcher/LauncherSurface.vue'
 import {
   cleanupStaleLauncherBlocks,
   normalizeLauncherDisplay,
+  normalizeLauncherSize,
   resolveLauncher,
   type LauncherDisplay,
+  type LauncherSize,
 } from '@/components/launcher/launcherModel'
 
 const settingsStore = useSettingsStore()
@@ -366,6 +372,8 @@ const cleanupBusy = ref(false)
 const launcherOpening = ref(false)
 const dependenciesLoaded = ref(false)
 const cleanupUndo = ref<LauncherBlock[] | null>(null)
+const workflowPickerOpen = ref(false)
+const selectedBlockId = ref('')
 const launcherHotkey = computed(() =>
   hotkeysStore.list.find((entry) => entry.key === 'system.launcher-toggle'),
 )
@@ -378,27 +386,50 @@ watch(() => settingsStore.data?.ui.launcherItems, syncFromStore, { immediate: tr
 const display = computed<LauncherDisplay>(() =>
   normalizeLauncherDisplay(settingsStore.data?.ui.launcherDisplay),
 )
+const size = computed<LauncherSize>(() =>
+  normalizeLauncherSize(settingsStore.data?.ui.launcherSize),
+)
 const displayItems = computed(() => [
   { label: t('settingsLauncher.display_both'), value: 'both' },
   { label: t('settingsLauncher.display_icon'), value: 'icon' },
   { label: t('settingsLauncher.display_text'), value: 'text' },
 ])
-const workflowItems = computed(() =>
-  workflows.value.map((workflow) => ({ label: workflow.name, value: workflow.workflowId })),
-)
+const sizeItems = computed<Array<{ label: string; value: LauncherSize }>>(() => [
+  { label: t('settingsLauncher.size_xsmall'), value: 'xsmall' },
+  { label: t('settingsLauncher.size_small'), value: 'small' },
+  { label: t('settingsLauncher.size_medium'), value: 'medium' },
+  { label: t('settingsLauncher.size_large'), value: 'large' },
+])
+const addedCounts = computed<Record<string, number>>(() => {
+  const counts: Record<string, number> = {}
+  for (const item of editItems.value) {
+    if (item.type !== 'workflow' || !item.workflowId) continue
+    counts[item.workflowId] = (counts[item.workflowId] ?? 0) + 1
+  }
+  return counts
+})
 const resolution = computed(() => resolveLauncher(editItems.value, workflows.value))
 const staleCount = computed(() => resolution.value.staleBlocks.length)
 const healthBadge = computed(() =>
   staleCount.value ? t('settingsLauncher.health_attention') : t('settingsLauncher.health_normal'),
 )
-const statusLabels = computed(() => ({
-  running: t('floatingLauncher.running'),
-  success: t('floatingLauncher.success'),
-  error: t('floatingLauncher.failed'),
-  cancelled: t('floatingLauncher.cancelled'),
-}))
 const persist = () => settingsStore.patch({ ui: { launcherItems: copyItems(editItems.value) } })
 const setDisplay = (value: string) => void settingsStore.patch({ ui: { launcherDisplay: value } })
+const setSize = (value: LauncherSize) => void settingsStore.patch({ ui: { launcherSize: value } })
+const separatorMenuItems = computed(() => [
+  [
+    {
+      label: t('settingsLauncher.hsep'),
+      icon: 'i-tabler-separator-horizontal',
+      onSelect: addHsep,
+    },
+    {
+      label: t('settingsLauncher.vsep'),
+      icon: 'i-tabler-separator-vertical',
+      onSelect: addVsep,
+    },
+  ],
+])
 const block = (id: string) => editItems.value.find((item) => item.id === id)
 const genId = () => `lb_${crypto.randomUUID()}`
 
@@ -409,26 +440,39 @@ function moveBlock(from: number, to: number) {
   editItems.value.splice(to, 0, item)
   persist()
 }
-function addWorkflow(workflowId: string) {
-  if (!workflowId) return
-  editItems.value.push({ id: genId(), type: 'workflow', workflowId, icon: '', label: '' })
+function insertBlocks(blocks: LauncherBlock[]) {
+  const selectedIndex = editItems.value.findIndex((item) => item.id === selectedBlockId.value)
+  const insertAt = selectedIndex < 0 ? editItems.value.length : selectedIndex + 1
+  editItems.value.splice(insertAt, 0, ...blocks)
+  selectedBlockId.value = blocks.at(-1)?.id ?? selectedBlockId.value
   persist()
+}
+function addWorkflows(selected: SourceView[]) {
+  const blocks = selected.map<LauncherBlock>((workflow) => ({
+    id: genId(),
+    type: 'workflow',
+    workflowId: workflow.workflowId,
+    icon: '',
+    label: '',
+  }))
+  if (blocks.length) insertBlocks(blocks)
 }
 function addLabel() {
-  editItems.value.push({ id: genId(), type: 'label', label: '' })
-  persist()
+  insertBlocks([{ id: genId(), type: 'label', label: '' }])
 }
 function addHsep() {
-  editItems.value.push({ id: genId(), type: 'hsep' })
-  persist()
+  insertBlocks([{ id: genId(), type: 'hsep' }])
 }
 function addVsep() {
-  editItems.value.push({ id: genId(), type: 'vsep' })
-  persist()
+  insertBlocks([{ id: genId(), type: 'vsep' }])
 }
 function removeBlock(id: string) {
   editItems.value = editItems.value.filter((item) => item.id !== id)
+  if (selectedBlockId.value === id) selectedBlockId.value = ''
   persist()
+}
+function selectBlock(id: string) {
+  selectedBlockId.value = id
 }
 async function cleanupStale() {
   if (!staleCount.value || cleanupBusy.value) return

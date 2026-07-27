@@ -6,18 +6,20 @@ const source = readFileSync(join(process.cwd(), 'src/views/WorkflowsView.vue'), 
 const assetsSource = readFileSync(join(process.cwd(), 'src/views/AssetsView.vue'), 'utf8')
 
 describe('WorkflowsView entry points', () => {
-  it('makes each workflow name a direct editor destination', () => {
-    expect(source).toContain('data-testid="workflow-browse-list"')
-    expect(source).toContain('data-testid="workflow-library-open"')
-    expect(source).toContain('@click="openWorkflow(source.workflowId)"')
-    expect(source).toContain(':to="`/workflows/${source.workflowId}/edit`"')
-    expect(source).toContain("t('workflow.action.edit_named', { name: source.name })")
+  it('opens workflows by double-clicking the management row without a separate edit button', () => {
+    expect(source).toContain('@dblclick="openWorkflow(source.workflowId)"')
+    expect(source).not.toContain('data-testid="workflow-browse-list"')
+    expect(source).not.toContain('data-testid="workflow-library-open"')
+    expect(source).not.toContain(':to="`/workflows/${source.workflowId}/edit`"')
+    expect(source).not.toContain('icon="i-tabler-schema"')
   })
 
-  it('uses a calm browse mode and keeps the configurable table in explicit management mode', () => {
+  it('uses the configurable management table as the default workflow library', () => {
     expect(source).toContain('data-testid="workflow-new-button"')
-    expect(source).toContain('data-testid="workflow-manage-button"')
     expect(source).toContain('data-testid="workflow-management-table"')
+    expect(source).toContain('data-mode="manage"')
+    expect(source).not.toContain('data-testid="workflow-manage-button"')
+    expect(source).not.toContain('managementMode')
     expect(source).toContain('v-model:open="metadataModalOpen"')
     expect(source).toContain('<UPagination')
     expect(source).toContain('columnMenuItems')

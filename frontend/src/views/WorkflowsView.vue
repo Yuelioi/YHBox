@@ -16,14 +16,6 @@
       </div>
       <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
         <UButton
-          data-testid="workflow-manage-button"
-          color="neutral"
-          :variant="managementMode ? 'soft' : 'ghost'"
-          :icon="managementMode ? 'i-tabler-check' : 'i-tabler-adjustments-horizontal'"
-          :label="t(managementMode ? 'workflow.list.manage_done' : 'workflow.list.manage')"
-          @click="toggleManagementMode"
-        />
-        <UButton
           data-testid="workflow-new-button"
           icon="i-tabler-plus"
           :label="t('workflow.list.new_workflow')"
@@ -43,7 +35,7 @@
     <main
       class="flex min-h-0 flex-1 flex-col px-6 py-4"
       data-testid="workflow-library"
-      :data-mode="managementMode ? 'manage' : 'browse'"
+      data-mode="manage"
       :data-total="total"
     >
       <section
@@ -99,13 +91,9 @@
         </ul>
       </section>
 
-      <section
-        class="shrink-0 overflow-hidden rounded-t-lg border border-default bg-elevated/15"
-        :class="managementMode ? '' : 'rounded-b-lg'"
-      >
+      <section class="shrink-0 overflow-hidden rounded-t-lg border border-default bg-elevated/15">
         <form
-          class="flex items-center gap-2 p-3"
-          :class="managementMode || selectedRows.length ? 'border-b border-default' : ''"
+          class="flex items-center gap-2 border-b border-default p-3"
           role="search"
           @submit.prevent="applySearch"
         >
@@ -120,7 +108,7 @@
           </UButton>
         </form>
         <LibrarySelectionToolbar
-          v-if="managementMode && selectedRows.length"
+          v-if="selectedRows.length"
           :label="t('workflow.list.selected_count', { n: selectedRows.length })"
           :hint="t('batchMetadata.selection_hint')"
           :clear-label="t('workflow.list.clear_selection')"
@@ -160,7 +148,7 @@
             </UButton>
           </template>
         </LibrarySelectionToolbar>
-        <div v-else-if="managementMode" class="flex flex-wrap items-center gap-2 p-3">
+        <div v-else class="flex flex-wrap items-center gap-2 p-3">
           <AdaptiveSelect
             v-model="categoryFilter"
             :items="categoryFilterItems"
@@ -230,14 +218,7 @@
         </ul>
       </div>
 
-      <div
-        class="min-h-0 flex-1 overflow-auto bg-default"
-        :class="
-          managementMode
-            ? 'border-x border-default'
-            : 'mt-3 rounded-t-lg border border-b-0 border-default'
-        "
-      >
+      <div class="min-h-0 flex-1 overflow-auto border-x border-default bg-default">
         <div v-if="loading" class="space-y-px p-2" :aria-label="t('workflow.list.loading')">
           <USkeleton v-for="index in 10" :key="index" class="h-14 rounded-md" />
         </div>
@@ -281,11 +262,7 @@
             />
           </template>
         </EmptyState>
-        <div
-          v-else-if="managementMode"
-          class="min-w-[1100px]"
-          data-testid="workflow-management-table"
-        >
+        <div v-else class="min-w-[1100px]" data-testid="workflow-management-table">
           <div
             class="grid h-9 items-center gap-3 border-b border-default bg-elevated/40 px-3 text-[10px] font-semibold uppercase tracking-wide text-dimmed"
             :style="{ gridTemplateColumns: workflowGridTemplate }"
@@ -314,20 +291,19 @@
             class="grid min-h-16 items-center gap-3 border-b border-default/70 px-3 py-2 hover:bg-elevated/30"
             :style="{ gridTemplateColumns: workflowGridTemplate }"
             data-testid="workflow-library-row"
+            @dblclick="openWorkflow(source.workflowId)"
           >
             <UCheckbox
               :model-value="Boolean(selected[source.workflowId])"
               :aria-label="t('workflow.list.select_named', { name: source.name })"
               @update:model-value="toggleSource(source, Boolean($event))"
+              @dblclick.stop
             />
             <div class="min-w-0">
               <div class="flex min-w-0 items-center gap-2">
-                <RouterLink
-                  :to="`/workflows/${source.workflowId}/edit`"
-                  class="truncate text-sm font-medium text-highlighted underline-offset-4 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                >
+                <span class="truncate text-sm font-medium text-highlighted">
                   {{ source.name }}
-                </RouterLink>
+                </span>
                 <UBadge
                   v-if="runFeedbackById[source.workflowId]"
                   :color="runFeedbackById[source.workflowId].tone"
@@ -396,7 +372,7 @@
             >
               {{ formatListDate(source.updatedAt) }}
             </time>
-            <div class="flex justify-end gap-1">
+            <div class="flex justify-end gap-1" @dblclick.stop>
               <UButton
                 v-if="activeRunIdByWorkflow[source.workflowId]"
                 data-testid="workflow-stop"
@@ -415,109 +391,6 @@
                 icon="i-tabler-player-play"
                 color="neutral"
                 variant="ghost"
-                size="sm"
-                :aria-label="t('workflow.action.run_named', { name: source.name })"
-                :loading="runStartingId === source.workflowId"
-                :disabled="Boolean(runStartingId) || deleting"
-                @click="runWorkflow(source.workflowId)"
-              />
-              <UButton
-                icon="i-tabler-schema"
-                size="sm"
-                :aria-label="t('workflow.action.edit_named', { name: source.name })"
-                @click="router.push(`/workflows/${source.workflowId}/edit`)"
-              />
-              <UDropdownMenu :items="rowMenuItems(source)">
-                <UButton
-                  data-testid="workflow-row-menu"
-                  icon="i-tabler-dots"
-                  color="neutral"
-                  variant="ghost"
-                  size="sm"
-                  :aria-label="t('workflow.list.row_actions', { name: source.name })"
-                />
-              </UDropdownMenu>
-            </div>
-          </article>
-        </div>
-        <div v-else class="divide-y divide-default/70" data-testid="workflow-browse-list">
-          <article
-            v-for="source in sources"
-            :key="source.workflowId"
-            class="flex min-h-20 items-stretch transition-colors hover:bg-elevated/30 focus-within:bg-elevated/40"
-            data-testid="workflow-library-row"
-          >
-            <button
-              type="button"
-              data-testid="workflow-library-open"
-              class="group flex min-w-0 flex-1 items-center gap-4 px-4 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
-              @click="openWorkflow(source.workflowId)"
-            >
-              <span
-                class="flex size-10 shrink-0 items-center justify-center rounded-lg border border-default bg-elevated/45 text-muted transition-colors group-hover:border-primary/30 group-hover:text-primary"
-              >
-                <UIcon name="i-tabler-route" class="size-5" aria-hidden="true" />
-              </span>
-              <span class="min-w-0 flex-1">
-                <span class="flex min-w-0 items-center gap-2">
-                  <span class="truncate text-sm font-semibold text-highlighted">{{
-                    source.name
-                  }}</span>
-                  <UBadge
-                    v-if="runFeedbackById[source.workflowId]"
-                    :color="runFeedbackById[source.workflowId].tone"
-                    variant="soft"
-                    size="xs"
-                  >
-                    {{ runFeedbackById[source.workflowId].label }}
-                  </UBadge>
-                </span>
-                <span class="mt-1 block truncate text-xs text-muted">
-                  {{ source.description || t('workflow.list.no_description') }}
-                </span>
-                <span class="mt-1.5 flex min-w-0 items-center gap-1.5 overflow-hidden">
-                  <UBadge v-if="source.category" color="neutral" variant="soft" size="xs">
-                    {{ source.category }}
-                  </UBadge>
-                  <UBadge
-                    v-for="tag in (source.tags ?? []).slice(0, 2)"
-                    :key="tag"
-                    color="neutral"
-                    variant="subtle"
-                    size="xs"
-                  >
-                    {{ tag }}
-                  </UBadge>
-                </span>
-              </span>
-              <time
-                v-if="source.updatedAt"
-                :datetime="source.updatedAt"
-                class="hidden shrink-0 text-xs text-dimmed lg:block"
-                :title="formatExactDate(source.updatedAt)"
-              >
-                {{ formatListDate(source.updatedAt) }}
-              </time>
-            </button>
-            <div class="flex shrink-0 items-center gap-1 pr-4" @click.stop>
-              <UButton
-                v-if="activeRunIdByWorkflow[source.workflowId]"
-                data-testid="workflow-stop"
-                icon="i-tabler-square"
-                color="error"
-                variant="soft"
-                size="sm"
-                :aria-label="t('workflow.action.stop_named', { name: source.name })"
-                :loading="runStartingId === source.workflowId"
-                :disabled="Boolean(runStartingId) || deleting"
-                @click="stopWorkflow(source.workflowId)"
-              />
-              <UButton
-                v-else
-                data-testid="workflow-run"
-                icon="i-tabler-player-play"
-                color="neutral"
-                variant="soft"
                 size="sm"
                 :aria-label="t('workflow.action.run_named', { name: source.name })"
                 :loading="runStartingId === source.workflowId"
@@ -554,16 +427,14 @@
           show-edges
           @update:page="goToPage"
         />
-        <template v-if="managementMode">
-          <span class="text-xs text-dimmed">{{ t('workflow.list.per_page') }}</span>
-          <AdaptiveSelect
-            v-model="pageSize"
-            :items="pageSizeItems"
-            class="w-24"
-            width-mode="fixed"
-            @update:model-value="queryChanged"
-          />
-        </template>
+        <span class="text-xs text-dimmed">{{ t('workflow.list.per_page') }}</span>
+        <AdaptiveSelect
+          v-model="pageSize"
+          :items="pageSizeItems"
+          class="w-24"
+          width-mode="fixed"
+          @update:model-value="queryChanged"
+        />
       </footer>
     </main>
 
@@ -796,7 +667,6 @@ const { t, locale } = useI18n()
 const { confirm } = useConfirm()
 const sources = ref<SourceView[]>([])
 const recoveries = ref<SourceRecoveryView[]>([])
-const managementMode = ref(false)
 const recoveryExpanded = ref(false)
 const total = ref(0)
 const page = ref(1)
@@ -1085,15 +955,6 @@ function resetAdvancedFilters(): void {
   createdRange.value = 'all'
   updatedRange.value = 'all'
   sort.value = 'updated_desc'
-}
-
-async function toggleManagementMode(): Promise<void> {
-  managementMode.value = !managementMode.value
-  if (managementMode.value) return
-  clearSelection()
-  if (!hasAdvancedFilters.value && sort.value === 'updated_desc') return
-  resetAdvancedFilters()
-  await queryChanged()
 }
 
 function openWorkflow(workflowId: string): void {

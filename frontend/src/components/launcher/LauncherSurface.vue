@@ -1,7 +1,7 @@
 <template>
   <div
     class="launcher-surface"
-    :class="[`launcher-surface--${display}`, { 'launcher-surface--preview': preview }]"
+    :class="[`launcher-surface--${display}`, `launcher-surface--${size}`]"
   >
     <template v-if="groups.length">
       <section v-for="group in groups" :key="group.id" class="launcher-surface__group">
@@ -19,7 +19,7 @@
             :class="[
               `launcher-command--${statusFor(item.workflowId)}`,
               {
-                'launcher-command--selected': selectedId === item.workflowId,
+                'launcher-command--selected': activeId === item.id,
                 'launcher-command--stale': item.stale,
                 'launcher-command--separator-before': item.separatorBefore === 'vertical',
               },
@@ -32,17 +32,17 @@
                   ? cancelLabel(item.label)
                   : runLabel(item.label)
             "
-            :aria-current="selectedId === item.workflowId ? 'true' : undefined"
+            :aria-current="activeId === item.id ? 'true' : undefined"
             :aria-disabled="item.stale ? 'true' : undefined"
-            :tabindex="preview ? -1 : 0"
-            @mouseenter="!item.stale && emit('select', item.workflowId)"
-            @focus="!item.stale && emit('select', item.workflowId)"
-            @click="!preview && !item.stale && emit('run', item.workflowId)"
+            :tabindex="0"
+            @mouseenter="!item.stale && emit('select', item.id)"
+            @focus="!item.stale && emit('select', item.id)"
+            @click="!item.stale && emit('run', item.workflowId)"
           >
             <span v-if="display !== 'text'" class="launcher-command__icon">
               <UIcon
                 :name="statusIcon(item.workflowId, item.icon)"
-                class="size-4"
+                class="launcher-command__glyph"
                 :class="{ 'animate-spin': statusFor(item.workflowId) === 'running' }"
               />
             </span>
@@ -78,16 +78,21 @@
 </template>
 
 <script setup lang="ts">
-import type { LauncherDisplay, ResolvedLauncherGroup, ResolvedLauncherItem } from './launcherModel'
+import type {
+  LauncherDisplay,
+  LauncherSize,
+  ResolvedLauncherGroup,
+  ResolvedLauncherItem,
+} from './launcherModel'
 
 export type LauncherCommandStatus = 'idle' | 'running' | 'success' | 'error' | 'cancelled'
 
 const {
   groups,
   display = 'both',
-  selectedId = '',
+  size = 'medium',
+  activeId = '',
   statuses = {},
-  preview = false,
   emptyLabel,
   runLabel,
   cancelLabel,
@@ -96,9 +101,9 @@ const {
 } = defineProps<{
   groups: ResolvedLauncherGroup[]
   display?: LauncherDisplay
-  selectedId?: string
+  size?: LauncherSize
+  activeId?: string
   statuses?: Record<string, LauncherCommandStatus>
-  preview?: boolean
   emptyLabel: string
   runLabel: (name: string) => string
   cancelLabel?: (name: string) => string
@@ -111,7 +116,7 @@ const {
 
 const emit = defineEmits<{
   run: [workflowId: string]
-  select: [workflowId: string]
+  select: [blockId: string]
 }>()
 
 function statusFor(workflowId: string): LauncherCommandStatus {
@@ -142,10 +147,43 @@ function statusIcon(workflowId: string, fallback: string) {
 
 <style scoped>
 .launcher-surface {
+  --launcher-glyph-size: 20px;
+  --launcher-icon-size: 38px;
+  --launcher-row-height: 50px;
+  --launcher-grid-cell: 54px;
+  --launcher-label-size: 13px;
+  --launcher-status-size: 10px;
+
   display: flex;
   min-width: 0;
   flex-direction: column;
   gap: 8px;
+}
+
+.launcher-surface--small {
+  --launcher-glyph-size: 16px;
+  --launcher-icon-size: 30px;
+  --launcher-row-height: 42px;
+  --launcher-grid-cell: 46px;
+  --launcher-label-size: 12px;
+}
+
+.launcher-surface--xsmall {
+  --launcher-glyph-size: 14px;
+  --launcher-icon-size: 24px;
+  --launcher-row-height: 34px;
+  --launcher-grid-cell: 38px;
+  --launcher-label-size: 11px;
+  --launcher-status-size: 9px;
+}
+
+.launcher-surface--large {
+  --launcher-glyph-size: 24px;
+  --launcher-icon-size: 46px;
+  --launcher-row-height: 60px;
+  --launcher-grid-cell: 66px;
+  --launcher-label-size: 14px;
+  --launcher-status-size: 11px;
 }
 
 .launcher-surface__group {
@@ -185,8 +223,8 @@ function statusIcon(workflowId: string, fallback: string) {
   display: grid;
   width: 100%;
   min-width: 0;
-  min-height: 42px;
-  grid-template-columns: 30px minmax(0, 1fr) auto;
+  min-height: var(--launcher-row-height);
+  grid-template-columns: var(--launcher-icon-size) minmax(0, 1fr) auto;
   align-items: center;
   gap: 9px;
   justify-content: initial;
@@ -215,14 +253,19 @@ function statusIcon(workflowId: string, fallback: string) {
 
 .launcher-command__icon {
   display: inline-flex;
-  width: 30px;
-  height: 30px;
+  width: var(--launcher-icon-size);
+  height: var(--launcher-icon-size);
   align-items: center;
   justify-content: center;
   border: 1px solid color-mix(in oklab, var(--ui-border) 76%, transparent);
   border-radius: 7px;
   color: var(--ui-text-toned);
   background: color-mix(in oklab, var(--ui-bg-elevated) 72%, transparent);
+}
+
+.launcher-command__glyph {
+  width: var(--launcher-glyph-size);
+  height: var(--launcher-glyph-size);
 }
 
 .launcher-command__copy {
@@ -234,7 +277,7 @@ function statusIcon(workflowId: string, fallback: string) {
 
 .launcher-command__label {
   overflow: hidden;
-  font-size: 12px;
+  font-size: var(--launcher-label-size);
   font-weight: 600;
   line-height: 16px;
   text-overflow: ellipsis;
@@ -243,7 +286,7 @@ function statusIcon(workflowId: string, fallback: string) {
 
 .launcher-command__status {
   color: var(--ui-text-dimmed);
-  font-size: 10px;
+  font-size: var(--launcher-status-size);
   line-height: 12px;
 }
 
@@ -298,13 +341,13 @@ function statusIcon(workflowId: string, fallback: string) {
 
 .launcher-surface--icon .launcher-surface__items {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(var(--launcher-grid-cell), 1fr));
   gap: 5px;
 }
 
 .launcher-surface--icon .launcher-command {
   display: flex;
-  min-height: 46px;
+  min-height: var(--launcher-grid-cell);
   align-items: center;
   justify-content: center;
   padding: 6px;
@@ -331,9 +374,5 @@ function statusIcon(workflowId: string, fallback: string) {
   color: var(--ui-text-dimmed);
   font-size: 11px;
   text-align: center;
-}
-
-.launcher-surface--preview {
-  pointer-events: none;
 }
 </style>

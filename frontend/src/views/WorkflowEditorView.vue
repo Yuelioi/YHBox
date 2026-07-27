@@ -123,10 +123,32 @@
       <div
         v-if="session.saveConflict"
         data-testid="workflow-save-error"
-        class="border-b border-error/35 bg-error/10 px-4 py-2 text-xs text-error"
+        class="flex items-center gap-2 border-b border-error/35 bg-error/10 px-4 py-2 text-xs text-error"
         role="alert"
       >
-        {{ t('workflow.editor.save_conflict', { message: session.saveConflict }) }}
+        <span class="min-w-0 flex-1">
+          {{
+            isRevisionConflict
+              ? t('workflow.editor.revision_conflict')
+              : t('workflow.editor.save_conflict', { message: session.saveConflict })
+          }}
+        </span>
+        <UButton
+          v-if="isRevisionConflict"
+          size="xs"
+          color="error"
+          variant="soft"
+          :label="t('workflow.editor.reload_latest')"
+          @click="reloadWorkflow"
+        />
+        <UButton
+          size="xs"
+          color="error"
+          variant="ghost"
+          icon="i-tabler-x"
+          :aria-label="t('common.close')"
+          @click="session.dismissSaveConflict()"
+        />
       </div>
       <div
         v-else-if="session.failure"
@@ -1501,6 +1523,9 @@ const editorToolbarContext = computed<Omit<EditorToolbarContext, 'dirty'>>(() =>
   debuggerOpen: debuggerOpen.value,
   recordingPhase: recording.state.phase,
 }))
+const isRevisionConflict = computed(() =>
+  session.saveConflict.toLocaleLowerCase().includes('revision conflict'),
+)
 const breakpointKeys = ref(new Set<string>())
 const {
   macroEditing,
@@ -3805,7 +3830,10 @@ async function saveWorkflowSettings(draft: WorkflowMetadataDraft): Promise<void>
   workflowSettingsBusy.value = true
   workflowSettingsError.value = ''
   try {
-    if (session.dirty && !(await editorRuns.execute({ kind: 'save' })).ok) return
+    if (session.dirty && !(await editorRuns.execute({ kind: 'save' })).ok) {
+      workflowSettingsError.value = t('workflow.editor.metadata_save_blocked')
+      return
+    }
     await workflowTransport.updateSourceMetadata(session.workflowId, session.baseRevision, draft)
     await session.load(session.workflowId)
     workflowSettingsOpen.value = false

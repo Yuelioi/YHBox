@@ -3,8 +3,11 @@
 package input
 
 import (
+	"fmt"
 	"testing"
 	"unsafe"
+
+	"github.com/lxn/win"
 )
 
 func TestNewBackend_SendInput(t *testing.T) {
@@ -114,5 +117,25 @@ func TestSendInputPureMappingsAndValidation(t *testing.T) {
 	}
 	if _, _, err := b.CursorRatio(0); err == nil {
 		t.Fatal("CursorRatio accepted an empty client rect")
+	}
+}
+
+func TestSendInputScrollMovesToRecordedPointBeforeWheel(t *testing.T) {
+	backend := newSendInputBackend()
+	var calls []string
+	backend.movePointer = func(hwnd win.HWND, xRatio, yRatio float64) error {
+		calls = append(calls, fmt.Sprintf("move:%d:%.2f:%.2f", hwnd, xRatio, yRatio))
+		return nil
+	}
+	backend.verticalWheel = func(notches int) error {
+		calls = append(calls, fmt.Sprintf("wheel:%d", notches))
+		return nil
+	}
+
+	if err := backend.Scroll(42, 0.25, 0.75, -3, false); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := fmt.Sprint(calls), "[move:42:0.25:0.75 wheel:-3]"; got != want {
+		t.Fatalf("scroll calls = %s, want %s", got, want)
 	}
 }

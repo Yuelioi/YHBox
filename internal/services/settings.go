@@ -247,6 +247,8 @@ type UISettings struct {
 	LauncherItems []LauncherBlock `json:"launcherItems"`
 	// LauncherDisplay 按钮显示：""/"both"=图标+文字 | "icon"=仅图标 | "text"=仅文字。
 	LauncherDisplay string `json:"launcherDisplay"`
+	// LauncherSize 启动器内容尺寸："xsmall" | "small" | "medium" | "large"。
+	LauncherSize string `json:"launcherSize"`
 	// LauncherToggleHotkey 呼出/隐藏悬浮窗的全局热键（空 = 未绑）。
 	LauncherToggleHotkey string `json:"launcherToggleHotkey"`
 }
@@ -326,6 +328,7 @@ func defaultSettings() *Settings {
 			RecordingStartHotkey: "F10",
 			RecordingPauseHotkey: "F11",
 			RecordingMouseMode:   "relative",
+			LauncherSize:         "medium",
 		},
 		Locale: "zh",
 		// 默认 auto：启动期 main.go 看 OS build 决定 Win10 走 GDI / Win11+ 走 WGC。
@@ -377,6 +380,12 @@ func (s *Settings) Validate() error {
 		// ok
 	default:
 		return fmt.Errorf("ui.logger.level 必须是 debug/info/warn/error，got %q", s.UI.Logger.Level)
+	}
+	switch s.UI.LauncherSize {
+	case "", "xsmall", "small", "medium", "large":
+		// 空值按 medium 解释，兼容显式删除该偏好的旧 patch。
+	default:
+		return fmt.Errorf("ui.launcherSize 必须是 xsmall/small/medium/large，got %q", s.UI.LauncherSize)
 	}
 	if err := s.AI.validate(); err != nil {
 		return err

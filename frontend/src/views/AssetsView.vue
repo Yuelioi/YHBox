@@ -570,6 +570,34 @@
   >
     <div v-if="macroEditing" class="flex h-full min-h-0 flex-col gap-3">
       <div
+        class="grid shrink-0 gap-3 rounded-lg border border-default bg-elevated/20 p-3 md:grid-cols-2"
+      >
+        <UFormField :label="t('common.name')" required>
+          <UInput v-model="macroEditing.label" maxlength="80" />
+        </UFormField>
+        <UFormField :label="t('common.category')" :hint="t('common.optional')">
+          <UInputMenu
+            v-model="macroEditing.category"
+            :items="metadataCategoryOptions"
+            :create-item="'always'"
+            :placeholder="t('recordingSave.category_placeholder')"
+            @create="createMacroCategory"
+          />
+        </UFormField>
+        <UFormField :label="t('common.description')" :hint="t('common.optional')">
+          <UTextarea v-model="macroEditing.description" :rows="2" />
+        </UFormField>
+        <UFormField :label="t('common.tags')" :hint="t('common.optional')">
+          <UInputMenu
+            v-model="macroEditing.tags"
+            :items="metadataTagOptions"
+            :create-item="'always'"
+            multiple
+            @create="createMacroTag"
+          />
+        </UFormField>
+      </div>
+      <div
         class="flex shrink-0 items-center gap-3 rounded-lg border border-default bg-elevated/25 px-3 py-2 text-xs text-muted"
       >
         <span>{{ t('assets.macros.base_resolution') }}</span>
@@ -579,6 +607,10 @@
           }}</strong
         >
         <span class="ml-auto font-mono text-[10px] text-dimmed">{{ macroEditing.id }}</span>
+      </div>
+      <div class="flex shrink-0 items-start gap-2 text-xs leading-5 text-dimmed">
+        <UIcon name="i-tabler-route-alt-left" class="mt-0.5 size-4 shrink-0" />
+        <span>{{ t('assets.macros.trajectory_hint') }}</span>
       </div>
       <MacroActionEditor
         v-model="macroEditing.document.actions"
@@ -593,7 +625,7 @@
       <UButton
         icon="i-tabler-device-floppy"
         :loading="macroEditBusy"
-        :disabled="!macroEditValid"
+        :disabled="!macroEditValid || !macroEditing?.label.trim()"
         @click="saveMacro"
       >
         {{ t('common.save') }}
@@ -970,6 +1002,7 @@ const metadataCategoryOptions = computed(() =>
     ...createdCategories.value,
     editDraft.category,
     recordingDraft.category,
+    macroEditing.value?.category ?? '',
   ]),
 )
 const metadataTagOptions = computed(() =>
@@ -978,6 +1011,7 @@ const metadataTagOptions = computed(() =>
     ...createdTags.value,
     ...editDraft.tags,
     ...recordingDraft.tags,
+    ...(macroEditing.value?.tags ?? []),
   ]),
 )
 const batchCategoryOptions = computed(() =>
@@ -1498,6 +1532,25 @@ async function captureTemplate(): Promise<void> {
 }
 
 function assetMenu(item: AssetItem) {
+  if (item.kind === 'macros') {
+    return [
+      [
+        {
+          label: t('common.edit'),
+          icon: 'i-tabler-edit',
+          onSelect: () => void openMacroEditor(item.source),
+        },
+      ],
+      [
+        {
+          label: t('common.delete'),
+          icon: 'i-tabler-trash',
+          color: 'error' as const,
+          onSelect: () => void deleteAsset(item),
+        },
+      ],
+    ]
+  }
   const details =
     item.kind === 'templates'
       ? [
@@ -1507,23 +1560,15 @@ function assetMenu(item: AssetItem) {
             onSelect: () => (variantAsset.value = item.source),
           },
         ]
-      : item.kind === 'macros'
+      : item.kind === 'clips'
         ? [
             {
-              label: t('assets.macros.edit_actions'),
-              icon: 'i-tabler-list-details',
-              onSelect: () => void openMacroEditor(item.source),
+              label: t('assets.clips.open_workbench'),
+              icon: 'i-tabler-route-alt-left',
+              onSelect: () => void openPreciseWorkbench(item.source),
             },
           ]
-        : item.kind === 'clips'
-          ? [
-              {
-                label: t('assets.clips.open_workbench'),
-                icon: 'i-tabler-route-alt-left',
-                onSelect: () => void openPreciseWorkbench(item.source),
-              },
-            ]
-          : []
+        : []
   return [
     [
       ...details,
@@ -1600,6 +1645,8 @@ async function openMacroEditor(asset: AssetSummary): Promise<void> {
     if (!value) throw new Error(`macro ${asset.guid} not found`)
     macroEditing.value = {
       ...value,
+      description: value.description ?? '',
+      category: value.category ?? '',
       tags: [...(value.tags ?? [])],
       document: {
         ...value.document,
@@ -1799,6 +1846,13 @@ function createRecordingCategory(value: string): void {
   createAssetCategory(value, recordingDraft)
 }
 
+function createMacroCategory(value: string): void {
+  const category = value.trim()
+  if (!macroEditing.value || !category) return
+  createdCategories.value = uniqueStrings([...createdCategories.value, category])
+  macroEditing.value.category = category
+}
+
 function createAssetTag(value: string, draft: AssetMetadataDraft): void {
   const tag = value.trim()
   if (!tag) return
@@ -1816,6 +1870,13 @@ function createEditTag(value: string): void {
 
 function createRecordingTag(value: string): void {
   createAssetTag(value, recordingDraft)
+}
+
+function createMacroTag(value: string): void {
+  const tag = value.trim()
+  if (!macroEditing.value || !tag) return
+  createdTags.value = uniqueStrings([...createdTags.value, tag])
+  macroEditing.value.tags = uniqueStrings([...(macroEditing.value.tags ?? []), tag])
 }
 
 function uniqueStrings(values: string[]): string[] {

@@ -59,7 +59,8 @@
         v-else
         :groups="filteredGroups"
         :display="display"
-        :selected-id="selectedId"
+        :size="size"
+        :active-id="activeBlockId"
         :statuses="statuses"
         :empty-label="t('floatingLauncher.no_results')"
         :run-label="(name: string) => t('floatingLauncher.run', { name })"
@@ -113,8 +114,10 @@ import LauncherSurface, {
 import {
   filterLauncherGroups,
   normalizeLauncherDisplay,
+  normalizeLauncherSize,
   resolveLauncher,
   type LauncherDisplay,
+  type LauncherSize,
 } from '@/components/launcher/launcherModel'
 
 const settingsStore = useSettingsStore()
@@ -124,7 +127,7 @@ const toast = useToast()
 const contentRef = ref<HTMLElement | null>(null)
 const workflows = ref<SourceView[]>([])
 const query = ref('')
-const selectedId = ref('')
+const activeBlockId = ref('')
 const requestedId = ref('')
 const requestedRunId = ref('')
 const feedback = ref<{ id: string; status: 'success' | 'error' | 'cancelled' } | null>(null)
@@ -139,6 +142,9 @@ function togglePin() {
 
 const display = computed<LauncherDisplay>(() =>
   normalizeLauncherDisplay(settingsStore.data?.ui.launcherDisplay),
+)
+const size = computed<LauncherSize>(() =>
+  normalizeLauncherSize(settingsStore.data?.ui.launcherSize),
 )
 const resolution = computed(() =>
   resolveLauncher(settingsStore.data?.ui.launcherItems ?? [], workflows.value),
@@ -169,23 +175,27 @@ const statuses = computed<Record<string, LauncherCommandStatus>>(() => {
 watch(
   filteredItems,
   (items) => {
-    if (!items.some((item) => item.workflowId === selectedId.value)) {
-      selectedId.value = items[0]?.workflowId ?? ''
+    if (!items.some((item) => item.id === activeBlockId.value)) {
+      activeBlockId.value = items[0]?.id ?? ''
     }
   },
   { immediate: true },
 )
 
 function selectItem(id: string) {
-  selectedId.value = id
+  activeBlockId.value = id
 }
 
 function moveSelection(delta: number) {
   const items = filteredItems.value
   if (!items.length) return
-  const current = items.findIndex((item) => item.workflowId === selectedId.value)
+  const current = items.findIndex((item) => item.id === activeBlockId.value)
   const next = current < 0 ? 0 : (current + delta + items.length) % items.length
-  selectedId.value = items[next]?.workflowId ?? ''
+  activeBlockId.value = items[next]?.id ?? ''
+}
+
+function activeWorkflowId(): string {
+  return filteredItems.value.find((item) => item.id === activeBlockId.value)?.workflowId ?? ''
 }
 
 function settleRequest(status: 'success' | 'error' | 'cancelled', issue = '') {
@@ -290,9 +300,9 @@ function onKeyDown(event: KeyboardEvent) {
     moveSelection(event.key === 'ArrowDown' ? 1 : -1)
     return
   }
-  if (event.key === 'Enter' && selectedId.value) {
+  if (event.key === 'Enter' && activeBlockId.value) {
     event.preventDefault()
-    void onRun(selectedId.value)
+    void onRun(activeWorkflowId())
     return
   }
   if (event.key === 'Escape') {
@@ -326,7 +336,7 @@ function fitHeight() {
     .setLauncherSize(Math.max(MIN_W, Math.round(window.innerWidth)), height)
     .catch(() => undefined)
 }
-watch([filteredGroups, display], () => void nextTick(fitHeight))
+watch([filteredGroups, display, size], () => void nextTick(fitHeight))
 
 async function refreshLauncherData() {
   const [, listed] = await Promise.all([settingsStore.load(), workflowTransport.listSources()])

@@ -2,7 +2,7 @@
 
 ## Open Work
 
-- None.
+- **Focus:** [V4 后续稳定性收尾](work/v4-followup-stabilization/index.md)
 
 ## Project links
 

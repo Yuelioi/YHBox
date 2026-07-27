@@ -15,7 +15,14 @@
       </UFormField>
       <div class="grid grid-cols-2 gap-3">
         <UFormField :label="t('common.category')">
-          <UInput v-model="draft.category" class="w-full" />
+          <UInputMenu
+            v-model="draft.category"
+            class="w-full"
+            :items="categoryOptions"
+            :create-item="'always'"
+            :placeholder="t('workflow.list.category_placeholder')"
+            @create="createCategory"
+          />
         </UFormField>
         <UFormField :label="t('common.tags')" :hint="t('workflow.editor.tags_hint')">
           <UInput v-model="tagsText" class="w-full" />
@@ -44,9 +51,10 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseModal from '@/components/common/BaseModal.vue'
+import { addCreatedCategory, uniqueCategoryOptions } from '@/lib/categoryOptions'
 
 export interface WorkflowMetadataDraft {
   name: string
@@ -70,6 +78,10 @@ const draft = reactive<WorkflowMetadataDraft>({
   tags: [],
 })
 const tagsText = ref('')
+const createdCategories = ref<string[]>([])
+const categoryOptions = computed(() =>
+  uniqueCategoryOptions([props.category, draft.category], createdCategories.value),
+)
 
 watch(
   () => [props.open, props.name, props.description, props.category, props.tags] as const,
@@ -83,6 +95,12 @@ watch(
   },
   { immediate: true },
 )
+
+function createCategory(value: string): void {
+  const result = addCreatedCategory(createdCategories.value, value)
+  createdCategories.value = result.categories
+  draft.category = result.value
+}
 
 function submit(): void {
   emit('submit', {

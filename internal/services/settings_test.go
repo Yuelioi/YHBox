@@ -225,6 +225,21 @@ func TestSettingsValidateRejectsUnknownLoggerLevel(t *testing.T) {
 	}
 }
 
+func TestSettingsValidateLauncherSize(t *testing.T) {
+	for _, size := range []string{"", "xsmall", "small", "medium", "large"} {
+		settings := defaultSettings()
+		settings.UI.LauncherSize = size
+		if err := settings.Validate(); err != nil {
+			t.Fatalf("launcher size %q should validate: %v", size, err)
+		}
+	}
+	settings := defaultSettings()
+	settings.UI.LauncherSize = "huge"
+	if err := settings.Validate(); err == nil {
+		t.Fatal("unknown launcher size validated")
+	}
+}
+
 func TestSettingsServiceRemovingApplicationAlsoRemovesDependentTargets(t *testing.T) {
 	app := newTestApp(t, filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
 	_, _, err := app.MutateSettings(func(settings *Settings) error {

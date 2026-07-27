@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -52,6 +53,26 @@ func Run(config Config) error {
 	}); err != nil {
 		return runStorageRecovery(config, err)
 	}
+	instanceID, err := singleInstanceID(config.StorageRoot)
+	if err != nil {
+		return fmt.Errorf("resolve desktop instance identity: %w", err)
+	}
+	mainActivator := &mainWindowActivator{}
+	wailsApp := application.New(application.Options{
+		Name:         "Yotta",
+		Description:  "节点编排，自动执行",
+		MarshalError: apperr.Marshal,
+		Windows:      wailsWindowsOptions(),
+		SingleInstance: &application.SingleInstanceOptions{
+			UniqueID: instanceID,
+			OnSecondInstanceLaunch: func(application.SecondInstanceData) {
+				mainActivator.request()
+			},
+		},
+		Assets: application.AssetOptions{
+			Handler: application.AssetFileServerFS(config.Assets),
+		},
+	})
 	// 日志栈：zerolog process/Workflow diagnostics → LogSink → 单一 log:batch 事件 + 可选 JSONL.
 	logSink := services.NewLogSink(nil) // emit 在 wailsApp 构造后装配
 	rootLog := zerolog.New(logSink).With().Timestamp().Logger()
@@ -413,17 +434,9 @@ func Run(config Config) error {
 		application.NewService(services.NewApplicationService()),
 		application.NewService(services.NewAutomationService(app)),
 	)
-	// wails3 application
-	wailsApp := application.New(application.Options{
-		Name:         "Yotta",
-		Description:  "节点编排，自动执行",
-		Services:     wailsServices,
-		MarshalError: apperr.Marshal,
-		Windows:      wailsWindowsOptions(),
-		Assets: application.AssetOptions{
-			Handler: application.AssetFileServerFS(config.Assets),
-		},
-	})
+	for _, service := range wailsServices {
+		wailsApp.RegisterService(service)
+	}
 	if err := app.AttachEmitter(func(name string, data any) { wailsApp.Event.Emit(name, data) }); err != nil {
 		return fmt.Errorf("attach presentation emitter: %w", err)
 	}
@@ -445,6 +458,14 @@ func Run(config Config) error {
 	winCfg := app.Settings().UI.Window
 	mainWin := wailsApp.Window.NewWithOptions(mainWindowOptions(winCfg.Width, winCfg.Height))
 	toolsPresenter.AttachMain(mainWin)
+	mainActivator.attach(func() {
+		mainWin.Show()
+		mainWin.Restore()
+		mainWin.Focus()
+	})
+	wailsApp.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
+		mainActivator.markReady()
+	})
 
 	// 用户拖完才落盘（WindowDidResize 拖动期间会狂刷，没必要每帧写 IO）。
 	// settings.UI.Window 不走 SettingsService.Update 的 patch 流程 —— 这只是 UI 状态，
@@ -469,23 +490,30 @@ func Run(config Config) error {
 		if mainWin.IsVisible() && !mainWin.IsMinimised() {
 			mainWin.Hide()
 		} else {
-			mainWin.Show().Focus()
+			mainActivator.request()
 		}
 	})
 	trayMenu := application.NewMenu()
-	trayMenu.Add("显示窗口").OnClick(func(*application.Context) { mainWin.Show().Focus() })
+	trayMenu.Add("显示窗口").OnClick(func(*application.Context) { mainActivator.request() })
 	trayMenu.AddSeparator()
 	trayMenu.Add("退出 Yotta").OnClick(func(*application.Context) { wailsApp.Quit() })
 	tray.SetMenu(trayMenu)
 
 	// 关闭按钮（X）行为：MinimizeToTray=true 时 cancel 事件 + 隐藏到托盘；
-	// false 时走默认（关窗 → app 退出，wailsApp.Run 返回）。
-	mainWin.OnWindowEvent(events.Common.WindowClosing, func(e *application.WindowEvent) {
-		if !app.Settings().UI.MinimizeToTray {
+	// false 时明确退出整个 app，不能依赖“最后一个窗口关闭”：启动器等隐藏
+	// secondary window 仍然存活时，默认行为只会销毁主窗并继续占用 profile。
+	mainWin.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		// Wails closes every window after cancelling the application context.
+		// Do not intercept that unconditional shutdown pass.
+		if wailsApp.Context().Err() != nil {
 			return
 		}
-		e.Cancel()
-		mainWin.Hide()
+		handleMainWindowClosing(
+			app.Settings().UI.MinimizeToTray,
+			e.Cancel,
+			func() { mainWin.Hide() },
+			wailsApp.Quit,
+		)
 	})
 
 	// 每次启动都刷新计划任务中的绝对路径，避免 exe 移动后自启动指向旧位置。
@@ -499,14 +527,25 @@ func Run(config Config) error {
 	}
 	rootLog.Info().Str("tag", "SYSTEM").Str("version", version.Version).Msg("Yotta started")
 
+	// Wails releases its single-instance mutex during shutdown. Close the
+	// storage-owning runtime first so an immediate restart cannot acquire the
+	// instance mutex and then collide with the still-held writer lease.
+	var closeRuntimeOnce sync.Once
+	closeApplicationRuntime := func() {
+		closeRuntimeOnce.Do(func() {
+			shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancelShutdown()
+			if err := applicationRuntime.Close(shutdownCtx); err != nil {
+				rootLog.Warn().Err(err).Str("tag", "SHUTDOWN").Msg("application runtime close")
+			}
+		})
+	}
+	wailsApp.OnShutdown(closeApplicationRuntime)
+
 	// 阻塞直到关窗口
 	runErr := wailsApp.Run()
-
-	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
-	if err := applicationRuntime.Close(shutdownCtx); err != nil {
-		rootLog.Warn().Err(err).Str("tag", "SHUTDOWN").Msg("application runtime close")
-	}
-	cancelShutdown()
+	// Run can fail before Wails enters its normal cleanup path.
+	closeApplicationRuntime()
 	if runErr != nil {
 		return fmt.Errorf("run Wails application: %w", runErr)
 	}

@@ -138,10 +138,6 @@ textarea {
     gap: 28px;
   }
 
-  .settings-page--wide {
-    max-width: 1120px;
-  }
-
   .settings-shell {
     display: grid;
     width: 100%;
@@ -289,13 +285,6 @@ textarea {
     box-shadow: inset 3px 0 0 color-mix(in oklab, var(--ui-primary) 72%, transparent);
   }
 
-  .launcher-builder {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 320px;
-    align-items: start;
-    gap: 24px;
-  }
-
   .launcher-block {
     display: flex;
     min-height: 60px;
@@ -313,6 +302,11 @@ textarea {
   .launcher-block:hover {
     border-color: var(--ui-border-accented);
     background: color-mix(in oklab, var(--ui-bg-elevated) 64%, transparent);
+  }
+
+  .launcher-block--selected {
+    border-color: color-mix(in oklab, var(--ui-primary) 45%, var(--ui-border));
+    background: color-mix(in oklab, var(--ui-primary) 7%, var(--ui-bg));
   }
 
   .launcher-library {
@@ -423,36 +417,6 @@ textarea {
     font-size: 10px;
     line-height: 14px;
     overflow-wrap: anywhere;
-  }
-
-  .launcher-preview {
-    position: sticky;
-    top: 0;
-    padding: 14px;
-    border: 1px solid var(--ui-border);
-    border-radius: 12px;
-    background: var(--ui-bg-elevated);
-    box-shadow: 0 12px 36px rgb(0 0 0 / 16%);
-  }
-
-  .launcher-preview__window {
-    position: relative;
-    min-height: 180px;
-    padding: 26px 8px 8px;
-    border: 1px solid color-mix(in oklab, var(--ui-border) 80%, transparent);
-    border-radius: 10px;
-    background: color-mix(in oklab, var(--ui-bg) 78%, black);
-  }
-
-  .launcher-preview__handle {
-    position: absolute;
-    top: 10px;
-    left: 50%;
-    width: 32px;
-    height: 3px;
-    border-radius: 999px;
-    background: var(--ui-border-accented);
-    transform: translateX(-50%);
   }
 
   .ai-profile {
@@ -569,14 +533,6 @@ textarea {
     .hotkey-row {
       align-items: stretch;
       flex-direction: column;
-    }
-
-    .launcher-builder {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
-    .launcher-preview {
-      position: static;
     }
   }
 
