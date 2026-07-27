@@ -13,23 +13,15 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
-	"github.com/yottaapp/yotta/internal/ai"
-	"github.com/yottaapp/yotta/internal/appbootstrap"
-	"github.com/yottaapp/yotta/internal/appcontrol"
 	appcore "github.com/yottaapp/yotta/internal/application"
-	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
-	"github.com/yottaapp/yotta/internal/blob"
-	"github.com/yottaapp/yotta/internal/httpegress"
-	"github.com/yottaapp/yotta/internal/nodepackage"
+	"github.com/yottaapp/yotta/internal/localruntime"
 	"github.com/yottaapp/yotta/internal/noderuntime"
 	runrecord "github.com/yottaapp/yotta/internal/run"
-	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/securestore"
 	"github.com/yottaapp/yotta/internal/services"
 	"github.com/yottaapp/yotta/internal/storage"
 	"github.com/yottaapp/yotta/internal/storage/catalog"
 	storagemigrate "github.com/yottaapp/yotta/internal/storage/migrate"
-	"github.com/yottaapp/yotta/internal/wasmrunner"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
@@ -54,33 +46,6 @@ type compileView struct {
 type healthView struct {
 	storage.HealthReport
 	Databases catalog.HealthReport `json:"databases"`
-}
-
-type commandRuntime struct {
-	*appbootstrap.Runtime
-	profile           *storage.Profile
-	catalogFoundation *catalog.Foundation
-	settingsApp       *services.App
-}
-
-func (runtime *commandRuntime) Close(ctx context.Context) error {
-	if runtime == nil {
-		return nil
-	}
-	var errs []error
-	if runtime.Runtime != nil {
-		errs = append(errs, runtime.Runtime.Close(ctx))
-	}
-	if runtime.settingsApp != nil {
-		errs = append(errs, runtime.settingsApp.ShutdownContext(ctx))
-	}
-	if runtime.catalogFoundation != nil {
-		errs = append(errs, runtime.catalogFoundation.Close())
-	}
-	if runtime.profile != nil {
-		errs = append(errs, runtime.profile.Close())
-	}
-	return errors.Join(errs...)
 }
 
 func main() {
@@ -129,7 +94,7 @@ func run(arguments []string, output io.Writer) error {
 	}()
 	ctx, cancel := context.WithTimeout(context.Background(), opt.timeout)
 	defer cancel()
-	if err := runtime.Start(ctx); err != nil {
+	if err := runtime.Workflow.Application.Start(ctx); err != nil {
 		return fmt.Errorf("start Application: %w", err)
 	}
 
@@ -139,7 +104,7 @@ func run(arguments []string, output io.Writer) error {
 		if readErr != nil {
 			return readErr
 		}
-		result, compileErr := runtime.Application.CompileDraft(ctx, raw)
+		result, compileErr := runtime.Workflow.Application.CompileDraft(ctx, raw)
 		view := compileResultView(result)
 		if err := encoder.Encode(view); err != nil {
 			return err
@@ -149,7 +114,7 @@ func run(arguments []string, output io.Writer) error {
 		}
 		return nil
 	case "compile":
-		result, compileErr := runtime.Application.CompileSource(ctx, opt.argument)
+		result, compileErr := runtime.Workflow.Application.CompileSource(ctx, opt.argument)
 		view := compileResultView(result)
 		if err := encoder.Encode(view); err != nil {
 			return err
@@ -159,7 +124,7 @@ func run(arguments []string, output io.Writer) error {
 		}
 		return nil
 	case "inspect":
-		snapshot, loadErr := runtime.Application.GetSource(opt.argument)
+		snapshot, loadErr := runtime.Workflow.Application.GetSource(opt.argument)
 		if loadErr != nil {
 			return loadErr
 		}
@@ -170,12 +135,12 @@ func run(arguments []string, output io.Writer) error {
 			Source     json.RawMessage `json:"source"`
 		}{snapshot.WorkflowID(), snapshot.Revision(), snapshot.Hash().String(), snapshot.Artifact()})
 	case "run":
-		started, startErr := runtime.Application.StartRun(ctx, appcore.StartRunRequest{WorkflowID: opt.argument, Principal: opt.principal})
+		started, startErr := runtime.Workflow.Application.StartRun(ctx, appcore.StartRunRequest{WorkflowID: opt.argument, Principal: opt.principal})
 		if startErr != nil {
 			_ = encoder.Encode(compileResultView(compiler.CompileResult{SourceHash: started.SourceHash, Diagnostics: started.Diagnostics}))
 			return startErr
 		}
-		return waitRun(ctx, encoder, runtime.Application, started.Record.Admission().RunID)
+		return waitRun(ctx, encoder, runtime.Workflow.Application, started.Record.Admission().RunID)
 	default:
 		return fmt.Errorf("unsupported command %q", opt.command)
 	}
@@ -299,106 +264,21 @@ func runMigrationCommand(ctx context.Context, encoder *json.Encoder, opt options
 	}
 }
 
-func buildRuntime(opt options) (_ *commandRuntime, resultErr error) {
+func buildRuntime(opt options) (*localruntime.Runtime, error) {
 	logger := zerolog.New(io.Discard)
 	if _, err := storagemigrate.Ensure(context.Background(), storagemigrate.Options{
 		Root: opt.dataRoot, MaxRuns: 65536,
 	}); err != nil {
 		return nil, fmt.Errorf("prepare storage profile migration: %w", err)
 	}
-	profile, err := storage.Open(context.Background(), storage.OpenOptions{Root: opt.dataRoot})
-	if err != nil {
-		return nil, fmt.Errorf("open storage profile: %w", err)
-	}
-	defer func() {
-		if resultErr != nil {
-			resultErr = errors.Join(resultErr, profile.Close())
-		}
-	}()
-	roots := profile.Roots
-	catalogFoundation, err := catalog.Open(context.Background(), roots)
-	if err != nil {
-		return nil, fmt.Errorf("open catalog foundation: %w", err)
-	}
-	defer func() {
-		if resultErr != nil {
-			resultErr = errors.Join(resultErr, catalogFoundation.Close())
-		}
-	}()
-	settingsApp, err := services.OpenApp(roots.SettingsFile(), roots.Logs, nil, logger)
-	if err != nil {
-		return nil, fmt.Errorf("open application settings: %w", err)
-	}
-	defer func() {
-		if resultErr != nil {
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			resultErr = errors.Join(resultErr, settingsApp.ShutdownContext(shutdownCtx))
-		}
-	}()
-	secrets := services.NewAISecrets(securestore.New())
-	aiInstallations, err := ai.Install(settingsApp.Settings().AI.InstallationDrafts(), secrets)
-	if err != nil {
-		return nil, err
-	}
-	httpInstallations, err := httpegress.Install(settingsApp.Settings().Network.InstallationDrafts())
-	if err != nil {
-		return nil, err
-	}
-	applicationInstallations, err := appcontrol.Install(settingsApp.Settings().Applications.InstallationDrafts())
-	if err != nil {
-		return nil, err
-	}
-	automationDrafts, err := settingsApp.Settings().Automation.InstallationDrafts(settingsApp.Settings().Applications, settingsApp.Settings().ActiveMouseCounts360())
-	if err != nil {
-		return nil, err
-	}
-	automationInstallations, err := automationinstalled.Install(automationDrafts)
-	if err != nil {
-		return nil, err
-	}
-	blobStore, err := blob.Open(
-		roots.Objects,
-		blob.Limits{MaxBlobBytes: 256 << 20, MaxTotalBytes: 4 << 30},
-		catalogFoundation.Objects(),
-	)
-	if err != nil {
-		return nil, err
-	}
-	scriptRuntime, err := scriptengine.NewRuntime(scriptengine.RuntimeOptions{
-		Executable:         filepath.Join(filepath.Dir(opt.executable), scriptengine.WorkerExecutableName),
-		ProcessMemoryBytes: scriptengine.DefaultMemoryBytes, JobMemoryBytes: scriptengine.DefaultMemoryBytes,
+	return localruntime.Open(context.Background(), localruntime.Config{
+		StorageRoot: opt.dataRoot,
+		Executable:  opt.executable,
+		RootLog:     logger,
+		AISecrets:   services.NewAISecrets(securestore.New()),
+		WorkflowLog: discardLog{},
+		Now:         time.Now,
 	})
-	if err != nil {
-		return nil, err
-	}
-	packages, _, err := nodepackage.OpenStoreIfPresent(context.Background(), filepath.Join(roots.Packages, "node"))
-	if err != nil {
-		return nil, err
-	}
-	applicationRuntime, err := appbootstrap.Build(appbootstrap.Config{
-		DataRoot: roots.Data, ProgramCacheRoot: filepath.Join(roots.Cache, "programs"),
-		WorkflowRepository: catalogFoundation.Workflows(),
-		RunRepository:      catalogFoundation.Runs(),
-		BlobStore:          blobStore,
-		Limits: appbootstrap.Limits{
-			MaxSources: 4096, MaxPrograms: 16384, MaxRuns: 65536, MaxResourcePayloadBytes: 4 << 20,
-			MaxProgramCacheBytes: 2 << 30,
-			BlobChunkBytes:       64 << 10, BlobQueueCapacity: 8, StreamCapacity: 16, StreamChunkBytes: 64 << 10,
-		},
-		AIInstallations: aiInstallations, HTTPInstallations: httpInstallations,
-		ApplicationInstallations: applicationInstallations, AutomationInstallations: automationInstallations,
-		ScriptRuntime: scriptRuntime, NodePackageStore: packages,
-		WasmRunnerExecutable: filepath.Join(filepath.Dir(opt.executable), wasmrunner.WorkerExecutableName),
-		LogEmitter:           discardLog{}, GrantTTL: 5 * time.Minute, OwnerCloseTimeout: 10 * time.Second, Now: time.Now,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &commandRuntime{
-		Runtime: applicationRuntime, profile: profile,
-		catalogFoundation: catalogFoundation, settingsApp: settingsApp,
-	}, nil
 }
 
 func compileResultView(result compiler.CompileResult) compileView {

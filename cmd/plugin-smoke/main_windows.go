@@ -13,13 +13,13 @@ import (
 
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/hostapi"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/nodepackage"
 	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/pluginfixture"
 	"github.com/yottaapp/yotta/internal/pluginhost"
 	"github.com/yottaapp/yotta/internal/wasmrunner"
-	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
 func main() {
@@ -123,7 +123,7 @@ func run() error {
 	return nil
 }
 
-func adapterFor(packages []nodepackage.RuntimePackage, adapters map[string]compiler.InstalledAdapter, kind nodecontract.ABIKind) (compiler.InstalledAdapter, error) {
+func adapterFor(packages []nodepackage.RuntimePackage, adapters map[string]nodeadapter.InstalledAdapter, kind nodecontract.ABIKind) (nodeadapter.InstalledAdapter, error) {
 	for _, runtimePackage := range packages {
 		for _, node := range runtimePackage.Nodes {
 			if node.Implementation.ABI.Kind == kind {
@@ -134,11 +134,11 @@ func adapterFor(packages []nodepackage.RuntimePackage, adapters map[string]compi
 			}
 		}
 	}
-	return compiler.InstalledAdapter{}, fmt.Errorf("%s fixture adapter is unavailable", kind)
+	return nodeadapter.InstalledAdapter{}, fmt.Errorf("%s fixture adapter is unavailable", kind)
 }
 
-func invocation(id string, inputs map[string]datatype.ValueEnvelope) compiler.Invocation {
-	return compiler.Invocation{
+func invocation(id string, inputs map[string]datatype.ValueEnvelope) nodeadapter.Invocation {
+	return nodeadapter.Invocation{
 		InvocationID: id, Attempt: 1, GraphID: "main", NodeID: id, Config: map[string]any{}, Inputs: inputs,
 		ObservedAt: time.Now().UTC(), ReadEntropy: func(buffer []byte) error { return nil },
 		Wait: func(ctx context.Context, duration time.Duration) error {
@@ -150,6 +150,6 @@ func invocation(id string, inputs map[string]datatype.ValueEnvelope) compiler.In
 			}
 		},
 		EmitStatus:   func(context.Context, string, map[string]int64) error { return nil },
-		RecordAction: func(context.Context, compiler.AdapterAction) error { return nil },
+		RecordAction: func(context.Context, nodeadapter.AdapterAction) error { return nil },
 	}
 }

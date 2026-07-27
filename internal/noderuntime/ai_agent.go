@@ -11,12 +11,12 @@ import (
 	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/runid"
-	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
-func aiAgent(builtins nodes.Builtins, now func() time.Time) compiler.Adapter {
+func aiAgent(builtins nodes.Builtins, now func() time.Time) nodeadapter.Adapter {
 	toolExecutor, toolErr := ai.NewToolExecutor(builtins.AIAgentToolSet, []ai.ToolBinding{{
 		Name: "text_length", Handler: func(_ context.Context, arguments json.RawMessage) (json.RawMessage, error) {
 			var input struct {
@@ -28,8 +28,8 @@ func aiAgent(builtins nodes.Builtins, now func() time.Time) compiler.Adapter {
 			return json.Marshal(map[string]int{"characters": utf8.RuneCountInString(input.Text)})
 		},
 	}})
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
-		action := compiler.AdapterAction{
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
+		action := nodeadapter.AdapterAction{
 			EffectID: nodes.AIAgentEffectID, Action: "ai.agent-terminal", SummaryCode: "ai.agent",
 			Counters: map[string]int64{}, Facts: map[string]string{},
 		}
@@ -41,45 +41,45 @@ func aiAgent(builtins nodes.Builtins, now func() time.Time) compiler.Adapter {
 			runErr = errors.Join(runErr, recordAdapterOutcome(context.WithoutCancel(ctx), invocation, action, agentFailureCode(runErr), runErr))
 		}()
 		if toolErr != nil || now == nil {
-			return compiler.AdapterResult{}, errors.New("AI agent runtime is unavailable")
+			return nodeadapter.AdapterResult{}, errors.New("AI agent runtime is unavailable")
 		}
 		prompt, blocks, err := agentPromptBlocks(invocation)
 		if err != nil {
-			return compiler.AdapterResult{}, err
+			return nodeadapter.AdapterResult{}, err
 		}
 		budget, maximum, err := agentBudget(invocation.Config)
 		if err != nil {
-			return compiler.AdapterResult{}, err
+			return nodeadapter.AdapterResult{}, err
 		}
 		started := now()
 		tracker, err = ai.NewBudgetTracker(budget, started)
 		if err != nil {
-			return compiler.AdapterResult{}, err
+			return nodeadapter.AdapterResult{}, err
 		}
 		rendered, err := ai.RenderPrompt(builtins.AIAgentPrompt, append([]ai.PromptBlock{{Kind: ai.PromptBlockUser, Content: prompt}}, blocks...))
 		if err != nil {
-			return compiler.AdapterResult{}, err
+			return nodeadapter.AdapterResult{}, err
 		}
 		resolvedTools, err := ai.ResolveToolSet(toolExecutor.ToolSet())
 		if err != nil {
-			return compiler.AdapterResult{}, err
+			return nodeadapter.AdapterResult{}, err
 		}
 		addFact(action.Facts, "prompt_manifest", builtins.AIAgentPrompt.Digest().String())
 		addFact(action.Facts, "tool_set", builtins.AIAgentToolSet.Digest().String())
 		session := invocation.Sessions["model"]
 		if session == nil {
-			return compiler.AdapterResult{}, errors.New("AI model capability session is missing")
+			return nodeadapter.AdapterResult{}, errors.New("AI model capability session is missing")
 		}
 		handle, err := session.Open(ctx, []string{ai.OperationAgentStart, ai.OperationAgentContinue}, []byte(`{}`))
 		if err != nil {
-			return compiler.AdapterResult{}, err
+			return nodeadapter.AdapterResult{}, err
 		}
 		defer func() { runErr = errors.Join(runErr, session.Drop(context.WithoutCancel(ctx), handle)) }()
 		runCtx, cancel := context.WithTimeout(ctx, time.Duration(budget.MaxWallTimeMillis)*time.Millisecond)
 		defer cancel()
 		attemptID, err := runid.New()
 		if err != nil {
-			return compiler.AdapterResult{}, err
+			return nodeadapter.AdapterResult{}, err
 		}
 		start := ai.AgentStartRequest{
 			AttemptID: attemptID, Prompt: rendered, ToolSet: resolvedTools,
@@ -89,73 +89,73 @@ func aiAgent(builtins nodes.Builtins, now func() time.Time) compiler.Adapter {
 		var request any = start
 		for {
 			if err := tracker.BeforeTurn(now()); err != nil {
-				return compiler.AdapterResult{}, agentFailure(err)
+				return nodeadapter.AdapterResult{}, agentFailure(err)
 			}
 			if invocation.EmitStatus != nil {
 				usage := tracker.Usage()
 				if err := invocation.EmitStatus(runCtx, "ai.agent_turn", map[string]int64{"iteration": int64(usage.Iterations)}); err != nil {
-					return compiler.AdapterResult{}, err
+					return nodeadapter.AdapterResult{}, err
 				}
 			}
 			payload, err := artifact.Marshal(request)
 			if err != nil {
-				return compiler.AdapterResult{}, err
+				return nodeadapter.AdapterResult{}, err
 			}
 			raw, err := session.Invoke(runCtx, handle, operation, payload)
 			if err != nil {
 				if errors.Is(err, context.DeadlineExceeded) {
-					return compiler.AdapterResult{}, agentFailure(err)
+					return nodeadapter.AdapterResult{}, agentFailure(err)
 				}
-				return compiler.AdapterResult{}, err
+				return nodeadapter.AdapterResult{}, err
 			}
 			outcome, err := ai.OpenOutcome(raw)
 			if err != nil {
-				return compiler.AdapterResult{}, err
+				return nodeadapter.AdapterResult{}, err
 			}
 			calls, err := agentToolCalls(outcome)
 			if err != nil {
-				return compiler.AdapterResult{}, err
+				return nodeadapter.AdapterResult{}, err
 			}
 			if err := tracker.ConsumeTurn(now(), outcome, len(calls)); err != nil {
-				return compiler.AdapterResult{}, agentFailure(err)
+				return nodeadapter.AdapterResult{}, agentFailure(err)
 			}
 			addAgentOutcomeSummary(&action, outcome)
 			switch outcome.Finish.Kind {
 			case ai.FinishCompleted:
 				result, err := agentTextResult(outcome)
 				if err != nil {
-					return compiler.AdapterResult{}, err
+					return nodeadapter.AdapterResult{}, err
 				}
 				resolved := invocation.OutputTypes["result"]
 				envelope, err := datatype.SealInlineJSON(builtins.Catalog, resolved, result)
 				if err != nil {
-					return compiler.AdapterResult{}, err
+					return nodeadapter.AdapterResult{}, err
 				}
-				return compiler.AdapterResult{Outputs: map[string]datatype.ValueEnvelope{"result": envelope}, ExecOutputs: []string{"completed"}}, nil
+				return nodeadapter.AdapterResult{Outputs: map[string]datatype.ValueEnvelope{"result": envelope}, ExecOutputs: []string{"completed"}}, nil
 			case ai.FinishToolCalls:
 				results, err := toolExecutor.Execute(runCtx, calls, budget.MaxParallelism)
 				if err != nil {
-					return compiler.AdapterResult{}, agentFailure(err)
+					return nodeadapter.AdapterResult{}, agentFailure(err)
 				}
 				if invocation.EmitStatus != nil {
 					if err := invocation.EmitStatus(runCtx, "ai.agent_tool_calls", map[string]int64{"calls": int64(len(results))}); err != nil {
-						return compiler.AdapterResult{}, err
+						return nodeadapter.AdapterResult{}, err
 					}
 				}
 				turnID, err := runid.New()
 				if err != nil {
-					return compiler.AdapterResult{}, err
+					return nodeadapter.AdapterResult{}, err
 				}
 				request = ai.AgentContinueRequest{AttemptID: turnID, Results: results}
 				operation = ai.OperationAgentContinue
 			default:
-				return compiler.AdapterResult{}, &compiler.NodeFailure{Code: "ai.generation_failed", Output: "failed", Cause: fmt.Errorf("AI agent finished as %s", outcome.Finish.Kind)}
+				return nodeadapter.AdapterResult{}, &nodeadapter.NodeFailure{Code: "ai.generation_failed", Output: "failed", Cause: fmt.Errorf("AI agent finished as %s", outcome.Finish.Kind)}
 			}
 		}
 	}
 }
 
-func agentPromptBlocks(invocation compiler.Invocation) (string, []ai.PromptBlock, error) {
+func agentPromptBlocks(invocation nodeadapter.Invocation) (string, []ai.PromptBlock, error) {
 	promptEnvelope, ok := invocation.Inputs["prompt"]
 	if !ok {
 		return "", nil, errors.New("AI agent prompt input is missing")
@@ -251,7 +251,7 @@ func agentTextResult(outcome ai.Outcome) (json.RawMessage, error) {
 }
 
 func agentFailure(err error) error {
-	return &compiler.NodeFailure{Code: agentFailureCode(err), Output: "failed", Cause: err}
+	return &nodeadapter.NodeFailure{Code: agentFailureCode(err), Output: "failed", Cause: err}
 }
 
 func agentFailureCode(err error) string {
@@ -269,7 +269,7 @@ func agentFailureCode(err error) string {
 	}
 }
 
-func addAgentOutcomeSummary(action *compiler.AdapterAction, outcome ai.Outcome) {
+func addAgentOutcomeSummary(action *nodeadapter.AdapterAction, outcome ai.Outcome) {
 	addFact(action.Facts, "provider", string(outcome.Provider))
 	addFact(action.Facts, "requested_model", outcome.RequestedModel)
 	addFact(action.Facts, "resolved_model", outcome.ResolvedModel)
@@ -287,7 +287,7 @@ func addAgentOutcomeSummary(action *compiler.AdapterAction, outcome ai.Outcome) 
 	}
 }
 
-func addAgentBudgetSummary(action *compiler.AdapterAction, usage ai.BudgetUsage) {
+func addAgentBudgetSummary(action *nodeadapter.AdapterAction, usage ai.BudgetUsage) {
 	action.Counters["budget_input_tokens"] = usage.InputTokens
 	action.Counters["budget_output_tokens"] = usage.OutputTokens
 	action.Counters["budget_cost_microunits"] = usage.CostMicrounits

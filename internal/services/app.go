@@ -66,16 +66,6 @@ const (
 	presentationClosed
 )
 
-// NewApp is the test/embedding convenience constructor. Production composition
-// uses OpenConfiguredApp so settings recovery failures remain explicit.
-func NewApp(settingsPath string, sink *LogSink, rootLog zerolog.Logger) *App {
-	app, err := OpenApp(settingsPath, "", sink, rootLog)
-	if err != nil {
-		panic(fmt.Sprintf("open settings-backed app: %v", err))
-	}
-	return app
-}
-
 func OpenApp(settingsPath, defaultLogsDir string, sink *LogSink, rootLog zerolog.Logger) (*App, error) {
 	store, settings, err := OpenSettingsStore(settingsPath)
 	if err != nil {
@@ -95,8 +85,8 @@ func OpenApp(settingsPath, defaultLogsDir string, sink *LogSink, rootLog zerolog
 }
 
 // OpenConfiguredApp constructs the production owner and immediately applies
-// persisted file-output policy. Tests and embedding hosts can keep using
-// NewApp when they own an already-configured sink.
+// persisted file-output policy. Call OpenApp when the caller owns an
+// already-configured sink.
 func OpenConfiguredApp(settingsPath, defaultLogsDir string, sink *LogSink, rootLog zerolog.Logger) (*App, error) {
 	app, err := OpenApp(settingsPath, defaultLogsDir, sink, rootLog)
 	if err != nil {
@@ -217,15 +207,8 @@ func (a *App) UpdateWindowSize(w, h int) {
 	}
 }
 
-// LogSink 暴露给跨包构造 zerolog MultiWriter 时用。
-func (a *App) GetLogSink() *LogSink { return a.logSink }
-
 // RootLogger 暴露给 service 使用 app 级别 logger（默认仅写 LogSink）。
 func (a *App) RootLogger() zerolog.Logger { return a.rootLog }
-
-// Shutdown is the presentation/log finalization fallback. Application-wide
-// worker/server/daemon ownership and ordering live in appruntime.Runtime.
-func (a *App) Shutdown() { _ = a.ShutdownContext(context.Background()) }
 
 // ShutdownContext detaches presentation synchronously, then finalizes log
 // resources once. A caller may stop waiting while cleanup continues.

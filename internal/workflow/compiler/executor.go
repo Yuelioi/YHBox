@@ -15,96 +15,16 @@ import (
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/resource"
 	run "github.com/yottaapp/yotta/internal/run"
-	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
-type Adapter func(context.Context, Invocation) (AdapterResult, error)
-
-type AdapterResult struct {
-	Outputs     map[string]datatype.ValueEnvelope
-	ExecOutputs []string
-}
-
-type NodeFailure struct {
-	Code   string
-	Output string
-	Cause  error
-}
-
-func (f *NodeFailure) Error() string {
-	if f == nil {
-		return "node failure"
-	}
-	if f.Cause != nil {
-		return f.Cause.Error()
-	}
-	return f.Code
-}
-
-func (f *NodeFailure) Unwrap() error {
-	if f == nil {
-		return nil
-	}
-	return f.Cause
-}
-
-type RoutedFailure struct {
-	Code         string
-	Category     string
-	RetryHint    bool
-	SourceNodeID string
-	SourcePortID string
-	Attempt      int
-}
-
-type SignalTrigger struct {
-	Channel   schema.EdgeChannel
-	InputPort string
-	From      schema.Endpoint
-	Failure   *RoutedFailure
-}
-
-type InstalledAdapter struct {
-	Implementation nodecatalog.ImplementationLock
-	Run            Adapter
-}
-
-type Invocation struct {
-	InvocationID string
-	Attempt      int
-	GraphID      string
-	NodeID       string
-	Config       map[string]any
-	Inputs       map[string]datatype.ValueEnvelope
-	InputTypes   map[string]datatype.ResolvedType
-	OutputTypes  map[string]datatype.ResolvedType
-	Sessions     map[string]*run.Session
-	State        map[string]StateBinding
-	Trigger      *SignalTrigger
-	ObservedAt   time.Time
-	MonotonicNow func() time.Time
-	ReadEntropy  func([]byte) error
-	Wait         func(context.Context, time.Duration) error
-	Spawn        func(func(context.Context) error) error
-	RecordAction func(context.Context, AdapterAction) error
-	EmitStatus   func(context.Context, string, map[string]int64) error
-}
-
-type AdapterAction struct {
-	EffectID    string
-	Action      string
-	Outcome     run.ActionOutcome
-	ErrorCode   string
-	SummaryCode string
-	Counters    map[string]int64
-	Facts       map[string]string
-}
-
 var errAdapterActionFailed = errors.New("adapter recorded a failed action")
+
+const MaxRunRetainedValueBytes = 16 << 20
 
 type ExecutionResult struct {
 	// NodeOutputs contains only durable envelopes. Runtime authority remains an
@@ -115,7 +35,7 @@ type ExecutionResult struct {
 
 type Executor struct {
 	catalog      nodecatalog.Snapshot
-	adapters     map[string]InstalledAdapter
+	adapters     map[string]nodeadapter.InstalledAdapter
 	now          func() time.Time
 	monotonicNow func() time.Time
 	wait         func(context.Context, time.Duration) error
@@ -135,8 +55,8 @@ type ownedLease struct {
 	handle  resource.Handle
 }
 
-func NewExecutor(catalog nodecatalog.Snapshot, adapters map[string]InstalledAdapter, options ExecutorOptions) *Executor {
-	installed := make(map[string]InstalledAdapter, len(adapters))
+func NewExecutor(catalog nodecatalog.Snapshot, adapters map[string]nodeadapter.InstalledAdapter, options ExecutorOptions) *Executor {
+	installed := make(map[string]nodeadapter.InstalledAdapter, len(adapters))
 	for entrypoint, adapter := range adapters {
 		installed[entrypoint] = adapter
 	}
@@ -359,7 +279,7 @@ func newAdapterActionRecorder(executor *Executor, journal *run.JournalWriter, gr
 	}
 }
 
-func (r *adapterActionRecorder) Record(ctx context.Context, action AdapterAction) error {
+func (r *adapterActionRecorder) Record(ctx context.Context, action nodeadapter.AdapterAction) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	reject := func(err error) error {

@@ -540,6 +540,7 @@ func currentPlan() Plan {
 }
 
 func writeJournal(migrationDir string, journal Journal) error {
+	journal.Version = DocumentVersion
 	return writeJSON(filepath.Join(migrationDir, journalFilename), journal)
 }
 

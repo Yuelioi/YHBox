@@ -13,8 +13,6 @@ import (
 	"github.com/yottaapp/yotta/internal/nodecontract"
 )
 
-const MaxRunRetainedValueBytes = 16 << 20
-
 type Builtin func(context.Context, map[string]json.RawMessage) (map[string]json.RawMessage, error)
 
 type InstalledBuiltin struct {

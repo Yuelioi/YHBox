@@ -14,6 +14,7 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/capability"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/nodes"
@@ -156,7 +157,7 @@ func TestExecutorClosesSuccessfulAttemptWhenCallerCancelsAsAdapterReturns(t *tes
 	original := adapters[entry.Implementation.Entrypoint]
 	runCtx, cancel := context.WithCancel(context.Background())
 	originalRun := original.Run
-	original.Run = func(ctx context.Context, invocation compiler.Invocation) (compiler.AdapterResult, error) {
+	original.Run = func(ctx context.Context, invocation nodeadapter.Invocation) (nodeadapter.AdapterResult, error) {
 		outputs, err := originalRun(ctx, invocation)
 		cancel()
 		return outputs, err
@@ -321,49 +322,49 @@ func TestExecutorFailsClosedWhenEffectAdapterJournalIsMissingOrCancelled(t *test
 	original := installed[entry.Implementation.Entrypoint].Run
 	tests := []struct {
 		name       string
-		adapter    compiler.Adapter
+		adapter    nodeadapter.Adapter
 		wantStatus run.Status
 		wantError  error
 		wantText   string
 	}{
-		{name: "missing action", adapter: func(context.Context, compiler.Invocation) (compiler.AdapterResult, error) {
-			return compiler.AdapterResult{}, errors.New("adapter omitted its action")
+		{name: "missing action", adapter: func(context.Context, nodeadapter.Invocation) (nodeadapter.AdapterResult, error) {
+			return nodeadapter.AdapterResult{}, errors.New("adapter omitted its action")
 		}, wantStatus: run.StatusFailed},
-		{name: "cancelled action", adapter: func(ctx context.Context, invocation compiler.Invocation) (compiler.AdapterResult, error) {
-			err := invocation.RecordAction(context.WithoutCancel(ctx), compiler.AdapterAction{
+		{name: "cancelled action", adapter: func(ctx context.Context, invocation nodeadapter.Invocation) (nodeadapter.AdapterResult, error) {
+			err := invocation.RecordAction(context.WithoutCancel(ctx), nodeadapter.AdapterAction{
 				EffectID: nodes.BlobToStreamEffectID, Action: "conversion.test-action", Outcome: run.ActionCancelled,
 				SummaryCode: "conversion.test",
 			})
-			return compiler.AdapterResult{}, errors.Join(context.Canceled, err)
+			return nodeadapter.AdapterResult{}, errors.Join(context.Canceled, err)
 		}, wantStatus: run.StatusCancelled, wantError: context.Canceled},
-		{name: "duplicate action", adapter: func(ctx context.Context, invocation compiler.Invocation) (compiler.AdapterResult, error) {
+		{name: "duplicate action", adapter: func(ctx context.Context, invocation nodeadapter.Invocation) (nodeadapter.AdapterResult, error) {
 			outputs, err := original(ctx, invocation)
 			if err != nil {
-				return compiler.AdapterResult{}, err
+				return nodeadapter.AdapterResult{}, err
 			}
-			_ = invocation.RecordAction(context.WithoutCancel(ctx), compiler.AdapterAction{
+			_ = invocation.RecordAction(context.WithoutCancel(ctx), nodeadapter.AdapterAction{
 				EffectID: nodes.BlobToStreamEffectID, Action: "conversion.duplicate", Outcome: run.ActionSucceeded,
 				SummaryCode: "conversion.test",
 			})
 			return outputs, nil
 		}, wantStatus: run.StatusFailed, wantText: "more than once"},
-		{name: "failed action with successful return", adapter: func(ctx context.Context, invocation compiler.Invocation) (compiler.AdapterResult, error) {
-			err := invocation.RecordAction(context.WithoutCancel(ctx), compiler.AdapterAction{
+		{name: "failed action with successful return", adapter: func(ctx context.Context, invocation nodeadapter.Invocation) (nodeadapter.AdapterResult, error) {
+			err := invocation.RecordAction(context.WithoutCancel(ctx), nodeadapter.AdapterAction{
 				EffectID: nodes.BlobToStreamEffectID, Action: "conversion.failed", Outcome: run.ActionFailed,
 				ErrorCode: "conversion.blob_to_stream_failed", SummaryCode: "conversion.test",
 			})
-			return compiler.AdapterResult{}, err
+			return nodeadapter.AdapterResult{}, err
 		}, wantStatus: run.StatusFailed},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			grant, owner, journal := admittedExecution(t, builtins, program, providers, now)
 			t.Cleanup(func() { _ = owner.Close(context.Background()) })
-			adapters := make(map[string]compiler.InstalledAdapter, len(installed))
+			adapters := make(map[string]nodeadapter.InstalledAdapter, len(installed))
 			for id, adapter := range installed {
 				adapters[id] = adapter
 			}
-			adapters[entry.Implementation.Entrypoint] = compiler.InstalledAdapter{Implementation: entry.Implementation, Run: test.adapter}
+			adapters[entry.Implementation.Entrypoint] = nodeadapter.InstalledAdapter{Implementation: entry.Implementation, Run: test.adapter}
 			executor := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now.Add(2 * time.Second) }})
 			_, runErr := executor.Run(ctx, program, owner, journal)
 			if runErr == nil || test.wantError != nil && !errors.Is(runErr, test.wantError) || test.wantText != "" && !strings.Contains(runErr.Error(), test.wantText) {

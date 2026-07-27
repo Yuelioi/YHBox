@@ -15,7 +15,6 @@ function context(overrides: Partial<EditorToolbarContext> = {}): EditorToolbarCo
     inspectorOpen: true,
     runActive: false,
     saving: false,
-    compileSucceeded: false,
     saveSucceeded: false,
     diagnosticCount: 0,
     diagnosticsOpen: false,
@@ -43,7 +42,7 @@ describe('editor toolbar command hierarchy', () => {
       'toggle-inspector',
       'toggle-state',
       'toggle-ai',
-      'compile',
+      'check-workflow',
       'start-debug',
       'settings',
       'reload',
@@ -75,7 +74,7 @@ describe('editor toolbar command hierarchy', () => {
     const execution = model.tools[1] ?? []
 
     expect(commands(execution)).toEqual([
-      'compile',
+      'check-workflow',
       'toggle-diagnostics',
       'toggle-timeline',
       'start-debug',

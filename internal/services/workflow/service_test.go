@@ -31,7 +31,7 @@ import (
 
 func TestServiceQueriesOneThousandSourcesWithBoundedPages(t *testing.T) {
 	runtime := workflowRuntime(t, time.Date(2026, 7, 18, 13, 0, 0, 0, time.UTC), 1_000)
-	if err := runtime.Start(context.Background()); err != nil {
+	if err := runtime.Application.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
@@ -107,7 +107,7 @@ func TestServiceQueriesOneThousandSourcesWithBoundedPages(t *testing.T) {
 func TestServiceProjectsProductionWorkflowLifecycle(t *testing.T) {
 	now := time.Date(2026, 7, 17, 3, 0, 0, 0, time.UTC)
 	runtime := workflowRuntime(t, now)
-	if err := runtime.Start(context.Background()); err != nil {
+	if err := runtime.Application.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
@@ -162,6 +162,14 @@ func TestServiceProjectsProductionWorkflowLifecycle(t *testing.T) {
 	if err != nil || !compiled.ProgramHash.Valid() || len(compiled.Diagnostics) != 0 {
 		t.Fatalf("CompileSource() = %#v, %v", compiled, err)
 	}
+	current, err := service.GetSource(created.WorkflowID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checked, err := service.CheckDraft(current.SourceJSON)
+	if err != nil || checked.SourceHash != compiled.SourceHash || checked.ProgramHash != compiled.ProgramHash {
+		t.Fatalf("CheckDraft() = %#v, %v", checked, err)
+	}
 	preview, err := service.PreviewRun(created.WorkflowID)
 	if err != nil || preview.ProgramHash != compiled.ProgramHash {
 		t.Fatalf("PreviewRun() = %#v, %v", preview, err)
@@ -198,7 +206,7 @@ func TestServiceProjectsProductionWorkflowLifecycle(t *testing.T) {
 func TestServicePersistsCompilesAndPhysicallyDeletesSubgraphLifecycle(t *testing.T) {
 	now := time.Date(2026, 7, 24, 13, 0, 0, 0, time.UTC)
 	runtime := workflowRuntime(t, now)
-	if err := runtime.Start(context.Background()); err != nil {
+	if err := runtime.Application.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
@@ -312,7 +320,7 @@ func TestServicePersistsCompilesAndPhysicallyDeletesSubgraphLifecycle(t *testing
 func TestServicePersistsAndCompilesEveryRunStateType(t *testing.T) {
 	now := time.Date(2026, 7, 24, 15, 0, 0, 0, time.UTC)
 	runtime := workflowRuntime(t, now)
-	if err := runtime.Start(context.Background()); err != nil {
+	if err := runtime.Application.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
@@ -394,7 +402,7 @@ func parseServiceSource(t *testing.T, service *workflow.Service, workflowID stri
 
 func TestServiceExposesWorkflowSourcePortabilityWithoutMachineInstallations(t *testing.T) {
 	runtime := workflowRuntime(t, time.Date(2026, 7, 17, 3, 30, 0, 0, time.UTC))
-	if err := runtime.Start(context.Background()); err != nil {
+	if err := runtime.Application.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
@@ -448,7 +456,7 @@ func TestServiceRejectsMissingOrUntrustedApplication(t *testing.T) {
 
 func TestServiceQueriesAndDeletesSourcesWithCASAndReferenceBlocking(t *testing.T) {
 	runtime := workflowRuntime(t, time.Date(2026, 7, 17, 4, 0, 0, 0, time.UTC))
-	if err := runtime.Start(context.Background()); err != nil {
+	if err := runtime.Application.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {

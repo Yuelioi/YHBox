@@ -92,7 +92,7 @@ func TestAutomationInputUsesInstalledTargetAndRedactsJournal(t *testing.T) {
 		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"},
 		Capabilities: []admission.ProviderCapability{{Capability: capabilityDefinition.Ref(), ResourceKind: automationinstalled.KindInput}},
 	})
-	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKind, ProviderID: providerID})
+	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKindDesktopWindow, ProviderID: providerID})
 	profileDraft.TargetSlots = append(profileDraft.TargetSlots, admission.TargetSlotBinding{Slot: slot, TargetID: targetID})
 	program := compilePrimitiveProgram(t, builtins, automationInputSource(t, builtins, slot))
 	now := time.Date(2026, 7, 16, 19, 0, 0, 0, time.UTC)
@@ -152,7 +152,7 @@ func TestHeldInputLeaseCrossesNodesAndIsClosedByRun(t *testing.T) {
 		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"},
 		Capabilities: []admission.ProviderCapability{{Capability: capabilityDefinition.Ref(), ResourceKind: automationinstalled.KindHeldInput}},
 	})
-	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKind, ProviderID: providerID})
+	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKindDesktopWindow, ProviderID: providerID})
 	profileDraft.TargetSlots = append(profileDraft.TargetSlots, admission.TargetSlotBinding{Slot: slot, TargetID: targetID})
 	program := compilePrimitiveProgram(t, builtins, heldInputSource(t, builtins, slot))
 	now := time.Date(2026, 7, 18, 22, 0, 0, 0, time.UTC)

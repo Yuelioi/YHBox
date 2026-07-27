@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/nodes"
 	run "github.com/yottaapp/yotta/internal/run"
@@ -49,7 +50,7 @@ func TestTypedSwitchAndExplicitStopwatchUseTypedDataflow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	adapter := func(nodeTypeID string) compiler.Adapter {
+	adapter := func(nodeTypeID string) nodeadapter.Adapter {
 		definition, ok := builtins.Definition(nodeTypeID)
 		if !ok {
 			t.Fatalf("definition %s is missing", nodeTypeID)
@@ -63,13 +64,13 @@ func TestTypedSwitchAndExplicitStopwatchUseTypedDataflow(t *testing.T) {
 	}
 	alpha, _ := datatype.SealInlineJSON(builtins.Catalog, stringType, []byte(`"alpha"`))
 	beta, _ := datatype.SealInlineJSON(builtins.Catalog, stringType, []byte(`"beta"`))
-	switched, err := adapter(nodes.SwitchNodeID)(context.Background(), compiler.Invocation{Inputs: map[string]datatype.ValueEnvelope{
+	switched, err := adapter(nodes.SwitchNodeID)(context.Background(), nodeadapter.Invocation{Inputs: map[string]datatype.ValueEnvelope{
 		"value": value, "case-1": alpha, "case-2": beta,
 	}})
 	if err != nil || len(switched.ExecOutputs) != 1 || switched.ExecOutputs[0] != "case-2" {
 		t.Fatalf("switch=%#v err=%v", switched, err)
 	}
-	outside, err := adapter(nodes.SwitchNodeID)(context.Background(), compiler.Invocation{
+	outside, err := adapter(nodes.SwitchNodeID)(context.Background(), nodeadapter.Invocation{
 		Config: map[string]any{"caseCount": 1},
 		Inputs: map[string]datatype.ValueEnvelope{"value": value, "case-2": beta},
 	})
@@ -78,15 +79,15 @@ func TestTypedSwitchAndExplicitStopwatchUseTypedDataflow(t *testing.T) {
 	}
 
 	integerType := datatype.RefResolvedType(builtins.IntegerType.TypeRef())
-	record := func(context.Context, compiler.AdapterAction) error { return nil }
+	record := func(context.Context, nodeadapter.AdapterAction) error { return nil }
 	startedAt := time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC)
-	started, err := adapter(nodes.StopwatchStartNodeID)(context.Background(), compiler.Invocation{
+	started, err := adapter(nodes.StopwatchStartNodeID)(context.Background(), nodeadapter.Invocation{
 		ObservedAt: startedAt, OutputTypes: map[string]datatype.ResolvedType{"started-at": integerType}, RecordAction: record,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	read, err := adapter(nodes.StopwatchReadNodeID)(context.Background(), compiler.Invocation{
+	read, err := adapter(nodes.StopwatchReadNodeID)(context.Background(), nodeadapter.Invocation{
 		ObservedAt: startedAt.Add(125 * time.Millisecond), Inputs: map[string]datatype.ValueEnvelope{"started-at": started.Outputs["started-at"]},
 		OutputTypes: map[string]datatype.ResolvedType{"elapsed": integerType}, RecordAction: record,
 	})
@@ -187,12 +188,12 @@ func TestDelayRecordsCooperativeCancellation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var recorded compiler.AdapterAction
-	_, runErr := adapter(context.Background(), compiler.Invocation{
+	var recorded nodeadapter.AdapterAction
+	_, runErr := adapter(context.Background(), nodeadapter.Invocation{
 		Inputs:     map[string]datatype.ValueEnvelope{"duration-milliseconds": duration},
 		Wait:       func(context.Context, time.Duration) error { return context.Canceled },
 		EmitStatus: func(context.Context, string, map[string]int64) error { return nil },
-		RecordAction: func(_ context.Context, action compiler.AdapterAction) error {
+		RecordAction: func(_ context.Context, action nodeadapter.AdapterAction) error {
 			recorded = action
 			return nil
 		},

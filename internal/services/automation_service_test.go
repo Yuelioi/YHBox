@@ -44,7 +44,7 @@ func TestConfiguredAutomationTargetIsImmediatelyUsableAndEditable(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	app := newTestApp(t, filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
 	application := InstalledApplicationSettings{
 		Slot: "editor", Label: "Editor", Executable: inspection.Executable, ExecutableDigest: inspection.Digest,
 		Arguments: []string{"--fixed-launch-argument"},
@@ -112,7 +112,7 @@ func TestAutomationTargetTypesExposeSemanticKindAndNativeAdapter(t *testing.T) {
 }
 
 func TestBrowserAutomationTargetInstallsWithoutDesktopApplication(t *testing.T) {
-	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	app := newTestApp(t, filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
 	target := InstalledAutomationTargetSettings{
 		Slot: "browser", Label: "Browser page", TargetKind: automationinstalled.TargetKindBrowserCDP, AdapterKind: automationinstalled.AdapterKindBrowserCDP,
 		ProfileVersion: automationinstalled.ProfileVersionV1,
@@ -140,7 +140,7 @@ func TestBrowserAutomationTargetInstallsWithoutDesktopApplication(t *testing.T) 
 }
 
 func TestAndroidAutomationTargetInstallsWithoutDesktopApplication(t *testing.T) {
-	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	app := newTestApp(t, filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
 	target := InstalledAutomationTargetSettings{
 		Slot: "android", Label: "Android emulator", TargetKind: automationinstalled.TargetKindAndroidDevice, AdapterKind: automationinstalled.AdapterKindAndroidADB,
 		ProfileVersion: automationinstalled.ProfileVersionV1,

@@ -10,6 +10,7 @@ import (
 	"github.com/yottaapp/yotta/internal/admission"
 	"github.com/yottaapp/yotta/internal/artifact"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/resource"
@@ -72,7 +73,7 @@ func TestActivateWindowUsesDedicatedInstalledAuthorityAndJournal(t *testing.T) {
 func TestActivateWindowFailureIsNotReportedAsCompleted(t *testing.T) {
 	provider := &automationWindowProvider{err: &automationinstalled.Failure{Code: automationinstalled.CodeWindowFailed, Cause: errors.New("focus denied")}}
 	journal, err := executeWindowActivation(t, provider)
-	var failure *compiler.NodeFailure
+	var failure *nodeadapter.NodeFailure
 	if !errors.As(err, &failure) || failure.Code != automationinstalled.CodeWindowFailed || failure.Output != "failed" {
 		t.Fatalf("error=%v", err)
 	}
@@ -104,7 +105,7 @@ func executeWindowActivation(t *testing.T, provider *automationWindowProvider) (
 		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"},
 		Capabilities: []admission.ProviderCapability{{Capability: capabilityDefinition.Ref(), ResourceKind: automationinstalled.KindWindow}},
 	})
-	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKind, ProviderID: providerID})
+	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKindDesktopWindow, ProviderID: providerID})
 	profileDraft.TargetSlots = append(profileDraft.TargetSlots, admission.TargetSlotBinding{Slot: slot, TargetID: targetID})
 	program := compilePrimitiveProgram(t, builtins, automationWindowSource(t, builtins, slot))
 	now := time.Date(2026, 7, 16, 20, 0, 0, 0, time.UTC)

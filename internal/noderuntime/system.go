@@ -8,8 +8,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodes"
-	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
 type LogEntry struct {
@@ -31,9 +31,9 @@ func (f LogEmitterFunc) EmitWorkflowLog(ctx context.Context, entry LogEntry) err
 	return f(ctx, entry)
 }
 
-func writeLog(emitter LogEmitter) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
-		action := compiler.AdapterAction{
+func writeLog(emitter LogEmitter) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
+		action := nodeadapter.AdapterAction{
 			EffectID: nodes.LogWriteEffectID, Action: "observability.log-written", SummaryCode: "observability.log",
 			Counters: map[string]int64{}, Facts: map[string]string{},
 		}
@@ -48,7 +48,7 @@ func writeLog(emitter LogEmitter) compiler.Adapter {
 			}
 		}
 		if utf8.RuneCountInString(message) > nodes.MaxObservabilityMessageRunes {
-			return compiler.AdapterResult{}, logFailure(nodes.LogContractError, errors.New("log message is invalid"))
+			return nodeadapter.AdapterResult{}, logFailure(nodes.LogContractError, errors.New("log message is invalid"))
 		}
 		level := "info"
 		if configured, ok := invocation.Config["level"].(string); ok && configured != "" {
@@ -57,11 +57,11 @@ func writeLog(emitter LogEmitter) compiler.Adapter {
 		switch level {
 		case "debug", "info", "warn", "error":
 		default:
-			return compiler.AdapterResult{}, logFailure(nodes.LogContractError, fmt.Errorf("log level %q is invalid", level))
+			return nodeadapter.AdapterResult{}, logFailure(nodes.LogContractError, fmt.Errorf("log level %q is invalid", level))
 		}
 		digest, err := artifact.Sum("yotta/workflow-log-message/v1", []byte(message))
 		if err != nil {
-			return compiler.AdapterResult{}, logFailure(nodes.LogContractError, err)
+			return nodeadapter.AdapterResult{}, logFailure(nodes.LogContractError, err)
 		}
 		action.Counters["message_bytes"] = int64(len(message))
 		action.Facts["level"] = level
@@ -71,31 +71,31 @@ func writeLog(emitter LogEmitter) compiler.Adapter {
 			InvocationID: invocation.InvocationID, Attempt: invocation.Attempt,
 		}); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return compiler.AdapterResult{}, err
+				return nodeadapter.AdapterResult{}, err
 			}
-			return compiler.AdapterResult{}, logFailure(nodes.LogWriteFailed, err)
+			return nodeadapter.AdapterResult{}, logFailure(nodes.LogWriteFailed, err)
 		}
-		return compiler.AdapterResult{ExecOutputs: []string{"completed"}}, nil
+		return nodeadapter.AdapterResult{ExecOutputs: []string{"completed"}}, nil
 	}
 }
 
-func throwFailure() compiler.Adapter {
-	return func(_ context.Context, invocation compiler.Invocation) (compiler.AdapterResult, error) {
+func throwFailure() nodeadapter.Adapter {
+	return func(_ context.Context, invocation nodeadapter.Invocation) (nodeadapter.AdapterResult, error) {
 		envelope, ok := invocation.Inputs["message"]
 		if !ok || len(envelope.InlineJSON()) == 0 {
-			return compiler.AdapterResult{}, &compiler.NodeFailure{Code: nodes.ControlThrown, Cause: errors.New("workflow explicitly failed")}
+			return nodeadapter.AdapterResult{}, &nodeadapter.NodeFailure{Code: nodes.ControlThrown, Cause: errors.New("workflow explicitly failed")}
 		}
 		var message string
 		if err := json.Unmarshal(envelope.InlineJSON(), &message); err != nil {
-			return compiler.AdapterResult{}, &compiler.NodeFailure{Code: nodes.ControlThrown, Cause: errors.New("workflow explicitly failed")}
+			return nodeadapter.AdapterResult{}, &nodeadapter.NodeFailure{Code: nodes.ControlThrown, Cause: errors.New("workflow explicitly failed")}
 		}
 		if message == "" {
 			message = "workflow explicitly failed"
 		}
-		return compiler.AdapterResult{}, &compiler.NodeFailure{Code: nodes.ControlThrown, Cause: errors.New(message)}
+		return nodeadapter.AdapterResult{}, &nodeadapter.NodeFailure{Code: nodes.ControlThrown, Cause: errors.New(message)}
 	}
 }
 
 func logFailure(code string, cause error) error {
-	return &compiler.NodeFailure{Code: code, Output: "failed", Cause: cause}
+	return &nodeadapter.NodeFailure{Code: code, Output: "failed", Cause: cause}
 }

@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodepackage"
 	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/pluginfixture"
-	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
 func TestInstalledPackageFixturesProjectBothHostsAndRevokeExistingAdapters(t *testing.T) {
@@ -68,10 +68,10 @@ func TestInstalledPackageFixturesProjectBothHostsAndRevokeExistingAdapters(t *te
 	assertAdaptersRevoked(t, wasmAdapters)
 }
 
-func assertAdaptersRevoked(t *testing.T, adapters map[string]compiler.InstalledAdapter) {
+func assertAdaptersRevoked(t *testing.T, adapters map[string]nodeadapter.InstalledAdapter) {
 	t.Helper()
 	for _, adapter := range adapters {
-		_, err := adapter.Run(context.Background(), compiler.Invocation{
+		_, err := adapter.Run(context.Background(), nodeadapter.Invocation{
 			InvocationID: "invocation-1", Attempt: 1, GraphID: "main", NodeID: "plugin", Config: map[string]any{},
 			Inputs: map[string]datatype.ValueEnvelope{}, ObservedAt: time.Now().UTC(),
 		})

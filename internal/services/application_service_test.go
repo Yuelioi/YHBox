@@ -10,12 +10,12 @@ import (
 )
 
 func TestConfiguredApplicationIsImmediatelyUsableAndEditable(t *testing.T) {
+	app := newTestApp(t, filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
 	path := filepath.Join(t.TempDir(), "AfterFX.exe")
 	if err := os.WriteFile(path, []byte("after-effects-v1"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
-	service := NewApplicationService(app)
+	service := NewApplicationService()
 	inspection, err := service.InspectExecutable(path)
 	if err != nil {
 		t.Fatal(err)
@@ -50,7 +50,7 @@ func TestSettingsRejectInstallationSlotCollisionWithApplication(t *testing.T) {
 	if err := os.WriteFile(path, []byte("tool"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	service := NewApplicationService(NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop()))
+	service := NewApplicationService()
 	inspection, err := service.InspectExecutable(path)
 	if err != nil {
 		t.Fatal(err)

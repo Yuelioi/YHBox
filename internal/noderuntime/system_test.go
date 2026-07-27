@@ -8,10 +8,10 @@ import (
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/nodes"
 	run "github.com/yottaapp/yotta/internal/run"
-	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
 func TestLogAdapterEmitsAttributedMessageAndJournalsOnlyDigest(t *testing.T) {
@@ -37,11 +37,11 @@ func TestLogAdapterEmitsAttributedMessageAndJournalsOnlyDigest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var action compiler.AdapterAction
-	result, err := installed[definition.Implementation.Entrypoint].Run(context.Background(), compiler.Invocation{
+	var action nodeadapter.AdapterAction
+	result, err := installed[definition.Implementation.Entrypoint].Run(context.Background(), nodeadapter.Invocation{
 		InvocationID: "invocation-1", Attempt: 2, GraphID: "main", NodeID: "log",
 		Config: map[string]any{"level": "warn"}, Inputs: map[string]datatype.ValueEnvelope{"message": message},
-		RecordAction: func(_ context.Context, recorded compiler.AdapterAction) error { action = recorded; return nil },
+		RecordAction: func(_ context.Context, recorded nodeadapter.AdapterAction) error { action = recorded; return nil },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -86,10 +86,10 @@ func TestLogAdapterFormatsObservableInteger(t *testing.T) {
 		t.Fatal(err)
 	}
 	definition, _ := builtins.Definition(nodes.LogNodeID)
-	result, err := installed[definition.Implementation.Entrypoint].Run(context.Background(), compiler.Invocation{
+	result, err := installed[definition.Implementation.Entrypoint].Run(context.Background(), nodeadapter.Invocation{
 		InvocationID: "invocation-integer", Attempt: 1, GraphID: "main", NodeID: "log",
 		Inputs:       map[string]datatype.ValueEnvelope{"message": value},
-		RecordAction: func(context.Context, compiler.AdapterAction) error { return nil },
+		RecordAction: func(context.Context, nodeadapter.AdapterAction) error { return nil },
 	})
 	if err != nil || emitted.Message != "42" || len(result.ExecOutputs) != 1 {
 		t.Fatalf("integer log = message %q result %#v error %v", emitted.Message, result, err)
@@ -113,10 +113,10 @@ func TestLogAdapterUsesConfiguredMessageWithoutAnInputBinding(t *testing.T) {
 		t.Fatal(err)
 	}
 	definition, _ := builtins.Definition(nodes.LogNodeID)
-	result, err := installed[definition.Implementation.Entrypoint].Run(context.Background(), compiler.Invocation{
+	result, err := installed[definition.Implementation.Entrypoint].Run(context.Background(), nodeadapter.Invocation{
 		InvocationID: "invocation-config", Attempt: 1, GraphID: "main", NodeID: "log",
 		Config:       map[string]any{"message": "configured message"},
-		RecordAction: func(context.Context, compiler.AdapterAction) error { return nil },
+		RecordAction: func(context.Context, nodeadapter.AdapterAction) error { return nil },
 	})
 	if err != nil || emitted.Message != "configured message" || len(result.ExecOutputs) != 1 {
 		t.Fatalf("configured log = message %q result %#v error %v", emitted.Message, result, err)
@@ -142,17 +142,17 @@ func TestLogAndThrowReturnStableNodeFailures(t *testing.T) {
 		t.Fatal(err)
 	}
 	logDefinition, _ := builtins.Definition(nodes.LogNodeID)
-	_, logErr := installed[logDefinition.Implementation.Entrypoint].Run(context.Background(), compiler.Invocation{
+	_, logErr := installed[logDefinition.Implementation.Entrypoint].Run(context.Background(), nodeadapter.Invocation{
 		InvocationID: "invocation-2", Attempt: 1, GraphID: "main", NodeID: "log",
 		Inputs:       map[string]datatype.ValueEnvelope{"message": message},
-		RecordAction: func(context.Context, compiler.AdapterAction) error { return nil },
+		RecordAction: func(context.Context, nodeadapter.AdapterAction) error { return nil },
 	})
-	var failure *compiler.NodeFailure
+	var failure *nodeadapter.NodeFailure
 	if !errors.As(logErr, &failure) || failure.Code != nodes.LogWriteFailed || failure.Output != "failed" {
 		t.Fatalf("log failure = %#v / %v", failure, logErr)
 	}
 	throwDefinition, _ := builtins.Definition(nodes.ThrowNodeID)
-	_, throwErr := installed[throwDefinition.Implementation.Entrypoint].Run(context.Background(), compiler.Invocation{
+	_, throwErr := installed[throwDefinition.Implementation.Entrypoint].Run(context.Background(), nodeadapter.Invocation{
 		InvocationID: "invocation-3", Attempt: 1, GraphID: "main", NodeID: "throw",
 		Inputs: map[string]datatype.ValueEnvelope{"message": message},
 	})

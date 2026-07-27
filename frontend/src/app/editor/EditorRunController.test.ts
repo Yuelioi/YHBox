@@ -9,7 +9,7 @@ import {
 function harness(overrides: Partial<EditorRunSession> = {}) {
   const session: EditorRunSession = {
     diagnostics: [],
-    validate: vi.fn(async () => ({ diagnostics: [] }) as CompileView),
+    check: vi.fn(async () => ({ diagnostics: [] }) as CompileView),
     save: vi.fn(async () => undefined),
     run: vi.fn(async () => ({ runId: 'run-1' }) as RunView),
     startDebug: vi.fn(async () => ({ runId: 'debug-1' }) as RunView),
@@ -21,11 +21,13 @@ function harness(overrides: Partial<EditorRunSession> = {}) {
   }
   const openWorkbench = vi.fn()
   const showError = vi.fn()
+  const showSuccess = vi.fn()
   const focusDebugNode = vi.fn(async () => undefined)
   const dependencies: EditorRunControllerDependencies = {
     session,
     translate: (key) => `translated:${key}`,
     showError,
+    showSuccess,
     openWorkbench,
     focusDebugNode,
   }
@@ -33,6 +35,7 @@ function harness(overrides: Partial<EditorRunSession> = {}) {
     session,
     openWorkbench,
     showError,
+    showSuccess,
     focusDebugNode,
     controller: createEditorRunController(dependencies),
   }
@@ -42,13 +45,13 @@ describe('editor run controller', () => {
   it('owns compile, start, and result-panel routing behind one command interface', async () => {
     const run = harness()
 
-    await expect(run.controller.execute({ kind: 'compile' })).resolves.toEqual({ ok: true })
-    expect(run.controller.compileSucceeded.value).toBe(true)
+    await expect(run.controller.execute({ kind: 'check-workflow' })).resolves.toEqual({ ok: true })
+    expect(run.showSuccess).toHaveBeenCalledWith('translated:workflow.toast.check_succeeded')
     await expect(run.controller.execute({ kind: 'start' })).resolves.toEqual({ ok: true })
     expect(run.openWorkbench).toHaveBeenLastCalledWith('timeline')
   })
 
-  it('routes compiler-declared diagnostics without pretending a Run started', async () => {
+  it('routes check errors without pretending a Run started', async () => {
     const run = harness({
       diagnostics: [{}],
       run: vi.fn(async () => null),
@@ -57,6 +60,21 @@ describe('editor run controller', () => {
     await expect(run.controller.execute({ kind: 'start' })).resolves.toEqual({ ok: false })
     expect(run.openWorkbench).toHaveBeenCalledWith('diagnostics')
     expect(run.showError).not.toHaveBeenCalled()
+  })
+
+  it('opens workflow issues when checking finds a non-blocking warning', async () => {
+    const run = harness({
+      check: vi.fn(
+        async () =>
+          ({
+            diagnostics: [{ severity: 'warning', code: 'MISSING_INPUT_BINDING' }],
+          }) as CompileView,
+      ),
+    })
+
+    await expect(run.controller.execute({ kind: 'check-workflow' })).resolves.toEqual({ ok: true })
+    expect(run.openWorkbench).toHaveBeenCalledWith('diagnostics')
+    expect(run.showSuccess).not.toHaveBeenCalled()
   })
 
   it('opens debug context and focuses the paused node from the authoritative snapshot', async () => {

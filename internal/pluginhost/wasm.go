@@ -7,13 +7,13 @@ import (
 	"io"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/nodepackage"
 	"github.com/yottaapp/yotta/internal/pluginprotocol"
 	"github.com/yottaapp/yotta/internal/processsandbox"
 	"github.com/yottaapp/yotta/internal/wasmrunner"
-	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
 const WasmIsolationHostFeatureID = pluginprotocol.WasmIsolationHostFeatureID
@@ -76,11 +76,11 @@ func (host *WasmHost) HostFeatures() []string {
 	return []string{WasmIsolationHostFeatureID}
 }
 
-func (host *WasmHost) Adapters(packages []nodepackage.RuntimePackage) (map[string]compiler.InstalledAdapter, error) {
+func (host *WasmHost) Adapters(packages []nodepackage.RuntimePackage) (map[string]nodeadapter.InstalledAdapter, error) {
 	if host == nil || host.runner == nil || !host.catalog.Valid() {
 		return nil, errors.New("wasm plugin host is not initialized")
 	}
-	result := map[string]compiler.InstalledAdapter{}
+	result := map[string]nodeadapter.InstalledAdapter{}
 	for _, runtimePackage := range packages {
 		for _, node := range runtimePackage.Nodes {
 			if node.Implementation.ABI.Kind != nodecontract.ABIWIT {
@@ -96,9 +96,9 @@ func (host *WasmHost) Adapters(packages []nodepackage.RuntimePackage) (map[strin
 				return nil, fmt.Errorf("duplicate Wasm plugin entrypoint %q", node.Lock.Entrypoint)
 			}
 			pinned := node
-			result[node.Lock.Entrypoint] = compiler.InstalledAdapter{
+			result[node.Lock.Entrypoint] = nodeadapter.InstalledAdapter{
 				Implementation: node.Lock,
-				Run: func(ctx context.Context, invocation compiler.Invocation) (compiler.AdapterResult, error) {
+				Run: func(ctx context.Context, invocation nodeadapter.Invocation) (nodeadapter.AdapterResult, error) {
 					return host.invokeWasm(ctx, pinned, invocation)
 				},
 			}
@@ -107,14 +107,14 @@ func (host *WasmHost) Adapters(packages []nodepackage.RuntimePackage) (map[strin
 	return result, nil
 }
 
-func (host *WasmHost) invokeWasm(parent context.Context, node nodepackage.RuntimeNode, invocation compiler.Invocation) (compiler.AdapterResult, error) {
+func (host *WasmHost) invokeWasm(parent context.Context, node nodepackage.RuntimeNode, invocation nodeadapter.Invocation) (nodeadapter.AdapterResult, error) {
 	initial, deadline, err := host.invocationFrame(parent, node, invocation)
 	if err != nil {
-		return compiler.AdapterResult{}, err
+		return nodeadapter.AdapterResult{}, err
 	}
 	module, err := node.Payload.Read(parent, host.maxModuleBytes)
 	if err != nil {
-		return compiler.AdapterResult{}, fmt.Errorf("read Wasm plugin payload: %w", err)
+		return nodeadapter.AdapterResult{}, fmt.Errorf("read Wasm plugin payload: %w", err)
 	}
 	executionContext, cancelExecution := context.WithDeadline(parent, deadline)
 	defer cancelExecution()
@@ -133,7 +133,7 @@ func (host *WasmHost) invokeWasm(parent context.Context, node nodepackage.Runtim
 		return pluginprotocol.WriteFrame(writer, initial)
 	})
 	if err != nil {
-		return compiler.AdapterResult{}, err
+		return nodeadapter.AdapterResult{}, err
 	}
 	return host.openResult(result)
 }

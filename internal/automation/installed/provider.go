@@ -25,14 +25,11 @@ const (
 	TargetKindDesktopWindow = target.KindDesktopWindow
 	TargetKindAndroidDevice = target.KindAndroidDevice
 	TargetKindBrowserCDP    = target.KindBrowserCDP
-	// TargetKind remains as a source-compatible alias while callers migrate to
-	// descriptors. It is semantic and no longer identifies Win32.
-	TargetKind    = TargetKindDesktopWindow
-	KindInput     = "automation/input-session"
-	KindHeldInput = "automation/held-input-session"
-	KindWindow    = "automation/window-session"
-	KindCapture   = "automation/capture-session"
-	KindPlayback  = "automation/playback-session"
+	KindInput               = "automation/input-session"
+	KindHeldInput           = "automation/held-input-session"
+	KindWindow              = "automation/window-session"
+	KindCapture             = "automation/capture-session"
+	KindPlayback            = "automation/playback-session"
 
 	OperationClick            = "click"
 	OperationMove             = "move"

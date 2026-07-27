@@ -22,6 +22,7 @@ func TestPlatformNeutralPackagesDoNotImportWindowsAdapters(t *testing.T) {
 		"internal/automation/trace",
 		"internal/capability",
 		"internal/datatype",
+		"internal/nodeadapter",
 		"internal/nodeauthoring",
 		"internal/nodecatalog",
 		"internal/nodecontract",
@@ -42,6 +43,18 @@ func TestPlatformNeutralPackagesDoNotImportWindowsAdapters(t *testing.T) {
 		"github.com/yottaapp/yotta/pkg/winutil",
 	}
 	assertNoBannedImports(t, repoRoot, neutralRoots, banned, nil)
+}
+
+func TestNodeAdapterImplementationsDoNotImportWorkflowCompiler(t *testing.T) {
+	assertNoBannedImports(
+		t,
+		repositoryRoot(t),
+		[]string{"internal/noderuntime", "internal/pluginhost"},
+		[]string{"github.com/yottaapp/yotta/internal/workflow/compiler"},
+		func(path string) bool {
+			return strings.HasSuffix(path, "_test.go")
+		},
+	)
 }
 
 func TestPlatformIsolatedPackagesDoNotImportWin32Packages(t *testing.T) {
@@ -77,6 +90,36 @@ func TestBackendServicesDoNotImportWails(t *testing.T) {
 		[]string{"github.com/wailsapp/wails"},
 		nil,
 	)
+}
+
+func TestPresentationCompositionDelegatesStorageBackedAssemblyToLocalRuntime(t *testing.T) {
+	repoRoot := repositoryRoot(t)
+	files := []string{
+		"cmd/yotta/main.go",
+		"internal/desktopapp/desktop.go",
+	}
+	banned := []string{
+		"github.com/yottaapp/yotta/internal/ai",
+		"github.com/yottaapp/yotta/internal/appbootstrap",
+		"github.com/yottaapp/yotta/internal/appcontrol",
+		"github.com/yottaapp/yotta/internal/automation/installed",
+		"github.com/yottaapp/yotta/internal/blob",
+		"github.com/yottaapp/yotta/internal/httpegress",
+		"github.com/yottaapp/yotta/internal/nodepackage",
+		"github.com/yottaapp/yotta/internal/scriptengine",
+		"github.com/yottaapp/yotta/internal/wasmrunner",
+	}
+	for _, relative := range files {
+		path := filepath.Join(repoRoot, filepath.FromSlash(relative))
+		assertFileHasNoBannedImports(t, repoRoot, path, banned)
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", relative, err)
+		}
+		if !strings.Contains(string(raw), `"github.com/yottaapp/yotta/internal/localruntime"`) {
+			t.Errorf("%s does not delegate storage-backed assembly to localruntime", relative)
+		}
+	}
 }
 
 func TestWorkflowCompilerDoesNotImportLegacyRuntimeOrStores(t *testing.T) {

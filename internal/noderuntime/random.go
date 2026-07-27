@@ -9,32 +9,32 @@ import (
 	"math"
 
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodes"
-	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
 const centeredSampleCount = 5
 
-func randomInteger(builtins nodes.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+func randomInteger(builtins nodes.Builtins) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		counters := map[string]int64{}
 		defer func() {
-			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, nodeadapter.AdapterAction{
 				EffectID: nodes.RandomSampleEffectID, Action: "random.integer-sampled",
 				SummaryCode: "random.integer", Counters: counters,
 			}, nodes.RandomEntropyUnavailableCode, runErr))
 		}()
 		minimum, err := integerInput(invocation, "minimum")
 		if err != nil {
-			return compiler.AdapterResult{}, randomFailure(nodes.RandomInvalidRangeCode, err)
+			return nodeadapter.AdapterResult{}, randomFailure(nodes.RandomInvalidRangeCode, err)
 		}
 		maximum, err := integerInput(invocation, "maximum")
 		if err != nil || minimum > maximum {
-			return compiler.AdapterResult{}, randomFailure(nodes.RandomInvalidRangeCode, errors.Join(err, errors.New("minimum must not exceed maximum")))
+			return nodeadapter.AdapterResult{}, randomFailure(nodes.RandomInvalidRangeCode, errors.Join(err, errors.New("minimum must not exceed maximum")))
 		}
 		distribution, err := stringInput(invocation, "distribution")
 		if err != nil {
-			return compiler.AdapterResult{}, randomFailure(nodes.RandomInvalidRangeCode, err)
+			return nodeadapter.AdapterResult{}, randomFailure(nodes.RandomInvalidRangeCode, err)
 		}
 		span := uint64(maximum) - uint64(minimum) + 1
 		var offset uint64
@@ -45,7 +45,7 @@ func randomInteger(builtins nodes.Builtins) compiler.Adapter {
 			for range centeredSampleCount {
 				unit, err := entropyUnit(invocation)
 				if err != nil {
-					return compiler.AdapterResult{}, randomFailure(nodes.RandomEntropyUnavailableCode, err)
+					return nodeadapter.AdapterResult{}, randomFailure(nodes.RandomEntropyUnavailableCode, err)
 				}
 				sum += unit
 			}
@@ -56,36 +56,36 @@ func randomInteger(builtins nodes.Builtins) compiler.Adapter {
 		} else if distribution == "uniform" {
 			offset, err = entropyIndex(invocation, span)
 			if err != nil {
-				return compiler.AdapterResult{}, randomFailure(nodes.RandomEntropyUnavailableCode, err)
+				return nodeadapter.AdapterResult{}, randomFailure(nodes.RandomEntropyUnavailableCode, err)
 			}
 		} else {
-			return compiler.AdapterResult{}, randomFailure(nodes.RandomInvalidRangeCode, errors.New("unknown random distribution"))
+			return nodeadapter.AdapterResult{}, randomFailure(nodes.RandomInvalidRangeCode, errors.New("unknown random distribution"))
 		}
 		counters["samples"] = int64(samples)
 		return sealObservedResult(builtins, invocation, int64(uint64(minimum)+offset))
 	}
 }
 
-func randomNumber(builtins nodes.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+func randomNumber(builtins nodes.Builtins) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		counters := map[string]int64{}
 		defer func() {
-			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, nodeadapter.AdapterAction{
 				EffectID: nodes.RandomSampleEffectID, Action: "random.number-sampled",
 				SummaryCode: "random.number", Counters: counters,
 			}, nodes.RandomEntropyUnavailableCode, runErr))
 		}()
 		minimum, err := numberInput(invocation, "minimum")
 		if err != nil {
-			return compiler.AdapterResult{}, randomFailure(nodes.RandomInvalidRangeCode, err)
+			return nodeadapter.AdapterResult{}, randomFailure(nodes.RandomInvalidRangeCode, err)
 		}
 		maximum, err := numberInput(invocation, "maximum")
 		if err != nil || minimum > maximum || math.IsInf(maximum-minimum, 0) {
-			return compiler.AdapterResult{}, randomFailure(nodes.RandomInvalidRangeCode, errors.Join(err, errors.New("range must be ordered and representable")))
+			return nodeadapter.AdapterResult{}, randomFailure(nodes.RandomInvalidRangeCode, errors.Join(err, errors.New("range must be ordered and representable")))
 		}
 		distribution, err := stringInput(invocation, "distribution")
 		if err != nil {
-			return compiler.AdapterResult{}, randomFailure(nodes.RandomInvalidRangeCode, err)
+			return nodeadapter.AdapterResult{}, randomFailure(nodes.RandomInvalidRangeCode, err)
 		}
 		unit, samples, err := sampledUnit(invocation, distribution)
 		if err != nil {
@@ -93,7 +93,7 @@ func randomNumber(builtins nodes.Builtins) compiler.Adapter {
 			if errors.Is(err, errUnknownDistribution) {
 				code = nodes.RandomInvalidRangeCode
 			}
-			return compiler.AdapterResult{}, randomFailure(code, err)
+			return nodeadapter.AdapterResult{}, randomFailure(code, err)
 		}
 		counters["samples"] = int64(samples)
 		result := minimum
@@ -101,77 +101,77 @@ func randomNumber(builtins nodes.Builtins) compiler.Adapter {
 			result = minimum + unit*(maximum-minimum)
 		}
 		if math.IsNaN(result) || math.IsInf(result, 0) {
-			return compiler.AdapterResult{}, randomFailure(nodes.RandomInvalidRangeCode, errors.New("sample is not a finite number"))
+			return nodeadapter.AdapterResult{}, randomFailure(nodes.RandomInvalidRangeCode, errors.New("sample is not a finite number"))
 		}
 		return sealObservedResult(builtins, invocation, result)
 	}
 }
 
-func randomBoolean(builtins nodes.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+func randomBoolean(builtins nodes.Builtins) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		counters := map[string]int64{}
 		defer func() {
-			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, nodeadapter.AdapterAction{
 				EffectID: nodes.RandomSampleEffectID, Action: "random.boolean-sampled",
 				SummaryCode: "random.boolean", Counters: counters,
 			}, nodes.RandomEntropyUnavailableCode, runErr))
 		}()
 		probability, err := numberInput(invocation, "probability")
 		if err != nil || probability < 0 || probability > 1 {
-			return compiler.AdapterResult{}, randomFailure(nodes.RandomInvalidProbabilityCode, errors.Join(err, errors.New("probability must be between zero and one")))
+			return nodeadapter.AdapterResult{}, randomFailure(nodes.RandomInvalidProbabilityCode, errors.Join(err, errors.New("probability must be between zero and one")))
 		}
 		unit, err := entropyUnit(invocation)
 		if err != nil {
-			return compiler.AdapterResult{}, randomFailure(nodes.RandomEntropyUnavailableCode, err)
+			return nodeadapter.AdapterResult{}, randomFailure(nodes.RandomEntropyUnavailableCode, err)
 		}
 		counters["samples"] = 1
 		return sealObservedResult(builtins, invocation, unit < probability)
 	}
 }
 
-func randomChoice(builtins nodes.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+func randomChoice(builtins nodes.Builtins) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		counters := map[string]int64{}
 		defer func() {
-			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, nodeadapter.AdapterAction{
 				EffectID: nodes.RandomSampleEffectID, Action: "random.choice-sampled",
 				SummaryCode: "random.choice", Counters: counters,
 			}, nodes.RandomEntropyUnavailableCode, runErr))
 		}()
 		input, ok := invocation.Inputs["list"]
 		if !ok {
-			return compiler.AdapterResult{}, randomFailure(nodes.RandomEmptyChoiceCode, errors.New("choice list is missing"))
+			return nodeadapter.AdapterResult{}, randomFailure(nodes.RandomEmptyChoiceCode, errors.New("choice list is missing"))
 		}
 		var items []json.RawMessage
 		if err := json.Unmarshal(input.InlineJSON(), &items); err != nil {
-			return compiler.AdapterResult{}, randomFailure(nodes.RandomEmptyChoiceCode, fmt.Errorf("decode choice list: %w", err))
+			return nodeadapter.AdapterResult{}, randomFailure(nodes.RandomEmptyChoiceCode, fmt.Errorf("decode choice list: %w", err))
 		}
 		if len(items) == 0 {
-			return compiler.AdapterResult{}, randomFailure(nodes.RandomEmptyChoiceCode, errors.New("choice list is empty"))
+			return nodeadapter.AdapterResult{}, randomFailure(nodes.RandomEmptyChoiceCode, errors.New("choice list is empty"))
 		}
 		index, err := entropyIndex(invocation, uint64(len(items)))
 		if err != nil {
-			return compiler.AdapterResult{}, randomFailure(nodes.RandomEntropyUnavailableCode, err)
+			return nodeadapter.AdapterResult{}, randomFailure(nodes.RandomEntropyUnavailableCode, err)
 		}
 		counters["samples"] = 1
 		return sealObservedRawResult(builtins, invocation, items[index])
 	}
 }
 
-func observeTime(builtins nodes.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+func observeTime(builtins nodes.Builtins) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		defer func() {
-			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, nodeadapter.AdapterAction{
 				EffectID: nodes.TimeObserveEffectID, Action: "time.observed",
 				SummaryCode: "time.observe", Counters: map[string]int64{"observations": 1},
 			}, nodes.TimeObservationFailedCode, runErr))
 		}()
 		if invocation.ObservedAt.IsZero() {
-			return compiler.AdapterResult{}, &compiler.NodeFailure{Code: nodes.TimeObservationFailedCode, Cause: errors.New("invocation observation time is missing")}
+			return nodeadapter.AdapterResult{}, &nodeadapter.NodeFailure{Code: nodes.TimeObservationFailedCode, Cause: errors.New("invocation observation time is missing")}
 		}
 		result, err := sealObservedResult(builtins, invocation, invocation.ObservedAt.UnixMilli())
 		if err != nil {
-			return compiler.AdapterResult{}, &compiler.NodeFailure{Code: nodes.TimeObservationFailedCode, Cause: err}
+			return nodeadapter.AdapterResult{}, &nodeadapter.NodeFailure{Code: nodes.TimeObservationFailedCode, Cause: err}
 		}
 		return result, nil
 	}
@@ -179,7 +179,7 @@ func observeTime(builtins nodes.Builtins) compiler.Adapter {
 
 var errUnknownDistribution = errors.New("unknown random distribution")
 
-func sampledUnit(invocation compiler.Invocation, distribution string) (float64, int, error) {
+func sampledUnit(invocation nodeadapter.Invocation, distribution string) (float64, int, error) {
 	switch distribution {
 	case "uniform":
 		unit, err := entropyUnit(invocation)
@@ -199,7 +199,7 @@ func sampledUnit(invocation compiler.Invocation, distribution string) (float64, 
 	}
 }
 
-func entropyUnit(invocation compiler.Invocation) (float64, error) {
+func entropyUnit(invocation nodeadapter.Invocation) (float64, error) {
 	value, err := entropyUint64(invocation)
 	if err != nil {
 		return 0, err
@@ -207,7 +207,7 @@ func entropyUnit(invocation compiler.Invocation) (float64, error) {
 	return float64(value>>11) * (1.0 / (1 << 53)), nil
 }
 
-func entropyIndex(invocation compiler.Invocation, limit uint64) (uint64, error) {
+func entropyIndex(invocation nodeadapter.Invocation, limit uint64) (uint64, error) {
 	if limit == 0 {
 		return 0, errors.New("random index limit is zero")
 	}
@@ -224,7 +224,7 @@ func entropyIndex(invocation compiler.Invocation, limit uint64) (uint64, error) 
 	return 0, errors.New("entropy source did not yield an unbiased sample")
 }
 
-func entropyUint64(invocation compiler.Invocation) (uint64, error) {
+func entropyUint64(invocation nodeadapter.Invocation) (uint64, error) {
 	if invocation.ReadEntropy == nil {
 		return 0, errors.New("entropy source is missing")
 	}
@@ -235,7 +235,7 @@ func entropyUint64(invocation compiler.Invocation) (uint64, error) {
 	return binary.BigEndian.Uint64(raw[:]), nil
 }
 
-func integerInput(invocation compiler.Invocation, id string) (int64, error) {
+func integerInput(invocation nodeadapter.Invocation, id string) (int64, error) {
 	input, ok := invocation.Inputs[id]
 	if !ok {
 		return 0, fmt.Errorf("integer input %q is missing", id)
@@ -251,7 +251,7 @@ func integerInput(invocation compiler.Invocation, id string) (int64, error) {
 	return value, nil
 }
 
-func numberInput(invocation compiler.Invocation, id string) (float64, error) {
+func numberInput(invocation nodeadapter.Invocation, id string) (float64, error) {
 	input, ok := invocation.Inputs[id]
 	if !ok {
 		return 0, fmt.Errorf("number input %q is missing", id)
@@ -263,7 +263,7 @@ func numberInput(invocation compiler.Invocation, id string) (float64, error) {
 	return value, nil
 }
 
-func stringInput(invocation compiler.Invocation, id string) (string, error) {
+func stringInput(invocation nodeadapter.Invocation, id string) (string, error) {
 	input, ok := invocation.Inputs[id]
 	if !ok {
 		return "", fmt.Errorf("string input %q is missing", id)
@@ -275,26 +275,26 @@ func stringInput(invocation compiler.Invocation, id string) (string, error) {
 	return value, nil
 }
 
-func sealObservedResult(builtins nodes.Builtins, invocation compiler.Invocation, value any) (compiler.AdapterResult, error) {
+func sealObservedResult(builtins nodes.Builtins, invocation nodeadapter.Invocation, value any) (nodeadapter.AdapterResult, error) {
 	raw, err := json.Marshal(value)
 	if err != nil {
-		return compiler.AdapterResult{}, err
+		return nodeadapter.AdapterResult{}, err
 	}
 	return sealObservedRawResult(builtins, invocation, raw)
 }
 
-func sealObservedRawResult(builtins nodes.Builtins, invocation compiler.Invocation, raw json.RawMessage) (compiler.AdapterResult, error) {
+func sealObservedRawResult(builtins nodes.Builtins, invocation nodeadapter.Invocation, raw json.RawMessage) (nodeadapter.AdapterResult, error) {
 	resolved, ok := invocation.OutputTypes["result"]
 	if !ok {
-		return compiler.AdapterResult{}, errors.New("recorded output type is unresolved")
+		return nodeadapter.AdapterResult{}, errors.New("recorded output type is unresolved")
 	}
 	envelope, err := datatype.SealInlineJSON(builtins.Catalog, resolved, raw)
 	if err != nil {
-		return compiler.AdapterResult{}, fmt.Errorf("seal recorded output: %w", err)
+		return nodeadapter.AdapterResult{}, fmt.Errorf("seal recorded output: %w", err)
 	}
-	return compiler.AdapterResult{Outputs: map[string]datatype.ValueEnvelope{"result": envelope}}, nil
+	return nodeadapter.AdapterResult{Outputs: map[string]datatype.ValueEnvelope{"result": envelope}}, nil
 }
 
 func randomFailure(code string, cause error) error {
-	return &compiler.NodeFailure{Code: code, Cause: cause}
+	return &nodeadapter.NodeFailure{Code: code, Cause: cause}
 }

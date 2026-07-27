@@ -5,7 +5,7 @@ import { runReadinessMessage, type RunStartOutcome } from '@/app/run/runReadines
 export type EditorRuntimeWorkbenchTab = 'diagnostics' | 'logs' | 'timeline' | 'debug'
 
 export type EditorRunCommand =
-  | { kind: 'compile' }
+  | { kind: 'check-workflow' }
   | { kind: 'save' }
   | { kind: 'start' }
   | { kind: 'start-debug'; breakpoints: DebugBreakpoint[] }
@@ -22,7 +22,7 @@ export interface EditorRunSession {
   diagnostics: unknown[]
   lastRunOutcome?: RunStartOutcome | null
   debugSnapshot?: DebugSnapshot | null
-  validate(): Promise<CompileView>
+  check(): Promise<CompileView>
   save(): Promise<unknown>
   run(): Promise<RunView | null>
   startDebug(breakpoints: DebugBreakpoint[]): Promise<RunView | null>
@@ -36,21 +36,20 @@ export interface EditorRunControllerDependencies {
   session: EditorRunSession
   translate: (key: string) => string
   showError: (title: string, error: unknown) => void
+  showSuccess: (title: string) => void
   openWorkbench: (tab: EditorRuntimeWorkbenchTab) => void
   focusDebugNode: (graphPath: string[], nodeId: string) => Promise<void>
 }
 
 export function createEditorRunController(dependencies: EditorRunControllerDependencies) {
-  const compileSucceeded = ref(false)
   const saveSucceeded = ref(false)
   const debugControlBusy = ref(false)
-  let compileFlashTimer: ReturnType<typeof setTimeout> | undefined
   let saveFlashTimer: ReturnType<typeof setTimeout> | undefined
 
   async function execute(command: EditorRunCommand): Promise<EditorRunCommandResult> {
     switch (command.kind) {
-      case 'compile':
-        return compile()
+      case 'check-workflow':
+        return checkWorkflow()
       case 'save':
         return save()
       case 'start':
@@ -68,15 +67,14 @@ export function createEditorRunController(dependencies: EditorRunControllerDepen
     }
   }
 
-  async function compile(): Promise<EditorRunCommandResult> {
-    flashCompile(false)
+  async function checkWorkflow(): Promise<EditorRunCommandResult> {
     try {
-      const result = await dependencies.session.validate()
+      const result = await dependencies.session.check()
       if (result.diagnostics.length > 0) dependencies.openWorkbench('diagnostics')
-      else flashCompile(true)
+      else dependencies.showSuccess(dependencies.translate('workflow.toast.check_succeeded'))
       return { ok: true }
     } catch (error) {
-      dependencies.showError(dependencies.translate('workflow.toast.compile_failed'), error)
+      dependencies.showError(dependencies.translate('workflow.toast.check_failed'), error)
       return { ok: false }
     }
   }
@@ -183,12 +181,6 @@ export function createEditorRunController(dependencies: EditorRunControllerDepen
     }
   }
 
-  function flashCompile(value: boolean): void {
-    clearTimeout(compileFlashTimer)
-    compileSucceeded.value = value
-    if (value) compileFlashTimer = setTimeout(() => (compileSucceeded.value = false), 1600)
-  }
-
   function flashSave(value: boolean): void {
     clearTimeout(saveFlashTimer)
     saveSucceeded.value = value
@@ -196,12 +188,10 @@ export function createEditorRunController(dependencies: EditorRunControllerDepen
   }
 
   function dispose(): void {
-    clearTimeout(compileFlashTimer)
     clearTimeout(saveFlashTimer)
   }
 
   return {
-    compileSucceeded,
     saveSucceeded,
     debugControlBusy,
     execute,

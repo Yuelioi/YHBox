@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/resource"
 	run "github.com/yottaapp/yotta/internal/run"
@@ -27,7 +28,7 @@ type routeKey struct {
 
 type scheduledInvocation struct {
 	nodeID  string
-	trigger *SignalTrigger
+	trigger *nodeadapter.SignalTrigger
 }
 
 type scheduler struct {
@@ -212,7 +213,7 @@ func executionReachability(graph programGraph) ([]string, map[string]bool) {
 	return roots, reachable
 }
 
-func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTrigger, evaluation map[string]bool) error {
+func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *nodeadapter.SignalTrigger, evaluation map[string]bool) error {
 	node, ok := s.nodes[nodeID]
 	if !ok {
 		return fmt.Errorf("scheduled node %q is missing from Program", nodeID)
@@ -280,7 +281,7 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 			adapterTrigger.From.NodeID = source.SourceNodeID
 		}
 	}
-	outcome, runErr := installed.Run(ctx, Invocation{
+	outcome, runErr := installed.Run(ctx, nodeadapter.Invocation{
 		InvocationID: invocationID, Attempt: attempt, GraphID: graphID, NodeID: sourceNodeID, Config: config, Inputs: inputs,
 		InputTypes: cloneResolvedTypes(node.InputTypes), OutputTypes: cloneResolvedTypes(node.OutputTypes), Sessions: nodeSessions, State: stateBindings,
 		Trigger: adapterTrigger, ObservedAt: observedAt, MonotonicNow: s.executor.monotonicNow, ReadEntropy: s.executor.readEntropy,
@@ -293,7 +294,7 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 		journalErr := s.executor.cancelAttempt(context.WithoutCancel(ctx), s.journal, node.GraphPath, sourceNodeID, attempt, summary)
 		return errors.Join(wrapNodeRunError(node.ID, runErr), actionErr, statusErr, journalErr)
 	}
-	var failure *NodeFailure
+	var failure *nodeadapter.NodeFailure
 	if errors.As(runErr, &failure) && onlyNodeFailure(runErr, failure) {
 		err := s.routeFailure(ctx, node, machine, attempt, outcome, failure, actions, actionErr, statusErr, summary)
 		if err == nil {
@@ -474,7 +475,7 @@ func debugValueView(value datatype.ValueEnvelope) DebugValueView {
 	return view
 }
 
-func onlyNodeFailure(err error, failure *NodeFailure) bool {
+func onlyNodeFailure(err error, failure *nodeadapter.NodeFailure) bool {
 	if err == nil || failure == nil {
 		return false
 	}
@@ -601,7 +602,7 @@ func (s *scheduler) evaluatePull(ctx context.Context, nodeID string, evaluation 
 	return s.dispatch(ctx, nodeID, nil, evaluation)
 }
 
-func (s *scheduler) routeFailure(ctx context.Context, node programNode, machine nodecontract.MachineContract, attempt int, outcome AdapterResult, failure *NodeFailure, actions *adapterActionRecorder, actionErr, statusErr error, summary run.RedactedSummary) error {
+func (s *scheduler) routeFailure(ctx context.Context, node programNode, machine nodecontract.MachineContract, attempt int, outcome nodeadapter.AdapterResult, failure *nodeadapter.NodeFailure, actions *adapterActionRecorder, actionErr, statusErr error, summary run.RedactedSummary) error {
 	if len(outcome.Outputs) != 0 || len(outcome.ExecOutputs) != 0 || statusErr != nil {
 		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, node.GraphPath, node.SourceNodeID, attempt, "runtime.failure_invalid", summary)
 		return errors.Join(errors.New("node failure returned outputs, exec signals, or invalid status"), statusErr, journalErr)
@@ -633,19 +634,19 @@ func (s *scheduler) routeFailure(ctx context.Context, node programNode, machine 
 	if len(routes) == 0 {
 		return failure
 	}
-	routed := &RoutedFailure{
+	routed := &nodeadapter.RoutedFailure{
 		Code: failure.Code, Category: spec.Category, RetryHint: spec.RetryHint,
 		SourceNodeID: node.SourceNodeID, SourcePortID: failure.Output, Attempt: attempt,
 	}
 	for _, route := range routes {
-		s.queue = append(s.queue, scheduledInvocation{nodeID: route.To.NodeID, trigger: &SignalTrigger{
+		s.queue = append(s.queue, scheduledInvocation{nodeID: route.To.NodeID, trigger: &nodeadapter.SignalTrigger{
 			Channel: schema.EdgeError, InputPort: route.To.PortID, From: route.From, Failure: cloneRoutedFailure(routed),
 		}})
 	}
 	return nil
 }
 
-func (s *scheduler) enqueueSelected(nodeID string, selected map[string]struct{}, failure *RoutedFailure) {
+func (s *scheduler) enqueueSelected(nodeID string, selected map[string]struct{}, failure *nodeadapter.RoutedFailure) {
 	for _, route := range s.graph.SignalRoutes {
 		if route.Channel != schema.EdgeExec || route.From.NodeID != nodeID {
 			continue
@@ -653,7 +654,7 @@ func (s *scheduler) enqueueSelected(nodeID string, selected map[string]struct{},
 		if _, ok := selected[route.From.PortID]; !ok {
 			continue
 		}
-		s.queue = append(s.queue, scheduledInvocation{nodeID: route.To.NodeID, trigger: &SignalTrigger{
+		s.queue = append(s.queue, scheduledInvocation{nodeID: route.To.NodeID, trigger: &nodeadapter.SignalTrigger{
 			Channel: schema.EdgeExec, InputPort: route.To.PortID, From: route.From, Failure: cloneRoutedFailure(failure),
 		}})
 	}
@@ -706,7 +707,7 @@ func signalPortExists(values []nodecontract.SignalPort, id string) bool {
 	return false
 }
 
-func cloneTrigger(source *SignalTrigger) *SignalTrigger {
+func cloneTrigger(source *nodeadapter.SignalTrigger) *nodeadapter.SignalTrigger {
 	if source == nil {
 		return nil
 	}
@@ -715,7 +716,7 @@ func cloneTrigger(source *SignalTrigger) *SignalTrigger {
 	return &clone
 }
 
-func cloneRoutedFailure(source *RoutedFailure) *RoutedFailure {
+func cloneRoutedFailure(source *nodeadapter.RoutedFailure) *nodeadapter.RoutedFailure {
 	if source == nil {
 		return nil
 	}

@@ -8,26 +8,26 @@ import (
 	"time"
 
 	"github.com/yottaapp/yotta/internal/automation/installed"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/services/macro"
-	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
-func playMacro() compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+func playMacro() nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		counters := map[string]int64{}
 		defer func() {
-			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, nodeadapter.AdapterAction{
 				EffectID: nodes.PlayMacroEffectID, Action: "automation.play-macro", SummaryCode: "automation.play-macro", Counters: counters,
 			}, installed.CodePlaybackFailed, runErr))
 		}()
 		carrier, ref, err := readPlaybackBlob(ctx, invocation, "macro", macro.MediaType, macro.MaxEncodedMacroBytes)
 		if err != nil {
-			return compiler.AdapterResult{}, macroFailure(err)
+			return nodeadapter.AdapterResult{}, macroFailure(err)
 		}
 		document, err := macro.Decode(bytes.NewReader(carrier))
 		if err != nil {
-			return compiler.AdapterResult{}, macroFailure(err)
+			return nodeadapter.AdapterResult{}, macroFailure(err)
 		}
 		analysis := macro.Analyze(document)
 		counters["blob_bytes"] = ref.Size
@@ -41,9 +41,9 @@ func playMacro() compiler.Adapter {
 			}
 			return nil
 		}); err != nil {
-			return compiler.AdapterResult{}, err
+			return nodeadapter.AdapterResult{}, err
 		}
-		return compiler.AdapterResult{ExecOutputs: []string{"completed"}}, nil
+		return nodeadapter.AdapterResult{ExecOutputs: []string{"completed"}}, nil
 	}
 }
 
@@ -93,5 +93,5 @@ func playMacroAction(action macro.Action, commands playbackCommands) error {
 }
 
 func macroFailure(cause error) error {
-	return &compiler.NodeFailure{Code: nodes.MacroInvalidCode, Output: "failed", Cause: fmt.Errorf("macro: %w", cause)}
+	return &nodeadapter.NodeFailure{Code: nodes.MacroInvalidCode, Output: "failed", Cause: fmt.Errorf("macro: %w", cause)}
 }

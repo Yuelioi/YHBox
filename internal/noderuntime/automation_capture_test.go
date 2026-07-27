@@ -91,7 +91,7 @@ func TestCaptureWindowCommitsNominalImageBlobAndBoundedJournal(t *testing.T) {
 		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"},
 		Capabilities: []admission.ProviderCapability{{Capability: captureCapability.Ref(), ResourceKind: automationinstalled.KindCapture}},
 	})
-	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKind, ProviderID: providerID})
+	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKindDesktopWindow, ProviderID: providerID})
 	profileDraft.TargetSlots = append(profileDraft.TargetSlots, admission.TargetSlotBinding{Slot: slot, TargetID: targetID})
 	program := compilePrimitiveProgram(t, builtins, automationCaptureSource(builtins, slot))
 	now := time.Date(2026, 7, 16, 21, 0, 0, 0, time.UTC)

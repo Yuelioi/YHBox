@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodes"
-	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
 func TestPollTemplateStateUsesFreshObservationsAndBoundedWaits(t *testing.T) {
@@ -69,7 +69,7 @@ func TestEmitTemplateMatchStatusDistinguishesMatchAndTimeout(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var gotCode string
 			var gotCounters map[string]int64
-			invocation := compiler.Invocation{EmitStatus: func(_ context.Context, code string, counters map[string]int64) error {
+			invocation := nodeadapter.Invocation{EmitStatus: func(_ context.Context, code string, counters map[string]int64) error {
 				gotCode = code
 				gotCounters = counters
 				return nil

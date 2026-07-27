@@ -1479,10 +1479,11 @@ const editorRuns = createEditorRunController({
   session,
   translate: (key) => t(key),
   showError,
+  showSuccess,
   openWorkbench: openRuntimeWorkbench,
   focusDebugNode: focusNode,
 })
-const { compileSucceeded, saveSucceeded, debugControlBusy } = editorRuns
+const { saveSucceeded, debugControlBusy } = editorRuns
 const editorToolbarContext = computed<Omit<EditorToolbarContext, 'dirty'>>(() => ({
   canUndo: session.canUndo,
   canRedo: session.canRedo,
@@ -1491,7 +1492,6 @@ const editorToolbarContext = computed<Omit<EditorToolbarContext, 'dirty'>>(() =>
   inspectorOpen: inspectorSidebarOpen.value,
   runActive: runActive.value,
   saving: session.phase === 'saving',
-  compileSucceeded: compileSucceeded.value,
   saveSucceeded: saveSucceeded.value,
   diagnosticCount: session.diagnostics.length,
   diagnosticsOpen: diagnosticsOpen.value,
@@ -3736,8 +3736,8 @@ function handleEditorToolbarCommand(command: EditorToolbarCommand): void {
     case 'toggle-inspector':
       setInspectorVisibility(!inspectorAutoOpen.value)
       return
-    case 'compile':
-      void editorRuns.execute({ kind: 'compile' })
+    case 'check-workflow':
+      void editorRuns.execute({ kind: 'check-workflow' })
       return
     case 'toggle-diagnostics':
       toggleRuntimeWorkbench('diagnostics')
@@ -3973,6 +3973,10 @@ function showError(title: string, error: unknown): void {
     description: errorMessage(error),
     color: 'error',
   })
+}
+
+function showSuccess(title: string): void {
+  toast.add({ title, color: 'success' })
 }
 
 function plainCopy<T>(value: T): T {

@@ -3,7 +3,7 @@
   "generator": "wails3",
   "summary": {
     "services": 16,
-    "methods": 139,
+    "methods": 140,
     "models": 223
   },
   "services": [
@@ -1443,6 +1443,18 @@
             }
           ],
           "returns": "$CancellablePromise<$models.RunView>"
+        },
+        {
+          "name": "CheckDraft",
+          "bindingId": "1318249483",
+          "parameters": [
+            {
+              "name": "sourceJSON",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.CompileView>"
         },
         {
           "name": "CompileSource",

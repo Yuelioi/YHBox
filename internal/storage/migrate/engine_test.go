@@ -61,6 +61,35 @@ func TestInspectIsReadOnlyAndApplyPublishesVerifiedLayout(t *testing.T) {
 	}
 }
 
+func TestWriteJournalUpgradesLegacyDocumentVersion(t *testing.T) {
+	migrations, err := registry()
+	if err != nil {
+		t.Fatal(err)
+	}
+	steps, err := migrations.Plan("1")
+	if err != nil || len(steps) == 0 {
+		t.Fatalf("migration plan = %#v, %v", steps, err)
+	}
+	now := time.Date(2026, 7, 27, 1, 2, 3, 0, time.UTC).Format(time.RFC3339Nano)
+	journal := Journal{
+		Format: JournalFormat, Version: legacyDocVersion,
+		MigrationID: steps[0].ID, From: steps[0].From, To: steps[0].To,
+		StepChecksum: steps[0].Checksum.String(), State: StateApplying,
+		StartedAt: now, UpdatedAt: now, BackupManifest: "snapshot/" + snapshotManifestFilename,
+	}
+	dir := t.TempDir()
+	if err := writeJournal(dir, journal); err != nil {
+		t.Fatal(err)
+	}
+	loaded, found, err := readJournal(filepath.Join(dir, journalFilename))
+	if err != nil || !found {
+		t.Fatalf("read rewritten journal = %#v, %v, %v", loaded, found, err)
+	}
+	if loaded.Version != DocumentVersion {
+		t.Fatalf("rewritten journal version = %d, want %d", loaded.Version, DocumentVersion)
+	}
+}
+
 func TestMigrationResumesEveryDurabilityBoundary(t *testing.T) {
 	for _, test := range []struct {
 		name  string

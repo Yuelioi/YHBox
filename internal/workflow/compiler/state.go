@@ -8,34 +8,29 @@ import (
 	"time"
 
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
-type StateSnapshot struct {
-	Value     datatype.ValueEnvelope
-	Revision  int64
-	ChangedAt time.Time
-}
-
 // StateBinding is invocation-scoped attenuated authority. A node adapter can
 // only access the slot and operation declared by its immutable Node Contract.
-type StateBinding struct {
+type stateBinding struct {
 	mode nodecontract.StateAccessMode
 	slot *runStateSlot
 }
 
-func (b StateBinding) Read() (StateSnapshot, error) {
+func (b stateBinding) Read() (nodeadapter.StateSnapshot, error) {
 	if b.slot == nil || b.mode != nodecontract.StateRead {
-		return StateSnapshot{}, errors.New("state binding does not grant read access")
+		return nodeadapter.StateSnapshot{}, errors.New("state binding does not grant read access")
 	}
 	return b.slot.read(), nil
 }
 
-func (b StateBinding) Write(value datatype.ValueEnvelope) (StateSnapshot, error) {
+func (b stateBinding) Write(value datatype.ValueEnvelope) (nodeadapter.StateSnapshot, error) {
 	if b.slot == nil || b.mode != nodecontract.StateWrite {
-		return StateSnapshot{}, errors.New("state binding does not grant write access")
+		return nodeadapter.StateSnapshot{}, errors.New("state binding does not grant write access")
 	}
 	return b.slot.write(value)
 }
@@ -44,12 +39,12 @@ func (b StateBinding) Write(value datatype.ValueEnvelope) (StateSnapshot, error)
 // exclusively locked. It deliberately shares the existing write authority:
 // contracts do not gain a second, subtly different state permission, while
 // built-in convenience nodes avoid a racy Read followed by Write sequence.
-func (b StateBinding) Update(transform func(datatype.ValueEnvelope) (datatype.ValueEnvelope, error)) (StateSnapshot, error) {
+func (b stateBinding) Update(transform func(datatype.ValueEnvelope) (datatype.ValueEnvelope, error)) (nodeadapter.StateSnapshot, error) {
 	if b.slot == nil || b.mode != nodecontract.StateWrite {
-		return StateSnapshot{}, errors.New("state binding does not grant write access")
+		return nodeadapter.StateSnapshot{}, errors.New("state binding does not grant write access")
 	}
 	if transform == nil {
-		return StateSnapshot{}, errors.New("state update transform is missing")
+		return nodeadapter.StateSnapshot{}, errors.New("state update transform is missing")
 	}
 	return b.slot.update(transform)
 }
@@ -88,50 +83,50 @@ func newRunState(slots []programStateSlot, catalog nodecatalog.Snapshot, now fun
 	return result, nil
 }
 
-func (s *runState) bindings(machine nodecontract.MachineContract, config map[string]any) (map[string]StateBinding, error) {
-	result := make(map[string]StateBinding, len(machine.StateAccesses))
+func (s *runState) bindings(machine nodecontract.MachineContract, config map[string]any) (map[string]nodeadapter.StateBinding, error) {
+	result := make(map[string]nodeadapter.StateBinding, len(machine.StateAccesses))
 	for _, access := range machine.StateAccesses {
 		name, ok := config[access.SlotConfigKey].(string)
 		slot := s.slots[name]
 		if !ok || slot == nil {
 			return nil, fmt.Errorf("state access %q has no bound slot", access.ID)
 		}
-		result[access.ID] = StateBinding{mode: access.Mode, slot: slot}
+		result[access.ID] = stateBinding{mode: access.Mode, slot: slot}
 	}
 	return result, nil
 }
 
-func (s *runStateSlot) read() StateSnapshot {
+func (s *runStateSlot) read() nodeadapter.StateSnapshot {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return StateSnapshot{Value: s.value, Revision: s.revision, ChangedAt: s.changedAt}
+	return nodeadapter.StateSnapshot{Value: s.value, Revision: s.revision, ChangedAt: s.changedAt}
 }
 
-func (s *runStateSlot) write(value datatype.ValueEnvelope) (StateSnapshot, error) {
+func (s *runStateSlot) write(value datatype.ValueEnvelope) (nodeadapter.StateSnapshot, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.writeLocked(value)
 }
 
-func (s *runStateSlot) update(transform func(datatype.ValueEnvelope) (datatype.ValueEnvelope, error)) (StateSnapshot, error) {
+func (s *runStateSlot) update(transform func(datatype.ValueEnvelope) (datatype.ValueEnvelope, error)) (nodeadapter.StateSnapshot, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	value, err := transform(s.value)
 	if err != nil {
-		return StateSnapshot{}, err
+		return nodeadapter.StateSnapshot{}, err
 	}
 	return s.writeLocked(value)
 }
 
-func (s *runStateSlot) writeLocked(value datatype.ValueEnvelope) (StateSnapshot, error) {
+func (s *runStateSlot) writeLocked(value datatype.ValueEnvelope) (nodeadapter.StateSnapshot, error) {
 	if !value.Valid() || !value.Durable() || value.Representation() != datatype.RepresentationInlineJSON || !reflect.DeepEqual(value.Type(), s.typeRef) {
-		return StateSnapshot{}, errors.New("state write value violates the frozen slot type")
+		return nodeadapter.StateSnapshot{}, errors.New("state write value violates the frozen slot type")
 	}
 	if s.revision >= schema.MaxRevision {
-		return StateSnapshot{}, errors.New("state revision budget exceeded")
+		return nodeadapter.StateSnapshot{}, errors.New("state revision budget exceeded")
 	}
 	s.value = value
 	s.revision++
 	s.changedAt = s.now().UTC()
-	return StateSnapshot{Value: s.value, Revision: s.revision, ChangedAt: s.changedAt}, nil
+	return nodeadapter.StateSnapshot{Value: s.value, Revision: s.revision, ChangedAt: s.changedAt}, nil
 }

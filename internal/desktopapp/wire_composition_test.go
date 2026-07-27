@@ -56,7 +56,10 @@ func TestRootCompositionAdaptersExposeSafeDefaultsAndLifecycle(t *testing.T) {
 		t.Fatalf("recording hotkeys = %#x / %#x / %#x", adapter.GetStartHotkeyVK(), adapter.GetStopHotkeyVK(), adapter.GetPauseHotkeyVK())
 	}
 
-	app := services.NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	app, err := services.OpenApp(filepath.Join(t.TempDir(), "settings.json"), "", nil, zerolog.Nop())
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter.app = app
 	if adapter.GetMouseMode() != "relative" {
 		t.Fatalf("default mouse mode = %q", adapter.GetMouseMode())

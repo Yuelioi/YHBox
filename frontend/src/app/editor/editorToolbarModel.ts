@@ -5,7 +5,7 @@ export type EditorToolbarCommand =
   | 'toggle-ai'
   | 'toggle-state'
   | 'toggle-inspector'
-  | 'compile'
+  | 'check-workflow'
   | 'toggle-diagnostics'
   | 'toggle-timeline'
   | 'toggle-debugger'
@@ -37,7 +37,6 @@ export interface EditorToolbarContext {
   inspectorOpen: boolean
   runActive: boolean
   saving: boolean
-  compileSucceeded: boolean
   saveSucceeded: boolean
   diagnosticCount: number
   diagnosticsOpen: boolean
@@ -102,10 +101,10 @@ const actionDefinitions: Record<
     icon: 'i-tabler-layout-sidebar-right',
     testId: 'workflow-inspector-toggle',
   },
-  compile: {
-    labelKey: 'workflow.action.compile',
+  'check-workflow': {
+    labelKey: 'workflow.action.check_workflow',
     icon: 'i-tabler-file-check',
-    testId: 'workflow-compile',
+    testId: 'workflow-check',
   },
   'toggle-diagnostics': {
     labelKey: 'workflow.diagnostics.badge',
@@ -221,15 +220,7 @@ export function buildEditorToolbarModel(context: EditorToolbarContext): EditorTo
     )
   }
 
-  const executionTools = [
-    action('compile', {
-      labelKey: context.compileSucceeded
-        ? 'workflow.action.compile_succeeded'
-        : 'workflow.action.compile',
-      icon: context.compileSucceeded ? 'i-tabler-check' : 'i-tabler-file-check',
-      color: context.compileSucceeded ? 'success' : 'neutral',
-    }),
-  ]
+  const executionTools = [action('check-workflow')]
   if (context.diagnosticCount > 0) {
     executionTools.push(
       action('toggle-diagnostics', {
