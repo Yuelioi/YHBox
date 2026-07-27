@@ -21,7 +21,7 @@ import (
 
 func TestSeedRecoveryFixtureUsesCurrentCatalogAuthority(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "profile")
-	if err := seedRecoveryFixture(context.Background(), root); err != nil {
+	if err := seedRecoveryFixture(context.Background(), root, "", ""); err != nil {
 		t.Fatal(err)
 	}
 	profile, err := storage.Open(context.Background(), storage.OpenOptions{Root: root})
@@ -120,8 +120,10 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	postDelete := withState(base, func(state *pageState) { state.CanvasNodes = 1 })
 	connected := withState(base, func(state *pageState) { state.CanvasNodes, state.CanvasEdges = 2, 1 })
 	states := []pageState{
-		{RecoveryPanel: true, LauncherButton: true},
-		{CreateInput: true, RecoveryPanel: true, LauncherButton: true},
+		{RecoveryPanel: true, WorkflowBrowse: true, WorkflowManageButton: true, LauncherButton: true},
+		{RecoveryPanel: true, WorkflowManagement: true, WorkflowManageButton: true, LauncherButton: true},
+		{RecoveryPanel: true, WorkflowBrowse: true, WorkflowManageButton: true, LauncherButton: true},
+		{CreateInput: true, RecoveryPanel: true, WorkflowBrowse: true, WorkflowManageButton: true, LauncherButton: true},
 		{},
 		oneNode,
 		withState(base, func(state *pageState) { state.CanvasNodes, state.MinimapOpen = 1, true }),
@@ -183,6 +185,9 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 			state.CurrentGraph, state.CanvasNodes, state.CanvasEdges, state.GraphBoundaries = "child", 1, 0, 1
 		}),
 		withState(connected, func(state *pageState) {
+			state.CurrentGraph, state.CanvasNodes, state.CanvasEdges, state.GraphBoundaries, state.GraphInterface = "child", 1, 0, 1, true
+		}),
+		withState(connected, func(state *pageState) {
 			state.CurrentGraph, state.CanvasNodes, state.CanvasEdges, state.GraphBoundaries, state.ConfirmDialog = "child", 1, 0, 1, true
 		}),
 		withState(connected, func(state *pageState) {
@@ -229,11 +234,25 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 			state.ResourceScopeContrast, state.ResourceFiltersFill = true, true
 		}),
 		connected,
-		withState(connected, func(state *pageState) { state.AssetsView, state.AssetsRecording = true, true }),
-		withState(connected, func(state *pageState) { state.AssetsView, state.AssetsRecording = true, true }),
+		withState(connected, func(state *pageState) {
+			state.AssetsView, state.AssetsRecording, state.AssetBrowse, state.AssetManageButton = true, true, true, true
+		}),
+		withState(connected, func(state *pageState) {
+			state.AssetsView, state.AssetsRecording, state.AssetBrowse, state.AssetManageButton = true, true, true, true
+		}),
+		withState(connected, func(state *pageState) {
+			state.AssetsView, state.AssetsRecording, state.AssetManagement, state.AssetManageButton = true, true, true, true
+		}),
+		withState(connected, func(state *pageState) {
+			state.AssetsView, state.AssetsRecording, state.AssetBrowse, state.AssetManageButton = true, true, true, true
+		}),
 		withState(connected, func(state *pageState) {
 			state.CurrentGraph, state.GraphCalls, state.Annotations = "main", 1, 1
 		}),
+		{SettingsView: true, SettingsGroups: 4},
+		{
+			WorkflowBrowse: true, WorkflowManageButton: true, WorkflowRows: 20, WorkflowTotal: 41,
+		},
 	}
 
 	var serverURL string
@@ -321,7 +340,10 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 			} else if call.Method == "Runtime.evaluate" &&
 				(strings.Contains(expression, "quick add search ready") ||
 					strings.Contains(expression, "quick add item ready") ||
-					strings.Contains(expression, "imported workflow action ready")) {
+					strings.Contains(expression, "imported workflow action ready") ||
+					strings.Contains(expression, "canvas add menu ready") ||
+					strings.Contains(expression, "callable subgraph item ready") ||
+					strings.Contains(expression, "annotation action ready")) {
 				result = map[string]any{"result": map[string]any{"value": "true"}}
 			} else if call.Method == "Runtime.evaluate" && strings.Contains(expression, "JSON.stringify") {
 				value := `{"start":{"x":10,"y":10},"end":{"x":20,"y":20}}`
@@ -355,9 +377,13 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	nodeMenuScreenshot := filepath.Join(dir, "node-context-menu.png")
 	quickAddScreenshot := filepath.Join(dir, "quick-add.png")
 	runStateScreenshot := filepath.Join(dir, "run-state.png")
+	settingsScreenshot := filepath.Join(dir, "settings.png")
+	assetManagementScreenshot := filepath.Join(dir, "asset-management.png")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := run(ctx, server.URL, screenshot, assetsScreenshot, "", "", "", ""); err != nil {
+	if err := run(
+		ctx, server.URL, screenshot, assetsScreenshot, "", "", "", "", "", 5*time.Second,
+	); err != nil {
 		t.Fatal(err)
 	}
 	if !analyzeColorUsedQuickAdd {
@@ -372,6 +398,8 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 		nodeMenuScreenshot,
 		quickAddScreenshot,
 		runStateScreenshot,
+		settingsScreenshot,
+		assetManagementScreenshot,
 	} {
 		if raw, err := os.ReadFile(path); err != nil || string(raw) != "png" {
 			t.Fatalf("screenshot %s = %q, %v", path, raw, err)

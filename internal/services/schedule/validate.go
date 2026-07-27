@@ -63,5 +63,13 @@ func (s *Schedule) Validate() error {
 	if s.LastStatus != "" && s.LastStatus != FireStatusQueued && s.LastStatus != FireStatusFailed {
 		return fmt.Errorf("lastStatus %q 不支持（必须 queued|failed）", s.LastStatus)
 	}
+	if s.LastReadiness != nil {
+		switch s.LastReadiness.State {
+		case "started", "workflow-invalid", "target-required", "credential-required",
+			"environment-unavailable", "not-started", "failed":
+		default:
+			return fmt.Errorf("lastReadiness.state %q 不支持", s.LastReadiness.State)
+		}
+	}
 	return nil
 }

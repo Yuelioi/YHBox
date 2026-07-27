@@ -85,6 +85,22 @@ func TestScheduleStoreMigratesLegacyWorkflowTargets(t *testing.T) {
 	}
 }
 
+func TestScheduleStoreMigratesVersion3WithoutInventingReadiness(t *testing.T) {
+	dir := t.TempDir()
+	legacy := `{"schemaVersion":"3","id":"v3","name":"v3","enabled":true,"targets":[{"kind":"workflow","id":"workflow-1"}],"trigger":{"kind":"manual"},"timeoutMinutes":0,"onError":"stop","lastStatus":"failed","createdAt":"2026-07-26T00:00:00Z","updatedAt":"2026-07-26T00:00:00Z"}`
+	if err := os.WriteFile(filepath.Join(dir, "v3.json"), []byte(legacy), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	store, err := NewStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	migrated, found := store.Get("v3")
+	if !found || migrated.SchemaVersion != CurrentSchemaVersion || migrated.LastReadiness != nil {
+		t.Fatalf("migrated v3 schedule = %#v, found=%v", migrated, found)
+	}
+}
+
 func TestScheduleStoreRejectsUnknownFields(t *testing.T) {
 	dir := t.TempDir()
 	doc := `{"schemaVersion":"1","id":"unknown","name":"unknown","targets":[{"kind":"workflow","id":"w"}],"trigger":{"kind":"manual"},"timeoutMinutes":0,"onError":"stop","surprise":true,"createdAt":"0001-01-01T00:00:00Z","updatedAt":"0001-01-01T00:00:00Z"}`

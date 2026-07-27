@@ -17,8 +17,21 @@ describe('ScheduleListPanel structure', () => {
   })
 
   it('names edit and overflow actions with schedule context', () => {
+    expect(source).toContain(':aria-label="t(\'schedule.run_action\', { name: schedule.name })"')
     expect(source).toContain(':aria-label="t(\'schedule.edit_action\', { name: schedule.name })"')
     expect(source).toContain(':aria-label="t(\'schedule.more_action\', { name: schedule.name })"')
     expect(source).toContain("label: t('schedule.delete_action', { name: schedule.name })")
+  })
+
+  it('keeps one-click run and the last readiness reason in the schedule row', () => {
+    expect(source).toContain('data-testid="schedule-run"')
+    expect(source).toContain('data-testid="schedule-readiness"')
+    expect(source).toContain('data-testid="schedule-repair"')
+    expect(source).toContain('runReadinessMessage(readinessOutcome(schedule.lastReadiness))')
+  })
+
+  it('only shows failure policy in explicit management mode', () => {
+    expect(source).toContain('v-if="manageMode" class="schedule-row__policy"')
+    expect(source).toContain('manageMode: boolean')
   })
 })

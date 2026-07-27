@@ -1,10 +1,19 @@
 <template>
-  <div v-if="items.length" ref="listRoot" :class="compact ? 'space-y-1.5' : 'min-w-[1080px]'">
+  <div
+    v-if="items.length"
+    ref="listRoot"
+    :class="compact ? 'space-y-1.5' : selectable ? 'min-w-[1080px]' : 'min-w-[960px]'"
+  >
     <div
       v-if="!compact"
-      class="grid h-9 grid-cols-[2.25rem_minmax(18rem,2fr)_10rem_minmax(12rem,1.2fr)_9rem_9rem_2.5rem] items-center gap-3 border-b border-default bg-elevated/35 px-3 text-[10px] font-semibold uppercase tracking-wide text-dimmed"
+      class="grid h-9 items-center gap-3 border-b border-default bg-elevated/35 px-3 text-[10px] font-semibold uppercase tracking-wide text-dimmed"
+      :class="
+        selectable
+          ? 'grid-cols-[2.25rem_minmax(18rem,2fr)_10rem_minmax(12rem,1.2fr)_9rem_9rem_2.5rem]'
+          : 'grid-cols-[minmax(18rem,2fr)_10rem_minmax(12rem,1.2fr)_9rem_9rem_2.5rem]'
+      "
     >
-      <slot name="select-all" />
+      <slot v-if="selectable" name="select-all" />
       <span>{{ t('assets.columns.asset') }}</span>
       <span>{{ t('common.category') }}</span>
       <span>{{ t('common.tags') }}</span>
@@ -22,7 +31,9 @@
       :class="[
         compact
           ? 'group flex cursor-pointer items-center gap-2 rounded-lg border bg-elevated/20 p-2 transition-colors hover:border-primary/40 hover:bg-elevated/50'
-          : 'grid min-h-16 grid-cols-[2.25rem_minmax(18rem,2fr)_10rem_minmax(12rem,1.2fr)_9rem_9rem_2.5rem] items-center gap-3 border-b px-3 hover:bg-elevated/35',
+          : selectable
+            ? 'grid min-h-16 grid-cols-[2.25rem_minmax(18rem,2fr)_10rem_minmax(12rem,1.2fr)_9rem_9rem_2.5rem] items-center gap-3 border-b px-3 hover:bg-elevated/35'
+            : 'grid min-h-16 grid-cols-[minmax(18rem,2fr)_10rem_minmax(12rem,1.2fr)_9rem_9rem_2.5rem] items-center gap-3 border-b px-3 hover:bg-elevated/35',
         focusedId === item.id
           ? 'border-primary/70 bg-primary/10 ring-1 ring-inset ring-primary/55'
           : 'border-default/70',
@@ -32,7 +43,7 @@
       @dblclick="emit('use', item)"
       @keydown.enter.prevent="emit('use', item)"
     >
-      <template v-if="!compact || $slots.select">
+      <template v-if="selectable && (!compact || $slots.select)">
         <slot name="select" :item="item" />
       </template>
       <div :class="compact ? 'contents' : 'flex min-w-0 items-center gap-2.5 py-1.5'">
@@ -133,8 +144,9 @@ const props = withDefaults(
     compact?: boolean
     draggable?: boolean
     focusedId?: string
+    selectable?: boolean
   }>(),
-  { compact: false, draggable: false, focusedId: '' },
+  { compact: false, draggable: false, focusedId: '', selectable: true },
 )
 const emit = defineEmits<{
   use: [item: AssetLibraryListItem]

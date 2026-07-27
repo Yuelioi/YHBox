@@ -30,44 +30,67 @@
         :name="session.source.workflow.name"
         :revision="session.baseRevision"
         :dirty="session.dirty"
-        :can-undo="session.canUndo"
-        :can-redo="session.canRedo"
-        :ai-panel-open="aiPanelOpen"
-        :state-panel-open="statePanelOpen"
-        :inspector-open="inspectorSidebarOpen"
-        :run-active="runActive"
-        :saving="session.phase === 'saving'"
-        :compile-succeeded="compileSucceeded"
-        :save-succeeded="saveSucceeded"
-        :diagnostic-count="session.diagnostics.length"
-        :diagnostics-open="diagnosticsOpen"
-        :has-run-timeline="Boolean(session.activeRun)"
-        :run-timeline-open="runTimelineOpen"
-        :has-debug="Boolean(session.debugSnapshot)"
-        :debugger-open="debuggerOpen"
-        :recording-phase="recording.state.phase"
+        :context="editorToolbarContext"
         @back="router.push('/workflows')"
-        @undo="session.undo()"
-        @redo="session.redo()"
-        @find-node="openNodeSearch"
-        @toggle-ai="toggleAIReview"
-        @toggle-state="toggleStatePanel"
-        @toggle-inspector="setInspectorVisibility(!inspectorAutoOpen)"
-        @compile="compile"
-        @toggle-diagnostics="toggleRuntimeWorkbench('diagnostics')"
-        @toggle-timeline="toggleRuntimeWorkbench('timeline')"
-        @toggle-debugger="toggleRuntimeWorkbench('debug')"
-        @start-debug="startDebug"
-        @start-recording="openRecordingStart"
-        @pause-recording="pauseRecording"
-        @resume-recording="resumeRecording"
-        @stop-recording="stopRecording"
-        @run="startRun"
-        @stop="cancelRun"
-        @save="save"
-        @settings="openWorkflowSettings"
-        @reload="reloadWorkflow"
-      />
+        @command="handleEditorToolbarCommand"
+      >
+        <template #breadcrumbs>
+          <template v-for="(graphId, index) in session.graphPath" :key="`${index}:${graphId}`">
+            <UIcon name="i-tabler-chevron-right" class="size-3 shrink-0 text-dimmed" />
+            <UButton
+              :data-testid="`workflow-graph-breadcrumb-${graphId}`"
+              class="max-w-36"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              :label="graphLabel(graphId)"
+              @click="openGraphAt(index)"
+            />
+          </template>
+        </template>
+        <template #target>
+          <UPopover mode="click" :ui="{ content: 'w-80 p-3' }">
+            <UButton
+              data-testid="workflow-target-default"
+              icon="i-tabler-device-desktop"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              :aria-label="workflowDefaultTargetLabel"
+              :title="workflowDefaultTargetLabel"
+            >
+              <span class="hidden max-w-40 truncate min-[1180px]:inline">
+                {{ workflowDefaultTargetLabel }}
+              </span>
+            </UButton>
+            <template #content>
+              <div class="space-y-2">
+                <p class="text-xs font-medium text-highlighted">
+                  {{ t('workflow.target_default.label') }}
+                </p>
+                <AdaptiveSelect
+                  :model-value="workflowDefaultTargetSlot"
+                  :items="workflowAutomationTargetItems"
+                  value-key="value"
+                  label-key="label"
+                  width-mode="fill"
+                  :placeholder="t('workflow.target_default.placeholder')"
+                  @update:model-value="setWorkflowDefaultTarget"
+                />
+                <UButton
+                  v-if="workflowDefaultTargetSlot"
+                  icon="i-tabler-x"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  :label="t('workflow.target_default.clear')"
+                  @click="session.setTargetDefault('target', '')"
+                />
+              </div>
+            </template>
+          </UPopover>
+        </template>
+      </WorkflowEditorToolbar>
 
       <WorkflowMetadataDialog
         v-model:open="workflowSettingsOpen"
@@ -79,77 +102,6 @@
         :error="workflowSettingsError"
         @submit="saveWorkflowSettings"
       />
-
-      <div class="flex items-center gap-2 border-b border-default bg-default px-3 py-1.5">
-        <div class="flex min-w-0 flex-1 items-center gap-1">
-          <template v-for="(graphId, index) in session.graphPath" :key="`${index}:${graphId}`">
-            <UIcon v-if="index" name="i-tabler-chevron-right" class="size-3 text-dimmed" />
-            <UButton
-              :data-testid="`workflow-graph-breadcrumb-${graphId}`"
-              color="neutral"
-              variant="ghost"
-              size="xs"
-              :label="graphLabel(graphId)"
-              @click="openGraphAt(index)"
-            />
-          </template>
-        </div>
-        <div class="flex shrink-0 items-center gap-2 border-l border-default pl-3">
-          <span class="hidden whitespace-nowrap text-xs text-muted xl:inline">{{
-            t('workflow.target_default.label')
-          }}</span>
-          <AdaptiveSelect
-            :model-value="workflowDefaultTargetSlot"
-            :items="workflowAutomationTargetItems"
-            value-key="value"
-            label-key="label"
-            class="min-w-64"
-            :placeholder="t('workflow.target_default.placeholder')"
-            @update:model-value="setWorkflowDefaultTarget"
-          />
-          <UButton
-            v-if="workflowDefaultTargetSlot"
-            icon="i-tabler-x"
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            :aria-label="t('workflow.target_default.clear')"
-            @click="session.setTargetDefault('target', '')"
-          />
-        </div>
-        <UDropdownMenu :items="callMenuItems">
-          <UButton
-            data-testid="workflow-graph-add-call"
-            icon="i-tabler-library-plus"
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            :label="t('workflow.graphs.add_call')"
-            :disabled="callableGraphs.length === 0"
-          />
-        </UDropdownMenu>
-        <UButton
-          data-testid="workflow-annotation-add"
-          icon="i-tabler-note"
-          color="neutral"
-          variant="ghost"
-          size="xs"
-          :aria-label="t('workflow.graphs.add_comment')"
-          @click="addComment"
-        />
-        <UButton
-          v-if="session.currentGraph?.kind === 'subgraph'"
-          data-testid="workflow-graph-infer-interface"
-          icon="i-tabler-plug-connected"
-          color="neutral"
-          variant="ghost"
-          size="xs"
-          :label="t('workflow.graphs.infer_interface')"
-          :disabled="!canInferGraphInterface.valid"
-          :title="canInferGraphInterface.valid ? undefined : canInferGraphInterface.message"
-          @click="inferGraphInterface"
-        />
-      </div>
 
       <div
         v-if="creationTemplate"
@@ -184,62 +136,11 @@
         {{ session.failure }}
       </div>
       <div class="flex min-h-0 flex-1">
-        <nav
-          class="flex w-11 shrink-0 flex-col items-center gap-1 border-r border-default bg-elevated/20 py-2"
-          :aria-label="t('workflow.workspace_tools')"
-        >
-          <UButton
-            data-testid="workflow-workspace-graphs"
-            icon="i-tabler-folders"
-            color="neutral"
-            :variant="workspaceSidebarOpen && workspacePanel === 'graphs' ? 'soft' : 'ghost'"
-            size="sm"
-            :aria-label="t('workflow.graphs.manager')"
-            :aria-pressed="workspaceSidebarOpen && workspacePanel === 'graphs'"
-            @click="toggleWorkspacePanel('graphs')"
-          />
-          <div class="my-1 h-px w-6 bg-default" aria-hidden="true" />
-          <UButton
-            data-testid="workflow-workspace-macro"
-            icon="i-tabler-list-details"
-            color="neutral"
-            :variant="workspaceSidebarOpen && workspacePanel === 'macro' ? 'soft' : 'ghost'"
-            size="sm"
-            :aria-label="t('assets.tabs.macros')"
-            :aria-pressed="workspaceSidebarOpen && workspacePanel === 'macro'"
-            @click="toggleWorkspacePanel('macro')"
-          />
-          <UButton
-            data-testid="workflow-workspace-clip"
-            icon="i-tabler-route-alt-left"
-            color="neutral"
-            :variant="workspaceSidebarOpen && workspacePanel === 'clip' ? 'soft' : 'ghost'"
-            size="sm"
-            :aria-label="t('assets.tabs.clips')"
-            :aria-pressed="workspaceSidebarOpen && workspacePanel === 'clip'"
-            @click="toggleWorkspacePanel('clip')"
-          />
-          <UButton
-            data-testid="workflow-workspace-template"
-            icon="i-tabler-photo"
-            color="neutral"
-            :variant="workspaceSidebarOpen && workspacePanel === 'template' ? 'soft' : 'ghost'"
-            size="sm"
-            :aria-label="t('assets.tabs.templates')"
-            :aria-pressed="workspaceSidebarOpen && workspacePanel === 'template'"
-            @click="toggleWorkspacePanel('template')"
-          />
-          <UButton
-            data-testid="workflow-workspace-snippets"
-            icon="i-tabler-bookmarks"
-            color="neutral"
-            :variant="workspaceSidebarOpen && workspacePanel === 'snippets' ? 'soft' : 'ghost'"
-            size="sm"
-            :aria-label="t('workflow.snippets.title')"
-            :aria-pressed="workspaceSidebarOpen && workspacePanel === 'snippets'"
-            @click="toggleWorkspacePanel('snippets')"
-          />
-        </nav>
+        <WorkflowWorkspaceRail
+          :active-panel="workspacePanel"
+          :open="workspaceSidebarOpen"
+          @select="toggleWorkspacePanel"
+        />
 
         <aside
           v-if="workspaceSidebarOpen"
@@ -444,7 +345,8 @@
             @remove="removeSelection"
           />
           <div
-            class="absolute right-3 top-3 z-20 flex gap-1 rounded-lg border border-default bg-default/95 p-1 shadow-lg"
+            data-testid="workflow-canvas-add-node-entry"
+            class="absolute left-3 top-3 z-20 flex gap-0.5 rounded-lg border border-default bg-default/95 p-1 shadow-lg"
           >
             <UButton
               data-testid="workflow-canvas-add-node"
@@ -453,8 +355,31 @@
               variant="ghost"
               size="xs"
               :label="t('workflow.canvas.add_node')"
-              @click="openQuickAdd"
+              @click="openQuickAddFromButton"
             />
+            <UDropdownMenu :items="canvasAddMenuItems">
+              <UButton
+                data-testid="workflow-canvas-add-more"
+                icon="i-tabler-chevron-down"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                :aria-label="t('workflow.canvas.add_more')"
+              />
+              <template #item="{ item }">
+                <span
+                  :data-testid="item.testId"
+                  class="flex min-w-0 flex-1 items-center justify-start gap-2 text-left"
+                >
+                  <UIcon :name="item.icon" class="size-4 shrink-0" />
+                  <span class="min-w-0 flex-1 truncate text-left">{{ item.label }}</span>
+                </span>
+              </template>
+            </UDropdownMenu>
+          </div>
+          <div
+            class="absolute right-3 top-3 z-20 flex gap-1 rounded-lg border border-default bg-default/95 p-1 shadow-lg"
+          >
             <template v-if="!selectedNodeIds.size && selectedEdgeId">
               <template v-if="selectedSourceEdge()">
                 <UButton
@@ -671,6 +596,12 @@
             :graph="session.currentGraph"
             :candidates="graphInterfaceCandidates"
             :reference-counts="graphInterfaceReferenceCounts"
+            :infer-disabled="!canInferGraphInterface.valid"
+            :infer-hint="
+              canInferGraphInterface.valid
+                ? t('workflow.graphs.infer_interface_hint')
+                : canInferGraphInterface.message
+            "
             @infer="inferGraphInterface"
             @add="addGraphInterfaceCandidate"
             @rename="renameGraphInterfaceItem"
@@ -702,14 +633,14 @@
         :node-labels="debugNodeLabels"
         :unhandled-routes="unhandledRunRoutes"
         :diagnostics="session.diagnostics"
-        @cancel="cancelRun"
-        @refresh="refreshRun"
-        @page="loadTimelinePage"
+        @cancel="editorRuns.execute({ kind: 'cancel' })"
+        @refresh="editorRuns.execute({ kind: 'refresh' })"
+        @page="(page) => editorRuns.execute({ kind: 'load-timeline-page', page })"
         @focus-node="focusNode"
         @focus="focusDiagnostic"
-        @continue="controlDebug('continue')"
-        @pause="controlDebug('pause')"
-        @step="controlDebug('step')"
+        @continue="editorRuns.execute({ kind: 'control-debug', action: 'continue' })"
+        @pause="editorRuns.execute({ kind: 'control-debug', action: 'pause' })"
+        @step="editorRuns.execute({ kind: 'control-debug', action: 'step' })"
       />
 
       <WorkflowQuickAddMenu
@@ -896,27 +827,33 @@
     </BaseModal>
 
     <BaseModal
-      v-model:open="recordingStartOpen"
+      v-model:open="recordingEditor.startOpen"
       :title="
         t(
-          recordingMode === 'simple'
+          recordingEditor.mode === 'simple'
             ? 'workflow.recording.macro_title'
             : 'workflow.recording.precise_title',
         )
       "
-      :icon="recordingMode === 'simple' ? 'i-tabler-list-details' : 'i-tabler-route-alt-left'"
+      :icon="
+        recordingEditor.mode === 'simple' ? 'i-tabler-list-details' : 'i-tabler-route-alt-left'
+      "
       size="md"
     >
       <div class="space-y-3">
         <div class="flex items-start gap-3 rounded-lg border border-default bg-elevated/30 p-3">
           <UIcon
-            :name="recordingMode === 'simple' ? 'i-tabler-list-details' : 'i-tabler-route-alt-left'"
+            :name="
+              recordingEditor.mode === 'simple'
+                ? 'i-tabler-list-details'
+                : 'i-tabler-route-alt-left'
+            "
             class="mt-0.5 size-5 shrink-0 text-primary"
           />
           <p class="text-xs leading-5 text-muted">
             {{
               t(
-                recordingMode === 'simple'
+                recordingEditor.mode === 'simple'
                   ? 'workflow.recording.macro_hint'
                   : 'workflow.recording.precise_hint',
               )
@@ -925,7 +862,7 @@
         </div>
         <UFormField :label="t('workflow.recording.target')" required>
           <AdaptiveSelect
-            v-model="recordingTargetSlot"
+            v-model="recordingEditor.targetSlot"
             :items="recordingTargetItems"
             value-key="value"
             label-key="label"
@@ -935,13 +872,13 @@
       </div>
       <p class="mt-3 text-xs leading-5 text-muted">{{ t('workflow.recording.start_hint') }}</p>
       <template #footer>
-        <UButton color="neutral" variant="ghost" @click="recordingStartOpen = false">
+        <UButton color="neutral" variant="ghost" @click="recordingEditor.startOpen = false">
           {{ t('common.cancel') }}
         </UButton>
         <UButton
-          :disabled="!recordingTargetSlot"
-          :loading="recordingControlBusy"
-          @click="startRecording"
+          :disabled="!recordingEditor.targetSlot"
+          :loading="recordingEditor.controlBusy"
+          @click="editorRecording.execute({ kind: 'start' })"
         >
           {{ t('workflow.recording.start') }}
         </UButton>
@@ -982,29 +919,29 @@
     </BaseModal>
 
     <BaseModal
-      :open="!!pendingRecording"
+      :open="!!recordingEditor.pending"
       :title="t('recordingSave.title')"
       icon="i-tabler-list-check"
       size="3xl"
       :show-close="false"
       :dismissible="false"
     >
-      <div v-if="pendingRecording" class="space-y-4">
-        <div v-if="pendingRecording.mode === 'simple'" class="grid grid-cols-2 gap-3">
+      <div v-if="recordingEditor.pending" class="space-y-4">
+        <div v-if="recordingEditor.pending.mode === 'simple'" class="grid grid-cols-2 gap-3">
           <div class="rounded-lg border border-default bg-elevated/35 px-4 py-3">
             <p class="text-xs text-muted">{{ t('workflow.recording.result_mode') }}</p>
             <div class="mt-1 flex items-center gap-2">
               <UBadge
-                :color="pendingRecording.preview.mode === 'simple' ? 'primary' : 'warning'"
+                :color="recordingEditor.pending.preview.mode === 'simple' ? 'primary' : 'warning'"
                 variant="soft"
               >
-                {{ t(`workflow.recording.mode_${pendingRecording.preview.mode}`) }}
+                {{ t(`workflow.recording.mode_${recordingEditor.pending.preview.mode}`) }}
               </UBadge>
               <span class="text-xs text-toned">
                 {{
                   t('recordingSave.summary', {
-                    duration: formatRecordingDuration(pendingRecording.durationUs),
-                    count: pendingRecording.eventCount,
+                    duration: formatRecordingDuration(recordingEditor.pending.durationUs),
+                    count: recordingEditor.pending.eventCount,
                   })
                 }}
               </span>
@@ -1013,20 +950,25 @@
           <div class="rounded-lg border border-default bg-elevated/35 px-4 py-3 text-xs text-muted">
             {{
               t('workflow.recording.action_summary', {
-                keys: pendingRecording.preview.keyActions,
-                clicks: pendingRecording.preview.clickActions,
-                moves: pendingRecording.preview.pointerMoves + pendingRecording.preview.rawDeltas,
-                scrolls: pendingRecording.preview.scrollActions,
+                keys: recordingEditor.pending.preview.keyActions,
+                clicks: recordingEditor.pending.preview.clickActions,
+                moves:
+                  recordingEditor.pending.preview.pointerMoves +
+                  recordingEditor.pending.preview.rawDeltas,
+                scrolls: recordingEditor.pending.preview.scrollActions,
               })
             }}
           </div>
         </div>
         <div
-          v-if="pendingRecording.mode === 'simple' && pendingRecording.preview.steps.length"
+          v-if="
+            recordingEditor.pending.mode === 'simple' &&
+            recordingEditor.pending.preview.steps.length
+          "
           class="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-default bg-sunken p-2"
         >
           <div
-            v-for="(step, index) in pendingRecording.preview.steps"
+            v-for="(step, index) in recordingEditor.pending.preview.steps"
             :key="`${step.atUs}:${index}`"
             class="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted"
           >
@@ -1055,53 +997,53 @@
           </div>
         </div>
         <PreciseRecordingWorkbench
-          v-if="pendingRecording.mode === 'precise'"
-          :preview="pendingRecording.preview"
-          :environment="pendingRecording.environment"
-          :duration-us="pendingRecording.durationUs"
-          :trim-start-us="recordingTrimStartUs"
-          :trim-end-us="recordingTrimEndUs"
-          :pending-id="pendingRecording.pendingID"
+          v-if="recordingEditor.pending.mode === 'precise'"
+          :preview="recordingEditor.pending.preview"
+          :environment="recordingEditor.pending.environment"
+          :duration-us="recordingEditor.pending.durationUs"
+          :trim-start-us="recordingEditor.trimStartUs"
+          :trim-end-us="recordingEditor.trimEndUs"
+          :pending-id="recordingEditor.pending.pendingID"
           editable-trim
-          @update:trim-start-us="recordingTrimStartUs = $event"
-          @update:trim-end-us="recordingTrimEndUs = $event"
+          @update:trim-start-us="recordingEditor.trimStartUs = $event"
+          @update:trim-end-us="recordingEditor.trimEndUs = $event"
         />
         <MacroActionEditor
-          v-if="pendingRecording.mode === 'simple' && pendingRecording.actions"
-          v-model="recordingActions"
-          @validity="recordingActionsValid = $event"
+          v-if="recordingEditor.pending.mode === 'simple' && recordingEditor.pending.actions"
+          v-model="recordingEditor.actions"
+          @validity="recordingEditor.actionsValid = $event"
         />
         <p
-          v-else-if="pendingRecording.mode === 'simple'"
+          v-else-if="recordingEditor.pending.mode === 'simple'"
           class="rounded-lg border border-default bg-sunken px-3 py-2 text-xs text-muted"
         >
           {{ t('recordingEditor.editing_unavailable') }}
         </p>
         <RecordingMetadataFields
-          v-model:name="recordingDraft.name"
-          v-model:description="recordingDraft.description"
-          v-model:category="recordingDraft.category"
-          v-model:tags="recordingDraft.tags"
-          :categories="recordingFacetCategories"
-          :tag-suggestions="recordingFacetTags"
+          v-model:name="recordingEditor.draft.name"
+          v-model:description="recordingEditor.draft.description"
+          v-model:category="recordingEditor.draft.category"
+          v-model:tags="recordingEditor.draft.tags"
+          :categories="recordingEditor.facetCategories"
+          :tag-suggestions="recordingEditor.facetTags"
         />
       </div>
       <template #footer>
         <UButton
           color="error"
           variant="ghost"
-          :disabled="recordingSaveBusy"
+          :disabled="recordingEditor.saveBusy"
           @click="discardPendingRecording"
         >
           {{ t('recordingSave.discard') }}
         </UButton>
         <UButton
-          :loading="recordingSaveBusy"
+          :loading="recordingEditor.saveBusy"
           :disabled="
-            !recordingDraft.name.trim() ||
-            (pendingRecording?.mode === 'simple' && !recordingActionsValid)
+            !recordingEditor.draft.name.trim() ||
+            (recordingEditor.pending?.mode === 'simple' && !recordingEditor.actionsValid)
           "
-          @click="saveRecordingResource"
+          @click="editorRecording.execute({ kind: 'finalize' })"
         >
           {{ t('assets.recording.save_to_library') }}
         </UButton>
@@ -1288,7 +1230,6 @@ import {
 } from '@/app/editor/EditorSession'
 import type {
   Annotation,
-  GraphCall,
   TypeExpression,
   WorkflowResource,
 } from '../../../contracts/workflow/current/workflow-source'
@@ -1306,6 +1247,20 @@ import { useRecordingStartFeedback } from '@/composables/useRecordingStartFeedba
 import WorkflowNode from '@/app/editor/WorkflowNode.vue'
 import { effectiveTargetSlot } from '@/app/editor/authoringSurface'
 import WorkflowEditorToolbar from '@/app/editor/WorkflowEditorToolbar.vue'
+import WorkflowWorkspaceRail from '@/app/editor/WorkflowWorkspaceRail.vue'
+import {
+  createEditorRunController,
+  type EditorRuntimeWorkbenchTab,
+} from '@/app/editor/EditorRunController'
+import { createEditorResourceController } from '@/app/editor/EditorResourceController'
+import {
+  createEditorRecordingController,
+  formatRecordingDuration,
+} from '@/app/editor/EditorRecordingController'
+import { createEditorCanvasLayoutController } from '@/app/editor/EditorCanvasLayoutController'
+import { createEditorSelectionController } from '@/app/editor/EditorSelectionController'
+import type { EditorToolbarCommand, EditorToolbarContext } from '@/app/editor/editorToolbarModel'
+import type { WorkflowWorkspacePanel } from '@/app/editor/workspacePanel'
 import type { WorkflowMetadataDraft } from '@/app/editor/WorkflowMetadataDialog.vue'
 import { parseWorkspaceResource, RESOURCE_DRAG_FORMAT } from '@/app/editor/resourceDrag'
 import { snapshotGlobalAssetByID } from '@/app/editor/workflowResourceSnapshot'
@@ -1324,23 +1279,10 @@ import WorkflowGraphBoundary from '@/app/editor/WorkflowGraphBoundary.vue'
 import WorkflowAnnotation from '@/app/editor/WorkflowAnnotation.vue'
 import WorkflowRerouteEdge from '@/app/editor/WorkflowRerouteEdge.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
-import {
-  useRecordingStore,
-  type MacroAction,
-  type RecordingMode,
-  type RecordingPreview,
-  type RecordingStopPayload,
-} from '@/stores/recording'
+import { useRecordingStore, type RecordingMode } from '@/stores/recording'
 import { useSettingsStore } from '@/stores/settings'
 import { useAssetsStore, type AssetPickerSelection } from '@/stores/assets'
-import {
-  backend,
-  type AssetSummary,
-  type MacroAsset,
-  type MacroDocument,
-  type WorkflowResourceContent,
-  type WorkflowSnippet,
-} from '@/lib/backend'
+import { backend, type AssetSummary, type WorkflowSnippet } from '@/lib/backend'
 import { useSnippetsStore } from '@/stores/snippets'
 import { shortcutFromKeyboardEvent } from '@/app/editor/snippetShortcut'
 import type { WorkflowQuickAddItem } from '@/app/editor/workflowQuickAdd'
@@ -1377,15 +1319,7 @@ import type {
   GraphInterfaceCandidateKind,
   GraphInterfaceItemKind,
 } from '@/app/editor/subgraphInterface'
-import {
-  alignNodePositions,
-  autoLayoutNodePositions,
-  distributeNodePositions,
-  snapNodePosition,
-  type AlignMode,
-  type DistributeMode,
-  type SizedWorkflowNode,
-} from '@/app/editor/workflowLayout'
+import type { AlignMode, DistributeMode } from '@/app/editor/workflowLayout'
 
 defineOptions({ name: 'WorkflowEditorView' })
 
@@ -1441,6 +1375,19 @@ const { show: showRecordingStartError } = useRecordingStartFeedback()
 const settings = useSettingsStore()
 const assets = useAssetsStore()
 const snippets = useSnippetsStore()
+const editorResources = createEditorResourceController({
+  port: {
+    openWorkflow: (resource) => backend.workflowResources.open(resource),
+    rewriteWorkflow: (resource, edit) => backend.workflowResources.rewrite(resource, edit),
+    getMacro: (id) => backend.macros.get(id),
+    saveMacro: (asset) => backend.macros.save(asset),
+  },
+  replaceWorkflowResource: (resourceId, resource) =>
+    session.apply({ kind: 'replace-resource', resourceId, resource }),
+  invalidateAssets: () => assets.invalidate(),
+  translate: (key) => t(key),
+  showError,
+})
 const selectedNodeId = ref('')
 const selectedNodeIds = ref(new Set<string>())
 const selectedEdgeId = ref('')
@@ -1452,8 +1399,7 @@ const quickAddPosition = ref({ x: 160, y: 160 })
 const quickAddAnchor = ref({ x: 160, y: 160 })
 const canvasPointerInside = ref(false)
 const lastCanvasPointer = ref<{ x: number; y: number } | null>(null)
-type WorkspacePanel = 'graphs' | WorkspaceResourceKind | 'snippets'
-const workspacePanel = ref<WorkspacePanel>('graphs')
+const workspacePanel = ref<WorkflowWorkspacePanel>('graphs')
 const workspaceSidebarOpen = ref(true)
 const workspaceSidebarWidth = ref(320)
 const resourceLocateRequest = ref<ResourceLocateRequest | null>(null)
@@ -1504,8 +1450,6 @@ const creationTemplateIcon = computed(() =>
         ? 'i-tabler-brand-windows'
         : 'i-tabler-devices',
 )
-const compileSucceeded = ref(false)
-const saveSucceeded = ref(false)
 const canvasElement = ref<HTMLElement | null>(null)
 const connectionStart = ref<ConnectionAnchor | null>(null)
 const connectionMenu = ref<ConnectionMenuState | null>(null)
@@ -1514,16 +1458,12 @@ const pendingStatePromotion = ref<PendingStatePromotion | null>(null)
 const statePromotionName = ref('')
 const connectionHint = ref('')
 const connectionError = ref('')
-const snapGuides = ref<{ x?: number; y?: number }>({})
-const layouting = ref(false)
 const minimapOpen = ref(false)
-type RuntimeWorkbenchTab = 'diagnostics' | 'logs' | 'timeline' | 'debug'
 const runtimeWorkbenchOpen = ref(false)
-const runtimeWorkbenchTab = ref<RuntimeWorkbenchTab>('logs')
+const runtimeWorkbenchTab = ref<EditorRuntimeWorkbenchTab>('logs')
 const diagnosticsOpen = computed(
   () => runtimeWorkbenchOpen.value && runtimeWorkbenchTab.value === 'diagnostics',
 )
-const debugControlBusy = ref(false)
 const runTimelineOpen = computed(
   () => runtimeWorkbenchOpen.value && runtimeWorkbenchTab.value === 'timeline',
 )
@@ -1535,63 +1475,46 @@ const debugModeActive = computed(
     debuggerOpen.value ||
     Boolean(session.debugSnapshot && session.debugSnapshot.status !== 'completed'),
 )
+const editorRuns = createEditorRunController({
+  session,
+  translate: (key) => t(key),
+  showError,
+  openWorkbench: openRuntimeWorkbench,
+  focusDebugNode: focusNode,
+})
+const { compileSucceeded, saveSucceeded, debugControlBusy } = editorRuns
+const editorToolbarContext = computed<Omit<EditorToolbarContext, 'dirty'>>(() => ({
+  canUndo: session.canUndo,
+  canRedo: session.canRedo,
+  aiPanelOpen: aiPanelOpen.value,
+  statePanelOpen: statePanelOpen.value,
+  inspectorOpen: inspectorSidebarOpen.value,
+  runActive: runActive.value,
+  saving: session.phase === 'saving',
+  compileSucceeded: compileSucceeded.value,
+  saveSucceeded: saveSucceeded.value,
+  diagnosticCount: session.diagnostics.length,
+  diagnosticsOpen: diagnosticsOpen.value,
+  hasRunTimeline: Boolean(session.activeRun),
+  runTimelineOpen: runTimelineOpen.value,
+  debugModeActive: debugModeActive.value,
+  debuggerOpen: debuggerOpen.value,
+  recordingPhase: recording.state.phase,
+}))
 const breakpointKeys = ref(new Set<string>())
-const recordingStartOpen = ref(false)
-const recordingTargetSlot = ref('')
-const recordingMode = ref<RecordingMode>('simple')
-const recordingControlBusy = ref(false)
-const pendingRecording = ref<RecordingStopPayload | null>(null)
-const recordingSaveBusy = ref(false)
-const recordingActions = ref<MacroAction[]>([])
-const recordingActionsValid = ref(true)
-const recordingTrimStartUs = ref(0)
-const recordingTrimEndUs = ref(0)
-const recordingDraft = reactive({
-  name: '',
-  description: '',
-  category: '',
-  tags: [] as string[],
-})
-const recordingFacetCategories = ref<string[]>([])
-const recordingFacetTags = ref<string[]>([])
-const macroEditing = ref<MacroAsset | null>(null)
-const macroEditBusy = ref(false)
-const macroEditValid = ref(true)
-const workflowMacroEditing = ref<{
-  resource: WorkflowResource
-  document: MacroDocument
-} | null>(null)
-const workflowMacroEditValid = ref(true)
-const workflowClipEditing = ref<{
-  resource: WorkflowResource
-  content: NonNullable<WorkflowResourceContent['inputClip']>
-} | null>(null)
-const workflowClipTrimStartUs = ref(0)
-const workflowClipTrimEndUs = ref(0)
-const workflowResourceEditBusy = ref(false)
-const workflowClipPreview = computed<RecordingPreview | null>(() => {
-  const clip = workflowClipEditing.value?.content
-  if (!clip) return null
-  const counts = Object.fromEntries(clip.tracks.map((track) => [track.kind, track.count]))
-  return {
-    mode: 'precise',
-    durationUs: clip.durationUs,
-    eventCount: clip.eventCount,
-    keyActions: counts.keyboard ?? 0,
-    clickActions: counts['mouse-buttons'] ?? 0,
-    pointerMoves: counts['absolute-motion'] ?? 0,
-    rawDeltas: counts['relative-motion'] ?? 0,
-    scrollActions: counts.scroll ?? 0,
-    steps: [],
-    tracks: clip.tracks,
-  }
-})
-const workflowClipTrimChanged = computed(() => {
-  const clip = workflowClipEditing.value?.content
-  return Boolean(
-    clip && (workflowClipTrimStartUs.value > 0 || workflowClipTrimEndUs.value < clip.durationUs),
-  )
-})
+const {
+  macroEditing,
+  macroEditBusy,
+  macroEditValid,
+  workflowMacroEditing,
+  workflowMacroEditValid,
+  workflowClipEditing,
+  workflowClipTrimStartUs,
+  workflowClipTrimEndUs,
+  workflowResourceEditBusy,
+  workflowClipPreview,
+  workflowClipTrimChanged,
+} = editorResources
 const templateCaptureOpen = ref(false)
 const captureTargetSlot = ref('')
 const templateCaptureBusy = ref(false)
@@ -1622,18 +1545,42 @@ const {
   setViewport,
   updateNode,
 } = useVueFlow()
+const editorSelection = createEditorSelectionController({
+  session,
+  selectedNodeId,
+  selectedNodeIds,
+  selectedEdgeId,
+  selectedFlowNodes: () => getSelectedNodes.value,
+  findNode,
+  addSelectedNodes,
+  removeSelectedNodes,
+  applyCommand,
+  disconnectEdge,
+  clipboard: navigator.clipboard,
+  translate: (key) => t(key),
+  showError,
+})
+const editorCanvasLayout = createEditorCanvasLayoutController({
+  session,
+  canvasElement,
+  selectedNodeIds,
+  findNode,
+  fitView,
+  flowToScreenCoordinate,
+  applyCommand,
+  layoutErrorTitle: () => t('workflow.selection.layout_failed'),
+  showError,
+})
+const { snapGuides, layouting, fitCurrentGraph } = editorCanvasLayout
 const nodeGestures = createWorkflowNodeGestureState()
 let unsubscribeRun: (() => void) | undefined
 let unsubscribeDebug: (() => void) | undefined
 let stopSidebarResize: (() => void) | undefined
-let compileFlashTimer: ReturnType<typeof setTimeout> | undefined
-let saveFlashTimer: ReturnType<typeof setTimeout> | undefined
 let connectionEndTimer: ReturnType<typeof setTimeout> | undefined
 let connectionMadeThisGesture = false
-let workflowClipboard: WorkflowSelectionClipboard | null = null
-let pasteOffset = 0
 let nextPosition = 0
 let marqueeSelectionBase = new Set<string>()
+let marqueeSelectionActive = false
 
 const NODE_TYPE_DRAG_FORMAT = 'application/x-yotta-node-type'
 const STATE_REFERENCE_DRAG_FORMAT = 'application/x-yotta-state-reference'
@@ -1666,15 +1613,6 @@ interface PendingStatePromotion {
   typeLabel: string
 }
 
-interface WorkflowSelectionClipboard {
-  format: 'yotta.workflow-selection'
-  version: 2
-  nodes: Node[]
-  calls: GraphCall[]
-  annotations: Annotation[]
-  edges: Edge[]
-}
-
 interface WorkflowNodeSearchResult {
   graphId: string
   nodeId: string
@@ -1692,12 +1630,27 @@ const callableGraphs = computed(() =>
   ),
 )
 
-const callMenuItems = computed(() => [
-  callableGraphs.value.map((graph) => ({
-    label: graphLabel(graph.id),
-    icon: 'i-tabler-folders',
-    onSelect: () => addGraphCall(graph.id),
-  })),
+const canvasAddMenuItems = computed(() => [
+  [
+    {
+      label: t('workflow.graphs.add_comment'),
+      icon: 'i-tabler-note',
+      testId: 'workflow-annotation-add',
+      onSelect: addComment,
+    },
+    {
+      label: t('workflow.graphs.add_call'),
+      icon: 'i-tabler-library-plus',
+      testId: 'workflow-graph-add-call',
+      disabled: callableGraphs.value.length === 0,
+      children: callableGraphs.value.map((graph) => ({
+        label: graphLabel(graph.id),
+        icon: 'i-tabler-folders',
+        testId: `workflow-graph-call-option-${graph.id}`,
+        onSelect: () => addGraphCall(graph.id),
+      })),
+    },
+  ],
 ])
 
 const catalogNodes = computed(() =>
@@ -2049,6 +2002,47 @@ const recordingTargetItems = computed(() =>
       value: target.slot,
     })),
 )
+const editorRecording = createEditorRecordingController({
+  port: {
+    start: (mode, targetSlot) => beginRecording(mode, targetSlot, 'editor'),
+    pause: () => recording.pause(),
+    resume: () => recording.resume(),
+    stop: () => recording.stop(),
+    cancel: () => recording.cancel(),
+    discard: (pendingID) => recording.discard(pendingID),
+    finalize: (input) => recording.finalize(input),
+    claimInvocation: (origin) => recording.claimInvocation(origin),
+    queryFacets: async (kind) => {
+      const page = await assets.query({
+        search: '',
+        kind,
+        category: '',
+        tags: [],
+        sort: 'created_desc',
+        page: 1,
+        pageSize: 1,
+        thumbnailBudget: 0,
+        recentGUIDs: [],
+      })
+      return {
+        categories: page.categories.map((item) => item.value),
+        tags: page.tags.map((item) => item.value),
+      }
+    },
+  },
+  snapshot: () => ({
+    phase: recording.state.phase,
+    pending: recording.state.pending,
+    invocation: recording.invocation,
+  }),
+  targets: () => recordingTargetItems.value,
+  selectedTargetSlot: () => selectedNode.value?.config.slot,
+  importResource: (resource) => importWorkflowResource(resource),
+  translate: (key) => t(key),
+  showError,
+  showStartError: (title, error) => showRecordingStartError(title, error),
+})
+const recordingEditor = editorRecording.state
 const workflowDefaultTargetSlot = computed(
   () => session.source?.targetDefaults?.find((item) => item.target === 'target')?.slot ?? '',
 )
@@ -2057,6 +2051,12 @@ const workflowAutomationTargetItems = computed(() =>
     label: `${target.label} · ${target.slot}`,
     value: target.slot,
   })),
+)
+const workflowDefaultTargetLabel = computed(
+  () =>
+    workflowAutomationTargetItems.value.find(
+      (target) => target.value === workflowDefaultTargetSlot.value,
+    )?.label ?? t('workflow.target_default.automatic'),
 )
 
 function connectedInputIDs(nodeID: string): ReadonlySet<string> {
@@ -2081,32 +2081,26 @@ function setWorkflowDefaultTarget(value: unknown): void {
 
 watch(
   () => recording.state.pending,
-  (pending) => syncPendingRecording(pending),
+  () =>
+    void editorRecording.execute({
+      kind: 'sync-pending',
+      editorActive: editorViewActive.value,
+      editorRoute: route.name === 'workflow-edit',
+    }),
   { immediate: true },
 )
 
 onActivated(() => {
   editorViewActive.value = true
-  syncPendingRecording(recording.state.pending)
+  void editorRecording.execute({
+    kind: 'sync-pending',
+    editorActive: true,
+    editorRoute: route.name === 'workflow-edit',
+  })
 })
 onDeactivated(() => {
   editorViewActive.value = false
 })
-
-function syncPendingRecording(pending: RecordingStopPayload | null): void {
-  if (!pending) {
-    if (recording.state.phase === 'idle') pendingRecording.value = null
-    return
-  }
-  if (
-    !editorViewActive.value ||
-    route.name !== 'workflow-edit' ||
-    (recording.invocation && recording.invocation !== 'editor')
-  )
-    return
-  recording.claimInvocation('editor')
-  openRecordingPreview(pending)
-}
 
 watch(
   () => recording.completionFailure,
@@ -2130,7 +2124,7 @@ onMounted(async () => {
     return
   }
   unsubscribeRun = onRunChanged((event) => {
-    if (event.runId === session.activeRun?.runId) void refreshRun()
+    if (event.runId === session.activeRun?.runId) void editorRuns.execute({ kind: 'refresh' })
   })
   unsubscribeDebug = onDebugChanged((event) => {
     if (!session.acceptDebugSnapshot(event.runId, event.snapshot)) return
@@ -2145,8 +2139,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('keydown', handleEditorKeydown)
   unsubscribeRun?.()
   unsubscribeDebug?.()
-  clearTimeout(compileFlashTimer)
-  clearTimeout(saveFlashTimer)
+  editorRuns.dispose()
   clearTimeout(connectionEndTimer)
   stopSidebarResize?.()
 })
@@ -2164,9 +2157,9 @@ onBeforeRouteLeave(async () => {
       color: 'warning',
     })
     if (leaveRecording !== true) return false
-    await recording.cancel()
+    if (!(await editorRecording.execute({ kind: 'cancel' }))) return false
   }
-  if (pendingRecording.value) {
+  if (recordingEditor.pending) {
     const discard = await confirm({
       title: t('recordingSave.discard'),
       description: t('recordingSave.discard_confirm_hint'),
@@ -2174,8 +2167,7 @@ onBeforeRouteLeave(async () => {
       color: 'error',
     })
     if (discard !== true) return false
-    await recording.discard(pendingRecording.value.pendingID)
-    pendingRecording.value = null
+    if (!(await editorRecording.execute({ kind: 'discard' }))) return false
   }
   if (!session.dirty) return true
   const decision = await confirm({
@@ -2187,133 +2179,12 @@ onBeforeRouteLeave(async () => {
     alternateValue: 'discard',
     alternateColor: 'error',
   })
-  if (decision === true) return save()
+  if (decision === true) return (await editorRuns.execute({ kind: 'save' })).ok
   return decision === 'discard'
 })
 
 function openRecordingStart(mode: RecordingMode): void {
-  if (recording.state.phase !== 'idle') {
-    if (recording.state.pending) openRecordingPreview(recording.state.pending)
-    return
-  }
-  const targets = recordingTargetItems.value
-  if (!targets.length) {
-    showError(t('workflow.recording.start_failed'), t('workflow.inspector.no_installed_target'))
-    return
-  }
-  const selectedSlot = selectedNode.value?.config.slot
-  recordingMode.value = mode
-  recordingTargetSlot.value =
-    typeof selectedSlot === 'string' && targets.some((item) => item.value === selectedSlot)
-      ? selectedSlot
-      : recordingTargetSlot.value || targets[0]?.value || ''
-  recordingStartOpen.value = true
-}
-
-async function startRecording(): Promise<void> {
-  if (!recordingTargetSlot.value) return
-  recordingControlBusy.value = true
-  try {
-    if (await beginRecording(recordingMode.value, recordingTargetSlot.value, 'editor')) {
-      recordingStartOpen.value = false
-    }
-  } catch (error) {
-    showRecordingStartError(t('workflow.recording.start_failed'), error)
-    return
-  } finally {
-    recordingControlBusy.value = false
-  }
-}
-
-async function pauseRecording(): Promise<void> {
-  try {
-    await recording.pause()
-  } catch (error) {
-    showError(t('workflow.recording.control_failed'), error)
-  }
-}
-
-async function resumeRecording(): Promise<void> {
-  try {
-    await recording.resume()
-  } catch (error) {
-    showError(t('workflow.recording.control_failed'), error)
-  }
-}
-
-async function stopRecording(): Promise<void> {
-  try {
-    await recording.stop()
-  } catch (error) {
-    showError(t('workflow.recording.control_failed'), error)
-  }
-}
-
-function openRecordingPreview(payload: RecordingStopPayload): void {
-  if (pendingRecording.value?.pendingID === payload.pendingID) return
-  pendingRecording.value = payload
-  recordingActions.value = cloneRecordingActions(payload.actions ?? [])
-  recordingActionsValid.value = true
-  recordingTrimStartUs.value = 0
-  recordingTrimEndUs.value = payload.durationUs
-  recordingDraft.name = ''
-  recordingDraft.description = ''
-  recordingDraft.category = ''
-  recordingDraft.tags = []
-  void loadRecordingMetadataOptions(payload)
-}
-
-async function loadRecordingMetadataOptions(payload: RecordingStopPayload): Promise<void> {
-  const pendingID = payload.pendingID
-  try {
-    const page = await assets.query({
-      search: '',
-      kind: payload.mode === 'simple' ? 'macro' : 'clip',
-      category: '',
-      tags: [],
-      sort: 'created_desc',
-      page: 1,
-      pageSize: 1,
-      thumbnailBudget: 0,
-      recentGUIDs: [],
-    })
-    if (pendingRecording.value?.pendingID !== pendingID) return
-    recordingFacetCategories.value = page.categories.map((item) => item.value)
-    recordingFacetTags.value = page.tags.map((item) => item.value)
-  } catch {
-    // Facets are suggestions only. Creating a new category/tag remains available offline.
-    if (pendingRecording.value?.pendingID !== pendingID) return
-    recordingFacetCategories.value = []
-    recordingFacetTags.value = []
-  }
-}
-
-async function saveRecordingResource(): Promise<void> {
-  const pending = pendingRecording.value
-  if (!pending || !recordingDraft.name.trim()) return
-  recordingSaveBusy.value = true
-  try {
-    const saved = await recording.finalize({
-      pendingID: pending.pendingID,
-      destination: 'workflow-resource',
-      label: recordingDraft.name.trim(),
-      description: recordingDraft.description.trim(),
-      category: recordingDraft.category.trim(),
-      tags: uniqueRecordingStrings(recordingDraft.tags),
-      actions: pending.actions ? cloneRecordingActions(recordingActions.value) : undefined,
-      trimStartUs: pending.mode === 'precise' ? recordingTrimStartUs.value : undefined,
-      trimEndUs: pending.mode === 'precise' ? recordingTrimEndUs.value : undefined,
-    })
-    pendingRecording.value = null
-    if (saved.destination !== 'workflow-resource') {
-      throw new Error('recording finalize returned the wrong destination')
-    }
-    importWorkflowResource(saved.resource)
-  } catch (error) {
-    showError(t('recordingSave.save_failed'), error)
-  } finally {
-    recordingSaveBusy.value = false
-  }
+  void editorRecording.execute({ kind: 'open-start', mode })
 }
 
 function openTemplateCapture(): void {
@@ -2397,7 +2268,7 @@ function useWorkspaceResource(
       : { x: 160, y: 160 })
   const targetSlot =
     workflowDefaultTargetSlot.value ||
-    recordingTargetSlot.value ||
+    recordingEditor.targetSlot ||
     captureTargetSlot.value ||
     recordingTargetItems.value[0]?.value ||
     ''
@@ -2505,7 +2376,7 @@ function placeWorkflowResource(
       : { x: 160, y: 160 })
   const targetSlot =
     workflowDefaultTargetSlot.value ||
-    recordingTargetSlot.value ||
+    recordingEditor.targetSlot ||
     captureTargetSlot.value ||
     recordingTargetItems.value[0]?.value ||
     ''
@@ -2683,8 +2554,7 @@ async function useSnippet(id: string, position?: { x: number; y: number }): Prom
 }
 
 async function discardPendingRecording(): Promise<void> {
-  const pending = pendingRecording.value
-  if (!pending) return
+  if (!recordingEditor.pending) return
   const accepted = await confirm({
     title: t('recordingSave.discard'),
     description: t('recordingSave.discard_confirm_hint'),
@@ -2692,103 +2562,19 @@ async function discardPendingRecording(): Promise<void> {
     color: 'error',
   })
   if (accepted !== true) return
-  recordingSaveBusy.value = true
-  try {
-    await recording.discard(pending.pendingID)
-    pendingRecording.value = null
-  } catch (error) {
-    showError(t('recordingSave.discard_failed'), error)
-  } finally {
-    recordingSaveBusy.value = false
-  }
-}
-
-function cloneRecordingActions(actions: MacroAction[]): MacroAction[] {
-  return actions.map((action) => ({
-    ...action,
-    point: action.point ? { ...action.point } : undefined,
-  }))
-}
-
-function cloneMacroDocument(document: MacroDocument): MacroDocument {
-  return {
-    ...document,
-    baseResolution: [...document.baseResolution] as [number, number],
-    actions: cloneRecordingActions(document.actions),
-  }
+  await editorRecording.execute({ kind: 'discard' })
 }
 
 async function openWorkflowResourceEditor(resource: WorkflowResource): Promise<void> {
-  try {
-    const content = await backend.workflowResources.open(plainCopy(resource))
-    if (resource.kind === 'macro' && content.macro) {
-      workflowMacroEditing.value = {
-        resource: plainCopy(resource),
-        document: cloneMacroDocument(content.macro),
-      }
-      workflowMacroEditValid.value = true
-      return
-    }
-    if (resource.kind === 'input-clip' && content.inputClip) {
-      workflowClipEditing.value = {
-        resource: plainCopy(resource),
-        content: plainCopy(content.inputClip),
-      }
-      workflowClipTrimStartUs.value = 0
-      workflowClipTrimEndUs.value = content.inputClip.durationUs
-      return
-    }
-    throw new Error(`resource ${resource.id} has no editable content`)
-  } catch (error) {
-    showError(t('workflow.resources.load_content_failed'), error)
-  }
+  await editorResources.execute({ kind: 'open-workflow', resource })
 }
 
 async function saveWorkflowMacro(): Promise<void> {
-  const editing = workflowMacroEditing.value
-  if (!editing || !workflowMacroEditValid.value) return
-  workflowResourceEditBusy.value = true
-  try {
-    const updated = await backend.workflowResources.rewrite(plainCopy(editing.resource), {
-      kind: 'macro-document',
-      macro: { document: cloneMacroDocument(editing.document) },
-    })
-    session.apply({
-      kind: 'replace-resource',
-      resourceId: editing.resource.id,
-      resource: plainCopy(updated),
-    })
-    workflowMacroEditing.value = null
-  } catch (error) {
-    showError(t('workflow.resources.save_content_failed'), error)
-  } finally {
-    workflowResourceEditBusy.value = false
-  }
+  await editorResources.execute({ kind: 'save-workflow-macro' })
 }
 
 async function saveWorkflowClipTrim(): Promise<void> {
-  const editing = workflowClipEditing.value
-  if (!editing || !workflowClipTrimChanged.value) return
-  workflowResourceEditBusy.value = true
-  try {
-    const updated = await backend.workflowResources.rewrite(plainCopy(editing.resource), {
-      kind: 'input-clip-trim',
-      inputClip: {
-        trimStartUs: workflowClipTrimStartUs.value,
-        trimEndUs: workflowClipTrimEndUs.value,
-      },
-    })
-    session.apply({
-      kind: 'replace-resource',
-      resourceId: editing.resource.id,
-      resource: plainCopy(updated),
-    })
-    workflowClipEditing.value = null
-  } catch (error) {
-    showError(t('workflow.resources.save_content_failed'), error)
-  } finally {
-    workflowResourceEditBusy.value = false
-  }
+  await editorResources.execute({ kind: 'save-workflow-clip' })
 }
 
 function duplicateWorkflowResource(resource: WorkflowResource): void {
@@ -2800,53 +2586,11 @@ function duplicateWorkflowResource(resource: WorkflowResource): void {
 }
 
 async function openMacroEditor(asset: AssetSummary): Promise<void> {
-  try {
-    const value = await backend.macros.get(asset.guid)
-    if (!value) throw new Error(`macro ${asset.guid} not found`)
-    macroEditing.value = {
-      ...value,
-      tags: [...(value.tags ?? [])],
-      document: cloneMacroDocument(value.document),
-      blob: { ...value.blob },
-    }
-    macroEditValid.value = true
-  } catch (error) {
-    showError(t('assets.macros.load_failed'), error)
-  }
+  await editorResources.execute({ kind: 'open-global-macro', asset })
 }
 
 async function saveMacro(): Promise<void> {
-  if (!macroEditing.value || !macroEditValid.value) return
-  macroEditBusy.value = true
-  try {
-    await backend.macros.save({
-      ...macroEditing.value,
-      document: cloneMacroDocument(macroEditing.value.document),
-    })
-    macroEditing.value = null
-    assets.invalidate()
-  } catch (error) {
-    showError(t('assets.macros.save_failed'), error)
-  } finally {
-    macroEditBusy.value = false
-  }
-}
-
-function uniqueRecordingStrings(values: string[]): string[] {
-  const seen = new Set<string>()
-  return values
-    .map((value) => value.trim())
-    .filter((value) => {
-      const key = value.toLocaleLowerCase()
-      if (!key || seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
-}
-
-function formatRecordingDuration(durationUs: number): string {
-  const seconds = Math.max(0, Math.round(durationUs / 1_000_000))
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+  await editorResources.execute({ kind: 'save-global-macro' })
 }
 
 function applyCommand(command: EditorCommand): boolean {
@@ -3220,7 +2964,7 @@ function setInspectorVisibility(open: boolean): void {
   inspectorSidebarOpen.value = open
 }
 
-function toggleWorkspacePanel(panel: WorkspacePanel): void {
+function toggleWorkspacePanel(panel: WorkflowWorkspacePanel): void {
   if (workspaceSidebarOpen.value && workspacePanel.value === panel) {
     workspaceSidebarOpen.value = false
     return
@@ -3688,20 +3432,26 @@ function trackCanvasPointer(event: PointerEvent): void {
   lastCanvasPointer.value = { x: event.clientX, y: event.clientY }
 }
 
-function canvasInsertionPosition(): { x: number; y: number } {
+function canvasClientPointToFlowPosition(point: { x: number; y: number }): {
+  x: number
+  y: number
+} {
   const rect = canvasElement.value?.getBoundingClientRect()
   const viewport = getViewport()
   const zoom = Number.isFinite(viewport.zoom) && viewport.zoom > 0 ? viewport.zoom : 1
-  const point = lastCanvasPointer.value
-  const clientX = Number.isFinite(point?.x)
-    ? (point?.x ?? 0)
-    : (rect?.left ?? 0) + (rect?.width ?? 320) / 2
-  const clientY = Number.isFinite(point?.y)
-    ? (point?.y ?? 0)
-    : (rect?.top ?? 0) + (rect?.height ?? 320) / 2
-  const x = (clientX - (rect?.left ?? 0) - viewport.x) / zoom
-  const y = (clientY - (rect?.top ?? 0) - viewport.y) / zoom
+  const x = (point.x - (rect?.left ?? 0) - viewport.x) / zoom
+  const y = (point.y - (rect?.top ?? 0) - viewport.y) / zoom
   return { x: Number.isFinite(x) ? x : 160, y: Number.isFinite(y) ? y : 160 }
+}
+
+function canvasInsertionPosition(): { x: number; y: number } {
+  const rect = canvasElement.value?.getBoundingClientRect()
+  return canvasClientPointToFlowPosition(
+    lastCanvasPointer.value ?? {
+      x: (rect?.left ?? 0) + (rect?.width ?? 320) / 2,
+      y: (rect?.top ?? 0) + (rect?.height ?? 320) / 2,
+    },
+  )
 }
 
 function openQuickAdd(): void {
@@ -3714,6 +3464,21 @@ function openQuickAdd(): void {
   quickAddOpen.value = true
 }
 
+function openQuickAddFromButton(event: MouseEvent): void {
+  const canvasRect = canvasElement.value?.getBoundingClientRect()
+  const triggerRect =
+    event.currentTarget instanceof HTMLElement ? event.currentTarget.getBoundingClientRect() : null
+  quickAddPosition.value = canvasClientPointToFlowPosition({
+    x: (canvasRect?.left ?? 0) + (canvasRect?.width ?? 320) / 2,
+    y: (canvasRect?.top ?? 0) + (canvasRect?.height ?? 320) / 2,
+  })
+  quickAddAnchor.value = {
+    x: triggerRect?.left ?? canvasRect?.left ?? 8,
+    y: (triggerRect?.bottom ?? canvasRect?.top ?? 8) + 8,
+  }
+  quickAddOpen.value = true
+}
+
 function selectQuickAddItem(item: WorkflowQuickAddItem): void {
   const position = { x: quickAddPosition.value.x, y: quickAddPosition.value.y }
   if (item.kind === 'node') addNode(item.id, position)
@@ -3722,10 +3487,9 @@ function selectQuickAddItem(item: WorkflowQuickAddItem): void {
 
 function captureMarqueeSelection(event: PointerEvent): void {
   const target = event.target as HTMLElement | null
-  marqueeSelectionBase =
-    event.button === 0 && event.shiftKey && target?.classList.contains('vue-flow__pane')
-      ? new Set(selectedNodeIds.value)
-      : new Set()
+  marqueeSelectionActive =
+    event.button === 0 && event.shiftKey && target?.classList.contains('vue-flow__pane') === true
+  marqueeSelectionBase = marqueeSelectionActive ? new Set(selectedNodeIds.value) : new Set()
 }
 
 function handleCanvasWheel(event: WheelEvent): void {
@@ -3745,7 +3509,8 @@ function handleCanvasWheel(event: WheelEvent): void {
 }
 
 async function finishMarqueeSelection(): Promise<void> {
-  if (!marqueeSelectionBase.size) return
+  if (!marqueeSelectionActive) return
+  marqueeSelectionActive = false
   await nextTick()
   const merged = mergeMarqueeSelection(marqueeSelectionBase, selectedNodeIds.value)
   marqueeSelectionBase = new Set()
@@ -3760,251 +3525,49 @@ async function finishMarqueeSelection(): Promise<void> {
 }
 
 function clearEditorSelection(): void {
-  removeSelectedNodes(getSelectedNodes.value)
-  selectedNodeId.value = ''
-  selectedNodeIds.value = new Set()
-  selectedEdgeId.value = ''
+  marqueeSelectionActive = false
   marqueeSelectionBase = new Set()
+  void editorSelection.execute({ kind: 'clear' })
 }
 
 function clearRunTrace(): void {
   session.clearRunTrace()
 }
 
-async function fitCurrentGraph(): Promise<void> {
-  await nextTick()
-  await new Promise<void>((resolve) =>
-    requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 50))),
-  )
-  await fitView({ padding: 0.24, duration: 180 })
-}
-
-function dragPositions(
-  event: NodeDragEvent,
-): Array<{ nodeId: string; position: { x: number; y: number } }> {
-  const dragged = event.nodes.length ? event.nodes : [event.node]
-  const draggedIds = new Set(dragged.map((node) => node.id))
-  const primary = sizedFlowNode(event.node.id, event.node.position)
-  const disableSnap = event.event instanceof MouseEvent && event.event.altKey
-  const snapped = disableSnap
-    ? { position: event.node.position }
-    : snapNodePosition(
-        primary,
-        (session.currentGraph?.nodes ?? []).flatMap((node) => {
-          if (draggedIds.has(node.id)) return []
-          return [sizedFlowNode(node.id, node.position)]
-        }),
-      )
-  const delta = {
-    x: snapped.position.x - event.node.position.x,
-    y: snapped.position.y - event.node.position.y,
-  }
-  updateSnapGuides(snapped.guideX, snapped.guideY)
-  return dragged.map((node) => ({
-    nodeId: node.id,
-    position: { x: node.position.x + delta.x, y: node.position.y + delta.y },
-  }))
-}
-
-function sizedFlowNode(nodeId: string, position: { x: number; y: number }): SizedWorkflowNode {
-  const dimensions = findNode(nodeId)?.dimensions
-  const element = [
-    ...(canvasElement.value?.querySelectorAll<HTMLElement>('.vue-flow__node') ?? []),
-  ].find((candidate) => candidate.dataset.id === nodeId)
-  return {
-    id: nodeId,
-    position,
-    width: element?.offsetWidth || dimensions?.width || 230,
-    height: element?.offsetHeight || dimensions?.height || 90,
-  }
-}
-
-function selectedSizedNodes(): SizedWorkflowNode[] {
-  return [...selectedNodeIds.value].flatMap((nodeId) => {
-    const graph = session.currentGraph
-    const position =
-      graph?.nodes.find((candidate) => candidate.id === nodeId)?.position ??
-      graph?.calls?.find((candidate) => candidate.id === nodeId)?.position ??
-      graph?.annotations?.find((candidate) => candidate.id === nodeId)?.position
-    return position ? [sizedFlowNode(nodeId, position)] : []
-  })
-}
-
-function applyCanvasPositions(
-  positions: Array<{ nodeId: string; position: { x: number; y: number } }>,
-): boolean {
-  const graph = session.currentGraph
-  if (!graph) return false
-  let applied = false
-  const nodes = positions.filter((item) => graph.nodes.some((node) => node.id === item.nodeId))
-  if (nodes.length) applied = applyCommand({ kind: 'move-nodes', positions: nodes }) || applied
-  for (const item of positions) {
-    const call = graph.calls?.find((candidate) => candidate.id === item.nodeId)
-    if (call)
-      applied =
-        applyCommand({ kind: 'update-graph-call', call: { ...call, position: item.position } }) ||
-        applied
-    const annotation = graph.annotations?.find((candidate) => candidate.id === item.nodeId)
-    if (annotation)
-      applied =
-        applyCommand({
-          kind: 'update-annotation',
-          annotation: { ...annotation, position: item.position },
-        }) || applied
-  }
-  return applied
-}
-
-function updateSnapGuides(guideX?: number, guideY?: number): void {
-  const bounds = canvasElement.value?.getBoundingClientRect()
-  if (!bounds) {
-    snapGuides.value = {}
-    return
-  }
-  snapGuides.value = {
-    x:
-      guideX === undefined
-        ? undefined
-        : flowToScreenCoordinate({ x: guideX, y: 0 }).x - bounds.left,
-    y:
-      guideY === undefined ? undefined : flowToScreenCoordinate({ x: 0, y: guideY }).y - bounds.top,
-  }
-}
-
 function alignSelection(mode: AlignMode): void {
-  const positions = alignNodePositions(selectedSizedNodes(), mode)
-  if (positions.length) applyCanvasPositions(positions)
+  void editorCanvasLayout.execute({ kind: 'align', mode })
 }
 
 function distributeSelection(mode: DistributeMode): void {
-  const positions = distributeNodePositions(selectedSizedNodes(), mode)
-  if (positions.length) applyCanvasPositions(positions)
+  void editorCanvasLayout.execute({ kind: 'distribute', mode })
 }
 
-async function autoLayout(direction: 'LR' | 'TB'): Promise<void> {
-  if (layouting.value) return
-  const graph = session.currentGraph
-  const source = session.source
-  if (!graph || !source || graph.nodes.length + (graph.calls?.length ?? 0) === 0) return
-  const nodes = [
-    ...graph.nodes.map((node) => sizedFlowNode(node.id, node.position)),
-    ...(graph.calls ?? []).map((call) => sizedFlowNode(call.id, call.position)),
-  ]
-  layouting.value = true
-  try {
-    const positions = await autoLayoutNodePositions(nodes, graph.edges, direction)
-    if (session.source !== source || session.currentGraph?.id !== graph.id) return
-    if (applyCanvasPositions(positions)) {
-      await fitCurrentGraph()
-    }
-  } catch (error) {
-    showError(t('workflow.selection.layout_failed'), error)
-  } finally {
-    layouting.value = false
-  }
+function autoLayout(direction: 'LR' | 'TB'): void {
+  void editorCanvasLayout.execute({ kind: 'auto-layout', direction })
 }
 
 function removeSelection(): void {
-  const ids = selectedNodeIds.value.size
-    ? [...selectedNodeIds.value]
-    : selectedNodeId.value
-      ? [selectedNodeId.value]
-      : []
-  const graph = session.currentGraph
-  const nodeIds = ids.filter((id) => graph?.nodes.some((node) => node.id === id))
-  const callIds = ids.filter((id) => graph?.calls?.some((call) => call.id === id))
-  const annotationIds = ids.filter((id) =>
-    graph?.annotations?.some((annotation) => annotation.id === id),
-  )
-  if (nodeIds.length) applyCommand({ kind: 'remove-nodes', nodeIds })
-  for (const callId of callIds) applyCommand({ kind: 'remove-graph-call', callId })
-  for (const annotationId of annotationIds)
-    applyCommand({ kind: 'remove-annotation', annotationId })
-  if (ids.length) {
-    selectedNodeId.value = ''
-    selectedNodeIds.value = new Set()
-    return
-  }
-  if (selectedEdgeId.value) disconnectEdge(selectedEdgeId.value)
+  void editorSelection.execute({ kind: 'remove' })
 }
 
 function duplicateSelection(): void {
-  try {
-    const ids = session.duplicateNodes([...selectedNodeIds.value])
-    if (ids.length) void selectInsertedNodes(ids)
-  } catch (error) {
-    showError(t('workflow.toast.edit_rejected'), error)
-  }
+  void editorSelection.execute({ kind: 'duplicate' })
 }
 
-async function copySelection(): Promise<void> {
-  const snapshot = session.selectionSnapshot([...selectedNodeIds.value])
-  if (!snapshot.nodes.length && !snapshot.calls.length && !snapshot.annotations.length) return
-  workflowClipboard = {
-    format: 'yotta.workflow-selection',
-    version: 2,
-    ...snapshot,
-  }
-  pasteOffset = 0
-  try {
-    await navigator.clipboard?.writeText(JSON.stringify(workflowClipboard))
-  } catch {
-    return
-  }
+function copySelection(): Promise<void> {
+  return editorSelection.execute({ kind: 'copy' })
 }
 
-async function cutSelection(): Promise<void> {
-  await copySelection()
-  removeSelection()
+function cutSelection(): Promise<void> {
+  return editorSelection.execute({ kind: 'cut' })
 }
 
-async function pasteSelection(): Promise<void> {
-  let clipboard = workflowClipboard
-  try {
-    const text = await navigator.clipboard?.readText()
-    if (text) clipboard = parseWorkflowClipboard(text)
-  } catch {
-    if (!clipboard) {
-      showError(t('workflow.selection.clipboard_failed'), new Error('clipboard is unavailable'))
-      return
-    }
-  }
-  if (!clipboard) return
-  try {
-    pasteOffset += 24
-    const ids = session.insertNodeSelection(clipboard, { x: pasteOffset, y: pasteOffset })
-    if (ids.length) await selectInsertedNodes(ids)
-  } catch (error) {
-    showError(t('workflow.toast.edit_rejected'), error)
-  }
+function pasteSelection(): Promise<void> {
+  return editorSelection.execute({ kind: 'paste' })
 }
 
-async function selectInsertedNodes(nodeIds: string[]): Promise<void> {
-  await nextTick()
-  removeSelectedNodes(getSelectedNodes.value)
-  const nodes = nodeIds.flatMap((nodeId) => {
-    const node = findNode(nodeId)
-    return node ? [node] : []
-  })
-  if (nodes.length) addSelectedNodes(nodes)
-  selectedNodeIds.value = new Set(nodeIds)
-  selectedNodeId.value = nodeIds.at(-1) ?? ''
-}
-
-function parseWorkflowClipboard(value: string): WorkflowSelectionClipboard {
-  if (value.length > 1_000_000) throw new Error('workflow clipboard exceeds size budget')
-  const parsed = JSON.parse(value) as Partial<WorkflowSelectionClipboard>
-  if (
-    parsed.format !== 'yotta.workflow-selection' ||
-    parsed.version !== 2 ||
-    !Array.isArray(parsed.nodes) ||
-    !Array.isArray(parsed.calls) ||
-    !Array.isArray(parsed.annotations) ||
-    !Array.isArray(parsed.edges)
-  ) {
-    throw new Error('clipboard does not contain a workflow selection')
-  }
-  return parsed as WorkflowSelectionClipboard
+function selectInsertedNodes(nodeIds: string[]): Promise<void> {
+  return editorSelection.execute({ kind: 'select-inserted', nodeIds })
 }
 
 function connectionEdge(connection: Connection): Edge | null {
@@ -4138,7 +3701,7 @@ function handleNodesChange(changes: NodeChange[]): void {
 }
 
 function trackNodeDrag(event: NodeDragEvent): void {
-  const positions = dragPositions(event)
+  const positions = editorCanvasLayout.dragPositions(event)
   for (const item of positions) {
     nodeGestures.track(item.nodeId, item.position)
     updateNode(item.nodeId, { position: item.position })
@@ -4146,11 +3709,72 @@ function trackNodeDrag(event: NodeDragEvent): void {
 }
 
 function moveNode(event: NodeDragEvent): void {
-  const positions = dragPositions(event)
+  const positions = editorCanvasLayout.dragPositions(event)
   for (const item of positions) nodeGestures.track(item.nodeId, item.position)
-  applyCanvasPositions(positions)
+  editorCanvasLayout.applyPositions(positions)
   for (const item of positions) nodeGestures.clear(item.nodeId)
-  snapGuides.value = {}
+  void editorCanvasLayout.execute({ kind: 'clear-guides' })
+}
+
+function handleEditorToolbarCommand(command: EditorToolbarCommand): void {
+  switch (command) {
+    case 'undo':
+      session.undo()
+      return
+    case 'redo':
+      session.redo()
+      return
+    case 'find-node':
+      openNodeSearch()
+      return
+    case 'toggle-ai':
+      toggleAIReview()
+      return
+    case 'toggle-state':
+      toggleStatePanel()
+      return
+    case 'toggle-inspector':
+      setInspectorVisibility(!inspectorAutoOpen.value)
+      return
+    case 'compile':
+      void editorRuns.execute({ kind: 'compile' })
+      return
+    case 'toggle-diagnostics':
+      toggleRuntimeWorkbench('diagnostics')
+      return
+    case 'toggle-timeline':
+      toggleRuntimeWorkbench('timeline')
+      return
+    case 'toggle-debugger':
+      toggleRuntimeWorkbench('debug')
+      return
+    case 'start-debug':
+      void editorRuns.execute({ kind: 'start-debug', breakpoints: debugBreakpoints() })
+      return
+    case 'pause-recording':
+      void editorRecording.execute({ kind: 'pause' })
+      return
+    case 'resume-recording':
+      void editorRecording.execute({ kind: 'resume' })
+      return
+    case 'stop-recording':
+      void editorRecording.execute({ kind: 'stop' })
+      return
+    case 'run':
+      void editorRuns.execute({ kind: 'start' })
+      return
+    case 'stop':
+      void editorRuns.execute({ kind: 'cancel' })
+      return
+    case 'save':
+      void editorRuns.execute({ kind: 'save' })
+      return
+    case 'settings':
+      void openWorkflowSettings()
+      return
+    case 'reload':
+      void reloadWorkflow()
+  }
 }
 
 async function openWorkflowSettings(): Promise<void> {
@@ -4181,7 +3805,7 @@ async function saveWorkflowSettings(draft: WorkflowMetadataDraft): Promise<void>
   workflowSettingsBusy.value = true
   workflowSettingsError.value = ''
   try {
-    if (session.dirty && !(await save())) return
+    if (session.dirty && !(await editorRuns.execute({ kind: 'save' })).ok) return
     await workflowTransport.updateSourceMetadata(session.workflowId, session.baseRevision, draft)
     await session.load(session.workflowId)
     workflowSettingsOpen.value = false
@@ -4212,77 +3836,12 @@ async function reloadWorkflow(): Promise<void> {
   }
 }
 
-async function compile(): Promise<void> {
-  setCompileSucceeded(false)
-  try {
-    const result = await session.validate()
-    if (result.diagnostics.length > 0) openRuntimeWorkbench('diagnostics')
-    if (result.diagnostics.length === 0) setCompileSucceeded(true)
-  } catch (error) {
-    showError(t('workflow.toast.compile_failed'), error)
-  }
-}
-
-async function save(): Promise<boolean> {
-  setSaveSucceeded(false)
-  try {
-    await session.save()
-    setSaveSucceeded(true)
-    return true
-  } catch (error) {
-    showError(t('workflow.toast.save_failed'), error)
-    return false
-  }
-}
-
 async function acceptAIProposal(): Promise<void> {
   selectedNodeId.value = ''
   try {
     await session.load(session.workflowId)
   } catch (error) {
     showError(t('workflow.ai.refresh_failed'), error)
-  }
-}
-
-async function startRun(): Promise<void> {
-  try {
-    const run = await session.run()
-    if (run) openRuntimeWorkbench('timeline')
-    else if (session.diagnostics.length > 0) openRuntimeWorkbench('diagnostics')
-  } catch (error) {
-    showError(t('workflow.toast.run_failed'), error)
-  }
-}
-
-async function startDebug(): Promise<void> {
-  try {
-    const run = await session.startDebug(debugBreakpoints())
-    if (!run) {
-      if (session.diagnostics.length > 0) openRuntimeWorkbench('diagnostics')
-      return
-    }
-    openRuntimeWorkbench('debug')
-    const snapshot = session.debugSnapshot
-    if (snapshot?.status === 'paused' && snapshot.nodeId) {
-      await focusNode(
-        snapshot.graphPath ?? (snapshot.graphId ? [snapshot.graphId] : []),
-        snapshot.nodeId,
-      )
-    }
-  } catch (error) {
-    showError(t('workflow.toast.debug_failed'), error)
-  }
-}
-
-async function controlDebug(action: 'continue' | 'pause' | 'step'): Promise<void> {
-  if (debugControlBusy.value) return
-  debugControlBusy.value = true
-  try {
-    await session.controlDebug(action)
-  } catch (error) {
-    showError(t('workflow.toast.debug_failed'), error)
-  } finally {
-    debugControlBusy.value = false
   }
 }
 
@@ -4329,37 +3888,12 @@ function breakpointKey(graphId: string, nodeId: string): string {
   return `${graphId}\u0000${nodeId}`
 }
 
-async function cancelRun(): Promise<void> {
-  try {
-    await session.cancelRun()
-  } catch (error) {
-    showError(t('workflow.toast.stop_failed'), error)
-  }
-}
-
-async function refreshRun(): Promise<void> {
-  try {
-    const run = await session.refreshRun()
-    if (run?.failure) openRuntimeWorkbench('timeline')
-  } catch (error) {
-    showError(t('workflow.toast.refresh_failed'), error)
-  }
-}
-
-async function loadTimelinePage(page: number): Promise<void> {
-  try {
-    await session.loadTimelinePage(page)
-  } catch (error) {
-    showError(t('workflow.toast.refresh_failed'), error)
-  }
-}
-
-function openRuntimeWorkbench(tab: RuntimeWorkbenchTab): void {
+function openRuntimeWorkbench(tab: EditorRuntimeWorkbenchTab): void {
   runtimeWorkbenchTab.value = tab
   runtimeWorkbenchOpen.value = true
 }
 
-function toggleRuntimeWorkbench(tab: RuntimeWorkbenchTab): void {
+function toggleRuntimeWorkbench(tab: EditorRuntimeWorkbenchTab): void {
   if (runtimeWorkbenchOpen.value && runtimeWorkbenchTab.value === tab) {
     runtimeWorkbenchOpen.value = false
     return
@@ -4443,18 +3977,6 @@ function showError(title: string, error: unknown): void {
 
 function plainCopy<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
-}
-
-function setCompileSucceeded(value: boolean): void {
-  clearTimeout(compileFlashTimer)
-  compileSucceeded.value = value
-  if (value) compileFlashTimer = setTimeout(() => (compileSucceeded.value = false), 1600)
-}
-
-function setSaveSucceeded(value: boolean): void {
-  clearTimeout(saveFlashTimer)
-  saveSucceeded.value = value
-  if (value) saveFlashTimer = setTimeout(() => (saveSucceeded.value = false), 1600)
 }
 </script>
 

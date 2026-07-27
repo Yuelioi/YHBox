@@ -25,7 +25,10 @@ import {
   ProviderKind as ProviderKindBinding,
   TokenPricing as TokenPricingBinding,
 } from '@bindings/github.com/yottaapp/yotta/internal/ai/models.js'
-import type { Schedule as ScheduleModel } from '@bindings/github.com/yottaapp/yotta/internal/services/schedule/models.js'
+import type {
+  FireResult as ScheduleFireResultModel,
+  Schedule as ScheduleModel,
+} from '@bindings/github.com/yottaapp/yotta/internal/services/schedule/models.js'
 import { BlobRef as BlobRefBinding } from '@bindings/github.com/yottaapp/yotta/internal/blob/models.js'
 import { callRPC, invoke } from './invoke'
 import * as E from '@/constants/events'
@@ -69,6 +72,7 @@ export interface HotkeyEntry {
 }
 
 export type Schedule = ScheduleModel
+export type ScheduleFireResult = ScheduleFireResultModel
 
 // AssetSummary 全局资产列表项 — 对应后端 asset.AssetSummary.
 // 键 = guid (稳定 UUID), 不再是 namespace.name key.
@@ -614,6 +618,7 @@ export const backend = {
     list: () => invoke(ScheduleService.List),
     get: (id: string) => invoke(ScheduleService.Get, id),
     create: (name: string) => invoke(ScheduleService.Create, name),
+    fireNow: (id: string) => invoke(ScheduleService.FireNow, id),
     save: (sc: Schedule) => invoke(ScheduleService.Save, sc),
     update: (id: string, patchJSON: string) => invoke(ScheduleService.Update, id, patchJSON),
     delete_: (id: string) => invoke(ScheduleService.Delete, id),

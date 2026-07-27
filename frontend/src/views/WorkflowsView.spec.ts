@@ -7,12 +7,17 @@ const assetsSource = readFileSync(join(process.cwd(), 'src/views/AssetsView.vue'
 
 describe('WorkflowsView entry points', () => {
   it('makes each workflow name a direct editor destination', () => {
+    expect(source).toContain('data-testid="workflow-browse-list"')
+    expect(source).toContain('data-testid="workflow-library-open"')
+    expect(source).toContain('@click="openWorkflow(source.workflowId)"')
     expect(source).toContain(':to="`/workflows/${source.workflowId}/edit`"')
     expect(source).toContain("t('workflow.action.edit_named', { name: source.name })")
   })
 
-  it('uses one create modal and a configurable list without grid or hotkey columns', () => {
+  it('uses a calm browse mode and keeps the configurable table in explicit management mode', () => {
     expect(source).toContain('data-testid="workflow-new-button"')
+    expect(source).toContain('data-testid="workflow-manage-button"')
+    expect(source).toContain('data-testid="workflow-management-table"')
     expect(source).toContain('v-model:open="metadataModalOpen"')
     expect(source).toContain('<UPagination')
     expect(source).toContain('columnMenuItems')
@@ -28,9 +33,12 @@ describe('WorkflowsView entry points', () => {
     expect(source).toContain("query: template === 'generic' ? {} : { template }")
   })
 
-  it('keeps queued Run feedback on the workflow row instead of a success toast', () => {
+  it('keeps live Run feedback and cancellation on the workflow row', () => {
     expect(source).toContain('runFeedbackById[source.workflowId]')
-    expect(source).toContain("label: t('workflow.toast.queued')")
+    expect(source).toContain('activeRunIdByWorkflow[source.workflowId]')
+    expect(source).toContain('data-testid="workflow-stop"')
+    expect(source).toContain('workflowTransport.cancelRun(runId)')
+    expect(source).toContain('pollTerminalRunStatus(')
     expect(source).not.toContain("title: t('workflow.toast.queued')")
   })
 

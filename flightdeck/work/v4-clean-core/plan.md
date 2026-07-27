@@ -2,34 +2,32 @@
 
 ## Outcome
 
-用户打开 Yotta 后只面对一个工作流库；导入即成为本地工作流，配置目标后直接运行。内部由少量深 Module
-承载持久化、编辑、执行和设备能力，Wails transport 不复制领域状态机。
+用户把 Yotta 理解成一个本地工作流工作台：打开即看到自己的工作流，进入即可编辑，配置缺项时就地修复，
+随后直接运行。复杂能力仍然完整，但不会同时占据默认界面和主运行路径。
 
-## V4-A — Workflow-only cutover
+## Completed baseline
 
-- [x] [删除 Release/Installation 产品路径](slices/v4-a-workflow-only-cutover.md)：工作流列表、运行和计划只引用
-  Workflow；导入创建本地 Workflow，移除设置/更新/回退/派生 Installation UI 和 RPC。
-- [x] 从 desktop composition 和 application runtime 移除 Workflow Installation module。
-- [x] 删除无调用的 Release/Installation catalog、离线包、导入协调器和测试代码；旧 SQLite migration
-  只为已存在 profile 的 schema ledger 兼容保留，不再有 repository 或运行调用。
+- [x] 技术基线：`645e0bad` 保留 V3 恢复点；`e330f47b` 统一 Workflow、Schedule 与 Run 路径。
+- [x] 产品骨架：[工作流首页](slices/v4-e-workflow-home.md)、
+  [计划首页](slices/v4-g-schedule-home.md)与[支持工作区](slices/v4-i-support-workspaces.md)完成。
+- [x] 运行闭环：[运行就绪反馈](slices/v4-f-run-readiness.md)与
+  [一致运行控制](slices/v4-j-run-control.md)完成。
+- [x] 聚焦编辑器：[编辑器任务 Module](slices/v4-h-focused-editor.md)、单层命令顶栏、
+  画布创建入口和窄窗口回归完成。
+- [x] [稳定交付](slices/v4-k-stability-delivery.md)：`fishing-v2`、Windows build、性能预算、
+  `task check` 与完整 WebView 旅程通过。
 
-## V4-B — Target configuration
+## Active: Go 全仓清扫
 
-- [x] AI、HTTP、应用和自动化对象在产品层统一使用 Target/配置语言；应用路径与设备配置仍属于当前
-  用户设置，保存后由现有热替换路径立即生效。
-- [x] 设置 transport 保持 `Get`/`Update` 和按需测试动作，不向前端暴露 adapter installation
-  draft、digest 或 generation。
-
-## V4-C — Desktop and transport depth
-
-- [x] 保留稳定的 `Application`/compiler/runtime 深 Module，不为 V4 再建立平行 composition；删除
-  Workflow Installation 传递层和 schedule readiness seam。
-- [x] Wails 从 149 个方法收敛到 138 个，Workflow gateway 只表达本地 Workflow 用户动作。
-- [x] 删除 Installation runtime/interface、离线安装抽象和重复 library projection。
-
-## V4-D — Product cutover
-
-- [x] 产品版本切换至 4.0，清理 V3 专有文案、领域说明与不可达代码。
-- [x] 验证现有 Workflow Source、资源、录制、计划、运行历史和设置数据可继续使用；旧内置节点契约
-  在形状兼容时自动迁移，`fishing-v2` 真实数据编译通过。
-- [x] 完成 `task check`、Windows build 与完整 WebView 桌面验收，建立独立 V4 基线。
+- [x] [Go 清扫审计](slices/v4-l-go-cleanup.md)：完成规模、依赖、执行链、组合根、兼容读取和
+  可删除表面的证据化审计。
+- [ ] 收敛启动与执行环境装配：桌面和 CLI 共享本地 runtime 打开路径；安装事实只派生一次
+  Host Profile、Policy、Provider 集合与 generation lease。
+- [ ] 校正运行边界：分离 Program、Adapter ABI、Compiler 与 Executor，但只保留一个 production
+  Executor；将产品层“编译”改为符合实际行为的“检查工作流”。
+- [ ] 深化 Application 与 Workflow use case：Source authoring、Run coordination、library
+  query/batch decision 进入各自的具体 Module。
+- [ ] 删除已证明无生产调用的兼容别名、测试便利 API 和浅转发；为 settings、node package、
+  Run 与 Blob 的持久化兼容入口建立退役证据。
+- [ ] 清理 `cmd/workflow-editor-smoke` 与架构文档，并以 `task check`、Windows build、
+  `fishing-v2` 和完整 WebView 旅程验收。

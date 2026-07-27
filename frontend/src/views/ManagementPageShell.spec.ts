@@ -7,12 +7,11 @@ const viewSources = ['WorkflowsView.vue', 'AssetsView.vue', 'SchedulesView.vue']
 )
 
 describe('management page shell', () => {
-  it('uses one shared visual contract across primary library pages', () => {
+  it('uses one shared shell while allowing task-specific secondary context', () => {
     for (const source of viewSources) {
       expect(source).toContain('class="workspace-page"')
       expect(source).toContain('class="workspace-page__header"')
       expect(source).toContain('class="workspace-page__mark"')
-      expect(source).toContain('class="workspace-page__eyebrow"')
       expect(source).toContain('class="workspace-page__title')
       expect(source).not.toContain('class="workspace-page__description"')
     }
@@ -24,5 +23,12 @@ describe('management page shell', () => {
     expect(source).toContain(':open="!!editing"')
     expect(source).toContain('<ScheduleListPanel')
     expect(source).not.toContain('<template v-if="!editing">')
+  })
+
+  it('keeps schedule metrics and policy behind an explicit management mode', () => {
+    const source = viewSources[2] ?? ''
+    expect(source).toContain('data-testid="schedule-manage-button"')
+    expect(source).toContain('data-testid="schedule-management"')
+    expect(source).toContain(":data-mode=\"manageMode ? 'manage' : 'browse'\"")
   })
 })

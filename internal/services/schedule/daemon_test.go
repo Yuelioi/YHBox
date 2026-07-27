@@ -9,9 +9,10 @@ import (
 )
 
 type fakeWorkflowRunner struct {
-	mu  sync.Mutex
-	ids []string
-	err error
+	mu        sync.Mutex
+	ids       []string
+	readiness RunReadiness
+	err       error
 }
 
 type blockingWorkflowRunner struct {
@@ -19,18 +20,21 @@ type blockingWorkflowRunner struct {
 	ended   chan struct{}
 }
 
-func (r *blockingWorkflowRunner) StartWorkflow(ctx context.Context, _ string) error {
+func (r *blockingWorkflowRunner) StartWorkflow(ctx context.Context, _ string) (RunReadiness, error) {
 	close(r.started)
 	<-ctx.Done()
 	close(r.ended)
-	return ctx.Err()
+	return RunReadiness{State: "failed"}, ctx.Err()
 }
 
-func (f *fakeWorkflowRunner) StartWorkflow(_ context.Context, id string) error {
+func (f *fakeWorkflowRunner) StartWorkflow(_ context.Context, id string) (RunReadiness, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.ids = append(f.ids, id)
-	return f.err
+	if f.readiness.State == "" {
+		return RunReadiness{State: "started"}, f.err
+	}
+	return f.readiness, f.err
 }
 
 func (f *fakeWorkflowRunner) started() []string {
@@ -153,11 +157,43 @@ func TestDaemonFireManual(t *testing.T) {
 	daemon.Start()
 	defer daemon.Stop()
 
-	if err := daemon.FireManual("m-1"); err != nil {
+	if _, err := daemon.FireManual("m-1"); err != nil {
 		t.Fatal(err)
 	}
 	if started := runner.started(); len(started) != 1 || started[0] != "X" {
 		t.Fatalf("manual fire = %#v", started)
+	}
+}
+
+func TestDaemonFireManualPersistsBlockedReadiness(t *testing.T) {
+	store, err := NewStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	runner := &fakeWorkflowRunner{readiness: RunReadiness{
+		State: "target-required", Code: "admission.target_unavailable", Slot: "game-window",
+	}}
+	daemon := NewDaemon(store, runner, newFakeRegistrar())
+	schedule := validSchedule("blocked")
+	schedule.Trigger = Trigger{Kind: TriggerManual}
+	if err := store.Save(schedule); err != nil {
+		t.Fatal(err)
+	}
+	daemon.Start()
+	defer daemon.Stop()
+
+	result, err := daemon.FireManual(schedule.ID)
+	if err != nil {
+		t.Fatalf("FireManual: %v", err)
+	}
+	if result.Status != FireStatusFailed || result.Readiness == nil ||
+		result.Readiness.State != "target-required" {
+		t.Fatalf("FireManual result = %#v", result)
+	}
+	stored, found := store.Get(schedule.ID)
+	if !found || stored.LastStatus != FireStatusFailed || stored.LastReadiness == nil ||
+		stored.LastReadiness.Slot != "game-window" || stored.LastReadiness.WorkflowID != "workflow-1" {
+		t.Fatalf("stored schedule = %#v, found=%v", stored, found)
 	}
 }
 

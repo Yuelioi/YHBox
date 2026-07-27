@@ -12,9 +12,6 @@
       >
         {{ label }}
       </span>
-      <span v-if="activeRunId" class="truncate font-mono text-[10px] text-dimmed">{{
-        activeRunId
-      }}</span>
       <UButton
         v-if="active"
         :label="t('workflow.action.stop_all')"
@@ -23,6 +20,7 @@
         variant="ghost"
         size="xs"
         class="ml-auto"
+        :loading="stopBusy"
         @click="stopAll"
       />
     </div>
@@ -34,13 +32,13 @@ import { computed, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { onRunChanged, workflowTransport } from '@/app/transport/workflow'
 
-const activeRunId = ref('')
-const status = ref('')
+const activeRunIds = ref(new Set<string>())
+const stopBusy = ref(false)
 const { t } = useI18n()
-const active = computed(() => ['QUEUED', 'RUNNING'].includes(status.value.toUpperCase()))
+const active = computed(() => activeRunIds.value.size > 0)
 const label = computed(() =>
   active.value
-    ? t('workflow.status.program', { status: status.value.toLowerCase() })
+    ? t('workflow.status.active_count', { n: activeRunIds.value.size })
     : t('workflow.status.ready'),
 )
 const statusDot = computed(() =>
@@ -48,14 +46,22 @@ const statusDot = computed(() =>
 )
 
 const unsubscribe = onRunChanged((event) => {
-  if (event.status) status.value = event.status
-  if (active.value) activeRunId.value = event.runId
-  else activeRunId.value = ''
+  if (!event.runId) return
+  const next = new Set(activeRunIds.value)
+  if (['queued', 'running'].includes(event.status.toLowerCase())) next.add(event.runId)
+  else next.delete(event.runId)
+  activeRunIds.value = next
 })
 
 onBeforeUnmount(unsubscribe)
 
 async function stopAll(): Promise<void> {
-  await workflowTransport.cancelAllRuns()
+  if (stopBusy.value) return
+  stopBusy.value = true
+  try {
+    await workflowTransport.cancelAllRuns()
+  } finally {
+    stopBusy.value = false
+  }
 }
 </script>

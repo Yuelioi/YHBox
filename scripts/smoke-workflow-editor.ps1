@@ -3,7 +3,13 @@ param(
     [int]$DebugPort = 9227,
     [ValidateRange(1024, 65535)]
     [int]$VitePort = 9245,
-    [switch]$SkipLauncher
+    [switch]$SkipLauncher,
+    [string]$RetentionSource = '',
+    [string]$RetentionBlobs = '',
+    [ValidateRange(1000, 60000)]
+    [int]$StartupBudgetMs = 15000,
+    [ValidateRange(1000, 30000)]
+    [int]$FirstScreenBudgetMs = 5000
 )
 
 $ErrorActionPreference = 'Stop'
@@ -48,7 +54,11 @@ try {
     # real desktop host from starting or hiding the rest of the workflow list.
     # Seed through the current Catalog boundary so this fixture follows the
     # same storage authority as the production Workflow Source service.
-    go run ./cmd/workflow-editor-smoke -seed-root $profileRoot
+    $seedArgs = @('run', './cmd/workflow-editor-smoke', '-seed-root', $profileRoot)
+    if ($RetentionSource) {
+        $seedArgs += @('-retention-source', $RetentionSource, '-retention-blobs', $RetentionBlobs)
+    }
+    & go @seedArgs
     if ($LASTEXITCODE -ne 0) {
         throw "Workflow recovery fixture failed with exit code $LASTEXITCODE"
     }
@@ -79,6 +89,7 @@ try {
     $env:YOTTA_ROOT = $profileRoot
     $appOut = Join-Path $runRoot 'yotta.out.log'
     $appErr = Join-Path $runRoot 'yotta.err.log'
+    $startupWatch = [System.Diagnostics.Stopwatch]::StartNew()
     $appProcess = Start-Process -FilePath (Join-Path $binDir 'Yotta.SmokeHost.exe') -WorkingDirectory $binDir -WindowStyle Hidden -RedirectStandardOutput $appOut -RedirectStandardError $appErr -PassThru
 
     for ($attempt = 0; $attempt -lt 300; $attempt++) {
@@ -100,6 +111,7 @@ try {
         try {
             Invoke-WebRequest -UseBasicParsing -Uri "$candidateEndpoint/json" -TimeoutSec 1 | Out-Null
             $debugEndpoint = $candidateEndpoint
+            $startupWatch.Stop()
             break
         } catch {
             if ($attempt -eq 299) {
@@ -110,6 +122,9 @@ try {
     if (-not $debugEndpoint) {
         throw "WebView CDP did not listen on IPv4 or IPv6 loopback port $DebugPort"
     }
+    if ($startupWatch.ElapsedMilliseconds -gt $StartupBudgetMs) {
+        throw "Yotta startup exceeded ${StartupBudgetMs}ms budget: $($startupWatch.ElapsedMilliseconds)ms"
+    }
 
     $smokeArgs = @(
         'run', './cmd/workflow-editor-smoke',
@@ -118,8 +133,12 @@ try {
         '-assets-screenshot', $assetsScreenshot,
         '-workflows-screenshot', $workflowsScreenshot,
         '-schedules-screenshot', $schedulesScreenshot,
-        '-subgraph-screenshot', $subgraphScreenshot
+        '-subgraph-screenshot', $subgraphScreenshot,
+        '-first-screen-budget', "${FirstScreenBudgetMs}ms"
     )
+    if ($RetentionSource) {
+        $smokeArgs += @('-retention-workflow-id', 'fishing-v2')
+    }
     if (-not $SkipLauncher) {
         $smokeArgs += @('-launcher-screenshot', $launcherScreenshot)
     } else {
@@ -129,6 +148,7 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Workflow editor smoke failed with exit code $LASTEXITCODE"
     }
+    Write-Host "Yotta startup: $($startupWatch.ElapsedMilliseconds)ms / ${StartupBudgetMs}ms budget"
 } finally {
     $env:YOTTA_ROOT = $previousStorageRoot
     $env:YOTTA_WEBVIEW_DEBUG_PORT = $previousDebugPort

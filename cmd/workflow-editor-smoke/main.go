@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,8 +17,16 @@ import (
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/automation/browsercdp"
+	"github.com/yottaapp/yotta/internal/blob"
+	"github.com/yottaapp/yotta/internal/nodeauthoring"
+	"github.com/yottaapp/yotta/internal/nodecontract"
+	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/storage"
 	"github.com/yottaapp/yotta/internal/storage/catalog"
+	"github.com/yottaapp/yotta/internal/workflow/authoring"
+	"github.com/yottaapp/yotta/internal/workflow/compiler"
+	"github.com/yottaapp/yotta/internal/workflow/schema"
+	"github.com/yottaapp/yotta/internal/workflowstore"
 )
 
 type pageState struct {
@@ -45,13 +56,28 @@ type pageState struct {
 	RunStarted            bool           `json:"runStarted"`
 	AssetsView            bool           `json:"assetsView"`
 	AssetsRecording       bool           `json:"assetsRecording"`
+	AssetBrowse           bool           `json:"assetBrowse"`
+	AssetManageButton     bool           `json:"assetManageButton"`
+	AssetManagement       bool           `json:"assetManagement"`
 	SchedulesView         bool           `json:"schedulesView"`
+	ScheduleBrowse        bool           `json:"scheduleBrowse"`
+	ScheduleManageButton  bool           `json:"scheduleManageButton"`
+	ScheduleManagement    bool           `json:"scheduleManagement"`
 	ScheduleEditor        bool           `json:"scheduleEditor"`
 	ScheduleRows          int            `json:"scheduleRows"`
 	ScheduleRowTargets    []string       `json:"scheduleRowTargets"`
+	ScheduleRowStatuses   []string       `json:"scheduleRowStatuses"`
 	ScheduleEditTargets   []string       `json:"scheduleEditTargets"`
+	SettingsView          bool           `json:"settingsView"`
+	SettingsGroups        int            `json:"settingsGroups"`
+	AppContextTitle       string         `json:"appContextTitle"`
 	CreateInput           bool           `json:"createInput"`
 	RecoveryPanel         bool           `json:"recoveryPanel"`
+	WorkflowBrowse        bool           `json:"workflowBrowse"`
+	WorkflowManageButton  bool           `json:"workflowManageButton"`
+	WorkflowManagement    bool           `json:"workflowManagement"`
+	WorkflowRows          int            `json:"workflowRows"`
+	WorkflowTotal         int            `json:"workflowTotal"`
 	LauncherButton        bool           `json:"launcherButton"`
 	GraphChromeDark       bool           `json:"graphChromeDark"`
 	HandleOverlaps        int            `json:"handleOverlaps"`
@@ -139,15 +165,29 @@ func main() {
 	captureOnly := flag.Bool("capture-only", false, "capture the current WebView page without running the product journey")
 	urlContains := flag.String("url-contains", "wails.localhost", "substring used to select one WebView page target")
 	seedRoot := flag.String("seed-root", "", "seed the isolated storage root used by the product journey")
+	retentionSource := flag.String("retention-source", "", "read-only golden Workflow Source to validate and seed")
+	retentionBlobs := flag.String("retention-blobs", "", "read-only Blob Store used by the golden Workflow Source")
+	retentionWorkflowID := flag.String("retention-workflow-id", "", "open one seeded golden Workflow instead of the synthetic authoring journey")
+	firstScreenBudget := flag.Duration("first-screen-budget", 5*time.Second, "maximum time from CDP connection to a hydrated first screen")
 	flag.Parse()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	if *seedRoot != "" {
-		if err := seedRecoveryFixture(ctx, *seedRoot); err != nil {
+		if err := seedRecoveryFixture(ctx, *seedRoot, *retentionSource, *retentionBlobs); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+		return
+	}
+	if *retentionSource != "" {
+		report, err := checkWorkflowRetention(ctx, *retentionSource, *retentionBlobs)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		encoded, _ := json.MarshalIndent(report, "", "  ")
+		fmt.Println(string(encoded))
 		return
 	}
 	if *captureOnly {
@@ -157,13 +197,13 @@ func main() {
 		}
 		return
 	}
-	if err := run(ctx, *endpoint, *screenshot, *assetsScreenshot, *workflowsScreenshot, *launcherScreenshot, *schedulesScreenshot, *subgraphScreenshot); err != nil {
+	if err := run(ctx, *endpoint, *screenshot, *assetsScreenshot, *workflowsScreenshot, *launcherScreenshot, *schedulesScreenshot, *subgraphScreenshot, *retentionWorkflowID, *firstScreenBudget); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func seedRecoveryFixture(ctx context.Context, root string) error {
+func seedRecoveryFixture(ctx context.Context, root, retentionSource, retentionBlobs string) error {
 	const originalName = "damaged-workflow.json"
 	raw := []byte(`{"format":"yotta.workflow","version":"1",`)
 	identityInput := make([]byte, 0, len(originalName)+1+len(raw))
@@ -189,6 +229,309 @@ func seedRecoveryFixture(ctx context.Context, root string) error {
 		Reason: "synthetic invalid JSON", Artifact: raw, CreatedAt: time.Now().UTC(),
 	}); err != nil {
 		return fmt.Errorf("seed workflow recovery fixture: %w", err)
+	}
+	if retentionSource != "" {
+		if err := seedRetentionFixture(
+			ctx, profile.Roots, foundation, retentionSource, retentionBlobs,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type retentionReport struct {
+	Status         string `json:"status"`
+	WorkflowID     string `json:"workflowId"`
+	SourceHash     string `json:"sourceHash"`
+	Graphs         int    `json:"graphs"`
+	Nodes          int    `json:"nodes"`
+	Resources      int    `json:"resources"`
+	BlobReferences int    `json:"blobReferences"`
+	BlobBytes      int64  `json:"blobBytes"`
+	TargetDefaults int    `json:"targetDefaults"`
+}
+
+type retentionFixture struct {
+	source    schema.WorkflowSource
+	canonical []byte
+	refs      []blob.BlobRef
+	report    retentionReport
+	layout    blob.LayoutInspection
+}
+
+func checkWorkflowRetention(
+	ctx context.Context,
+	sourcePath string,
+	blobRoot string,
+) (retentionReport, error) {
+	fixture, err := loadRetentionFixture(ctx, sourcePath, blobRoot)
+	if err != nil {
+		return retentionReport{}, err
+	}
+	build, err := compiler.BuildDigest()
+	if err != nil {
+		return retentionReport{}, fmt.Errorf("identify current compiler: %w", err)
+	}
+	builtinNodes, err := nodes.Build()
+	if err != nil {
+		return retentionReport{}, fmt.Errorf("build current node catalog: %w", err)
+	}
+	compileSource, err := migrateRetentionContracts(fixture.source, builtinNodes)
+	if err != nil {
+		return retentionReport{}, err
+	}
+	compiled, err := compiler.New(build, builtinNodes.ConfigValidators).CompileDraft(
+		ctx,
+		compiler.CompileRequest{
+			SourceJSON: compileSource,
+			Catalog:    builtinNodes.Catalog,
+			BlobVerifier: compiler.BlobVerifierFunc(func(
+				verifyCtx context.Context,
+				ref blob.BlobRef,
+			) error {
+				return verifyRetentionBlob(verifyCtx, blobRoot, fixture.layout.Version, ref)
+			}),
+		},
+	)
+	if err != nil {
+		return retentionReport{}, fmt.Errorf("compile golden Workflow: %w", err)
+	}
+	if schema.HasErrors(compiled.Diagnostics) {
+		encoded, _ := json.Marshal(compiled.Diagnostics)
+		return retentionReport{}, fmt.Errorf("golden Workflow has compile errors: %s", encoded)
+	}
+	if _, ok := compiled.Program(); !ok {
+		return retentionReport{}, errors.New("golden Workflow compile produced no executable program")
+	}
+	return fixture.report, nil
+}
+
+func migrateRetentionContracts(
+	source schema.WorkflowSource,
+	builtinNodes nodes.Builtins,
+) ([]byte, error) {
+	bindings := builtinNodes.Catalog.Bindings()
+	contracts := make([]nodecontract.Contract, 0, len(bindings))
+	for _, binding := range bindings {
+		contracts = append(contracts, binding.Contract)
+	}
+	projection, err := nodeauthoring.Project(nodeauthoring.Input{
+		Catalog: builtinNodes.Catalog, Types: builtinNodes.Catalog.Types(),
+		Capabilities: builtinNodes.Catalog.Capabilities(), Contracts: contracts,
+		GeneratorVersion: nodes.GeneratorVersion,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("build current authoring projection: %w", err)
+	}
+	engine, err := authoring.New(builtinNodes.Catalog, projection, nil)
+	if err != nil {
+		return nil, fmt.Errorf("open current authoring engine: %w", err)
+	}
+	commands := make([]authoring.Command, 0)
+	for _, graph := range source.Graphs {
+		for _, node := range graph.Nodes {
+			current, ok := projection.Node(node.NodeRef.NodeTypeID)
+			if !ok || current.NodeRef == node.NodeRef ||
+				current.NodeRef.Version != node.NodeRef.Version {
+				continue
+			}
+			command := authoring.Command{
+				Kind: authoring.CommandUpgradeNodeContract,
+				UpgradeNodeContract: &authoring.NodeCommand{
+					GraphID: graph.ID,
+					NodeID:  node.ID,
+				},
+			}
+			if _, err := engine.Apply(source, []authoring.Command{command}); err == nil {
+				commands = append(commands, command)
+			}
+		}
+	}
+	if len(commands) == 0 {
+		raw, err := artifact.Marshal(source)
+		if err != nil {
+			return nil, fmt.Errorf("encode golden Workflow Source: %w", err)
+		}
+		return raw, nil
+	}
+	result, err := engine.Apply(source, commands)
+	if err != nil {
+		return nil, fmt.Errorf("migrate golden Workflow node contracts: %w", err)
+	}
+	return result.Artifact, nil
+}
+
+func loadRetentionFixture(
+	ctx context.Context,
+	sourcePath string,
+	blobRoot string,
+) (retentionFixture, error) {
+	if strings.TrimSpace(sourcePath) == "" || strings.TrimSpace(blobRoot) == "" {
+		return retentionFixture{}, errors.New("golden Workflow requires Source and Blob Store paths")
+	}
+	raw, err := os.ReadFile(sourcePath)
+	if err != nil {
+		return retentionFixture{}, fmt.Errorf("read golden Workflow Source: %w", err)
+	}
+	source, canonical, sourceHash, diagnostics, err := schema.CanonicalSource(raw)
+	if err != nil {
+		return retentionFixture{}, fmt.Errorf("canonicalize golden Workflow Source: %w", err)
+	}
+	if schema.HasErrors(diagnostics) {
+		encoded, _ := json.Marshal(diagnostics)
+		return retentionFixture{}, fmt.Errorf("golden Workflow Source is invalid: %s", encoded)
+	}
+	refs, err := schema.BlobReferences(source)
+	if err != nil {
+		return retentionFixture{}, fmt.Errorf("inventory golden Workflow blobs: %w", err)
+	}
+	layout, err := blob.InspectLayout(ctx, blobRoot)
+	if err != nil {
+		return retentionFixture{}, fmt.Errorf("inspect golden Blob Store: %w", err)
+	}
+	if layout.Version != "1" && layout.Version != blob.LayoutVersion {
+		return retentionFixture{}, fmt.Errorf("golden Blob Store layout %q is unsupported", layout.Version)
+	}
+	var nodeCount int
+	for _, graph := range source.Graphs {
+		nodeCount += len(graph.Nodes)
+	}
+	var blobBytes int64
+	for _, ref := range refs {
+		if err := verifyRetentionBlob(ctx, blobRoot, layout.Version, ref); err != nil {
+			return retentionFixture{}, fmt.Errorf("verify golden Workflow blob %s: %w", ref.Digest, err)
+		}
+		blobBytes += ref.Size
+	}
+	report := retentionReport{
+		Status:         "retained",
+		WorkflowID:     source.Workflow.ID,
+		SourceHash:     sourceHash.String(),
+		Graphs:         len(source.Graphs),
+		Nodes:          nodeCount,
+		Resources:      len(source.Resources),
+		BlobReferences: len(refs),
+		BlobBytes:      blobBytes,
+		TargetDefaults: len(source.TargetDefaults),
+	}
+	if source.Workflow.ID != "fishing-v2" ||
+		report.Graphs < 7 ||
+		report.Nodes < 60 ||
+		report.Resources < 18 ||
+		report.BlobReferences < 36 {
+		encoded, _ := json.Marshal(report)
+		return retentionFixture{}, fmt.Errorf("golden Workflow retention baseline drifted: %s", encoded)
+	}
+	return retentionFixture{
+		source: source, canonical: canonical, refs: refs, report: report, layout: layout,
+	}, nil
+}
+
+func verifyRetentionBlob(
+	ctx context.Context,
+	root string,
+	layout string,
+	ref blob.BlobRef,
+) error {
+	if err := ref.Validate(); err != nil {
+		return err
+	}
+	name := strings.TrimPrefix(ref.Digest.String(), "sha256:")
+	path := filepath.Join(root, name)
+	if layout == blob.LayoutVersion {
+		path = filepath.Join(root, name[:2], name[2:4], name)
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() || info.Size() != ref.Size {
+		return errors.New("blob physical identity does not match the Source reference")
+	}
+	hash := sha256.New()
+	written, err := io.Copy(hash, &contextReader{ctx: ctx, reader: file})
+	if err != nil {
+		return err
+	}
+	if written != ref.Size || hex.EncodeToString(hash.Sum(nil)) != name {
+		return errors.New("blob digest does not match the Source reference")
+	}
+	return nil
+}
+
+type contextReader struct {
+	ctx    context.Context
+	reader io.Reader
+}
+
+func (r *contextReader) Read(buffer []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return r.reader.Read(buffer)
+}
+
+func seedRetentionFixture(
+	ctx context.Context,
+	roots storage.Roots,
+	foundation *catalog.Foundation,
+	sourcePath string,
+	sourceBlobRoot string,
+) error {
+	fixture, err := loadRetentionFixture(ctx, sourcePath, sourceBlobRoot)
+	if err != nil {
+		return err
+	}
+	targetStore, err := blob.Open(
+		roots.Objects,
+		blob.Limits{MaxBlobBytes: 256 << 20, MaxTotalBytes: 4 << 30},
+		foundation.Objects(),
+	)
+	if err != nil {
+		return fmt.Errorf("open isolated golden Blob Store: %w", err)
+	}
+	for _, ref := range fixture.refs {
+		name := strings.TrimPrefix(ref.Digest.String(), "sha256:")
+		path := filepath.Join(sourceBlobRoot, name)
+		if fixture.layout.Version == blob.LayoutVersion {
+			path = filepath.Join(sourceBlobRoot, name[:2], name[2:4], name)
+		}
+		file, err := os.Open(path)
+		if err != nil {
+			return fmt.Errorf("open golden Workflow blob %s: %w", ref.Digest, err)
+		}
+		copied, putErr := targetStore.Put(ctx, ref.MediaType, file)
+		closeErr := file.Close()
+		if putErr != nil || closeErr != nil {
+			return errors.Join(putErr, closeErr)
+		}
+		if copied != ref {
+			return fmt.Errorf("golden Workflow blob %s changed while seeding", ref.Digest)
+		}
+	}
+
+	// An isolated smoke profile begins at revision zero while retaining the
+	// complete user-authored graph and resource content.
+	fixture.source.Revision = 0
+	raw, err := json.Marshal(fixture.source)
+	if err != nil {
+		return fmt.Errorf("encode isolated golden Workflow: %w", err)
+	}
+	sourceStore, err := workflowstore.OpenSourceStore(
+		foundation.Workflows(),
+		workflowstore.SourceStoreOptions{MaxSources: 100},
+	)
+	if err != nil {
+		return fmt.Errorf("open isolated Workflow Source Store: %w", err)
+	}
+	if _, err := sourceStore.Save(ctx, raw, -1); err != nil {
+		return fmt.Errorf("seed isolated golden Workflow: %w", err)
 	}
 	return nil
 }
@@ -245,10 +588,28 @@ func captureCurrent(ctx context.Context, endpoint, urlContains, screenshot strin
 	return nil
 }
 
-func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsScreenshot, launcherScreenshot, schedulesScreenshot, subgraphScreenshot string) error {
+func run(
+	ctx context.Context,
+	endpoint string,
+	screenshot string,
+	assetsScreenshot string,
+	workflowsScreenshot string,
+	launcherScreenshot string,
+	schedulesScreenshot string,
+	subgraphScreenshot string,
+	retentionWorkflowID string,
+	firstScreenBudget time.Duration,
+) error {
+	firstScreenStarted := time.Now()
 	nodeMenuScreenshot := siblingScreenshot(screenshot, "node-context-menu.png")
 	quickAddScreenshot := siblingScreenshot(screenshot, "quick-add.png")
 	runStateScreenshot := siblingScreenshot(screenshot, "run-state.png")
+	settingsScreenshot := siblingScreenshot(screenshot, "settings.png")
+	assetManagementScreenshot := siblingScreenshot(assetsScreenshot, "asset-management.png")
+	workflowManagementScreenshot := siblingScreenshot(workflowsScreenshot, "workflow-management.png")
+	manyWorkflowsScreenshot := siblingScreenshot(workflowsScreenshot, "workflows-many.png")
+	scheduleBrowseScreenshot := siblingScreenshot(schedulesScreenshot, "schedules-browse.png")
+	scheduleManagementScreenshot := siblingScreenshot(schedulesScreenshot, "schedules-management.png")
 	targets, err := browsercdp.NewService(endpoint).ListTargets(ctx, endpoint)
 	if err != nil {
 		return fmt.Errorf("discover Wails WebView: %w", err)
@@ -280,15 +641,96 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	})()`); err != nil {
 		return err
 	}
-	if err := waitUntilFor(ctx, client, 45*time.Second, func(current pageState) bool {
-		return current.RecoveryPanel && current.LauncherButton
+	expectedWorkflowTotal := 0
+	if retentionWorkflowID != "" {
+		expectedWorkflowTotal = 1
+	}
+	if firstScreenBudget <= 0 {
+		return errors.New("first-screen budget must be positive")
+	}
+	if err := waitUntilFor(ctx, client, firstScreenBudget, func(current pageState) bool {
+		return current.RecoveryPanel && current.WorkflowBrowse &&
+			current.WorkflowManageButton && !current.WorkflowManagement && current.LauncherButton &&
+			current.WorkflowRows == expectedWorkflowTotal &&
+			current.WorkflowTotal == expectedWorkflowTotal
 	}); err != nil {
 		return fmt.Errorf("wait for workflow list hydration: %w", err)
 	}
+	firstScreenElapsed := time.Since(firstScreenStarted)
 	if workflowsScreenshot != "" {
 		if err := capture(ctx, client, workflowsScreenshot); err != nil {
 			return fmt.Errorf("capture workflow recovery surface: %w", err)
 		}
+	}
+	if retentionWorkflowID != "" {
+		if err := eval(ctx, client, `(() => {
+			const rows = document.querySelectorAll('[data-testid="workflow-library-row"]');
+			if (rows.length !== 1) throw new Error('golden Workflow row is not unique');
+			const button = rows[0].querySelector('[data-testid="workflow-library-open"]');
+			if (!button) throw new Error('golden Workflow open button not found');
+			button.click();
+		})()`); err != nil {
+			return err
+		}
+		if err := waitUntilFor(ctx, client, 15*time.Second, func(current pageState) bool {
+			return current.NodeAddTrigger && current.GraphManager &&
+				current.CanvasNodes >= 9 && current.GraphCalls >= 6 &&
+				current.AppContextTitle == ""
+		}); err != nil {
+			return fmt.Errorf("open golden Workflow editor: %w", err)
+		}
+		final, err := state(ctx, client)
+		if err != nil {
+			return err
+		}
+		if len(final.Errors) != 0 {
+			return fmt.Errorf("golden Workflow editor reported browser errors: %s", strings.Join(final.Errors, " | "))
+		}
+		if screenshot != "" {
+			if err := capture(ctx, client, screenshot); err != nil {
+				return fmt.Errorf("capture golden Workflow editor: %w", err)
+			}
+		}
+		result, _ := json.MarshalIndent(map[string]any{
+			"status":             "retained",
+			"workflowId":         retentionWorkflowID,
+			"firstScreenMillis":  firstScreenElapsed.Milliseconds(),
+			"mainCanvasNodes":    final.CanvasNodes,
+			"mainGraphCalls":     final.GraphCalls,
+			"workflowScreenshot": workflowsScreenshot,
+			"editorScreenshot":   screenshot,
+		}, "", "  ")
+		fmt.Println(string(result))
+		return nil
+	}
+	if err := eval(ctx, client, `(() => {
+		const button = document.querySelector('[data-testid="workflow-manage-button"]');
+		if (!button) throw new Error('workflow manage button not found');
+		button.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.WorkflowManagement && !current.WorkflowBrowse
+	}); err != nil {
+		return fmt.Errorf("open workflow management mode: %w", err)
+	}
+	if workflowManagementScreenshot != "" {
+		if err := capture(ctx, client, workflowManagementScreenshot); err != nil {
+			return fmt.Errorf("capture workflow management mode: %w", err)
+		}
+	}
+	if err := eval(ctx, client, `(() => {
+		const button = document.querySelector('[data-testid="workflow-manage-button"]');
+		if (!button) throw new Error('workflow manage done button not found');
+		button.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.WorkflowBrowse && !current.WorkflowManagement
+	}); err != nil {
+		return fmt.Errorf("return to workflow browse mode: %w", err)
 	}
 	if err := eval(ctx, client, `(() => {
 		const button = document.querySelector('[data-testid="workflow-new-button"]');
@@ -321,9 +763,16 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		return err
 	}
 	if err := waitUntil(ctx, client, func(state pageState) bool {
-		return state.NodeAddTrigger && state.GraphManager && state.WorkspaceTools == 5
+		return state.NodeAddTrigger && state.GraphManager && state.WorkspaceTools == 5 &&
+			state.AppContextTitle == ""
 	}); err != nil {
-		return fmt.Errorf("open workflow editor: %w", err)
+		return fmt.Errorf("open focused workflow editor: %w", err)
+	}
+	if err := verifyEditorToolsAlignment(ctx, client); err != nil {
+		return err
+	}
+	if err := verifyEditorToolbarConsolidation(ctx, client); err != nil {
+		return err
 	}
 	if err := exerciseMinimap(ctx, client); err != nil {
 		return err
@@ -369,6 +818,9 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	if err := waitUntil(ctx, client, func(current pageState) bool { return current.NodeOverlaps == 0 }); err != nil {
 		return fmt.Errorf("auto-layout workflow nodes: %w", err)
 	}
+	if err := waitForStableNodeGeometry(ctx, client); err != nil {
+		return fmt.Errorf("wait for auto-layout geometry to settle: %w", err)
+	}
 	if err := dispatchKeyPress(ctx, client, "Escape", "Escape", 27); err != nil {
 		return err
 	}
@@ -386,6 +838,8 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		const intersects = (left, right) =>
 			left.left < right.right && left.right > right.left &&
 			left.top < right.bottom && left.bottom > right.top;
+		const pane = document.querySelector('.vue-flow__pane');
+		const hitsPane = point => document.elementFromPoint(point.x, point.y) === pane;
 		const candidates = [];
 		for (let left = 0; left < rects.length; left++) {
 			for (let right = left + 1; right < rects.length; right++) {
@@ -397,17 +851,30 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 				};
 				const covered = rects.filter(rect => intersects(box, rect)).length;
 				if (covered === 2) {
-					candidates.push({ box, area: (box.right - box.left) * (box.bottom - box.top) });
+					const corners = [
+						{ start: { x: box.left, y: box.top }, end: { x: box.right, y: box.bottom } },
+						{ start: { x: box.right, y: box.top }, end: { x: box.left, y: box.bottom } },
+						{ start: { x: box.right, y: box.bottom }, end: { x: box.left, y: box.top } },
+						{ start: { x: box.left, y: box.bottom }, end: { x: box.right, y: box.top } }
+					];
+					const gesture = corners.find(candidate =>
+						hitsPane(candidate.start) && hitsPane(candidate.end));
+					if (gesture) {
+						candidates.push({
+							...gesture,
+							area: (box.right - box.left) * (box.bottom - box.top)
+						});
+					}
 				}
 			}
 		}
 		const candidate = candidates.sort((left, right) => left.area - right.area)[0];
-		if (!candidate) throw new Error('no isolated two-node marquee region found');
-		return {
-			start: { x: candidate.box.left, y: candidate.box.top },
-			end: { x: candidate.box.right, y: candidate.box.bottom }
-		};
+		if (!candidate) throw new Error('no isolated two-node marquee region with pane-owned corners found');
+		return { start: candidate.start, end: candidate.end };
 	})()`, &selectionGesture); err != nil {
+		return err
+	}
+	if err := beginMarqueeTrace(ctx, client); err != nil {
 		return err
 	}
 	if err := dispatchMarqueeGesture(ctx, client, selectionGesture); err != nil {
@@ -416,8 +883,9 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	if err := waitUntil(ctx, client, func(current pageState) bool {
 		return current.SelectedNodes == 2 && current.SelectionToolbar
 	}); err != nil {
-		return fmt.Errorf("multi-select workflow nodes: %w", err)
+		return fmt.Errorf("multi-select workflow nodes: %w; events: %s", err, finishMarqueeTrace(ctx, client))
 	}
+	_ = finishMarqueeTrace(ctx, client)
 	if err := dispatchKeyPress(ctx, client, "Escape", "Escape", 27); err != nil {
 		return err
 	}
@@ -582,7 +1050,7 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	if err := exerciseDebugger(ctx, client); err != nil {
 		return err
 	}
-	if err := eval(ctx, client, `document.querySelector('[data-testid="workflow-state-open"]')?.click()`); err != nil {
+	if err := clickRequired(ctx, client, "workflow-state-open"); err != nil {
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool { return current.WorkflowState }); err != nil {
@@ -594,7 +1062,7 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	if err := capture(ctx, client, runStateScreenshot); err != nil {
 		return err
 	}
-	if err := eval(ctx, client, `document.querySelector('[data-testid="workflow-state-open"]')?.click()`); err != nil {
+	if err := clickRequired(ctx, client, "workflow-state-open"); err != nil {
 		return err
 	}
 	if err := exerciseMultigraph(ctx, client, subgraphScreenshot); err != nil {
@@ -607,11 +1075,7 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		return fmt.Errorf("save multigraph workflow: %w", err)
 	}
 	uiFailures := workflowEditorUIFailures(visualState, confirmState, saveState)
-	if err := eval(ctx, client, `(() => {
-		const button = document.querySelector('[data-testid="ai-workflow-review-open"]');
-		if (!button) throw new Error('AI workflow review button not found');
-		button.click();
-	})()`); err != nil {
+	if err := clickRequired(ctx, client, "ai-workflow-review-open"); err != nil {
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool { return current.AIReview }); err != nil {
@@ -700,7 +1164,8 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.AssetsView && current.AssetsRecording
+		return current.AssetsView && current.AssetsRecording && current.AssetBrowse &&
+			current.AssetManageButton && !current.AssetManagement
 	}); err != nil {
 		return fmt.Errorf("open asset library: %w", err)
 	}
@@ -716,6 +1181,25 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	}
 	if err := capture(ctx, client, assetsScreenshot); err != nil {
 		return err
+	}
+	if err := clickRequired(ctx, client, "asset-manage-button"); err != nil {
+		return fmt.Errorf("open asset management mode: %w", err)
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.AssetManagement && !current.AssetBrowse
+	}); err != nil {
+		return fmt.Errorf("verify asset management mode: %w", err)
+	}
+	if err := capture(ctx, client, assetManagementScreenshot); err != nil {
+		return fmt.Errorf("capture asset management mode: %w", err)
+	}
+	if err := clickRequired(ctx, client, "asset-manage-button"); err != nil {
+		return fmt.Errorf("close asset management mode: %w", err)
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.AssetBrowse && !current.AssetManagement
+	}); err != nil {
+		return fmt.Errorf("restore asset browse mode: %w", err)
 	}
 	workflowHash, err := workflowEditorHash(final.Href)
 	if err != nil {
@@ -740,9 +1224,32 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 			return err
 		}
 		if err := waitUntil(ctx, client, func(current pageState) bool {
-			return current.SchedulesView && !current.ScheduleEditor
+			return current.SchedulesView && current.ScheduleBrowse && current.ScheduleManageButton &&
+				!current.ScheduleManagement && !current.ScheduleEditor
 		}); err != nil {
 			return fmt.Errorf("open schedules view: %w", err)
+		}
+		if err := capture(ctx, client, scheduleBrowseScreenshot); err != nil {
+			return fmt.Errorf("capture schedule browse mode: %w", err)
+		}
+		if err := clickRequired(ctx, client, "schedule-manage-button"); err != nil {
+			return fmt.Errorf("open schedule management mode: %w", err)
+		}
+		if err := waitUntil(ctx, client, func(current pageState) bool {
+			return current.ScheduleManagement && !current.ScheduleBrowse
+		}); err != nil {
+			return fmt.Errorf("verify schedule management mode: %w", err)
+		}
+		if err := capture(ctx, client, scheduleManagementScreenshot); err != nil {
+			return fmt.Errorf("capture schedule management mode: %w", err)
+		}
+		if err := clickRequired(ctx, client, "schedule-manage-button"); err != nil {
+			return fmt.Errorf("close schedule management mode: %w", err)
+		}
+		if err := waitUntil(ctx, client, func(current pageState) bool {
+			return current.ScheduleBrowse && !current.ScheduleManagement
+		}); err != nil {
+			return fmt.Errorf("restore schedule browse mode: %w", err)
 		}
 		if err := eval(ctx, client, `(() => {
 			const button = document.querySelector('[data-testid="schedule-create"]');
@@ -771,6 +1278,20 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		}); err != nil {
 			return fmt.Errorf("persist schedule workflow reference: %w", err)
 		}
+		if err := clickRequired(ctx, client, "schedule-run"); err != nil {
+			return fmt.Errorf("run saved schedule: %w", err)
+		}
+		if err := waitUntil(ctx, client, func(current pageState) bool {
+			return len(current.ScheduleRowStatuses) == 1 && current.ScheduleRowStatuses[0] == "queued"
+		}); err != nil {
+			return fmt.Errorf("verify schedule used the Workflow run path: %w", err)
+		}
+		if err := eval(ctx, client, `new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 200))))`); err != nil {
+			return err
+		}
+		if err := capture(ctx, client, scheduleBrowseScreenshot); err != nil {
+			return fmt.Errorf("capture populated schedule browse mode: %w", err)
+		}
 		if err := clickRequired(ctx, client, "schedule-edit"); err != nil {
 			return fmt.Errorf("reopen saved schedule: %w", err)
 		}
@@ -787,15 +1308,56 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 			return err
 		}
 	}
+	if err := eval(ctx, client, `location.hash = '#/settings'`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.SettingsView && current.SettingsGroups == 4
+	}); err != nil {
+		return fmt.Errorf("open grouped settings center: %w", err)
+	}
+	if err := capture(ctx, client, settingsScreenshot); err != nil {
+		return fmt.Errorf("capture grouped settings center: %w", err)
+	}
+	if err := eval(ctx, client, `(async () => {
+		const { workflowTransport } = await import('/src/app/transport/workflow.ts');
+		for (let index = 1; index <= 40; index++) {
+			await workflowTransport.createSourceWithMetadata({
+				name: 'Scale workflow ' + String(index).padStart(2, '0'),
+				description: 'Isolated V4 scale journey',
+				category: index % 2 ? 'Scale odd' : 'Scale even',
+				tags: ['scale']
+			});
+		}
+		location.hash = '#/workflows';
+	})()`); err != nil {
+		return fmt.Errorf("seed many-workflow journey: %w", err)
+	}
+	if err := waitUntilFor(ctx, client, 45*time.Second, func(current pageState) bool {
+		return current.WorkflowBrowse && current.WorkflowTotal >= 41 && current.WorkflowRows == 20
+	}); err != nil {
+		return fmt.Errorf("verify bounded 40+ workflow browse page: %w", err)
+	}
+	if manyWorkflowsScreenshot != "" {
+		if err := capture(ctx, client, manyWorkflowsScreenshot); err != nil {
+			return fmt.Errorf("capture many-workflow browse page: %w", err)
+		}
+	}
 	result, _ := json.MarshalIndent(map[string]any{
 		"status": "passed", "href": final.Href, "workspaceTools": final.WorkspaceTools,
 		"canvasNodes": final.CanvasNodes, "aiReview": final.AIReview, "screenshot": screenshot,
-		"assetsScreenshot": assetsScreenshot, "workflowsScreenshot": workflowsScreenshot,
-		"schedulesScreenshot": schedulesScreenshot,
-		"subgraphScreenshot":  subgraphScreenshot,
-		"nodeMenuScreenshot":  nodeMenuScreenshot,
-		"quickAddScreenshot":  quickAddScreenshot,
-		"runStateScreenshot":  runStateScreenshot,
+		"assetsScreenshot": assetsScreenshot, "assetManagementScreenshot": assetManagementScreenshot,
+		"workflowsScreenshot":          workflowsScreenshot,
+		"workflowManagementScreenshot": workflowManagementScreenshot,
+		"manyWorkflowsScreenshot":      manyWorkflowsScreenshot,
+		"schedulesScreenshot":          schedulesScreenshot,
+		"scheduleBrowseScreenshot":     scheduleBrowseScreenshot,
+		"scheduleManagementScreenshot": scheduleManagementScreenshot,
+		"subgraphScreenshot":           subgraphScreenshot,
+		"nodeMenuScreenshot":           nodeMenuScreenshot,
+		"quickAddScreenshot":           quickAddScreenshot,
+		"runStateScreenshot":           runStateScreenshot,
+		"settingsScreenshot":           settingsScreenshot,
 	}, "", "  ")
 	fmt.Println(string(result))
 	return nil
@@ -858,6 +1420,25 @@ func exerciseMultigraph(ctx context.Context, client *browsercdp.WebSocketClient,
 	); err != nil {
 		return fmt.Errorf("author subgraph node: %w", err)
 	}
+	if err := eval(ctx, client, `(() => {
+		const pane = document.querySelector('.vue-flow__pane');
+		if (!pane) throw new Error('subgraph canvas pane not found');
+		pane.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.GraphInterface }); err != nil {
+		return fmt.Errorf("open subgraph interface panel: %w", err)
+	}
+	if err := eval(ctx, client, `(() => {
+		const panel = document.querySelector('[data-testid="workflow-graph-interface"]');
+		const infer = document.querySelector('[data-testid="workflow-graph-infer-interface"]');
+		if (!panel || !infer || !panel.contains(infer)) {
+			throw new Error('interface inference action is not owned by the subgraph interface panel');
+		}
+	})()`); err != nil {
+		return err
+	}
 	if err := clickRequired(ctx, client, "workflow-graph-infer-interface"); err != nil {
 		return err
 	}
@@ -901,14 +1482,26 @@ func exerciseMultigraph(ctx context.Context, client *browsercdp.WebSocketClient,
 	if err := waitUntil(ctx, client, func(current pageState) bool { return current.Reroutes > 0 }); err != nil {
 		return fmt.Errorf("add edge reroute: %w", err)
 	}
+	if err := clickRequired(ctx, client, "workflow-canvas-add-more"); err != nil {
+		return err
+	}
+	if err := waitUntilJS(ctx, client, 5*time.Second, `(() => {
+		/* canvas add menu ready */
+		return Boolean(document.querySelector('[data-testid="workflow-graph-add-call"]'));
+	})()`); err != nil {
+		return fmt.Errorf("open canvas add menu: %w", err)
+	}
 	if err := clickRequired(ctx, client, "workflow-graph-add-call"); err != nil {
 		return err
 	}
-	if err := waitUntil(ctx, client, func(current pageState) bool { return current.CallMenuOptions > 0 }); err != nil {
+	if err := waitUntilJS(ctx, client, 5*time.Second, `(() => {
+		/* callable subgraph item ready */
+		return Boolean(document.querySelector('[data-testid^="workflow-graph-call-option-"]'));
+	})()`); err != nil {
 		return fmt.Errorf("open callable subgraph menu: %w", err)
 	}
 	if err := eval(ctx, client, `(() => {
-		const item = document.querySelector('[role="menu"] [role="menuitem"]');
+		const item = document.querySelector('[data-testid^="workflow-graph-call-option-"]');
 		if (!item) throw new Error('callable subgraph menu item not found');
 		item.click();
 	})()`); err != nil {
@@ -916,6 +1509,15 @@ func exerciseMultigraph(ctx context.Context, client *browsercdp.WebSocketClient,
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool { return current.GraphCalls == 1 }); err != nil {
 		return fmt.Errorf("insert graph call: %w", err)
+	}
+	if err := clickRequired(ctx, client, "workflow-canvas-add-more"); err != nil {
+		return err
+	}
+	if err := waitUntilJS(ctx, client, 5*time.Second, `(() => {
+		/* annotation action ready */
+		return Boolean(document.querySelector('[data-testid="workflow-annotation-add"]'));
+	})()`); err != nil {
+		return fmt.Errorf("open annotation action: %w", err)
 	}
 	if err := clickRequired(ctx, client, "workflow-annotation-add"); err != nil {
 		return err
@@ -931,7 +1533,7 @@ func exerciseDebugger(ctx context.Context, client *browsercdp.WebSocketClient) e
 		const button = document.querySelector('.vue-flow__node[data-id="run-started"] [data-testid="node-breakpoint"]');
 		if (!button) throw new Error('RunStarted breakpoint button not found');
 		if (Number(getComputedStyle(button).opacity) > 0.01) throw new Error('inactive breakpoint control is visible outside debug context');
-		if (!document.querySelector('[data-testid="workflow-debug-start"]')) throw new Error('debug start button unavailable before setting breakpoint');
+		if (document.querySelector('[data-testid="workflow-debug-start"]')) throw new Error('debug start button is visible outside the Tools menu');
 	})()`); err != nil {
 		return err
 	}
@@ -965,7 +1567,7 @@ func exerciseDebugger(ctx context.Context, client *browsercdp.WebSocketClient) e
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.DebugCompleted && current.DebugCurrent == 0 && current.DebugStart
+		return current.DebugCompleted && current.DebugCurrent == 0
 	}); err != nil {
 		return fmt.Errorf("step next visible node to completion: %w", err)
 	}
@@ -982,7 +1584,7 @@ func exerciseDebugger(ctx context.Context, client *browsercdp.WebSocketClient) e
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.DebugCompleted && current.DebugStart
+		return current.DebugCompleted
 	}); err != nil {
 		return fmt.Errorf("stop debug Run: %w", err)
 	}
@@ -1181,6 +1783,19 @@ func addNodeViaQuickAddAfter(
 	})()`); err != nil {
 		return fmt.Errorf("wait for quick-add search: %w", err)
 	}
+	if err := eval(ctx, client, `(() => {
+		const trigger = document.querySelector('[data-testid="workflow-canvas-add-node"]');
+		const panel = document.querySelector('[data-testid="workflow-quick-add"]');
+		if (!trigger || !panel) throw new Error('explicit quick-add geometry unavailable');
+		const triggerRect = trigger.getBoundingClientRect();
+		const panelRect = panel.getBoundingClientRect();
+		if (Math.abs(panelRect.left - triggerRect.left) > 2 ||
+			Math.abs(panelRect.top - triggerRect.bottom - 8) > 2) {
+			throw new Error('explicit quick add did not open below its left-canvas trigger');
+		}
+	})()`); err != nil {
+		return err
+	}
 	if err := eval(ctx, client, fmt.Sprintf(`(() => {
 		const input = document.querySelector(
 			'[data-testid="workflow-quick-add-search"] input, input[data-testid="workflow-quick-add-search"]'
@@ -1305,6 +1920,71 @@ func exerciseQuickAdd(ctx context.Context, client *browsercdp.WebSocketClient, s
 	return nil
 }
 
+func verifyEditorToolsAlignment(ctx context.Context, client *browsercdp.WebSocketClient) error {
+	return eval(ctx, client, `(async () => {
+		const trigger = document.querySelector('[data-testid="workflow-editor-tools"]');
+		if (!trigger) throw new Error('editor tools trigger not found');
+		trigger.click();
+		const deadline = performance.now() + 3000;
+		let item = null;
+		while (performance.now() < deadline) {
+			item = document.querySelector('[data-testid="workflow-inspector-toggle"]');
+			if (item) break;
+			await new Promise(resolve => setTimeout(resolve, 25));
+		}
+		if (!item) throw new Error('editor tools menu did not open');
+		if (getComputedStyle(item).textAlign !== 'left') {
+			throw new Error('editor tools menu text is not left aligned');
+		}
+		trigger.click();
+	})()`)
+}
+
+func verifyEditorToolbarConsolidation(ctx context.Context, client *browsercdp.WebSocketClient) error {
+	return eval(ctx, client, `(async () => {
+		const toolbar = document.querySelector('[data-testid="workflow-editor-toolbar"]');
+		if (!toolbar) throw new Error('editor toolbar not found');
+		const requiredSelectors = [
+			'[data-testid="workflow-graph-breadcrumb-main"]',
+			'[data-testid="workflow-target-default"]',
+			'[data-testid="workflow-find-node"]',
+			'[data-testid="workflow-run-timeline"]',
+			'[data-testid="workflow-save"]',
+			'[data-testid="workflow-editor-tools"]'
+		];
+		for (const selector of requiredSelectors) {
+			const item = document.querySelector(selector);
+			if (!item || !toolbar.contains(item)) {
+				throw new Error('editor command is outside the consolidated toolbar: ' + selector);
+			}
+		}
+		const addNode = document.querySelector('[data-testid="workflow-canvas-add-node"]');
+		const addMore = document.querySelector('[data-testid="workflow-canvas-add-more"]');
+		if (!addNode || !addMore || toolbar.contains(addNode) || toolbar.contains(addMore)) {
+			throw new Error('canvas creation actions are not isolated from the editor toolbar');
+		}
+		if (document.querySelector('[data-testid="workflow-graph-infer-interface"]')) {
+			throw new Error('subgraph interface inference leaked into the main graph toolbar');
+		}
+		const previousStyle = toolbar.getAttribute('style');
+		toolbar.style.width = '900px';
+		toolbar.style.maxWidth = '900px';
+		toolbar.style.flex = '0 0 900px';
+		await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+		const toolbarRect = toolbar.getBoundingClientRect();
+		for (const selector of requiredSelectors.slice(1)) {
+			const item = document.querySelector(selector);
+			const rect = item?.getBoundingClientRect();
+			if (!rect || rect.width <= 0 || rect.height <= 0 ||
+				rect.left < toolbarRect.left - 1 || rect.right > toolbarRect.right + 1) {
+				throw new Error('editor command left the narrow toolbar viewport: ' + selector);
+			}
+		}
+		if (previousStyle === null) toolbar.removeAttribute('style');
+		else toolbar.setAttribute('style', previousStyle);
+	})()`)
+}
+
 func exerciseSnippets(ctx context.Context, client *browsercdp.WebSocketClient, nodeMenuScreenshot string) error {
 	before, err := state(ctx, client)
 	if err != nil {
@@ -1338,17 +2018,12 @@ func exerciseSnippets(ctx context.Context, client *browsercdp.WebSocketClient, n
 	if err := waitUntil(ctx, client, func(current pageState) bool { return current.SnippetModal }); err != nil {
 		return fmt.Errorf("open save-as-snippet dialog: %w", err)
 	}
-	var shortcutPoint point
-	if err := evalJSON(ctx, client, `(() => {
+	if err := eval(ctx, client, `(() => {
 		const capture = document.querySelector('[data-testid="workflow-snippet-shortcut"] button');
 		if (!capture) throw new Error('snippet shortcut capture not found');
-		const rect = capture.getBoundingClientRect();
-		return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-	})()`, &shortcutPoint); err != nil {
-		return err
-	}
-	if err := dispatchMouseClick(ctx, client, shortcutPoint.X, shortcutPoint.Y); err != nil {
-		return fmt.Errorf("activate snippet shortcut capture: %w", err)
+		capture.click();
+	})()`); err != nil {
+		return fmt.Errorf("activate current snippet shortcut capture: %w", err)
 	}
 	if err := eval(ctx, client, `(async () => {
 		const deadline = performance.now() + 15000;
@@ -1560,12 +2235,37 @@ func readConnectionMenuWheelProbe(ctx context.Context, client *browsercdp.WebSoc
 
 func clickRequired(ctx context.Context, client *browsercdp.WebSocketClient, testID string) error {
 	testIDJSON, _ := json.Marshal(testID)
-	return eval(ctx, client, fmt.Sprintf(`(() => {
-		const button = document.querySelector('[data-testid=' + %s + ']');
+	return eval(ctx, client, fmt.Sprintf(`(async () => {
+		const selector = '[data-testid=' + %s + ']';
+		let button = document.querySelector(selector);
+		if (!button) {
+			const toolbarItems = new Set([
+				'workflow-state-open',
+				'ai-workflow-review-open',
+				'workflow-inspector-toggle',
+				'workflow-compile',
+				'workflow-diagnostics-open',
+				'workflow-timeline-open',
+				'workflow-debug-start',
+				'workflow-settings',
+				'workflow-reload',
+			]);
+			const triggerID = toolbarItems.has(%s)
+				? 'workflow-editor-tools'
+				: '';
+			const trigger = triggerID
+				? document.querySelector('[data-testid="' + triggerID + '"]')
+				: null;
+			if (trigger) {
+				trigger.click();
+				await new Promise(resolve => setTimeout(resolve, 100));
+				button = document.querySelector(selector);
+			}
+		}
 		if (!button) throw new Error(%s + ' button not found');
 		if (button.disabled) throw new Error(%s + ' button is disabled');
 		button.click();
-	})()`, testIDJSON, testIDJSON, testIDJSON))
+	})()`, testIDJSON, testIDJSON, testIDJSON, testIDJSON))
 }
 
 func workflowEditorUIFailures(visualState, confirmState, saveState pageState) []string {
@@ -1662,6 +2362,38 @@ func waitUntilFor(
 	}
 }
 
+func waitForStableNodeGeometry(ctx context.Context, client *browsercdp.WebSocketClient) error {
+	return eval(ctx, client, `(async () => {
+		const deadline = performance.now() + 5000;
+		const stableWindow = 250;
+		let previous = '';
+		let stableSince = performance.now();
+		while (performance.now() < deadline) {
+			const geometry = [...document.querySelectorAll(
+				'.vue-flow__node:not(.vue-flow__node-graph-boundary)'
+			)].map(node => {
+				const rect = node.getBoundingClientRect();
+				return [
+					node.getAttribute('data-id') || '',
+					rect.left.toFixed(2),
+					rect.top.toFixed(2),
+					rect.right.toFixed(2),
+					rect.bottom.toFixed(2),
+				].join(':');
+			}).join('|');
+			const now = performance.now();
+			if (geometry && geometry === previous) {
+				if (now - stableSince >= stableWindow) return;
+			} else {
+				previous = geometry;
+				stableSince = now;
+			}
+			await new Promise(resolve => setTimeout(resolve, 50));
+		}
+		throw new Error('workflow node geometry did not remain stable for 250ms');
+	})()`)
+}
+
 func waitForConnectionInsert(ctx context.Context, client *browsercdp.WebSocketClient, before pageState) error {
 	for {
 		current, err := state(ctx, client)
@@ -1705,6 +2437,9 @@ func waitForSave(ctx context.Context, client *browsercdp.WebSocketClient) error 
 }
 
 func exerciseLauncher(ctx context.Context, endpoint, mainTargetID string, mainClient *browsercdp.WebSocketClient, screenshot string) error {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
 	discovery := browsercdp.NewService(endpoint)
 	var launcherTargetID string
 	for cycle := 0; cycle < 2; cycle++ {
@@ -1775,15 +2510,32 @@ func exerciseLauncher(ctx context.Context, endpoint, mainTargetID string, mainCl
 				launcherClient.Close()
 				return fmt.Errorf("execute workflow from floating launcher: %w", err)
 			}
+			var lastObservation struct {
+				ClassName string `json:"className"`
+				Issue     string `json:"issue"`
+				Status    string `json:"status"`
+			}
+			var lastObservationErr error
 			for {
 				var succeeded bool
 				if err := evalJSON(ctx, launcherClient, `Boolean(document.querySelector('.launcher-command--success'))`, &succeeded); err == nil && succeeded {
 					break
 				}
+				lastObservationErr = evalJSON(ctx, launcherClient, `(() => {
+					const command = document.querySelector('.launcher-command');
+					return {
+						className: command?.className || '',
+						issue: document.querySelector('.launcher-health--error')?.textContent?.trim() || '',
+						status: command?.querySelector('.launcher-command__status')?.textContent?.trim() || '',
+					};
+				})()`, &lastObservation)
 				select {
 				case <-ctx.Done():
 					launcherClient.Close()
-					return fmt.Errorf("wait for floating launcher workflow success: %w", ctx.Err())
+					return fmt.Errorf(
+						"wait for floating launcher workflow success: %w; state=%+v; inspect=%v",
+						ctx.Err(), lastObservation, lastObservationErr,
+					)
 				case <-time.After(100 * time.Millisecond):
 				}
 			}
@@ -1938,15 +2690,31 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 		runStarted: Boolean(document.querySelector('.vue-flow__node[data-id="run-started"]')),
 		assetsView: Boolean(document.querySelector('[data-testid="assets-view"]')),
 		assetsRecording: Boolean(document.querySelector('[data-testid="assets-recording-start"], [data-testid="assets-recording-controls"]')),
+		assetBrowse: Boolean(document.querySelector('[data-testid="asset-library"][data-mode="browse"]')),
+		assetManageButton: Boolean(document.querySelector('[data-testid="asset-manage-button"]')),
+		assetManagement: Boolean(document.querySelector('[data-testid="asset-library"][data-mode="manage"]')),
 		schedulesView: Boolean(document.querySelector('[data-testid="schedules-view"]')),
+		scheduleBrowse: Boolean(document.querySelector('[data-testid="schedule-library"][data-mode="browse"]')),
+		scheduleManageButton: Boolean(document.querySelector('[data-testid="schedule-manage-button"]')),
+		scheduleManagement: Boolean(document.querySelector('[data-testid="schedule-library"][data-mode="manage"] [data-testid="schedule-management"]')),
 		scheduleEditor: Boolean(document.querySelector('[data-testid="schedule-editor"]')),
 		scheduleRows: document.querySelectorAll('[data-testid="schedule-row"]').length,
 		scheduleRowTargets: [...document.querySelectorAll('[data-testid="schedule-row"]')]
 			.flatMap(row => (row.getAttribute('data-target-ids') || '').split(',').filter(Boolean)),
+		scheduleRowStatuses: [...document.querySelectorAll('[data-testid="schedule-row"]')]
+			.map(row => row.getAttribute('data-last-status') || ''),
 		scheduleEditTargets: [...document.querySelectorAll('[data-testid="schedule-target"]')]
 			.map(target => target.getAttribute('data-workflow-id') || '').filter(Boolean),
+		settingsView: Boolean(document.querySelector('[data-testid="settings-view"]')),
+		settingsGroups: document.querySelectorAll('[data-testid^="settings-group-"]').length,
+		appContextTitle: document.querySelector('[data-testid="app-context-title"]')?.textContent?.trim() || '',
 		createInput: Boolean(document.querySelector('input[data-testid="workflow-create-name"], [data-testid="workflow-create-name"] input')),
 		recoveryPanel: Boolean(document.querySelector('[data-testid="workflow-recovery-panel"]')),
+		workflowBrowse: Boolean(document.querySelector('[data-testid="workflow-library"][data-mode="browse"]')),
+		workflowManageButton: Boolean(document.querySelector('[data-testid="workflow-manage-button"]')),
+		workflowManagement: Boolean(document.querySelector('[data-testid="workflow-library"][data-mode="manage"]')),
+		workflowRows: document.querySelectorAll('[data-testid="workflow-library-row"]').length,
+		workflowTotal: Number(document.querySelector('[data-testid="workflow-library"]')?.getAttribute('data-total') || 0),
 		launcherButton: Boolean(document.querySelector('[data-testid="open-launcher"]')),
 		graphChromeDark: darkBackground(controls) && controlButtons.length > 0 && controlButtons.every(darkBackground) && (!minimap || darkBackground(minimap)),
 		handleOverlaps,
@@ -2039,33 +2807,84 @@ func dispatchModifiedKeyPress(ctx context.Context, client *browsercdp.WebSocketC
 
 func dispatchMarqueeGesture(ctx context.Context, client *browsercdp.WebSocketClient, gesture connectionGesture) error {
 	const shiftModifier = 8
-	if _, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
+	if _, err := client.Call(ctx, "Input.dispatchKeyEvent", map[string]any{
+		"type": "rawKeyDown", "key": "Shift", "code": "ShiftLeft",
+		"windowsVirtualKeyCode": 16, "nativeVirtualKeyCode": 16, "modifiers": shiftModifier,
+	}); err != nil {
+		return err
+	}
+	var gestureErr error
+	if _, gestureErr = client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
 		"type": "mouseMoved", "x": gesture.Start.X, "y": gesture.Start.Y, "modifiers": shiftModifier,
-	}); err != nil {
-		return err
+	}); gestureErr == nil {
+		_, gestureErr = client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
+			"type": "mousePressed", "x": gesture.Start.X, "y": gesture.Start.Y,
+			"button": "left", "buttons": 1, "clickCount": 1, "modifiers": shiftModifier,
+		})
 	}
-	if _, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
-		"type": "mousePressed", "x": gesture.Start.X, "y": gesture.Start.Y,
-		"button": "left", "buttons": 1, "clickCount": 1, "modifiers": shiftModifier,
-	}); err != nil {
-		return err
-	}
-	for step := 1; step <= 8; step++ {
+	for step := 1; gestureErr == nil && step <= 8; step++ {
 		ratio := float64(step) / 8
-		if _, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
+		_, gestureErr = client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
 			"type":   "mouseMoved",
 			"x":      gesture.Start.X + (gesture.End.X-gesture.Start.X)*ratio,
 			"y":      gesture.Start.Y + (gesture.End.Y-gesture.Start.Y)*ratio,
 			"button": "left", "buttons": 1, "modifiers": shiftModifier,
-		}); err != nil {
-			return err
-		}
+		})
 	}
-	_, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
-		"type": "mouseReleased", "x": gesture.End.X, "y": gesture.End.Y,
-		"button": "left", "buttons": 0, "clickCount": 1, "modifiers": shiftModifier,
+	if gestureErr == nil {
+		_, gestureErr = client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
+			"type": "mouseReleased", "x": gesture.End.X, "y": gesture.End.Y,
+			"button": "left", "buttons": 0, "clickCount": 1, "modifiers": shiftModifier,
+		})
+	}
+	_, releaseErr := client.Call(ctx, "Input.dispatchKeyEvent", map[string]any{
+		"type": "keyUp", "key": "Shift", "code": "ShiftLeft",
+		"windowsVirtualKeyCode": 16, "nativeVirtualKeyCode": 16,
 	})
-	return err
+	if gestureErr != nil {
+		return gestureErr
+	}
+	return releaseErr
+}
+
+func beginMarqueeTrace(ctx context.Context, client *browsercdp.WebSocketClient) error {
+	return eval(ctx, client, `(() => {
+		const trace = [];
+		const types = ['keydown', 'keyup', 'pointerdown', 'pointermove', 'pointerup'];
+		const handler = event => {
+			const target = event.target instanceof Element ? event.target : null;
+			trace.push({
+				type: event.type,
+				key: event.key || '',
+				shiftKey: Boolean(event.shiftKey),
+				target: target?.className?.toString?.() || target?.tagName || '',
+				paneSelecting: Boolean(document.querySelector('.vue-flow__pane.selection')),
+				selectedNodes: document.querySelectorAll('.vue-flow__node.selected').length
+			});
+		};
+		for (const type of types) window.addEventListener(type, handler, true);
+		window.__yottaMarqueeTrace = { trace, types, handler };
+	})()`)
+}
+
+func finishMarqueeTrace(ctx context.Context, client *browsercdp.WebSocketClient) string {
+	var trace map[string]any
+	err := evalJSON(ctx, client, `(() => {
+		const state = window.__yottaMarqueeTrace;
+		if (!state) return { missing: true };
+		for (const type of state.types) window.removeEventListener(type, state.handler, true);
+		delete window.__yottaMarqueeTrace;
+		return {
+			events: state.trace,
+			paneClass: document.querySelector('.vue-flow__pane')?.className || '',
+			selectedNodes: document.querySelectorAll('.vue-flow__node.selected').length
+		};
+	})()`, &trace)
+	if err != nil {
+		return err.Error()
+	}
+	raw, _ := json.Marshal(trace)
+	return string(raw)
 }
 
 func eval(ctx context.Context, client *browsercdp.WebSocketClient, expression string) error {

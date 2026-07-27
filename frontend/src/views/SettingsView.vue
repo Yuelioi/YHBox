@@ -1,5 +1,5 @@
 <template>
-  <div class="settings-shell">
+  <div class="settings-shell" data-testid="settings-view">
     <aside class="settings-sidebar" :aria-label="t('sidebar.settings')">
       <div class="flex items-center gap-2 px-1">
         <div
@@ -41,43 +41,60 @@
         aria-orientation="vertical"
         :aria-label="t('settingsCenter.themes_label')"
       >
-        <UButton
-          v-for="theme in filteredThemes"
-          :id="`settings-tab-${theme.key}`"
-          :key="theme.key"
-          size="sm"
-          variant="ghost"
-          color="neutral"
-          role="tab"
-          :tabindex="activeKey === theme.key ? 0 : -1"
-          :aria-selected="activeKey === theme.key"
-          aria-controls="settings-tabpanel"
-          class="settings-nav-item"
-          :class="activeKey === theme.key ? 'settings-nav-item--active' : ''"
-          @click="selectTheme(theme.key)"
-          @keydown="onTabKeydown($event, theme.key)"
+        <section
+          v-for="group in filteredThemeGroups"
+          :key="group.key"
+          class="settings-nav-group"
+          :data-testid="`settings-group-${group.key}`"
+          :aria-labelledby="`settings-group-${group.key}`"
         >
-          <UIcon
-            :name="theme.icon"
-            class="size-4 shrink-0"
-            :class="activeKey === theme.key ? 'text-primary' : 'text-dimmed'"
-            aria-hidden="true"
-          />
-          <span class="min-w-0 flex-1 text-left">
-            <span class="block truncate text-xs font-medium">{{ t(theme.labelKey) }}</span>
-            <span class="mt-0.5 block truncate text-[10px] font-normal text-dimmed">
-              {{ t(theme.descriptionKey) }}
+          <h2
+            :id="`settings-group-${group.key}`"
+            class="px-2 pb-1 pt-2 text-[10px] font-semibold tracking-wide text-dimmed"
+          >
+            {{ t(group.labelKey) }}
+          </h2>
+          <UButton
+            v-for="theme in group.themes"
+            :id="`settings-tab-${theme.key}`"
+            :key="theme.key"
+            size="sm"
+            variant="ghost"
+            color="neutral"
+            role="tab"
+            :tabindex="activeKey === theme.key ? 0 : -1"
+            :aria-selected="activeKey === theme.key"
+            aria-controls="settings-tabpanel"
+            class="settings-nav-item"
+            :class="activeKey === theme.key ? 'settings-nav-item--active' : ''"
+            @click="selectTheme(theme.key)"
+            @keydown="onTabKeydown($event, theme.key)"
+          >
+            <UIcon
+              :name="theme.icon"
+              class="size-4 shrink-0"
+              :class="activeKey === theme.key ? 'text-primary' : 'text-dimmed'"
+              aria-hidden="true"
+            />
+            <span class="min-w-0 flex-1 text-left">
+              <span class="block truncate text-xs font-medium">{{ t(theme.labelKey) }}</span>
+              <span class="mt-0.5 block truncate text-[10px] font-normal text-dimmed">
+                {{ t(theme.descriptionKey) }}
+              </span>
             </span>
-          </span>
-          <UIcon
-            v-if="activeKey === theme.key"
-            name="i-tabler-chevron-right"
-            class="size-3.5 shrink-0 text-primary"
-            aria-hidden="true"
-          />
-        </UButton>
+            <UIcon
+              v-if="activeKey === theme.key"
+              name="i-tabler-chevron-right"
+              class="size-3.5 shrink-0 text-primary"
+              aria-hidden="true"
+            />
+          </UButton>
+        </section>
 
-        <p v-if="filteredThemes.length === 0" class="px-3 py-6 text-center text-xs text-dimmed">
+        <p
+          v-if="filteredThemeGroups.length === 0"
+          class="px-3 py-6 text-center text-xs text-dimmed"
+        >
           {{ t('settingsCenter.no_results') }}
         </p>
       </nav>
@@ -117,7 +134,12 @@ import SettingsNetwork from './SettingsNetwork.vue'
 import SettingsApplications from './SettingsApplications.vue'
 import SettingsAutomation from './SettingsAutomation.vue'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader.vue'
-import { SETTINGS_THEMES, isSettingsThemeKey, type SettingsThemeKey } from '@/settings/registry'
+import {
+  groupSettingsThemes,
+  SETTINGS_THEMES,
+  isSettingsThemeKey,
+  type SettingsThemeKey,
+} from '@/settings/registry'
 
 const LAST_THEME_KEY = 'yotta.settings.section'
 const { t } = useI18n()
@@ -160,6 +182,7 @@ const filteredThemes = computed(() => {
     `${t(theme.labelKey)} ${t(theme.descriptionKey)}`.toLocaleLowerCase().includes(query),
   )
 })
+const filteredThemeGroups = computed(() => groupSettingsThemes(filteredThemes.value))
 
 watch(
   () => route.query.section,

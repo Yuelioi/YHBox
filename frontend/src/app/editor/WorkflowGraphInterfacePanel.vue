@@ -12,12 +12,15 @@
         <p class="truncate font-mono text-[10px] text-dimmed">{{ graph.id }}</p>
       </div>
       <UButton
+        data-testid="workflow-graph-infer-interface"
         icon="i-tabler-wand"
         color="neutral"
         variant="ghost"
         size="xs"
+        :label="t('workflow.graphs.infer_interface')"
+        :disabled="inferDisabled"
         :aria-label="t('workflow.graphs.infer_interface')"
-        :title="t('workflow.graphs.infer_interface_hint')"
+        :title="inferHint || t('workflow.graphs.infer_interface_hint')"
         @click="emit('infer')"
       />
     </div>
@@ -211,6 +214,8 @@ const props = defineProps<{
   graph: Graph
   candidates: GraphInterfaceCandidate[]
   referenceCounts?: Record<string, number>
+  inferDisabled?: boolean
+  inferHint?: string
 }>()
 const emit = defineEmits<{
   infer: []

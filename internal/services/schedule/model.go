@@ -6,7 +6,7 @@ import "time"
 
 type SchemaVersion string
 
-const CurrentSchemaVersion SchemaVersion = "3"
+const CurrentSchemaVersion SchemaVersion = "4"
 
 type TargetKind string
 
@@ -42,6 +42,21 @@ const (
 	FireStatusFailed FireStatus = "failed"
 )
 
+type RunReadiness struct {
+	State         string `json:"state"`
+	Code          string `json:"code,omitempty"`
+	WorkflowID    string `json:"workflowId,omitempty"`
+	GraphID       string `json:"graphId,omitempty"`
+	NodeID        string `json:"nodeId,omitempty"`
+	RequirementID string `json:"requirementId,omitempty"`
+	Slot          string `json:"slot,omitempty"`
+}
+
+type FireResult struct {
+	Status    FireStatus    `json:"status"`
+	Readiness *RunReadiness `json:"readiness,omitempty"`
+}
+
 // TargetRef Schedule 触发后要跑的本地 Workflow。
 type TargetRef struct {
 	Kind TargetKind `json:"kind"`
@@ -74,6 +89,7 @@ type Schedule struct {
 	OnError        OnErrorMode   `json:"onError"`
 	LastFiredAt    *time.Time    `json:"lastFiredAt,omitempty"`
 	LastStatus     FireStatus    `json:"lastStatus,omitempty"`
+	LastReadiness  *RunReadiness `json:"lastReadiness,omitempty"`
 	CreatedAt      time.Time     `json:"createdAt"`
 	UpdatedAt      time.Time     `json:"updatedAt"`
 }

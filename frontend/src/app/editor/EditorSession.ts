@@ -28,6 +28,7 @@ import type {
   DebugBreakpoint,
   DebugSnapshot,
 } from '@/app/transport/workflow'
+import { runStartOutcome, type RunStartOutcome } from '@/app/run/runReadiness'
 import {
   assignable,
   projectedConnectionCompatibility,
@@ -208,6 +209,7 @@ export class EditorSession {
   lastRunHash = ''
   diagnostics: CompileView['diagnostics'] = []
   activeRun: RunView | null = null
+  lastRunOutcome: RunStartOutcome | null = null
   debugSnapshot: DebugSnapshot | null = null
   graphPath: string[] = []
   dirty = false
@@ -1172,6 +1174,7 @@ export class EditorSession {
 
   private async start(debug: boolean, breakpoints: DebugBreakpoint[]): Promise<RunView | null> {
     this.failure = ''
+    this.lastRunOutcome = null
     try {
       const compile = await this.validate()
       if (compile.diagnostics.some((diagnostic) => diagnostic.severity === 'error')) return null
@@ -1184,6 +1187,7 @@ export class EditorSession {
       const started = debug
         ? await this.transport.startDebugRun(this.workflowId, breakpoints)
         : await this.transport.startRun(this.workflowId)
+      this.lastRunOutcome = runStartOutcome(started)
       this.diagnostics = [...started.diagnostics]
       this.sourceHash = started.sourceHash ?? this.sourceHash
       this.compiledHash = started.programHash ?? this.compiledHash

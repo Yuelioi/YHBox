@@ -22,7 +22,7 @@ type HotkeyRegistrar interface {
 }
 
 type WorkflowRunner interface {
-	StartWorkflow(context.Context, string) error
+	StartWorkflow(context.Context, string) (RunReadiness, error)
 }
 
 // Daemon 启动期注册所有 enabled schedules 到 cron / hotkey / once，
@@ -165,7 +165,7 @@ func (d *Daemon) registerLocked(s *Schedule) error {
 		if err != nil {
 			return err
 		}
-		id, err := d.cron.AddFunc(spec, func() { _ = d.fireOwned(s.ID) })
+		id, err := d.cron.AddFunc(spec, func() { _, _ = d.fireOwned(s.ID) })
 		if err != nil {
 			return fmt.Errorf("cron AddFunc: %w", err)
 		}
@@ -181,7 +181,7 @@ func (d *Daemon) registerLocked(s *Schedule) error {
 		if err := d.hotkeys.Register(key, "schedule",
 			"hotkeys.label.schedule", map[string]string{"name": s.Name},
 			s.Trigger.Hotkey, "",
-			func() { _ = d.fireOwned(s.ID) }); err != nil {
+			func() { _, _ = d.fireOwned(s.ID) }); err != nil {
 			return fmt.Errorf("hotkey register: %w", err)
 		}
 		d.hotkeyKs[s.ID] = key
@@ -197,19 +197,19 @@ func (d *Daemon) registerLocked(s *Schedule) error {
 }
 
 // FireManual UI 上手动按 ▶ 跑某 schedule。
-func (d *Daemon) FireManual(scheduleID string) error {
+func (d *Daemon) FireManual(scheduleID string) (FireResult, error) {
 	return d.fireOwned(scheduleID)
 }
 
-func (d *Daemon) fireOwned(scheduleID string) error {
+func (d *Daemon) fireOwned(scheduleID string) (FireResult, error) {
 	d.mu.Lock()
 	if !d.started {
 		d.mu.Unlock()
-		return errors.New("schedule daemon not started")
+		return FireResult{}, errors.New("schedule daemon not started")
 	}
 	if d.stopped {
 		d.mu.Unlock()
-		return errors.New("schedule daemon stopped")
+		return FireResult{}, errors.New("schedule daemon stopped")
 	}
 	ctx := d.runCtx
 	d.fireWG.Add(1)
@@ -226,20 +226,20 @@ func (d *Daemon) launchFireLocked(scheduleID string) {
 	d.fireWG.Add(1)
 	go func() {
 		defer d.fireWG.Done()
-		_ = d.fire(ctx, scheduleID)
+		_, _ = d.fire(ctx, scheduleID)
 	}()
 }
 
-func (d *Daemon) fire(ctx context.Context, scheduleID string) error {
+func (d *Daemon) fire(ctx context.Context, scheduleID string) (FireResult, error) {
 	if err := ctx.Err(); err != nil {
-		return err
+		return FireResult{}, err
 	}
 	s, ok := d.store.Get(scheduleID)
 	if !ok {
-		return fmt.Errorf("schedule %s not found", scheduleID)
+		return FireResult{}, fmt.Errorf("schedule %s not found", scheduleID)
 	}
 	if d.runner == nil {
-		return errors.New("workflow runner not injected")
+		return FireResult{}, errors.New("workflow runner not injected")
 	}
 	runCtx := ctx
 	var cancel context.CancelFunc
@@ -249,6 +249,7 @@ func (d *Daemon) fire(ctx context.Context, scheduleID string) error {
 	}
 	var runErr error
 	started := 0
+	var lastReadiness *RunReadiness
 	for index, target := range s.Targets {
 		if target.Kind != TargetWorkflow {
 			err := fmt.Errorf("schedule target %d has unsupported kind %q", index, target.Kind)
@@ -258,14 +259,26 @@ func (d *Daemon) fire(ctx context.Context, scheduleID string) error {
 			}
 			continue
 		}
-		if err := d.runner.StartWorkflow(runCtx, target.ID); err != nil {
-			runErr = errors.Join(runErr, fmt.Errorf("start Workflow %q: %w", target.ID, err))
-			if s.OnError != OnErrorContinue {
-				break
+		readiness, err := d.runner.StartWorkflow(runCtx, target.ID)
+		if readiness.State == "started" {
+			started++
+			if err != nil {
+				runErr = errors.Join(runErr, fmt.Errorf("confirm Workflow %q start: %w", target.ID, err))
 			}
 			continue
 		}
-		started++
+		if readiness.State == "" {
+			readiness.State = "failed"
+		}
+		readiness.WorkflowID = target.ID
+		copy := readiness
+		lastReadiness = &copy
+		if err != nil {
+			runErr = errors.Join(runErr, fmt.Errorf("start Workflow %q: %w", target.ID, err))
+		}
+		if s.OnError != OnErrorContinue {
+			break
+		}
 	}
 	// StartWorkflow returns only after the durable QUEUED Run exists, so the
 	// schedule status never claims a notification that admission did not commit.
@@ -277,11 +290,16 @@ func (d *Daemon) fire(ctx context.Context, scheduleID string) error {
 		} else {
 			cur.LastStatus = FireStatusFailed
 		}
+		cur.LastReadiness = lastReadiness
 		if err := d.store.Save(&cur); err != nil {
 			runErr = errors.Join(runErr, fmt.Errorf("persist schedule %s fired status: %w", scheduleID, err))
 		}
 	}
-	return runErr
+	status := FireStatusFailed
+	if started > 0 {
+		status = FireStatusQueued
+	}
+	return FireResult{Status: status, Readiness: lastReadiness}, runErr
 }
 
 // buildCronSpec subKind=daily + at="HH:MM" → "M H * * *"

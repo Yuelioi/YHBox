@@ -326,6 +326,7 @@
               preview
               :empty-label="t('settingsLauncher.preview_empty')"
               :run-label="(name: string) => t('floatingLauncher.run', { name })"
+              :cancel-label="(name: string) => t('floatingLauncher.cancel', { name })"
               :status-labels="statusLabels"
               :stale-label="t('floatingLauncher.stale_item')"
             />
@@ -394,6 +395,7 @@ const statusLabels = computed(() => ({
   running: t('floatingLauncher.running'),
   success: t('floatingLauncher.success'),
   error: t('floatingLauncher.failed'),
+  cancelled: t('floatingLauncher.cancelled'),
 }))
 const persist = () => settingsStore.patch({ ui: { launcherItems: copyItems(editItems.value) } })
 const setDisplay = (value: string) => void settingsStore.patch({ ui: { launcherDisplay: value } })
