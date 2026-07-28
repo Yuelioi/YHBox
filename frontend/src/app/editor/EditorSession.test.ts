@@ -17,6 +17,7 @@ import type {
   WorkflowTransport,
   DebugSnapshot,
 } from '@/app/transport/workflow'
+import { RPCError } from '@/lib/invoke'
 import { assignable, EditorSession } from './EditorSession'
 import { createEditorSession } from './createEditorSession'
 
@@ -255,6 +256,86 @@ describe('EditorSession', () => {
     await expect(Promise.all([first, second])).resolves.toHaveLength(2)
     expect(session.baseRevision).toBe(1)
     expect(session.dirty).toBe(false)
+  })
+
+  it('keeps the draft and explains a backend validation failure in the save banner', async () => {
+    const source = emptySource()
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    transport.applyPatch = vi.fn(async () => {
+      throw new Error('INVALID_FIELD')
+    })
+    const session = new EditorSession(transport)
+    await session.load(source.workflow.id)
+    session.apply({ kind: 'rename-workflow', name: 'renamed' })
+
+    await expect(session.save()).rejects.toThrow('INVALID_FIELD')
+
+    expect(session.dirty).toBe(true)
+    expect(session.saveErrorKind).toBe('validation')
+    expect(session.saveError).toContain('节点参数或连线')
+    expect(session.saveError).not.toBe('INVALID_FIELD')
+  })
+
+  it('keeps the invalid field target so the save banner can locate the node', async () => {
+    const source = emptySource()
+    source.graphs[0]!.nodes.push({
+      id: 'concat',
+      nodeRef: concat.nodeRef,
+      label: '',
+      config: {},
+      bindings: {},
+      position: { x: 0, y: 0 },
+      disabled: false,
+    })
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    transport.applyPatch = vi.fn(async () => {
+      throw new RPCError(
+        {
+          code: 'INVALID_CONFIG_VALUE',
+          category: 'validation',
+          details: { commandIndex: 0 },
+        },
+        'workflow.applyPatch',
+        'op-1',
+        null,
+      )
+    })
+    const session = new EditorSession(transport)
+    await session.load(source.workflow.id)
+    session.apply({
+      kind: 'set-config',
+      nodeId: 'concat',
+      fieldId: 'separator',
+      value: 42,
+    })
+
+    await expect(session.save()).rejects.toThrow()
+
+    expect(session.saveErrorTarget).toEqual({
+      graphId: 'main',
+      nodeId: 'concat',
+      fieldId: 'separator',
+      portId: undefined,
+    })
+  })
+
+  it('does not resurrect a raw save error after dismissing a failed run save banner', async () => {
+    const source = emptySource()
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    transport.applyPatch = vi.fn(async () => {
+      throw new Error('INVALID_FIELD')
+    })
+    const session = new EditorSession(transport)
+    await session.load(source.workflow.id)
+    session.apply({ kind: 'rename-workflow', name: 'renamed' })
+
+    await expect(session.run()).rejects.toThrow('INVALID_FIELD')
+    expect(session.saveError).toContain('节点参数或连线')
+    expect(session.openFailure).toBe('')
+
+    session.dismissSaveError()
+    expect(session.saveError).toBe('')
+    expect(session.openFailure).toBe('')
   })
 
   it('checks the current unsaved draft without persisting it', async () => {

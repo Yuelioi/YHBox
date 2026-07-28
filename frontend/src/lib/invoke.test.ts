@@ -92,8 +92,17 @@ describe('errorMessage', () => {
     expect(msg).toContain('入口图')
     expect(msg).toMatch(/1/)
   })
-  it('缺 i18n key → 回落 code 字面', () => {
-    expect(errorMessage({ cause: { code: 'FOO_BAR' } })).toBe('FOO_BAR')
+  it('缺 i18n key → 给出处理建议而不是裸错误码', () => {
+    const message = errorMessage({ cause: { code: 'FOO_BAR' } })
+    expect(message).toContain('重试')
+    expect(message).toContain('FOO_BAR')
+    expect(message).not.toBe('FOO_BAR')
+  })
+  it('未知 validation code 也不会直接展示', () => {
+    const message = errorMessage({ cause: { Errors: [{ code: 'UNKNOWN_VALIDATION_CODE' }] } })
+    expect(message).toContain('重试')
+    expect(message).toContain('UNKNOWN_VALIDATION_CODE')
+    expect(message).not.toBe('UNKNOWN_VALIDATION_CODE')
   })
   it('裸 message 直接显示', () => {
     expect(errorMessage(new Error('boom'))).toBe('boom')
@@ -102,6 +111,12 @@ describe('errorMessage', () => {
     const message = errorMessage(new Error('RECORDING_CALIBRATION_REQUIRED'))
     expect(message).toContain('精准相对录制')
     expect(message).not.toContain('RECORDING_CALIBRATION_REQUIRED')
+  })
+  it('未知裸错误码也不会直接展示', () => {
+    const message = errorMessage(new Error('UNMAPPED_FAILURE'))
+    expect(message).toContain('重试')
+    expect(message).toContain('UNMAPPED_FAILURE')
+    expect(message).not.toBe('UNMAPPED_FAILURE')
   })
   it('{} → UNKNOWN_ERROR 文案', () => {
     const msg = errorMessage({})

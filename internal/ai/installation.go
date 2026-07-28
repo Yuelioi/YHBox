@@ -36,9 +36,11 @@ type installationState struct {
 	native  []Provider
 }
 
-// Installations is an immutable startup snapshot. It creates one native
+// Installations is an immutable runtime snapshot. It creates one native
 // provider per distinct model profile while preserving one target and
-// credential binding per logical workflow slot.
+// credential binding per logical workflow slot. Unverified profiles may serve
+// ordinary generation; rejected profiles and high-authority authoring remain
+// unavailable until an exact evaluation is approved.
 type Installations struct{ state *installationState }
 
 func Install(drafts []InstallationDraft, credentials CredentialStore) (Installations, error) {
@@ -61,10 +63,12 @@ func Install(drafts []InstallationDraft, credentials CredentialStore) (Installat
 			return Installations{}, fmt.Errorf("seal AI profile for slot %q: %w", draft.Slot, err)
 		}
 		if err := ValidateEvaluation(profile, draft.Evaluation); err != nil {
-			if errors.Is(err, ErrEvaluationNotApproved) {
+			if errors.Is(err, ErrEvaluationNotApproved) && profile.Machine().Evaluation == EvaluationRejected {
 				continue
 			}
-			return Installations{}, fmt.Errorf("validate AI evaluation for slot %q: %w", draft.Slot, err)
+			if !errors.Is(err, ErrEvaluationNotApproved) {
+				return Installations{}, fmt.Errorf("validate AI evaluation for slot %q: %w", draft.Slot, err)
+			}
 		}
 		shared, exists := byProfile[profile.Digest()]
 		if !exists {
@@ -114,8 +118,12 @@ func (i Installations) ForEvaluationArtifacts(artifacts []artifact.Digest) (Inst
 	}
 	entries := make([]Installation, 0, len(i.state.entries))
 	for _, installed := range i.state.entries {
+		if installed.Profile.Machine().Evaluation == EvaluationUnverified {
+			entries = append(entries, installed)
+			continue
+		}
 		if err := ValidateEvaluationCandidate(installed.Profile, installed.Evaluation, artifacts); err != nil {
-			if errors.Is(err, ErrEvaluationCandidateStale) {
+			if errors.Is(err, ErrEvaluationCandidateStale) || errors.Is(err, ErrEvaluationNotApproved) {
 				continue
 			}
 			return Installations{}, fmt.Errorf("validate AI evaluation for slot %q: %w", installed.Slot, err)

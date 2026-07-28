@@ -522,6 +522,11 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, resou
 		for _, port := range machine.Ports.DataInputs {
 			resolved, err := types.resolve(scopedTypeExpression{scope: node.ID, expression: port.Type})
 			if err != nil {
+				_, hasEdge := node.Inputs[port.ID]
+				_, hasBinding := pendingBindings[node.ID][port.ID]
+				if !port.Required && !hasEdge && !hasBinding && containsTypeVariable(port.Type) {
+					continue
+				}
 				diagnostic := diagnosticAtNode(CodeUnresolvedType, []string{"ports", "dataInputs", port.ID}, graph.ID, node.ID)
 				diagnostic.Params["reason"] = err.Error()
 				diagnostics = append(diagnostics, diagnostic)

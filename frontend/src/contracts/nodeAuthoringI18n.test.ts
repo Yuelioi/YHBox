@@ -17,6 +17,23 @@ describe('current Node Authoring Projection i18n', () => {
     expect(Object.keys(zh.node).filter((key) => /^[A-Z]/.test(key))).toEqual([])
     expect(Object.keys(en.node).filter((key) => /^[A-Z]/.test(key))).toEqual([])
   })
+
+  it('provides localized fallback labels for every built-in port and signal without a title key', () => {
+    const ids = new Set<string>()
+    for (const node of authoring.body.nodes) {
+      for (const port of [...node.dataInputs, ...node.dataOutputs]) {
+        if (!('titleKey' in port) || !port.titleKey) ids.add(port.id)
+      }
+      for (const signal of node.signals) ids.add(signal.id)
+    }
+
+    expect(ids.size).toBeGreaterThan(50)
+    for (const id of ids) {
+      const key = `workflow.node.port.${id}`
+      expect(resolveMessage(zh, key), `zh:${key}`).toBeTypeOf('string')
+      expect(resolveMessage(en, key), `en:${key}`).toBeTypeOf('string')
+    }
+  })
 })
 
 function collectMessageKeys(value: unknown, result = new Set<string>()): Set<string> {

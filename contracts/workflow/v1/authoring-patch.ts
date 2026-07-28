@@ -187,6 +187,7 @@ export type TypeExpression =
       kind: 'variable'
       variable: string
     }
+export type PatchNodeReference = string | string
 
 export interface YottaWorkflowAuthoringPatch {
   baseRevision: number
@@ -383,17 +384,17 @@ export interface RemoveResourceCommand {
   resourceId: string
 }
 export interface EdgeCommand {
-  edge: Edge
+  edge: PatchEdge
   graphId: string
 }
-export interface Edge {
+export interface PatchEdge {
   channel: 'data' | 'exec' | 'error'
-  from: Endpoint
+  from: PatchEndpoint
   presentation?: EdgePresentation
-  to: Endpoint
+  to: PatchEndpoint
 }
-export interface Endpoint {
-  nodeId: string
+export interface PatchEndpoint {
+  nodeId: PatchNodeReference
   portId: string
 }
 export interface EdgePresentation {
@@ -468,6 +469,16 @@ export interface InputBinding {
   resource?: ResourceBinding
   value?: any
 }
+export interface Edge {
+  channel: 'data' | 'exec' | 'error'
+  from: Endpoint
+  presentation?: EdgePresentation
+  to: Endpoint
+}
+export interface Endpoint {
+  nodeId: string
+  portId: string
+}
 export interface GraphExit {
   channel: 'exec' | 'error'
   endpoint: Endpoint
@@ -530,7 +541,7 @@ export interface AnnotationIDCommand {
   graphId: string
 }
 export interface SetEdgeReroutesCommand {
-  edge: Edge
+  edge: PatchEdge
   graphId: string
   reroutes: Position[]
 }

@@ -98,6 +98,7 @@ import type {
   WorkflowResource,
 } from '../../../../contracts/workflow/current/workflow-source'
 import type { CapabilityProjection } from '../../../../contracts/node/current/authoring-projection'
+import { projectionLabel } from '@/app/editor/projectionLabels'
 import type { EditorCommand, Node, NodeProjection } from './EditorSession'
 import type { AuthoringSurfaceItem } from './authoringSurface'
 import GeneratedFieldEditor from './GeneratedFieldEditor.vue'
@@ -183,8 +184,7 @@ const targetSettingsSection = computed<'automation' | 'applications' | 'ai' | 'n
 })
 const portTitle = computed(() => {
   if (props.item.kind === 'config') return props.item.field.id
-  const key = props.item.port.titleKey
-  return key && te(key) ? t(key) : props.item.port.id
+  return projectionLabel(props.item.port, t, te)
 })
 const typeTitle = computed(() => {
   if (props.item.kind === 'config') return props.item.field.control

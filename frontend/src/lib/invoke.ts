@@ -106,7 +106,9 @@ export function errorMessage(e: unknown): string {
   if (n.errors && n.errors.length > 0) {
     const first = n.errors[0]
     const key = `error.${first.code}`
-    const head = te(key) ? t(key, (first.params ?? {}) as Record<string, unknown>) : first.code
+    const head = te(key)
+      ? t(key, (first.params ?? {}) as Record<string, unknown>)
+      : t('error.UNEXPECTED_CODE', { code: first.code })
     const rest = n.errors.length - 1
     return rest > 0 ? `${head}${t('toast.and_n_more', { n: rest })}` : head
   }
@@ -114,7 +116,7 @@ export function errorMessage(e: unknown): string {
     const key = `error.${n.code}`
     if (te(key)) return t(key, (n.params ?? {}) as Record<string, unknown>)
     if (n.code === 'rpc.unclassified' && n.message) return friendlyRawErrorMessage(n.message)
-    return n.code
+    return t('error.UNEXPECTED_CODE', { code: n.code })
   }
   if (n.message) return friendlyRawErrorMessage(n.message)
   return t('error.UNKNOWN_ERROR')
@@ -124,7 +126,11 @@ export function errorMessage(e: unknown): string {
 export function friendlyRawErrorMessage(message: string): string {
   const raw = message.trim()
   const errorKey = `error.${raw}`
-  if (/^[A-Z][A-Z0-9_]+$/.test(raw) && i18n.global.te(errorKey)) return i18n.global.t(errorKey)
+  if (/^[A-Z][A-Z0-9_]+$/.test(raw)) {
+    return i18n.global.te(errorKey)
+      ? i18n.global.t(errorKey)
+      : i18n.global.t('error.UNEXPECTED_CODE', { code: raw })
+  }
   const normalized = raw.toLowerCase()
   if (
     normalized.includes('context deadline exceeded') ||

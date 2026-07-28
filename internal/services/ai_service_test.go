@@ -45,6 +45,16 @@ func TestProfileUsesProviderNativeGenerationAndStoredCredential(t *testing.T) {
 	}
 }
 
+func TestProfileFailureIncludesProviderHTTPStatus(t *testing.T) {
+	status := http.StatusNotFound
+	result := aiTestFailure(&ai.ProviderFailure{
+		Stage: ai.FailureHTTP, Class: ai.FailureNotFound, HTTPStatus: &status, Retry: ai.RetryNever,
+	})
+	if result.FailureClass != ai.FailureNotFound || result.HTTPStatus != http.StatusNotFound {
+		t.Fatalf("TestProfile failure = %#v", result)
+	}
+}
+
 func TestProfileEditDowngradesStaleEvaluation(t *testing.T) {
 	app := newTestApp(t, filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
 	configured := evaluatedModelSettingsForTest(t, "primary", "Primary")

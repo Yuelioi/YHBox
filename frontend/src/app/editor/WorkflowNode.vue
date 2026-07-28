@@ -82,7 +82,7 @@
             :class="pin.channel === 'data' ? 'workflow-handle-data' : 'workflow-handle-signal'"
             :style="{ backgroundColor: pin.color }"
           />
-          <span class="truncate text-toned" :title="pin.label">{{ pin.label }}</span>
+          <span class="truncate text-toned" :title="pinTitle(pin)">{{ pin.label }}</span>
         </div>
       </div>
       <div class="space-y-1.5 text-right">
@@ -94,7 +94,7 @@
           <span
             class="truncate"
             :class="pin.channel === 'error' ? 'text-error' : 'text-toned'"
-            :title="pin.label"
+            :title="pinTitle(pin)"
           >
             {{ pin.label }}
           </span>
@@ -141,7 +141,12 @@
         :data-inline-adapter="item.editorAdapter"
       >
         <div class="flex items-center gap-2 text-[10px]">
-          <span class="font-medium text-toned">{{ portTitle(item.port) }}</span>
+          <span
+            class="font-medium text-toned"
+            :title="projectionLabelTitle(portTitle(item.port), item.port.id)"
+          >
+            {{ portTitle(item.port) }}
+          </span>
           <span v-if="item.port.unit" class="ml-auto text-dimmed">{{ item.port.unit }}</span>
         </div>
         <WorkflowValueEditor
@@ -210,6 +215,7 @@ import type { NodeRunStatus } from '@/app/editor/runTrace'
 import type { DiagnosticSeverity } from '@/app/editor/workflowDiagnostics'
 import { workflowNodeVisualState } from '@/app/editor/workflowNodeVisualState'
 import { projectAuthoringSurface } from '@/app/editor/authoringSurface'
+import { projectionLabel, projectionLabelTitle } from '@/app/editor/projectionLabels'
 
 const WorkflowValueEditor = defineAsyncComponent(
   () => import('@/app/editor/WorkflowValueEditor.vue'),
@@ -375,7 +381,7 @@ const leftPins = computed<PinView[]>(() => [
     .map((signal) => ({
       key: `signal:${signal.channel}:${signal.id}`,
       id: signal.id,
-      label: signal.id,
+      label: projectionLabel(signal, t, te),
       channel: signal.channel,
       color: signal.channel === 'error' ? '#f87171' : '#a1a1aa',
     })),
@@ -403,7 +409,7 @@ const rightPins = computed<PinView[]>(() => [
     .map((signal) => ({
       key: `signal:${signal.channel}:${signal.id}`,
       id: signal.id,
-      label: signal.id,
+      label: projectionLabel(signal, t, te),
       channel: signal.channel,
       color: signal.channel === 'error' ? '#f87171' : '#a1a1aa',
     })),
@@ -432,7 +438,11 @@ function inputValue(port: PortProjection): unknown {
 }
 
 function portTitle(port: PortProjection): string {
-  return port.titleKey && te(port.titleKey) ? t(port.titleKey) : port.id
+  return projectionLabel(port, t, te)
+}
+
+function pinTitle(pin: PinView): string {
+  return projectionLabelTitle(pin.label, pin.id)
 }
 </script>
 

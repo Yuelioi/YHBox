@@ -6,6 +6,7 @@ export interface RunReadinessLike {
   code?: string
   slot?: string
   nodeId?: string
+  requirementId?: string
 }
 
 export type RunStartOutcome =
@@ -21,6 +22,7 @@ export type RunStartOutcome =
       code?: string
       slot?: string
       nodeId?: string
+      requirementId?: string
     }
 
 export function runStartOutcome(started: WorkflowStartRunView): RunStartOutcome {
@@ -48,6 +50,7 @@ export function readinessOutcome(
     code: readiness.code,
     slot: readiness.slot,
     nodeId: readiness.nodeId,
+    requirementId: readiness.requirementId,
   }
 }
 
@@ -56,6 +59,20 @@ export function runReadinessMessage(
 ): string {
   const t = i18n.global.t
   const te = i18n.global.te
+  if (
+    outcome.requirementId === 'model' &&
+    (outcome.code === 'admission.target_unavailable' ||
+      outcome.code === 'admission.target_ambiguous')
+  ) {
+    return t('workflow.run_readiness.ai_model_unavailable', { slot: outcome.slot ?? '' })
+  }
+  if (
+    outcome.requirementId === 'model' &&
+    (outcome.code === 'admission.credential_unavailable' ||
+      outcome.code === 'admission.credential_ambiguous')
+  ) {
+    return t('workflow.run_readiness.ai_credential_unavailable', { slot: outcome.slot ?? '' })
+  }
   if (outcome.code && te(`error.${outcome.code}`)) {
     return t(`error.${outcome.code}`, {
       slot: outcome.slot ?? '',

@@ -1,7 +1,7 @@
 import { createApp, defineComponent, h, nextTick } from 'vue'
 import { createI18n } from 'vue-i18n'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Graph } from '../../../../contracts/workflow/current/workflow-source'
 import zh from '../../i18n/zh'
 import WorkflowGraphManager from './WorkflowGraphManager.vue'
@@ -13,6 +13,7 @@ afterEach(() => {
 describe('WorkflowGraphManager', () => {
   it('shows definition identity, reference counts, and locatable call sites', async () => {
     const located: string[][] = []
+    const inserted: string[] = []
     const source = {
       entryGraph: 'main',
       graphs: [
@@ -26,55 +27,95 @@ describe('WorkflowGraphManager', () => {
       ],
     }
 
-    const root = mount(source, (...args) => located.push(args))
+    const root = mount(
+      source,
+      (...args) => located.push(args),
+      (graphId) => inserted.push(graphId),
+    )
     await nextTick()
     const surface = root
 
     expect(surface.textContent).toContain('子图管理')
     expect(surface.textContent).toContain('2 个调用')
-    expect(surface.textContent).toContain('主图 · 第一次调用')
-    expect(surface.textContent).toContain('子图 · 嵌套调用')
     expect(surface.textContent).toContain('child-a')
     expect(surface.textContent).toContain('child-b')
     expect(surface.querySelector('[data-testid="workflow-graph-new"]')).not.toBeNull()
+    expect(surface.textContent).not.toContain('主图 · 第一次调用')
+    expect(surface.querySelectorAll('[data-testid="workflow-graph-insert-call"]')).toHaveLength(3)
+    expect(surface.querySelectorAll('button[aria-label*="更多操作"]')).toHaveLength(3)
 
-    const referencedDelete = [
-      ...surface.querySelectorAll<HTMLButtonElement>('button[aria-label="删除子图定义"][disabled]'),
-    ]
-    expect(referencedDelete).toHaveLength(2)
-    expect(
-      [...surface.querySelectorAll<HTMLButtonElement>('button[aria-label="删除子图定义"]')].some(
-        (button) => !button.disabled,
-      ),
-    ).toBe(true)
-    expect(
-      surface.querySelectorAll<HTMLButtonElement>('button[aria-label="复制子图定义"]'),
-    ).toHaveLength(3)
-    expect(
-      surface.querySelectorAll<HTMLButtonElement>('button[aria-label="删除定义和全部调用"]'),
-    ).toHaveLength(2)
-
-    const callLocation = [...surface.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
-      button.textContent?.includes('主图 · 第一次调用'),
+    const callButton = [...surface.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      button.getAttribute('aria-label')?.includes('子图'),
     )
-    callLocation?.click()
+    callButton?.click()
     await nextTick()
-    expect(located).toEqual([['main', 'call-a']])
+    expect(inserted).toEqual(['child-a'])
+    expect(located).toEqual([])
+  })
+
+  it('drags callable definitions as graph calls while keeping the current graph non-draggable', async () => {
+    const source = {
+      entryGraph: 'main',
+      graphs: [
+        graph('main', 'main', '主图'),
+        graph('child-a', 'subgraph', '可调用子图'),
+        graph('child-b', 'subgraph', '当前子图'),
+      ],
+    }
+    const root = mount(
+      source,
+      () => undefined,
+      () => undefined,
+      'child-b',
+      ['child-a'],
+    )
+    await nextTick()
+
+    const buttons = [...root.querySelectorAll<HTMLButtonElement>('button')]
+    const callable = buttons.find((button) => button.textContent?.includes('可调用子图'))
+    const current = buttons.find((button) => button.textContent?.includes('当前子图'))
+    expect(callable, root.innerHTML).toBeDefined()
+    expect(current, root.innerHTML).toBeDefined()
+    expect(callable?.getAttribute('draggable')).toBe('true')
+    expect(current?.getAttribute('draggable')).toBe('false')
+
+    const setData = vi.fn()
+    const event = new Event('dragstart', { bubbles: true })
+    Object.defineProperty(event, 'dataTransfer', {
+      value: { effectAllowed: 'none', setData },
+    })
+    callable?.dispatchEvent(event)
+    expect(setData).toHaveBeenCalledWith('application/x-yotta-graph-call', 'child-a')
   })
 })
 
 function mount(
   source: { entryGraph: string; graphs: Graph[] },
   locate: (...args: string[]) => void,
+  insert: (graphId: string) => void,
+  currentGraphId = 'main',
+  callableGraphIds = source.graphs
+    .filter((graph) => graph.kind === 'subgraph')
+    .map((graph) => graph.id),
 ) {
   const root = document.createElement('div')
   document.body.append(root)
   const app = createApp(WorkflowGraphManager, {
     source,
-    currentGraphId: 'main',
+    currentGraphId,
+    callableGraphIds,
     onLocate: locate,
+    onInsert: insert,
   })
   app.component('UIcon', defineComponent({ setup: () => () => h('i') }))
+  app.component(
+    'UDropdownMenu',
+    defineComponent({
+      setup(_, { slots }) {
+        return () => h('div', slots.default?.())
+      },
+    }),
+  )
   app.component(
     'UButton',
     defineComponent({

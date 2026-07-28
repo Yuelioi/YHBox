@@ -934,7 +934,7 @@
       "additionalProperties": false,
       "properties": {
         "edge": {
-          "$ref": "#/$defs/Edge"
+          "$ref": "#/$defs/PatchEdge"
         },
         "graphId": {
           "type": "string"
@@ -1560,6 +1560,66 @@
       ],
       "type": "object"
     },
+    "PatchEdge": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "enum": [
+            "data",
+            "exec",
+            "error"
+          ],
+          "type": "string"
+        },
+        "from": {
+          "$ref": "#/$defs/PatchEndpoint"
+        },
+        "presentation": {
+          "$ref": "#/$defs/EdgePresentation"
+        },
+        "to": {
+          "$ref": "#/$defs/PatchEndpoint"
+        }
+      },
+      "required": [
+        "channel",
+        "from",
+        "to"
+      ],
+      "type": "object"
+    },
+    "PatchEndpoint": {
+      "additionalProperties": false,
+      "properties": {
+        "nodeId": {
+          "$ref": "#/$defs/PatchNodeReference"
+        },
+        "portId": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "nodeId",
+        "portId"
+      ],
+      "type": "object"
+    },
+    "PatchNodeReference": {
+      "oneOf": [
+        {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        {
+          "maxLength": 65,
+          "pattern": "^\\$[A-Za-z][A-Za-z0-9_-]{0,63}$",
+          "type": "string"
+        }
+      ]
+    },
     "PortCommand": {
       "additionalProperties": false,
       "properties": {
@@ -1711,7 +1771,7 @@
       "additionalProperties": false,
       "properties": {
         "edge": {
-          "$ref": "#/$defs/Edge"
+          "$ref": "#/$defs/PatchEdge"
         },
         "graphId": {
           "type": "string"

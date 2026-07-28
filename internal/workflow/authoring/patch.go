@@ -14,6 +14,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	"github.com/invopop/jsonschema"
+	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/datatype"
@@ -303,9 +305,65 @@ type RemoveResourceCommand struct {
 	ResourceID string `json:"resourceId"`
 }
 
+// PatchNodeReference and the patch edge types are intentionally separate from
+// schema.Endpoint. Authoring commands may refer to a node created earlier in
+// the same atomic patch by its "$handle"; persisted Workflow Source endpoints
+// must continue to use formal node IDs only.
+type PatchNodeReference string
+
+func (PatchNodeReference) JSONSchema() *jsonschema.Schema {
+	formalMax, handleMax := uint64(128), uint64(65)
+	return &jsonschema.Schema{OneOf: []*jsonschema.Schema{
+		{Type: "string", MaxLength: &formalMax, Pattern: `^[A-Za-z0-9_][A-Za-z0-9._-]*$`},
+		{Type: "string", MaxLength: &handleMax, Pattern: `^\$[A-Za-z][A-Za-z0-9_-]{0,63}$`},
+	}}
+}
+
+type PatchEndpoint struct {
+	NodeID PatchNodeReference `json:"nodeId" jsonschema:"required"`
+	PortID string             `json:"portId" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
+}
+
+type PatchEdge struct {
+	Channel      schema.EdgeChannel      `json:"channel" jsonschema:"required,enum=data,enum=exec,enum=error"`
+	From         PatchEndpoint           `json:"from" jsonschema:"required"`
+	To           PatchEndpoint           `json:"to" jsonschema:"required"`
+	Presentation schema.EdgePresentation `json:"presentation,omitempty"`
+}
+
+func PatchEdgeFromSource(edge schema.Edge) PatchEdge {
+	return PatchEdge{
+		Channel: edge.Channel,
+		From: PatchEndpoint{
+			NodeID: PatchNodeReference(edge.From.NodeID),
+			PortID: edge.From.PortID,
+		},
+		To: PatchEndpoint{
+			NodeID: PatchNodeReference(edge.To.NodeID),
+			PortID: edge.To.PortID,
+		},
+		Presentation: edge.Presentation,
+	}
+}
+
+func (e PatchEdge) sourceEdge() schema.Edge {
+	return schema.Edge{
+		Channel: e.Channel,
+		From: schema.Endpoint{
+			NodeID: string(e.From.NodeID),
+			PortID: e.From.PortID,
+		},
+		To: schema.Endpoint{
+			NodeID: string(e.To.NodeID),
+			PortID: e.To.PortID,
+		},
+		Presentation: e.Presentation,
+	}
+}
+
 type EdgeCommand struct {
-	GraphID string      `json:"graphId"`
-	Edge    schema.Edge `json:"edge"`
+	GraphID string    `json:"graphId"`
+	Edge    PatchEdge `json:"edge"`
 }
 
 type AddGraphCommand struct {
@@ -351,7 +409,7 @@ type AnnotationIDCommand struct {
 
 type SetEdgeReroutesCommand struct {
 	GraphID  string            `json:"graphId"`
-	Edge     schema.Edge       `json:"edge"`
+	Edge     PatchEdge         `json:"edge"`
 	Reroutes []schema.Position `json:"reroutes"`
 }
 
@@ -387,6 +445,24 @@ func (e *PatchError) Error() string {
 		return e.Code + ": " + e.Message
 	}
 	return fmt.Sprintf("command %d: %s: %s", e.CommandIndex, e.Code, e.Message)
+}
+
+func (e *PatchError) RPCErrorEnvelope() apperr.Envelope {
+	if e == nil {
+		return apperr.Envelope{
+			Code:     apperr.CodeUnclassified,
+			Category: apperr.CategoryInfrastructure,
+			Message:  "unknown workflow patch error",
+		}
+	}
+	return apperr.Envelope{
+		Code:     e.Code,
+		Category: apperr.CategoryValidation,
+		Message:  e.Message,
+		Details: map[string]any{
+			"commandIndex": e.CommandIndex,
+		},
+	}
 }
 
 type IDFactory func() string
@@ -774,7 +850,7 @@ func (e *Engine) applyCommand(source *schema.WorkflowSource, command Command, in
 		if err != nil {
 			return patchError(index, "UNKNOWN_GRAPH", err.Error())
 		}
-		edge := payload.Edge
+		edge := payload.Edge.sourceEdge()
 		edge.From.NodeID, err = resolveNodeReference(edge.From.NodeID, handles)
 		if err != nil {
 			return patchError(index, "UNKNOWN_HANDLE", err.Error())
@@ -805,7 +881,7 @@ func (e *Engine) applyCommand(source *schema.WorkflowSource, command Command, in
 		if err != nil {
 			return patchError(index, "UNKNOWN_GRAPH", err.Error())
 		}
-		edge := payload.Edge
+		edge := payload.Edge.sourceEdge()
 		edge.From.NodeID, err = resolveNodeReference(edge.From.NodeID, handles)
 		if err != nil {
 			return patchError(index, "UNKNOWN_HANDLE", err.Error())
@@ -1005,7 +1081,16 @@ func (e *Engine) applyCommand(source *schema.WorkflowSource, command Command, in
 		if err != nil {
 			return patchError(index, "UNKNOWN_GRAPH", err.Error())
 		}
-		edge := edgeByIdentity(graph, payload.Edge)
+		candidate := payload.Edge.sourceEdge()
+		candidate.From.NodeID, err = resolveNodeReference(candidate.From.NodeID, handles)
+		if err != nil {
+			return patchError(index, "UNKNOWN_HANDLE", err.Error())
+		}
+		candidate.To.NodeID, err = resolveNodeReference(candidate.To.NodeID, handles)
+		if err != nil {
+			return patchError(index, "UNKNOWN_HANDLE", err.Error())
+		}
+		edge := edgeByIdentity(graph, candidate)
 		if edge == nil {
 			return patchError(index, "UNKNOWN_EDGE", "edge does not exist")
 		}

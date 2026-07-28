@@ -107,4 +107,21 @@ describe('editor run controller', () => {
     expect(run.controller.saveSucceeded.value).toBe(false)
     expect(run.showError).toHaveBeenCalledWith('translated:workflow.toast.save_failed', failure)
   })
+
+  it('does not duplicate a persistent save error with a toast', async () => {
+    const failure = new Error('INVALID_FIELD')
+    const run = harness({
+      saveError: '请检查节点参数或连线',
+      save: vi.fn(async () => {
+        throw failure
+      }),
+      run: vi.fn(async () => {
+        throw failure
+      }),
+    })
+
+    await expect(run.controller.execute({ kind: 'save' })).resolves.toEqual({ ok: false })
+    await expect(run.controller.execute({ kind: 'start' })).resolves.toEqual({ ok: false })
+    expect(run.showError).not.toHaveBeenCalled()
+  })
 })

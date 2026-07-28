@@ -6,6 +6,6 @@ Public profiles require HTTPS. DNS is resolved in the provider, every result is 
 
 The provider enforces a total timeout, a maximum 256 KiB decoded UTF-8 body, and a bounded content type. Workflow output contains only status, body and content-type; all other headers remain outside workflow data. AdapterAction records status/byte counters and a domain-separated path digest, never URL/query/body/response text.
 
-The capability is sensitive with ConsentOnce. Policy accepts only the exact installed provider artifact, ABI, target, resource kind and consent digest. Editing any profile semantic revokes persisted consent; AI and HTTP installations cannot share a target slot. Installations are startup snapshots, with no live or ambient fallback.
+The capability is sensitive with ConsentOnce. Policy accepts only the exact installed provider artifact, ABI, target, resource kind and consent digest. Editing any profile semantic revokes persisted consent; AI and HTTP installations cannot share a target slot. Saving installation settings atomically publishes a new generation for new Runs while active Runs retain the generation they leased; there is no ambient fallback.
 
 Authentication, request bodies, custom headers, binary responses, streaming and WebSockets require separate operations/contracts, credential or data-carrier design, budgets, consent identity and conformance tests. They must not widen HTTP GET through config flags.

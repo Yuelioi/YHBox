@@ -4,7 +4,7 @@
   "summary": {
     "services": 16,
     "methods": 140,
-    "models": 223
+    "models": 226
   },
   "services": [
     {
@@ -2057,6 +2057,10 @@
             {
               "name": "ProviderOpenAIResponses",
               "value": "\"openai-responses\""
+            },
+            {
+              "name": "ProviderOpenAIChatCompletions",
+              "value": "\"openai-chat-completions\""
             },
             {
               "name": "ProviderAnthropicMessages",
@@ -4642,6 +4646,11 @@
               "name": "\"failureClass\"",
               "optional": true,
               "type": "ai$0.FailureClass"
+            },
+            {
+              "name": "\"httpStatus\"",
+              "optional": true,
+              "type": "number"
             },
             {
               "name": "\"error\"",
@@ -7358,7 +7367,7 @@
             {
               "name": "\"edge\"",
               "optional": false,
-              "type": "schema$0.Edge"
+              "type": "PatchEdge"
             }
           ]
         },
@@ -7501,6 +7510,53 @@
         },
         {
           "kind": "class",
+          "name": "PatchEdge",
+          "fields": [
+            {
+              "name": "\"channel\"",
+              "optional": false,
+              "type": "schema$0.EdgeChannel"
+            },
+            {
+              "name": "\"from\"",
+              "optional": false,
+              "type": "PatchEndpoint"
+            },
+            {
+              "name": "\"to\"",
+              "optional": false,
+              "type": "PatchEndpoint"
+            },
+            {
+              "name": "\"presentation\"",
+              "optional": true,
+              "type": "schema$0.EdgePresentation"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "PatchEndpoint",
+          "fields": [
+            {
+              "name": "\"nodeId\"",
+              "optional": false,
+              "type": "PatchNodeReference"
+            },
+            {
+              "name": "\"portId\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "type",
+          "name": "PatchNodeReference",
+          "definition": "string"
+        },
+        {
+          "kind": "class",
           "name": "PortCommand",
           "fields": [
             {
@@ -7623,7 +7679,7 @@
             {
               "name": "\"edge\"",
               "optional": false,
-              "type": "schema$0.Edge"
+              "type": "PatchEdge"
             },
             {
               "name": "\"reroutes\"",

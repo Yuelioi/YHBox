@@ -60,6 +60,12 @@ import {
   type ExpandedGraphCall,
   type GraphCallSite,
 } from './subgraphLifecycle'
+import {
+  describeWorkflowSaveError,
+  type WorkflowSaveErrorKind,
+  type WorkflowSaveErrorTarget,
+} from './workflowSaveError'
+import { errorMessage } from '@/lib/invoke'
 
 export { assignable } from './connectionCompatibility'
 
@@ -213,8 +219,10 @@ export class EditorSession {
   debugSnapshot: DebugSnapshot | null = null
   graphPath: string[] = []
   dirty = false
-  saveConflict = ''
-  failure = ''
+  saveError = ''
+  saveErrorKind: WorkflowSaveErrorKind | '' = ''
+  saveErrorTarget: WorkflowSaveErrorTarget | null = null
+  openFailure = ''
 
   private readonly history: YottaWorkflowSource[] = []
   private readonly future: YottaWorkflowSource[] = []
@@ -984,7 +992,7 @@ export class EditorSession {
 
   async load(workflowId: string): Promise<void> {
     this.phase = 'loading'
-    this.failure = ''
+    this.openFailure = ''
     try {
       const [view, authoringJson] = await Promise.all([
         this.transport.getSource(workflowId),
@@ -995,7 +1003,7 @@ export class EditorSession {
       this.upgradeCompatibleNodeContracts()
       this.phase = 'ready'
     } catch (error) {
-      this.fail(error)
+      this.failOpen(error)
       throw error
     }
   }
@@ -1014,7 +1022,7 @@ export class EditorSession {
     this.revertedCommands.length = 0
     this.source = next
     this.dirty = true
-    this.saveConflict = ''
+    this.dismissSaveError()
     this.resetCompileFacts()
   }
 
@@ -1096,21 +1104,26 @@ export class EditorSession {
     return operation
   }
 
-  dismissSaveConflict(): void {
-    this.saveConflict = ''
+  dismissSaveError(): void {
+    this.saveError = ''
+    this.saveErrorKind = ''
+    this.saveErrorTarget = null
   }
 
   private async persistSave(): Promise<SourceView> {
     this.phase = 'saving'
-    this.saveConflict = ''
+    this.dismissSaveError()
+    const commands = toWorkflowPatch(this.pendingCommands)
     try {
-      const commands = toWorkflowPatch(this.pendingCommands)
       const patched = await this.transport.applyPatch(this.workflowId, this.baseRevision, commands)
       this.acceptSource(patched.source)
       this.phase = 'ready'
       return patched.source
     } catch (error) {
-      this.saveConflict = errorText(error)
+      const failure = describeWorkflowSaveError(error, commands)
+      this.saveError = failure.message
+      this.saveErrorKind = failure.kind
+      this.saveErrorTarget = failure.target ?? null
       this.phase = 'ready'
       throw error
     }
@@ -1188,7 +1201,6 @@ export class EditorSession {
   }
 
   private async start(debug: boolean, breakpoints: DebugBreakpoint[]): Promise<RunView | null> {
-    this.failure = ''
     this.lastRunOutcome = null
     try {
       if (this.dirty) await this.save()
@@ -1226,7 +1238,7 @@ export class EditorSession {
     } catch (error) {
       this.debugStartPending = false
       this.pendingDebugSnapshots.clear()
-      this.fail(error)
+      this.phase = 'ready'
       throw error
     }
   }
@@ -1261,7 +1273,8 @@ export class EditorSession {
     this.pendingCommands.length = 0
     this.revertedCommands.length = 0
     this.dirty = false
-    this.saveConflict = ''
+    this.dismissSaveError()
+    this.openFailure = ''
     this.resetCompileFacts()
   }
 
@@ -1364,9 +1377,9 @@ export class EditorSession {
     return this.source
   }
 
-  private fail(error: unknown): void {
+  private failOpen(error: unknown): void {
     this.phase = 'failed'
-    this.failure = errorText(error)
+    this.openFailure = errorText(error)
   }
 }
 
@@ -3236,7 +3249,7 @@ function workflowResourceReferenceCount(source: YottaWorkflowSource, resourceId:
 }
 
 function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+  return errorMessage(error)
 }
 
 export type {

@@ -1,15 +1,22 @@
 <template>
-  <div class="grid grid-cols-[minmax(0,1fr)_92px] gap-2">
+  <div
+    class="grid"
+    :class="
+      compact ? 'grid-cols-[minmax(0,1fr)_80px] gap-1.5' : 'grid-cols-[minmax(0,1fr)_92px] gap-2'
+    "
+  >
     <UInputNumber
       :model-value="displayValue"
       :min="0"
       :step="unit === 'ms' ? 10 : 0.1"
+      :size="compact ? 'xs' : 'sm'"
       class="w-full"
       @update:model-value="updateValue(Number($event))"
     />
     <AdaptiveSelect
       :model-value="unit"
       :items="units"
+      :size="compact ? 'xs' : 'sm'"
       width-mode="fill"
       @update:model-value="setUnit($event === 'min' ? 'min' : $event === 's' ? 's' : 'ms')"
     />
@@ -22,7 +29,9 @@ import { useI18n } from 'vue-i18n'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 
 type DurationUnit = 'ms' | 's' | 'min'
-const props = defineProps<{ modelValue: unknown }>()
+const props = withDefaults(defineProps<{ modelValue: unknown; compact?: boolean }>(), {
+  compact: false,
+})
 const emit = defineEmits<{ 'update:model-value': [value: number] }>()
 const { t } = useI18n()
 const unit = ref<DurationUnit>(suggestUnit(props.modelValue))

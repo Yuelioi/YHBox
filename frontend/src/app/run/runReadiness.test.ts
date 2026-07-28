@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { readinessOutcome, runStartOutcome } from './runReadiness'
+import { readinessOutcome, runReadinessMessage, runStartOutcome } from './runReadiness'
 
 describe('run readiness result', () => {
   it('keeps a started Run on the fast path', () => {
@@ -45,5 +45,19 @@ describe('run readiness result', () => {
       slot: 'account',
       nodeId: undefined,
     })
+  })
+
+  it('explains a missing AI model instead of calling it a generic target', () => {
+    const outcome = readinessOutcome({
+      state: 'target-required',
+      code: 'admission.target_unavailable',
+      requirementId: 'model',
+      slot: 'model',
+    })
+
+    expect(outcome).toMatchObject({ requirementId: 'model', slot: 'model' })
+    expect(runReadinessMessage(outcome)).toContain('AI 模型')
+    expect(runReadinessMessage(outcome)).toContain('model')
+    expect(runReadinessMessage(outcome)).not.toContain('所需目标')
   })
 })

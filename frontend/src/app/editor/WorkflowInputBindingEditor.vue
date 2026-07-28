@@ -84,6 +84,7 @@ import type { EditorCommand, Node } from '@/app/editor/EditorSession'
 import type { WorkflowResource } from '../../../../contracts/workflow/current/workflow-source'
 import { resolvePortAdapter } from '@/app/editor/authoringSurface'
 import { bindingActionPolicy } from '@/app/editor/bindingActionPolicy'
+import { projectionLabel } from '@/app/editor/projectionLabels'
 import {
   resolveWorkflowResourceBinding,
   workspaceResourceKind,
@@ -220,11 +221,7 @@ const resourceIdentity = computed(() => {
   if (!location) return ''
   return location.variantId ? `${location.id}/${location.variantId}` : location.id
 })
-const portTitle = computed(
-  () =>
-    props.title?.trim() ||
-    (props.port.titleKey && te(props.port.titleKey) ? t(props.port.titleKey) : props.port.id),
-)
+const portTitle = computed(() => props.title?.trim() || projectionLabel(props.port, t, te))
 const portDescription = computed(() =>
   props.port.descriptionKey && te(props.port.descriptionKey) ? t(props.port.descriptionKey) : '',
 )

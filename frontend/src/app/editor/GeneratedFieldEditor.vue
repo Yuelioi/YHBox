@@ -1,5 +1,11 @@
 <template>
-  <UFormField :label="label" :hint="hint" class="w-full">
+  <UFormField
+    :label="label"
+    :description="description"
+    :required="field.required"
+    :ui="inspectorFieldUI"
+    class="w-full"
+  >
     <USelectMenu
       v-if="selectItems !== undefined"
       :model-value="modelValue"
@@ -102,11 +108,17 @@ const label = computed(() => {
   if (props.field.titleKey && te(props.field.titleKey)) return t(props.field.titleKey)
   return props.field.title || props.field.id
 })
-const hint = computed(() => {
+const description = computed(() => {
   if (props.field.descriptionKey && te(props.field.descriptionKey))
     return t(props.field.descriptionKey)
-  return props.field.description || t(props.field.required ? 'common.required' : 'common.optional')
+  return props.field.description || ''
 })
+const inspectorFieldUI = {
+  labelWrapper: 'items-start',
+  label: 'min-w-0 text-xs font-medium text-toned',
+  description: 'mt-1 text-[11px] leading-4 text-muted',
+  container: 'mt-2',
+}
 const enumItems = computed(() =>
   props.field.constraints.enum.map((value) => ({ label: String(value), value })),
 )

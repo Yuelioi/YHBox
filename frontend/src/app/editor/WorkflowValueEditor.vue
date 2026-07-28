@@ -23,6 +23,7 @@
   <DurationValueEditor
     v-else-if="adapter === 'duration'"
     :model-value="modelValue"
+    :compact="compact"
     @update:model-value="emit('update:model-value', $event)"
   />
   <KeyChordValueEditor

@@ -7,6 +7,16 @@ const mocks = vi.hoisted(() => ({
   updateSettings: vi.fn<(patch: unknown) => Promise<void>>(async () => undefined),
   secretStatus: vi.fn<(slots: string[]) => Promise<Record<string, boolean>>>(async () => ({})),
   setAPIKey: vi.fn<(slot: string, apiKey: string) => Promise<void>>(async () => undefined),
+  testProfile: vi.fn(async () => ({
+    ok: false,
+    provider: '',
+    requestedModel: '',
+    resolvedModel: '',
+    finish: '',
+    failureClass: 'not-found',
+    httpStatus: 404,
+    error: 'AI provider failure: not-found',
+  })),
 }))
 
 vi.mock('@/lib/backend', () => ({
@@ -18,7 +28,7 @@ vi.mock('@/lib/backend', () => ({
       secretStatus: mocks.secretStatus,
       setAPIKey: mocks.setAPIKey,
       deleteAPIKey: vi.fn(async () => undefined),
-      testProfile: vi.fn(),
+      testProfile: mocks.testProfile,
     },
   },
 }))
@@ -54,9 +64,23 @@ import { useSettingsStore, type Settings } from '@/stores/settings'
 const mounted: Array<ReturnType<typeof createApp>> = []
 
 beforeEach(() => {
-  mocks.updateSettings.mockClear()
-  mocks.secretStatus.mockClear()
-  mocks.setAPIKey.mockClear()
+  mocks.updateSettings.mockReset()
+  mocks.updateSettings.mockResolvedValue(undefined)
+  mocks.secretStatus.mockReset()
+  mocks.secretStatus.mockResolvedValue({})
+  mocks.setAPIKey.mockReset()
+  mocks.setAPIKey.mockResolvedValue(undefined)
+  mocks.testProfile.mockReset()
+  mocks.testProfile.mockResolvedValue({
+    ok: false,
+    provider: '',
+    requestedModel: '',
+    resolvedModel: '',
+    finish: '',
+    failureClass: 'not-found',
+    httpStatus: 404,
+    error: 'AI provider failure: not-found',
+  })
 })
 
 afterEach(() => {
@@ -65,6 +89,123 @@ afterEach(() => {
 })
 
 describe('SettingsAI model draft', () => {
+  it('explains a Responses 404 and points to Chat Completions', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const store = useSettingsStore()
+    store.data = {
+      ui: {},
+      locale: 'zh',
+      capture: {},
+      ai: {
+        profiles: [
+          {
+            slot: 'model',
+            label: 'DeepSeek',
+            provider: 'openai-responses',
+            endpoint: 'https://api.deepseek.com',
+            allowLocalHttp: false,
+            model: 'deepseek-v4-flash',
+            maxOutputTokens: 4096,
+            capabilities: {
+              structuredOutput: false,
+              toolCalling: false,
+              parallelTools: false,
+              background: false,
+              zeroRetention: false,
+            },
+            pricing: {
+              inputMicrounitsPerMillion: 0,
+              cacheReadMicrounitsPerMillion: 0,
+              outputMicrounitsPerMillion: 0,
+            },
+            evaluation: 'unverified',
+          },
+        ],
+      },
+      network: { httpOrigins: [] },
+      applications: { profiles: [] },
+      automation: { targets: [] },
+    } as unknown as Settings
+
+    const root = document.createElement('div')
+    document.body.append(root)
+    const app = createApp(SettingsAI)
+    app.use(pinia)
+    app.use(ui)
+    mounted.push(app)
+    app.mount(root)
+    await nextTick()
+
+    const profileHeader = root.querySelector('.ai-profile > button') as HTMLButtonElement
+    profileHeader.click()
+    await nextTick()
+    const test = [...root.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('settingsAI.profiles.test'),
+    )
+    test?.click()
+
+    await vi.waitFor(() =>
+      expect(root.textContent).toContain('settingsAI.test_errors.not_found_responses'),
+    )
+  })
+
+  it('saves a provider root URL unchanged', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const store = useSettingsStore()
+    store.data = {
+      ui: {},
+      locale: 'zh',
+      capture: {},
+      ai: { profiles: [] },
+      network: { httpOrigins: [] },
+      applications: { profiles: [] },
+      automation: { targets: [] },
+    } as unknown as Settings
+
+    const root = document.createElement('div')
+    document.body.append(root)
+    const app = createApp(SettingsAI)
+    app.use(pinia)
+    app.use(ui)
+    mounted.push(app)
+    app.mount(root)
+    await nextTick()
+
+    const add = [...root.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('settingsAI.profiles.add'),
+    )
+    add?.click()
+    await nextTick()
+
+    const endpoint = root.querySelector('input[type="url"]') as HTMLInputElement
+    endpoint.value = 'https://api.deepseek.com'
+    endpoint.dispatchEvent(new Event('input', { bubbles: true }))
+
+    const model = root.querySelector(
+      'input[placeholder="settingsAI.profiles.model_placeholder"]',
+    ) as HTMLInputElement
+    model.value = 'deepseek-v4-flash'
+    model.dispatchEvent(new Event('input', { bubbles: true }))
+    model.dispatchEvent(new Event('change', { bubbles: true }))
+
+    await vi.waitFor(() => expect(mocks.updateSettings).toHaveBeenCalledOnce())
+    expect(mocks.updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ai: expect.objectContaining({
+          profiles: [
+            expect.objectContaining({
+              endpoint: 'https://api.deepseek.com',
+              model: 'deepseek-v4-flash',
+            }),
+          ],
+        }),
+      }),
+    )
+    expect(store.saveState).toBe('saved')
+  })
+
   it('keeps an incomplete new profile open when the API key field loses focus', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)

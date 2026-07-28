@@ -8,14 +8,14 @@
     </div>
 
     <div
-      v-else-if="session.failure && !session.source"
+      v-else-if="session.openFailure && !session.source"
       class="flex flex-1 items-center justify-center p-8"
     >
       <div class="max-w-lg rounded-lg border border-error/35 bg-error/10 p-5" role="alert">
         <h1 class="text-sm font-semibold text-error">
           {{ t('workflow.editor.open_failed') }}
         </h1>
-        <p class="mt-2 text-xs leading-5 text-muted">{{ session.failure }}</p>
+        <p class="mt-2 text-xs leading-5 text-muted">{{ session.openFailure }}</p>
         <UButton
           class="mt-4"
           :label="t('workflow.editor.back')"
@@ -121,7 +121,7 @@
       </div>
 
       <div
-        v-if="session.saveConflict"
+        v-if="session.saveError"
         data-testid="workflow-save-error"
         class="flex items-center gap-2 border-b border-error/35 bg-error/10 px-4 py-2 text-xs text-error"
         role="alert"
@@ -130,7 +130,7 @@
           {{
             isRevisionConflict
               ? t('workflow.editor.revision_conflict')
-              : t('workflow.editor.save_conflict', { message: session.saveConflict })
+              : t('workflow.editor.save_failed', { message: session.saveError })
           }}
         </span>
         <UButton
@@ -142,20 +142,21 @@
           @click="reloadWorkflow"
         />
         <UButton
+          v-else-if="session.saveErrorTarget"
+          size="xs"
+          color="error"
+          variant="soft"
+          :label="t('workflow.editor.locate_save_error')"
+          @click="locateSaveError"
+        />
+        <UButton
           size="xs"
           color="error"
           variant="ghost"
           icon="i-tabler-x"
           :aria-label="t('common.close')"
-          @click="session.dismissSaveConflict()"
+          @click="session.dismissSaveError()"
         />
-      </div>
-      <div
-        v-else-if="session.failure"
-        class="border-b border-error/35 bg-error/10 px-4 py-2 text-xs text-error"
-        role="alert"
-      >
-        {{ session.failure }}
       </div>
       <div class="flex min-h-0 flex-1">
         <WorkflowWorkspaceRail
@@ -188,7 +189,10 @@
             v-if="workspacePanel === 'graphs'"
             :source="session.source"
             :current-graph-id="session.currentGraph?.id"
+            :callable-graph-ids="callableGraphIds"
+            :drag-format="GRAPH_CALL_DRAG_FORMAT"
             @open="openCalledGraph"
+            @insert="addGraphCall"
             @create="openGraphDialog('create')"
             @rename="openGraphDialog('rename', $event)"
             @duplicate="duplicateGraphDefinition"
@@ -379,25 +383,17 @@
               :label="t('workflow.canvas.add_node')"
               @click="openQuickAddFromButton"
             />
-            <UDropdownMenu :items="canvasAddMenuItems">
+            <UTooltip :text="t('workflow.graphs.add_comment')">
               <UButton
-                data-testid="workflow-canvas-add-more"
-                icon="i-tabler-chevron-down"
+                data-testid="workflow-annotation-add"
+                icon="i-tabler-note"
                 color="neutral"
                 variant="ghost"
                 size="xs"
-                :aria-label="t('workflow.canvas.add_more')"
+                :aria-label="t('workflow.graphs.add_comment')"
+                @click="addComment"
               />
-              <template #item="{ item }">
-                <span
-                  :data-testid="item.testId"
-                  class="flex min-w-0 flex-1 items-center justify-start gap-2 text-left"
-                >
-                  <UIcon :name="item.icon" class="size-4 shrink-0" />
-                  <span class="min-w-0 flex-1 truncate text-left">{{ item.label }}</span>
-                </span>
-              </template>
-            </UDropdownMenu>
+            </UTooltip>
           </div>
           <div
             class="absolute right-3 top-3 z-20 flex gap-1 rounded-lg border border-default bg-default/95 p-1 shadow-lg"
@@ -1523,9 +1519,7 @@ const editorToolbarContext = computed<Omit<EditorToolbarContext, 'dirty'>>(() =>
   debuggerOpen: debuggerOpen.value,
   recordingPhase: recording.state.phase,
 }))
-const isRevisionConflict = computed(() =>
-  session.saveConflict.toLocaleLowerCase().includes('revision conflict'),
-)
+const isRevisionConflict = computed(() => session.saveErrorKind === 'revision')
 const breakpointKeys = ref(new Set<string>())
 const {
   macroEditing,
@@ -1610,6 +1604,7 @@ let marqueeSelectionActive = false
 const NODE_TYPE_DRAG_FORMAT = 'application/x-yotta-node-type'
 const STATE_REFERENCE_DRAG_FORMAT = 'application/x-yotta-state-reference'
 const SNIPPET_DRAG_FORMAT = 'application/x-yotta-snippet'
+const GRAPH_CALL_DRAG_FORMAT = 'application/x-yotta-graph-call'
 const RUN_STARTED_NODE_ID = 'https://schemas.yotta.dev/nodes/event/run-started'
 
 interface ConnectionAnchor {
@@ -1654,29 +1649,7 @@ const callableGraphs = computed(() =>
       !graphReaches(graph.id, session.currentGraph?.id ?? ''),
   ),
 )
-
-const canvasAddMenuItems = computed(() => [
-  [
-    {
-      label: t('workflow.graphs.add_comment'),
-      icon: 'i-tabler-note',
-      testId: 'workflow-annotation-add',
-      onSelect: addComment,
-    },
-    {
-      label: t('workflow.graphs.add_call'),
-      icon: 'i-tabler-library-plus',
-      testId: 'workflow-graph-add-call',
-      disabled: callableGraphs.value.length === 0,
-      children: callableGraphs.value.map((graph) => ({
-        label: graphLabel(graph.id),
-        icon: 'i-tabler-folders',
-        testId: `workflow-graph-call-option-${graph.id}`,
-        onSelect: () => addGraphCall(graph.id),
-      })),
-    },
-  ],
-])
+const callableGraphIds = computed(() => callableGraphs.value.map((graph) => graph.id))
 
 const catalogNodes = computed(() =>
   (session.authoring?.body.nodes ?? []).filter((projection) => {
@@ -2738,11 +2711,13 @@ function removeGraphInterfaceItem(kind: GraphInterfaceCandidateKind, id: string)
   }
 }
 
-function addGraphCall(graphId: string): void {
+function addGraphCall(graphId: string, requestedPosition?: { x: number; y: number }): void {
   const rect = canvasElement.value?.getBoundingClientRect()
-  const position = rect
-    ? screenToFlowCoordinate({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
-    : { x: 160, y: 160 }
+  const position =
+    requestedPosition ??
+    (rect
+      ? screenToFlowCoordinate({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
+      : { x: 160, y: 160 })
   try {
     const callId = session.insertGraphCall(graphId, position)
     selectedNodeIds.value = new Set([callId])
@@ -3129,6 +3104,7 @@ function continueNodeDrag(event: DragEvent): void {
     !event.dataTransfer?.types.includes(NODE_TYPE_DRAG_FORMAT) &&
     !event.dataTransfer?.types.includes(STATE_REFERENCE_DRAG_FORMAT) &&
     !event.dataTransfer?.types.includes(SNIPPET_DRAG_FORMAT) &&
+    !event.dataTransfer?.types.includes(GRAPH_CALL_DRAG_FORMAT) &&
     !event.dataTransfer?.types.includes(RESOURCE_DRAG_FORMAT)
   )
     return
@@ -3145,8 +3121,10 @@ function dropNode(event: DragEvent): void {
   const nodeTypeId = event.dataTransfer?.getData(NODE_TYPE_DRAG_FORMAT)
   const stateReference = event.dataTransfer?.getData(STATE_REFERENCE_DRAG_FORMAT)
   const snippetID = event.dataTransfer?.getData(SNIPPET_DRAG_FORMAT)
+  const graphCallID = event.dataTransfer?.getData(GRAPH_CALL_DRAG_FORMAT)
   const workspaceResource = event.dataTransfer?.getData(RESOURCE_DRAG_FORMAT)
-  if (nodeTypeId || stateReference || snippetID || workspaceResource) event.preventDefault()
+  if (nodeTypeId || stateReference || snippetID || graphCallID || workspaceResource)
+    event.preventDefault()
   finishNodeDrag()
   const position = screenToFlowCoordinate({ x: event.clientX, y: event.clientY })
   if (nodeTypeId) {
@@ -3155,6 +3133,10 @@ function dropNode(event: DragEvent): void {
   }
   if (snippetID) {
     void useSnippet(snippetID, position)
+    return
+  }
+  if (graphCallID) {
+    addGraphCall(graphCallID, position)
     return
   }
   if (workspaceResource) {
@@ -3862,6 +3844,12 @@ async function reloadWorkflow(): Promise<void> {
   } catch (error) {
     showError(t('workflow.toast.refresh_failed'), error)
   }
+}
+
+async function locateSaveError(): Promise<void> {
+  const target = session.saveErrorTarget
+  if (!target) return
+  await focusNode([target.graphId], target.nodeId)
 }
 
 async function acceptAIProposal(): Promise<void> {
