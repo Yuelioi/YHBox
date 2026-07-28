@@ -18,7 +18,7 @@ Taskfile 复制一套并行命令；`task check` 是增量本地门禁，`task c
 | `check-go-coverage.ps1` | `task check:go:full` | 只读；合并 Go coverage profile 并按 `go-coverage-budgets.json` 执行门槛。 |
 | `go-coverage-budgets.json` | `task check:go:full` | `check-go-coverage.ps1` 的版本化预算数据，不是可执行脚本。 |
 | `test-script-worker.ps1` | `task check:go:full` | 在 `.task/` 构建临时 ScriptWorker，并运行隔离 worker smoke。 |
-| `verify-version.ps1` | `task versions:check` | 兼容包装；只读校验根 `VERSION` 与 Wails/Windows 目标格式投影。 |
+| `verify-version.ps1` | 发布流程直接调用 | 只读校验根 `VERSION` 与发布标签期望版本，并复用 Wails/Windows 产品版本投影门禁。 |
 | `verify-windows-binary-version.ps1` | `task versions:check:binary` | 只读校验已构建 EXE 的固定/字符串版本资源和 `WINDOWS_GUI` subsystem。 |
 | `smoke-windows-desktop-startup.ps1` | `task smoke:desktop` | 把已构建 GUI 与 worker 复制到隔离目录，验证启动后不会立即退出。 |
 | `smoke-storage-migration.ps1` | `task smoke:storage-migration` | 用冻结 layout 1 profile 触发 recovery，强停 GUI 后隔离阻塞记录、续接到当前 layout，并验证 production health/重启。 |

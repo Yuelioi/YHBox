@@ -110,6 +110,20 @@ describe('authoring surface', () => {
     ).toEqual(['color-range', 'point', 'region', 'threshold'])
   })
 
+  it('keeps long prompts multiline in the inspector and off the compact node surface', () => {
+    const prompt = {
+      ...pointPort,
+      id: 'prompt',
+      binding: 'required',
+      hasDefault: false,
+      editorAdapter: 'multiline-text',
+      inlinePriority: 100,
+      type: { ...pointPort.type, control: 'text', editorAdapter: undefined },
+    } as PortProjection
+    expect(resolvePortAdapter(prompt)).toBe('multiline-text')
+    expect(projectAuthoringSurface(projection([prompt])).inlineInputs).toEqual([])
+  })
+
   it('puts missing required fields before common and advanced fields', () => {
     const required = {
       ...pointPort,

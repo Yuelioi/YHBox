@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -54,5 +56,59 @@ func TestProjectionRejectsAmbiguousOwners(t *testing.T) {
 	_, err := projectWailsConfig([]byte("  version: \"1.0.0\"\n  version: \"2.0.0\"\n"), version)
 	if err == nil {
 		t.Fatal("projectWailsConfig accepted multiple product version owners")
+	}
+}
+
+func TestCheckIgnoresArbitrarySourceText(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, root, "VERSION", "4.0.0\n")
+	writeTestFile(t, root, "go.mod", "module example.test/version-fixture\n")
+	writeTestFile(t, root, "build/config.yml", "info:\n  version: \"0.0.0\"\n")
+	writeTestFile(t, root, "build/windows/info.json", `{"fixed":{},"info":{"0409":{}}}`)
+	writeTestFile(t, root, "build/windows/nsis/wails_tools.nsh", "    !define INFO_PRODUCTVERSION \"0.0.0\"\n")
+	for _, name := range []string{"wails.exe.manifest", "wails.dev.manifest"} {
+		writeTestFile(t, root, filepath.Join("build", "windows", name),
+			`<assemblyIdentity type="win32" name="com.yottaapp.yotta" version="0.0.0.0" processorArchitecture="*"/>`)
+	}
+	for _, directory := range []string{"internal", "pkg", "cmd", "sdk"} {
+		if err := os.MkdirAll(filepath.Join(root, directory), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeTestFile(t, root, "frontend/src/timeline.ts", `export const occurredAt = "01:02:03.184"`)
+
+	version, err := readProductVersion(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := syncProductProjections(root, version, true); err != nil {
+		t.Fatal(err)
+	}
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(root); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(previous); err != nil {
+			t.Errorf("restore working directory: %v", err)
+		}
+	})
+
+	if err := run([]string{"check"}); err != nil {
+		t.Fatalf("check rejected unrelated source text: %v", err)
+	}
+}
+
+func writeTestFile(t *testing.T, root, relative, content string) {
+	t.Helper()
+	path := filepath.Join(root, relative)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }

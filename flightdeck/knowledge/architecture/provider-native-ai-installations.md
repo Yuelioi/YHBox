@@ -9,6 +9,9 @@ Yotta 不把 AI 当成可随调用拼接的 endpoint。设置只声明模型安�
 - workflow consent 是 slot、profile digest、provider ABI 和允许 operation 的内容摘要。档案语义变化后旧 consent 必须失效，不得自动迁移或扩大。
 - 同一 sealed generation 原子投影 provider artifact、target、credential binding、Host Profile 与 consent；正在运行的 Run 持有其 generation lease，新 Run 只能看到已发布的新代。配置变化不得靠 ambient provider 热插入，也不应要求正常重启应用。
 - provider 结果必须保留 requested/resolved model、finish、供应商 request identity、token usage 与按 profile pricing 估算的 cost；未知响应类型、缺失 usage 或能力不匹配要 fail closed。
+- 普通 Generate/Extract 可携带一个有界图像输入。工作流侧只传 nominal Image BlobRef；节点运行时负责
+  本地读取、像素预算、缩放与编码，provider adapter 只接收经过验证的 JPEG/PNG 字节并生成各自原生
+  多模态内容块。模型不支持视觉时应保留供应商明确错误，不能静默丢弃图片后退化成纯文本请求。
 
 Trusted instruction boundary 也必须是安装时/构建时冻结的 artifact：
 
@@ -30,7 +33,9 @@ Offline evaluation 与 upgrade gate 是安装的一部分，不是 UI badge：
 
 - mandatory EvalSuite 必须固定 corpus、deterministic grader version、baseline 与 pass/safety/token/cost/latency thresholds，并以 strict canonical artifact reopen。
 - EvalReport 必须由 suite 对每个 case 精确匹配 observation 后导出；decision 与 aggregate metrics 必须可从 case results 和 thresholds 重算，unknown field、结构超限、重复 case 或 report drift 都 fail closed。
-- evaluation subject 只覆盖 model runtime identity；upgrade candidate 另将 subject 与当前 Generate/Extract/Agent/Authoring PromptManifest、Agent/Authoring ToolSet、三个 AI Node Contract semantic digest 排序绑定。任一 prompt/tool/schema/code upgrade 都使旧 candidate stale。
+- evaluation subject 只覆盖 model runtime identity；upgrade candidate 另将 subject 与当前
+  Generate/Extract/Authoring PromptManifest、Authoring ToolSet 和两个 AI Node Contract semantic digest
+  排序绑定。任一 prompt/tool/schema/code upgrade 都使旧 candidate stale。
 - suite digest 与 exact report digest 都进入 ModelProfile；因此重新评估、report replacement、approved/rejected 变化都会改变 profile digest 并撤销旧 workflow consent。
 - Settings 可保留 unverified、rejected 或 stale profile 以便测试/重新评估。unverified profile 可进入 Host Profile 执行普通 Generate/Extract；Agent、AI authoring 和 tool authority 仍要求 approved report 与 exact current candidate。rejected 或 stale profile 不得进入 Host Profile。semantic profile edit 自动降级为 unverified 并清除 report、suite 与 consent。
 - canonical report 通过 ApplyEvaluation 显式导入、RevokeEvaluation 显式撤销；GrantWorkflowUse 必须再次验证 exact current candidate。task check 必须 regrade tracked corpus 并拒绝 report drift。

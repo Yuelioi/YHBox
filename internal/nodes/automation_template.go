@@ -130,7 +130,7 @@ func automationTemplateInputs(types automationTemplateTypes) []nodecontract.Data
 		{ID: "threshold", Type: datatype.RefExpression(types.numberRef), Required: true, Default: rawDefault("0.85")},
 		{ID: "timeout", Type: datatype.RefExpression(types.durationRef), Required: true, Default: rawDefault("5000")},
 		{ID: "poll-interval", Type: datatype.RefExpression(types.durationRef), Required: true, Default: rawDefault("100")},
-		{ID: "settle-duration", Type: datatype.RefExpression(types.durationRef), Required: true, Default: rawDefault("200")},
+		{ID: "settle-duration", Type: datatype.RefExpression(types.durationRef), Required: true, Default: rawDefault("0")},
 	}
 }
 

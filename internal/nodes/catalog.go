@@ -32,7 +32,6 @@ const (
 	StreamToBlobNodeID = "https://schemas.yotta.dev/nodes/conversion/stream-to-blob"
 	AIGenerateNodeID   = "https://schemas.yotta.dev/nodes/ai/generate"
 	AIExtractNodeID    = "https://schemas.yotta.dev/nodes/ai/extract"
-	AIAgentNodeID      = "https://schemas.yotta.dev/nodes/ai/agent"
 
 	BlobReadCapabilityID     = "https://schemas.yotta.dev/capabilities/blob/read/v1"
 	BlobWriteCapabilityID    = "https://schemas.yotta.dev/capabilities/blob/write/v1"
@@ -42,7 +41,6 @@ const (
 	StreamToBlobEffectID     = "https://schemas.yotta.dev/effects/conversion/stream-to-blob/v1"
 	AIGenerateEffectID       = "https://schemas.yotta.dev/effects/ai/generate/v1"
 	AIExtractEffectID        = "https://schemas.yotta.dev/effects/ai/extract/v1"
-	AIAgentEffectID          = "https://schemas.yotta.dev/effects/ai/agent/v1"
 
 	concatEntrypoint                = "text.concat"
 	blobToStreamEntrypoint          = "conversion.blob-to-stream"
@@ -95,11 +93,8 @@ type Builtins struct {
 	StreamToBlobContract         nodecontract.Contract
 	AIGenerateContract           nodecontract.Contract
 	AIExtractContract            nodecontract.Contract
-	AIAgentContract              nodecontract.Contract
 	AIGeneratePrompt             ai.PromptManifest
 	AIExtractPrompt              ai.PromptManifest
-	AIAgentPrompt                ai.PromptManifest
-	AIAgentToolSet               ai.ToolSet
 	AIAuthoringPrompt            ai.PromptManifest
 	AIAuthoringToolSet           ai.ToolSet
 	ScriptExecuteContract        nodecontract.Contract
@@ -129,9 +124,9 @@ type Builtins struct {
 
 func (b Builtins) AIEvaluationArtifacts() []artifact.Digest {
 	return []artifact.Digest{
-		b.AIGeneratePrompt.Digest(), b.AIExtractPrompt.Digest(), b.AIAgentPrompt.Digest(), b.AIAgentToolSet.Digest(),
+		b.AIGeneratePrompt.Digest(), b.AIExtractPrompt.Digest(),
 		b.AIAuthoringPrompt.Digest(), b.AIAuthoringToolSet.Digest(),
-		b.AIGenerateContract.NodeRef().SemanticDigest, b.AIExtractContract.NodeRef().SemanticDigest, b.AIAgentContract.NodeRef().SemanticDigest,
+		b.AIGenerateContract.NodeRef().SemanticDigest, b.AIExtractContract.NodeRef().SemanticDigest,
 	}
 }
 
@@ -381,7 +376,9 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
-	aiDefinitions, aiGenerate, aiExtract, aiAgent, err := defineAINodes(stringType.TypeRef(), jsonType.TypeRef(), aiGeneration, aiArtifacts)
+	aiDefinitions, aiGenerate, aiExtract, err := defineAINodes(
+		stringType.TypeRef(), jsonType.TypeRef(), imageType.TypeRef(), aiGeneration, blobRead, aiArtifacts,
+	)
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -509,9 +506,8 @@ func Build() (Builtins, error) {
 		FileMetadataType:         fileMetadataType,
 		ObservabilityMessageType: observabilityMessageType,
 		BlobToStreamContract:     blobToStream, StreamToBlobContract: streamToBlob,
-		AIGenerateContract: aiGenerate, AIExtractContract: aiExtract, AIAgentContract: aiAgent,
+		AIGenerateContract: aiGenerate, AIExtractContract: aiExtract,
 		AIGeneratePrompt: aiArtifacts.generate, AIExtractPrompt: aiArtifacts.extract,
-		AIAgentPrompt: aiArtifacts.agent, AIAgentToolSet: aiArtifacts.agentTools,
 		AIAuthoringPrompt: aiArtifacts.authoring, AIAuthoringToolSet: aiArtifacts.authoringTools,
 		ScriptExecuteContract: scriptExecute,
 		FileReadTextContract:  filesystemContracts[0], FileReadJSONContract: filesystemContracts[1], FileStatContract: filesystemContracts[2],

@@ -2,6 +2,8 @@ package installed
 
 import (
 	"context"
+	"image"
+	"image/color"
 	"os"
 	"testing"
 	"time"
@@ -17,6 +19,7 @@ type fakeDriver struct {
 	err           error
 	closed        int
 	capture       []byte
+	frame         *image.RGBA
 	window        target.WindowHandle
 	held          *fakeHeldInput
 	waited        bool
@@ -40,6 +43,9 @@ func (driver *fakeDriver) Execute(_ context.Context, operation string, request a
 }
 func (driver *fakeDriver) Capture(_ context.Context) ([]byte, error) {
 	return append([]byte(nil), driver.capture...), driver.err
+}
+func (driver *fakeDriver) CaptureFrame(_ context.Context) (*image.RGBA, error) {
+	return driver.frame, driver.err
 }
 func (driver *fakeDriver) PlayEvent(_ context.Context, event PlaybackEvent) error {
 	driver.operation, driver.request = OperationPlayEvent, event
@@ -363,7 +369,11 @@ func TestProviderCaptureIsBoundedAndRequiresCaptureBeforeRead(t *testing.T) {
 	if err != nil || string(chunk) != "bytes" {
 		t.Fatalf("read capture=%q error=%v", chunk, err)
 	}
-	if _, err := provider.Invoke(context.Background(), object, OperationReadCapture, []byte(`{"offset":0,"length":65537}`)); err == nil {
+	oversizedRange, marshalErr := artifact.Marshal(CaptureRangeRequest{Offset: 0, Length: MaxCaptureChunkBytes + 1})
+	if marshalErr != nil {
+		t.Fatal(marshalErr)
+	}
+	if _, err := provider.Invoke(context.Background(), object, OperationReadCapture, oversizedRange); err == nil {
 		t.Fatal("capture session accepted oversized range")
 	}
 	if err := provider.Close(context.Background(), object); err != nil {
@@ -371,6 +381,26 @@ func TestProviderCaptureIsBoundedAndRequiresCaptureBeforeRead(t *testing.T) {
 	}
 	if _, err := provider.Invoke(context.Background(), object, OperationCapture, []byte(`{}`)); err == nil {
 		t.Fatal("closed capture session accepted capture")
+	}
+}
+
+func TestProviderCaptureProjectsRawRGBAWithoutPNGEncoding(t *testing.T) {
+	profile, _ := testProfile(t)
+	frame := image.NewRGBA(image.Rect(0, 0, 2, 1))
+	frame.SetRGBA(0, 0, color.RGBA{R: 1, G: 2, B: 3, A: 4})
+	frame.SetRGBA(1, 0, color.RGBA{R: 5, G: 6, B: 7, A: 8})
+	provider := &provider{profile: profile, driver: &fakeDriver{frame: frame}}
+	object := openCaptureSession(t, provider)
+
+	raw, err := provider.Invoke(context.Background(), object, OperationCapture, []byte(`{"format":"rgba"}`))
+	response, decodeErr := OpenCaptureResponse(raw)
+	if err != nil || decodeErr != nil || response.MediaType != CaptureMediaTypeRGBA ||
+		response.Width != 2 || response.Height != 1 || response.Size != 8 {
+		t.Fatalf("capture response=%s decoded=%#v error=%v decode=%v", raw, response, err, decodeErr)
+	}
+	content, err := provider.Invoke(context.Background(), object, OperationReadCapture, []byte(`{"offset":0,"length":8}`))
+	if err != nil || string(content) != string([]byte{1, 2, 3, 4, 5, 6, 7, 8}) {
+		t.Fatalf("raw capture=%v error=%v", content, err)
 	}
 }
 

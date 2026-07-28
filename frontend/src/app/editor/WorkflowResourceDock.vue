@@ -710,25 +710,22 @@ function itemMenu(id: string) {
       {
         label: t('common.edit'),
         icon: 'i-tabler-edit',
-        onSelect: () => openEdit(value),
+        onSelect: () => {
+          if (value.kind !== 'macro') {
+            openEdit(value)
+            return
+          }
+          if (isWorkflowResource(value)) emit('edit-workflow-resource', value)
+          else emit('edit', value)
+        },
       },
-      ...(!isWorkflowResource(value) && value.kind === 'macro'
-        ? [
-            {
-              label: t('assets.macros.edit_actions'),
-              icon: 'i-tabler-list-details',
-              onSelect: () => emit('edit', value),
-            },
-          ]
-        : []),
       ...(isWorkflowResource(value)
         ? [
-            ...(value.kind === 'macro' || value.kind === 'input-clip'
+            ...(value.kind === 'input-clip'
               ? [
                   {
                     label: t('workflow.resources.edit_content'),
-                    icon:
-                      value.kind === 'macro' ? 'i-tabler-list-details' : 'i-tabler-route-alt-left',
+                    icon: 'i-tabler-route-alt-left',
                     onSelect: () => emit('edit-workflow-resource', value),
                   },
                 ]

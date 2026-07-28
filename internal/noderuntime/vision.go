@@ -99,6 +99,10 @@ func matchTemplateBytes(imageBytes, templateBytes []byte, region visionRegion, t
 	if err != nil {
 		return visionMatchResult{}, visionFailure(nodes.VisionImageInvalidCode, err)
 	}
+	return matchTemplateFrame(frame, templateBytes, region, threshold)
+}
+
+func matchTemplateFrame(frame *image.RGBA, templateBytes []byte, region visionRegion, threshold float64) (visionMatchResult, error) {
 	templateImage, err := decodeVisionPNG(templateBytes)
 	if err != nil {
 		return visionMatchResult{}, visionFailure(nodes.VisionTemplateInvalidCode, err)

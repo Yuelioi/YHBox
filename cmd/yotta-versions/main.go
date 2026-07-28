@@ -40,7 +40,6 @@ import (
 )
 
 const productVersionVariable = "github.com/yottaapp/yotta/pkg/version.Version"
-const retiredUnifiedVersionLiteral = "3.1"
 
 var numericSemverPattern = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
 
@@ -132,9 +131,6 @@ func run(arguments []string) error {
 		}
 		if len(changed) != 0 {
 			return fmt.Errorf("product version projections are stale: %s; run task version:sync", strings.Join(changed, ", "))
-		}
-		if err := checkRetiredUnifiedVersionLiterals(root); err != nil {
-			return err
 		}
 		if err := checkStoragePathOwnership(root); err != nil {
 			return err
@@ -382,52 +378,6 @@ func printInventory(product productVersion) {
 	for _, row := range rows {
 		fmt.Printf("%-32s %s\n", row[0], row[1])
 	}
-}
-
-func checkRetiredUnifiedVersionLiterals(root string) error {
-	scanRoots := []string{"internal", "pkg", "cmd", "sdk", filepath.Join("frontend", "src")}
-	allowed := map[string]struct{}{
-		filepath.Clean(filepath.Join("cmd", "yotta-versions", "main.go")): {},
-	}
-	var violations []string
-	for _, relativeRoot := range scanRoots {
-		absoluteRoot := filepath.Join(root, relativeRoot)
-		err := filepath.WalkDir(absoluteRoot, func(path string, entry os.DirEntry, walkErr error) error {
-			if walkErr != nil {
-				return walkErr
-			}
-			if entry.IsDir() {
-				return nil
-			}
-			relative, err := filepath.Rel(root, path)
-			if err != nil {
-				return err
-			}
-			if _, ok := allowed[filepath.Clean(relative)]; ok || strings.HasSuffix(path, "_test.go") {
-				return nil
-			}
-			switch strings.ToLower(filepath.Ext(path)) {
-			case ".go", ".ts", ".vue", ".js", ".mjs":
-			default:
-				return nil
-			}
-			raw, err := os.ReadFile(path)
-			if err != nil {
-				return err
-			}
-			if bytes.Contains(raw, []byte(retiredUnifiedVersionLiteral)) {
-				violations = append(violations, filepath.ToSlash(relative))
-			}
-			return nil
-		})
-		if err != nil {
-			return fmt.Errorf("scan retired unified version literals in %s: %w", relativeRoot, err)
-		}
-	}
-	if len(violations) != 0 {
-		return fmt.Errorf("retired unified version literal %q found in current source: %s", retiredUnifiedVersionLiteral, strings.Join(violations, ", "))
-	}
-	return nil
 }
 
 func checkStoragePathOwnership(root string) error {

@@ -24,10 +24,11 @@ import (
 )
 
 type templateAutomationProvider struct {
-	frame    []byte
-	clicks   []automationinstalled.ClickRequest
-	closed   int
-	captures int
+	frame         []byte
+	clicks        []automationinstalled.ClickRequest
+	closed        int
+	captures      int
+	captureFormat string
 }
 
 func (provider *templateAutomationProvider) Open(_ context.Context, request resource.ProviderOpenRequest) (any, error) {
@@ -52,6 +53,13 @@ func (provider *templateAutomationProvider) Invoke(_ context.Context, object any
 	case automationinstalled.KindCapture:
 		switch operation {
 		case automationinstalled.OperationCapture:
+			var request struct {
+				Format string `json:"format,omitempty"`
+			}
+			if err := json.Unmarshal(payload, &request); err != nil {
+				return nil, err
+			}
+			provider.captureFormat = request.Format
 			provider.captures++
 			return artifact.Marshal(automationinstalled.CaptureResponse{MediaType: "image/png", Size: int64(len(provider.frame))})
 		case automationinstalled.OperationReadCapture:
@@ -139,9 +147,13 @@ func TestClickTemplateCapturesMatchesAndClicksTheSameExactTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	startedAt := time.Now()
 	result, err := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).Run(context.Background(), program, owner, journal)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if elapsed := time.Since(startedAt); elapsed >= 2*time.Second {
+		t.Fatalf("first-frame template match waited %s before clicking", elapsed)
 	}
 	if len(provider.clicks) != 1 || provider.clicks[0].Point.Unit != "ratio" || provider.clicks[0].Point.X != 0.375 || provider.clicks[0].Point.Y != 23.0/60.0 {
 		t.Fatalf("template clicks = %#v", provider.clicks)
@@ -150,14 +162,26 @@ func TestClickTemplateCapturesMatchesAndClicksTheSameExactTarget(t *testing.T) {
 	if string(matched) != "true" || provider.closed != 2 {
 		t.Fatalf("matched=%s closed=%d", matched, provider.closed)
 	}
+	if provider.captureFormat != "rgba" {
+		t.Fatalf("template capture format = %q, want rgba fast path", provider.captureFormat)
+	}
 	var statuses []string
+	var matchedCounters map[string]int64
 	for _, entry := range journal.Current().Journal() {
 		if entry.Kind == run.JournalNodeStatus {
 			statuses = append(statuses, entry.StatusCode)
+			if entry.StatusCode == nodes.AutomationTemplateMatchedStatus {
+				matchedCounters = entry.Summary.Counters
+			}
 		}
 	}
 	if fmt.Sprint(statuses) != "[automation.template.waiting automation.template.matched]" {
 		t.Fatalf("template statuses = %v", statuses)
+	}
+	for _, counter := range []string{"captures", "capture_bytes", "capture_ms", "match_ms"} {
+		if _, ok := matchedCounters[counter]; !ok {
+			t.Fatalf("matched status omitted %q timing counter: %v", counter, matchedCounters)
+		}
 	}
 }
 
@@ -169,7 +193,7 @@ func clickTemplateSource(builtins nodes.Builtins, slot string, template blob.Blo
 		"graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"click","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{"slot":%q},
-			 "bindings":{"template":{"kind":"blob","blob":{"mediaType":%q,"digest":%q,"size":%d}},"region":{"kind":"default"},"threshold":{"kind":"default"},"timeout":{"kind":"default"},"poll-interval":{"kind":"default"},"settle-duration":{"kind":"value","value":0},"button":{"kind":"default"},"hold-duration":{"kind":"default"}}}
+			 "bindings":{"template":{"kind":"blob","blob":{"mediaType":%q,"digest":%q,"size":%d}},"region":{"kind":"default"},"threshold":{"kind":"default"},"timeout":{"kind":"value","value":5000},"poll-interval":{"kind":"value","value":100},"settle-duration":{"kind":"value","value":0},"button":{"kind":"default"},"hold-duration":{"kind":"default"}}}
 		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"click","portId":"in"}}],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
 		click.Contract.NodeRef().NodeTypeID, click.Contract.NodeRef().SemanticDigest, slot,

@@ -126,19 +126,15 @@ func observationDurations(invocation nodeadapter.Invocation, nodeTypeID string) 
 }
 
 func captureFrameSignature(ctx context.Context, invocation nodeadapter.Invocation, region visionRegion, gridSize int) (frameSignature, int64, error) {
-	raw, err := captureTemplateFrame(ctx, invocation)
+	frame, captureBytes, err := captureTemplateFrame(ctx, invocation)
 	if err != nil {
 		return frameSignature{}, 0, err
 	}
-	frame, err := decodeVisionPNG(raw)
-	if err != nil {
-		return frameSignature{}, int64(len(raw)), observationFailure(nodes.VisionImageInvalidCode, err)
-	}
 	search, err := resolveVisionRegion(frame.Bounds(), region)
 	if err != nil {
-		return frameSignature{}, int64(len(raw)), observationFailure(nodes.VisionRegionInvalidCode, err)
+		return frameSignature{}, captureBytes, observationFailure(nodes.VisionRegionInvalidCode, err)
 	}
-	return frameSignature{grid: visionpkg.Downsample(frame.SubImage(search).(*image.RGBA), gridSize)}, int64(len(raw)), nil
+	return frameSignature{grid: visionpkg.Downsample(frame.SubImage(search).(*image.RGBA), gridSize)}, captureBytes, nil
 }
 
 func compareFrameSignatures(before, after frameSignature, cellDelta int) frameDifference {

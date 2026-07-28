@@ -59,10 +59,18 @@ describe('EditorResourceController', () => {
 
     expect(await controller.execute({ kind: 'open-workflow', resource: macroResource })).toBe(true)
     controller.workflowMacroEditing.value!.document.baseResolution[0] = 1280
+    controller.workflowMacroEditing.value!.resource.name = 'Unified macro'
+    controller.workflowMacroEditing.value!.resource.category = 'Automation'
+    controller.workflowMacroEditing.value!.resource.tags = ['game']
     expect(await controller.execute({ kind: 'save-workflow-macro' })).toBe(true)
 
     expect(port.rewriteWorkflow).toHaveBeenCalledWith(
-      macroResource,
+      expect.objectContaining({
+        ...macroResource,
+        name: 'Unified macro',
+        category: 'Automation',
+        tags: ['game'],
+      }),
       expect.objectContaining({
         kind: 'macro-document',
         macro: { document: expect.objectContaining({ baseResolution: [1280, 1080] }) },

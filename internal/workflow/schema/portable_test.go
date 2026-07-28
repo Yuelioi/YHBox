@@ -97,11 +97,6 @@ func TestParseSource31RejectsInvalidPortableDefinitions(t *testing.T) {
 			path: []string{"graphs", "0", "nodes", "0", "bindings", "clip", "resource"},
 		},
 		{
-			name: "dangling target default",
-			raw:  strings.Replace(valid, `"slot":"game"`, `"slot":"missing"`, 1),
-			path: []string{"targetDefaults"},
-		},
-		{
 			name: "local target path",
 			raw:  strings.Replace(valid, `"windowTitle":"Example Game"`, `"windowTitle":"Example Game","executablePath":"C:\\\\Games\\\\game.exe"`, 1),
 			path: []string{"targetProfileDefinitions"},
@@ -126,6 +121,26 @@ func TestParseSource31RejectsInvalidPortableDefinitions(t *testing.T) {
 				t.Fatalf("diagnostics = %#v", diagnostics)
 			}
 		})
+	}
+}
+
+func TestParseSource31AllowsLocalLogicalTargetSlotWithoutPortableDefinition(t *testing.T) {
+	raw := strings.Replace(
+		portableSourceForTest(),
+		`"targetProfileDefinitions":[{"id":"game","name":"Game","targetKind":"desktop-window","adapterKind":"win32","profileVersion":"1",
+			"settingsSchemaRoot":"https://schemas.example.test/targets/game/v1/schema","settingsSchemaBundle":[{"id":"https://schemas.example.test/targets/game/v1/schema","schema":{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://schemas.example.test/targets/game/v1/schema","type":"object","properties":{"windowTitle":{"type":"string"}},"additionalProperties":false}}],
+			"initialDefaults":{"windowTitle":"Example Game"},"discoveryHints":[{"kind":"executable-name","value":"game.exe"}]}],
+		"targetDefaults":[{"target":"target","slot":"game"}]`,
+		`"targetProfileDefinitions":[],
+		"targetDefaults":[{"target":"target","slot":"window-target"}]`,
+		1,
+	)
+	source, diagnostics := ParseSource([]byte(raw))
+	if len(diagnostics) != 0 {
+		t.Fatalf("diagnostics = %#v", diagnostics)
+	}
+	if len(source.TargetDefaults) != 1 || source.TargetDefaults[0].Slot != "window-target" {
+		t.Fatalf("target defaults = %#v", source.TargetDefaults)
 	}
 }
 

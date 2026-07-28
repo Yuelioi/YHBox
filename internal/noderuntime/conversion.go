@@ -63,7 +63,6 @@ func Installed(builtins nodes.Builtins, dependencies Dependencies) (map[string]n
 		nodes.StopwatchStopNodeID:        stopwatch(builtins, nodes.StopwatchStopNodeID),
 		nodes.AIGenerateNodeID:           aiGenerate(builtins, false),
 		nodes.AIExtractNodeID:            aiGenerate(builtins, true),
-		nodes.AIAgentNodeID:              aiAgent(builtins, dependencies.Now),
 		nodes.ScriptExecuteNodeID:        scriptExecute(builtins, dependencies.Script),
 		nodes.FileReadTextNodeID:         fileRead(builtins, false),
 		nodes.FileReadJSONNodeID:         fileRead(builtins, true),

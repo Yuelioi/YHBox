@@ -64,6 +64,15 @@
     @change="setText"
   />
   <UTextarea
+    v-else-if="adapter === 'multiline-text'"
+    :model-value="textValue"
+    :rows="compact ? 3 : 8"
+    :size="compact ? 'xs' : 'sm'"
+    autoresize
+    class="w-full text-sm leading-relaxed"
+    @change="setText"
+  />
+  <UTextarea
     v-else
     :model-value="jsonValue"
     :rows="compact ? 2 : 5"

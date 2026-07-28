@@ -13,6 +13,7 @@ export type ValueEditorAdapter =
   | 'color-range'
   | 'duration'
   | 'key-chord'
+  | 'multiline-text'
   | 'point'
   | 'region'
   | 'select'
@@ -221,6 +222,7 @@ function isAdapter(value: string | undefined): value is ValueEditorAdapter {
       'color-range',
       'duration',
       'key-chord',
+      'multiline-text',
       'point',
       'region',
       'select',

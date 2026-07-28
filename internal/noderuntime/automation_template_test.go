@@ -74,10 +74,12 @@ func TestEmitTemplateMatchStatusDistinguishesMatchAndTimeout(t *testing.T) {
 				gotCounters = counters
 				return nil
 			}}
-			if err := emitTemplateMatchStatus(context.Background(), invocation, test.matched, 4); err != nil {
+			if err := emitTemplateMatchStatus(context.Background(), invocation, test.matched, map[string]int64{
+				"captures": 4, "capture_ms": 12, "match_ms": 7,
+			}); err != nil {
 				t.Fatal(err)
 			}
-			if gotCode != test.want || gotCounters["captures"] != 4 {
+			if gotCode != test.want || gotCounters["captures"] != 4 || gotCounters["capture_ms"] != 12 || gotCounters["match_ms"] != 7 {
 				t.Fatalf("code=%q counters=%v", gotCode, gotCounters)
 			}
 		})

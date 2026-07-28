@@ -257,9 +257,6 @@ func validateSource(source WorkflowSource) []Diagnostic {
 	if err := validateTargetDefaults(source.TargetDefaults); err != nil {
 		appendDiagnostic(&out, diagnostic(CodeInvalidField, []string{"targetDefaults"}, map[string]any{"keyword": "targetDefaults", "reason": err.Error()}))
 	}
-	if err := validateTargetDefaultReferences(source.TargetDefaults, source.TargetProfileDefinitions); err != nil {
-		appendDiagnostic(&out, diagnostic(CodeInvalidField, []string{"targetDefaults"}, map[string]any{"keyword": "targetProfileDefinition", "reason": err.Error()}))
-	}
 	if err := validateCredentialRequirements(source.CredentialRequirements); err != nil {
 		appendDiagnostic(&out, diagnostic(CodeInvalidField, []string{"credentialRequirements"}, map[string]any{"keyword": "credentialRequirements", "reason": err.Error()}))
 	}

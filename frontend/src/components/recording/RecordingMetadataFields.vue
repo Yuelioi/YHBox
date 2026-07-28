@@ -3,12 +3,12 @@
     <UInput v-model="name" class="w-full" maxlength="80" autofocus />
   </UFormField>
   <UFormField :label="t('common.description')" :hint="t('common.optional')">
-    <UTextarea v-model="description" class="w-full" :rows="2" />
+    <UTextarea v-model="descriptionValue" class="w-full" :rows="2" />
   </UFormField>
   <div class="grid grid-cols-2 gap-3">
     <UFormField :label="t('common.category')" :hint="t('common.optional')">
       <UInputMenu
-        v-model="category"
+        v-model="categoryValue"
         class="w-full"
         :items="categoryOptions"
         :create-item="'always'"
@@ -18,7 +18,7 @@
     </UFormField>
     <UFormField :label="t('common.tags')" :hint="t('recordingSave.tags_hint')">
       <UInputMenu
-        v-model="tags"
+        v-model="tagValues"
         class="w-full"
         :items="tagOptions"
         :create-item="'always'"
@@ -39,22 +39,34 @@ const props = defineProps<{
   tagSuggestions: string[]
 }>()
 const name = defineModel<string>('name', { required: true })
-const description = defineModel<string>('description', { required: true })
-const category = defineModel<string>('category', { required: true })
-const tags = defineModel<string[]>('tags', { required: true })
+const description = defineModel<string | undefined>('description', { required: true })
+const category = defineModel<string | undefined>('category', { required: true })
+const tags = defineModel<string[] | undefined>('tags', { required: true })
 const { t } = useI18n()
 
-const categoryOptions = computed(() => uniqueStrings([...props.categories, category.value]))
-const tagOptions = computed(() => uniqueStrings([...props.tagSuggestions, ...tags.value]))
+const descriptionValue = computed({
+  get: () => description.value ?? '',
+  set: (value: string) => (description.value = value),
+})
+const categoryValue = computed({
+  get: () => category.value ?? '',
+  set: (value: string) => (category.value = value),
+})
+const tagValues = computed({
+  get: () => tags.value ?? [],
+  set: (value: string[]) => (tags.value = value),
+})
+const categoryOptions = computed(() => uniqueStrings([...props.categories, categoryValue.value]))
+const tagOptions = computed(() => uniqueStrings([...props.tagSuggestions, ...tagValues.value]))
 
 function createCategory(value: string): void {
   const created = value.trim()
-  if (created) category.value = created
+  if (created) categoryValue.value = created
 }
 
 function createTag(value: string): void {
   const created = value.trim()
-  if (created) tags.value = uniqueStrings([...tags.value, created])
+  if (created) tagValues.value = uniqueStrings([...tagValues.value, created])
 }
 
 function uniqueStrings(values: string[]): string[] {

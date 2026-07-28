@@ -181,19 +181,6 @@ func validateTargetProfileDefinitions(definitions []TargetProfileDefinition) err
 	return nil
 }
 
-func validateTargetDefaultReferences(defaults []TargetDefault, definitions []TargetProfileDefinition) error {
-	known := make(map[string]struct{}, len(definitions))
-	for _, definition := range definitions {
-		known[definition.ID] = struct{}{}
-	}
-	for _, candidate := range defaults {
-		if _, ok := known[candidate.Slot]; !ok {
-			return fmt.Errorf("target default %q references unknown profile definition %q", candidate.Target, candidate.Slot)
-		}
-	}
-	return nil
-}
-
 func validateCredentialRequirements(requirements []CredentialRequirement) error {
 	if len(requirements) > MaxCredentials {
 		return fmt.Errorf("credential requirement count exceeds %d", MaxCredentials)

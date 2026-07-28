@@ -275,53 +275,31 @@ export default {
     ai: {
       generate: {
         title: 'Generate AI text',
-        description:
-          'Generates text through a configured model resolved by explicit model and credential slots.',
+        description: 'Generates text from a prompt and optional image, including captured windows.',
       },
       extract: {
         title: 'Extract structured AI data',
         description:
-          'Requires an installed model to return JSON that validates against the supplied JSON Schema.',
+          'Extracts the fields you choose from text or an image and returns connectable structured data.',
         config: {
-          schema: {
-            title: 'Output JSON Schema',
+          fields: {
+            title: 'Output fields',
             description:
-              'The strict JSON Schema document used to constrain and validate structured model output.',
-          },
-        },
-      },
-      agent: {
-        title: 'Run bounded AI agent',
-        description:
-          'Runs a provider-native tool loop with an exact ToolSet and host-enforced token, cost, time, iteration, call, and parallelism budgets.',
-        config: {
-          maxInputTokens: {
-            title: 'Total input token budget',
-            description: 'Maximum provider-reported input tokens across all turns.',
-          },
-          maxTotalOutputTokens: {
-            title: 'Total output token budget',
-            description: 'Maximum provider-reported output tokens across all turns.',
-          },
-          maxCost: {
-            title: 'Cost budget',
-            description: 'Maximum profile-priced billing microunits across all turns.',
-          },
-          maxWallTime: {
-            title: 'Wall-time budget (ms)',
-            description: 'Maximum host wall time for the complete tool loop.',
-          },
-          maxIterations: {
-            title: 'Iteration budget',
-            description: 'Maximum provider turns, including the initial turn.',
-          },
-          maxToolCalls: {
-            title: 'Tool-call budget',
-            description: 'Maximum exact ToolSet calls across the run.',
-          },
-          maxParallelism: {
-            title: 'Parallel call budget',
-            description: 'Maximum tool calls accepted from one provider turn.',
+              'Add the values to extract; Yotta generates and validates the output structure.',
+            field: 'Field {n}',
+            name: 'Field name',
+            type: 'Type',
+            field_description: 'Field description (optional)',
+            nullable: 'Allow an empty value when the content is missing',
+            empty: 'Add at least one output field.',
+            add: 'Add field',
+            remove: 'Remove field {n}',
+            types: {
+              string: 'Text',
+              number: 'Number',
+              integer: 'Integer',
+              boolean: 'Yes / no',
+            },
           },
         },
       },
@@ -2626,7 +2604,7 @@ export default {
         'The target is armed first. Switch to it and press the start shortcut; input capture begins after a 3-second countdown. The recording is saved as a resource and creates its playback node.',
       macro_title: 'Record editable macro',
       macro_hint:
-        'Record atomic key down, key up, click, and sleep actions for keyboard and pointer macros.',
+        'Record or edit key presses, clicks, scrolling, and waits. Atomic view remains available.',
       precise_title: 'Record precise trajectory',
       precise_hint:
         'Preserve motion, dragging, raw mouse deltas, and complete timing as an InputClip.',
@@ -2635,7 +2613,7 @@ export default {
       control_failed: 'Recording control failed',
       preview_title: 'Review recording',
       result_mode: 'Generated form',
-      mode_simple: 'Editable atomic macro',
+      mode_simple: 'Editable keyboard macro',
       mode_precise: 'Precise · full trajectory clip',
       action_summary: 'Keys {keys} · clicks {clicks} · moves {moves} · scrolls {scrolls}',
       trajectory_hint:
@@ -2744,12 +2722,17 @@ export default {
       attempt: 'attempt {n}',
       close: 'Close Run timeline',
       open: 'Run timeline',
+      export: 'Export',
+      export_succeeded: 'Exported {count} timeline events',
+      export_failed: 'Could not export timeline',
       page: 'Page {page} of {pages} · {total} entries',
       older: 'Older',
       newer: 'Newer',
       active_attempt: 'Current node',
       executing: 'Executing',
       timeout_budget: 'timeout {value}',
+      since_start: '{value} after Run start',
+      occurred_at: 'Occurred at {value}',
       unhandled_route: 'The “{route}” output is not connected; this Run ends here',
       status: {
         'automation.template.waiting': 'Waiting for a template match',
@@ -2764,6 +2747,8 @@ export default {
       debug: 'Debug',
       close: 'Collapse runtime workbench',
       open: 'Expand runtime workbench',
+      expand: 'Enlarge',
+      restore: 'Restore',
       unavailable: 'No data is available for this view.',
     },
     status: {
@@ -3034,10 +3019,10 @@ export default {
       control_failed: 'Recording control failed',
     },
     macros: {
-      nav_hint: 'Editable down, up, click, and sleep actions',
+      nav_hint: 'Editable key presses, clicks, scrolling, and waits',
       empty: 'No keyboard macros yet',
       empty_hint: 'Select a target and record an editable macro, or add actions manually later.',
-      library_meta: 'Atomic macro · {bytes} bytes',
+      library_meta: 'Keyboard macro · {bytes} bytes',
       base_resolution: 'Capture base resolution',
       edit_actions: 'Edit macro actions',
       trajectory_hint:
@@ -3047,7 +3032,7 @@ export default {
       create_blank: 'New blank macro',
       create_title: 'Create blank keyboard macro',
       create_hint:
-        'Create a blank resource at the current target resolution, then add atomic actions in the macro editor.',
+        'Create a blank resource at the current target resolution, then add key presses, clicks, scrolling, or waits.',
       resolution_unavailable:
         'The target resolution is unavailable. Open and bind the target window first.',
     },
@@ -3162,16 +3147,26 @@ export default {
   macroEditor: {
     title: 'Edit keyboard macro',
     summary: '{count} atomic actions · {duration}',
+    summary_simple: '{count} actions · {atomic} atomic events · {duration}',
+    view_mode: 'Action display mode',
+    simple_view: 'Simple',
+    atomic_view: 'Atomic',
     search: 'Search actions or keys',
     add: 'Add action',
+    add_after_selected: 'Add after selection',
+    add_after: 'Add after action {n}',
     action: 'Action',
     parameters: 'Parameters',
     state_after: 'Held after',
     select_visible: 'Select visible actions',
     select_action: 'Select action {n}',
     action_menu: 'Actions for row {n}',
+    drag_action: 'Drag action {n}',
+    drag_hint: 'Drag this handle to reorder. Selected actions move together.',
     press_key: 'Focus, then press one key',
     press_key_hint: 'Each row records one down or up event',
+    atomic_key_hint: 'Atomic event',
+    kind_key_press: 'Key press',
     kind_key_down: 'Key down',
     kind_key_up: 'Key up',
     kind_mouse_down: 'Mouse down',
@@ -3185,9 +3180,13 @@ export default {
     duplicate: 'Duplicate action',
     state_none: 'None',
     empty: 'This macro has no actions',
-    empty_hint: 'Start with Add action. Every down action must have a matching up action.',
+    empty_hint: 'Add a key press, click, scroll, or wait. Advanced events remain in Atomic view.',
+    empty_hint_atomic: 'Atomic down and up events must be maintained as valid pairs.',
     no_results: 'No matching actions',
     selected: '{count} actions selected',
+    duplicate_selected: 'Duplicate selected',
+    move_selected_up: 'Move selected actions up',
+    move_selected_down: 'Move selected actions down',
     delete_selected: 'Delete selected',
     error_key_down: 'Row {n}: {key} is already held.',
     error_key_up: 'Row {n}: {key} is not held and cannot be released.',

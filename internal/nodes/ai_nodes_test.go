@@ -3,6 +3,9 @@ package nodes
 import (
 	"bytes"
 	"testing"
+
+	"github.com/yottaapp/yotta/internal/capability"
+	"github.com/yottaapp/yotta/internal/nodecontract"
 )
 
 func TestAINodesPinTrustedPromptManifestsIntoImplementationLocks(t *testing.T) {
@@ -41,32 +44,47 @@ func TestAINodesPinTrustedPromptManifestsIntoImplementationLocks(t *testing.T) {
 			}
 		})
 	}
-	if !builtins.AIAgentPrompt.Valid() || !builtins.AIAgentToolSet.Valid() {
-		t.Fatal("AI Agent artifacts are missing")
+	for _, nodeID := range []string{AIGenerateNodeID, AIExtractNodeID} {
+		definition, _ := builtins.Definition(nodeID)
+		machine := definition.Contract.Machine()
+		if len(machine.Ports.DataInputs) != 2 ||
+			machine.Ports.DataInputs[0].ID != "prompt" ||
+			machine.Ports.DataInputs[1].ID != "image" ||
+			machine.Ports.DataInputs[1].Required ||
+			machine.Ports.DataInputs[1].Type.Ref == nil ||
+			machine.Ports.DataInputs[1].Type.Ref.TypeID != ImageTypeID {
+			t.Fatalf("%s AI inputs = %#v", nodeID, machine.Ports.DataInputs)
+		}
+		requirements := map[string]capability.Requirement{}
+		for _, requirement := range machine.CapabilityRequirements {
+			requirements[requirement.ID] = requirement
+		}
+		if requirements["blob-read"].Capability.CapabilityID != BlobReadCapabilityID {
+			t.Fatalf("%s blob read requirement = %#v", nodeID, requirements["blob-read"])
+		}
+		ports := definition.Contract.Authoring().Ports
+		authoring := map[string]nodecontract.PortAuthoring{}
+		for _, port := range ports {
+			authoring[port.ID] = port
+		}
+		if len(ports) != 2 ||
+			authoring["prompt"].EditorAdapter != "multiline-text" ||
+			authoring["image"].Group != "common" {
+			t.Fatalf("%s AI authoring = %#v", nodeID, ports)
+		}
+	}
+	extract, _ := builtins.Definition(AIExtractNodeID)
+	for _, resource := range extract.Contract.Machine().ConfigSchemaBundle {
+		if bytes.Contains(resource.Schema, []byte(`"schema"`)) ||
+			!bytes.Contains(resource.Schema, []byte(`"fields"`)) ||
+			!bytes.Contains(resource.Schema, []byte(`"structured-output-fields"`)) {
+			t.Fatalf("AI Extract exposes the wrong output configuration: %s", resource.Schema)
+		}
 	}
 	if !builtins.AIAuthoringPrompt.Valid() || !builtins.AIAuthoringToolSet.Valid() {
 		t.Fatal("AI authoring artifacts are missing")
 	}
-	agent, ok := builtins.Definition(AIAgentNodeID)
-	if !ok {
-		t.Fatal("AI Agent definition is missing")
-	}
-	expected, err := builtinImplementationDigest(
-		agent.Implementation.Entrypoint, "v1",
-		"provider-native-bounded-agent/"+builtins.AIAgentPrompt.Digest().String()+"/"+builtins.AIAgentToolSet.Digest().String(),
-		agent.Implementation.ABI,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	machine := agent.Contract.Machine()
-	if agent.Implementation.ArtifactDigest != expected || machine.Execution.Retry != "never" || len(machine.StatusEvents) != 2 ||
-		len(machine.CapabilityRequirements) != 1 || len(machine.CapabilityRequirements[0].Operations) != 2 {
-		t.Fatalf("AI Agent contract/lock = %#v / %#v", agent.Implementation, machine)
-	}
-	for _, resource := range machine.ConfigSchemaBundle {
-		if bytes.Contains(resource.Schema, []byte(`"instructions"`)) || bytes.Contains(resource.Schema, []byte(`"toolSet"`)) {
-			t.Fatalf("workflow config can override trusted Agent artifacts: %s", resource.Schema)
-		}
+	if _, ok := builtins.Definition("https://schemas.yotta.dev/nodes/ai/agent"); ok {
+		t.Fatal("removed bounded AI Agent is still present in the built-in catalog")
 	}
 }

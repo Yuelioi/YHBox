@@ -333,11 +333,6 @@ tasks:
     cmds:
       - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-storage-migration.ps1
 
-  version:verify:
-    summary: 兼容入口；执行 versions:check
-    cmds:
-      - task: versions:check
-
   wails:verify:
     summary: 验证 Wails library、source pin 与 PATH 中 CLI 版本一致
     cmds:

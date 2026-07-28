@@ -23,6 +23,15 @@
         @click="emit('cancel')"
       />
       <UButton
+        :label="t('workflow.timeline.export')"
+        icon="i-tabler-download"
+        color="neutral"
+        variant="ghost"
+        size="xs"
+        :loading="exporting"
+        @click="emit('export')"
+      />
+      <UButton
         :label="t('workflow.action.refresh')"
         icon="i-tabler-refresh"
         color="neutral"
@@ -134,8 +143,32 @@
                 {{ t('workflow.timeline.unhandled_route', { route: 'timeout' }) }}
               </span>
             </span>
-            <span class="font-mono text-[10px] text-dimmed">
-              {{ t('workflow.timeline.attempt', { n: entry.attempt }) }}
+            <span class="text-right font-mono text-[10px]">
+              <span
+                class="block text-toned"
+                :aria-label="
+                  t('workflow.timeline.since_start', {
+                    value: formatTimelineOffset(entry.occurredAt, run.queuedAt),
+                  })
+                "
+              >
+                {{ formatTimelineOffset(entry.occurredAt, run.queuedAt) }}
+              </span>
+              <time
+                class="mt-0.5 block text-dimmed"
+                :datetime="entry.occurredAt"
+                :title="formatTimelineDateTime(entry.occurredAt)"
+                :aria-label="
+                  t('workflow.timeline.occurred_at', {
+                    value: formatTimelineDateTime(entry.occurredAt),
+                  })
+                "
+              >
+                {{ formatTimelineClock(entry.occurredAt) }}
+              </time>
+              <span v-if="entry.attempt > 0" class="mt-0.5 block text-dimmed">
+                {{ t('workflow.timeline.attempt', { n: entry.attempt }) }}
+              </span>
             </span>
           </UButton>
         </li>
@@ -150,12 +183,14 @@ import { useNow } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import type { RunView } from '@/app/transport/workflow'
 import { activeRunAttempt, runRouteKey, statusRoutePort } from './runTrace'
+import { formatTimelineClock, formatTimelineDateTime, formatTimelineOffset } from './timelineTime'
 
 const props = defineProps<{
   run: RunView
   embedded?: boolean
   nodeLabels?: Record<string, string>
   unhandledRoutes?: string[]
+  exporting?: boolean
 }>()
 const emit = defineEmits<{
   cancel: []
@@ -163,6 +198,7 @@ const emit = defineEmits<{
   close: []
   'focus-node': [graphPath: string[], nodeId: string]
   page: [page: number]
+  export: []
 }>()
 const { t, te } = useI18n()
 const now = useNow({ interval: 1000 })

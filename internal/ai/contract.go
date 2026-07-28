@@ -16,6 +16,7 @@ import (
 
 const (
 	MaxPromptBytes       = 1 << 20
+	MaxImageInputBytes   = 1536 << 10
 	MaxProviderRawBytes  = 1 << 20
 	MaxOutputItems       = 1024
 	MaxIdentifierBytes   = 128
@@ -37,9 +38,22 @@ type GenerationLimits struct {
 	MaxOutputTokens *int64   `json:"maxOutputTokens,omitempty"`
 }
 
+type ImageInput struct {
+	MediaType string `json:"mediaType"`
+	Data      []byte `json:"data"`
+}
+
+func (i ImageInput) Validate() error {
+	if (i.MediaType != "image/jpeg" && i.MediaType != "image/png") || len(i.Data) == 0 || len(i.Data) > MaxImageInputBytes {
+		return errors.New("AI image input must be a bounded JPEG or PNG")
+	}
+	return nil
+}
+
 type GenerateRequest struct {
 	AttemptID string                `json:"attemptId"`
 	Prompt    RenderedPrompt        `json:"prompt"`
+	Image     *ImageInput           `json:"image,omitempty"`
 	Output    *StructuredOutputSpec `json:"output,omitempty"`
 	ToolSet   artifact.Digest       `json:"toolSet,omitempty"`
 	Limits    GenerationLimits      `json:"limits"`
@@ -52,6 +66,11 @@ func (r GenerateRequest) Validate() error {
 	}
 	if err := r.Prompt.Validate(); err != nil {
 		return err
+	}
+	if r.Image != nil {
+		if err := r.Image.Validate(); err != nil {
+			return err
+		}
 	}
 	if r.ToolSet != "" && !r.ToolSet.Valid() {
 		return errors.New("invalid AI tool set identity")

@@ -60,6 +60,11 @@
         class="w-full"
         @update:model-value="updateNumber"
       />
+      <StructuredOutputFieldsEditor
+        v-else-if="field.editorAdapter === 'structured-output-fields'"
+        :model-value="modelValue"
+        @update:model-value="emit('update:modelValue', $event)"
+      />
       <UTextarea
         v-else-if="field.control === 'code'"
         :model-value="typeof modelValue === 'string' ? modelValue : ''"
@@ -93,6 +98,7 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { FieldProjection } from '@/contracts/node'
+import StructuredOutputFieldsEditor from './StructuredOutputFieldsEditor.vue'
 
 const props = defineProps<{
   field: FieldProjection

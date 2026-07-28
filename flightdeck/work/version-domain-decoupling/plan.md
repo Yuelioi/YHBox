@@ -32,6 +32,6 @@
 
 ## Stage 5 — 防回归与验收
 
-- [x] `task versions:check` 禁止无所有者的产品/合同版本字面量并校验生成物。
+- [x] `task versions:check` 校验产品版本权威源与生成投影；合同版本由所属 module 和合同门禁校验。
 - [x] 产品版本提升不得改变合同 schema/digest；合同变化必须由所属版本域显式表达。
 - [x] 运行 `task check`，并执行构建、EXE 元数据和桌面启动 smoke，保存最终 handoff。

@@ -339,6 +339,73 @@ func TestApplicationMigratesCompatibleNodeContractsBeforeCompile(t *testing.T) {
 	}
 }
 
+func TestApplicationMigratesIncompleteAIContractWithoutHidingItsMissingInputs(t *testing.T) {
+	now := time.Date(2026, 7, 28, 15, 30, 0, 0, time.UTC)
+	application, sources, _, builtins, _, _ := newTestApplication(t, now, nil)
+	started, _ := builtins.Definition(nodes.RunStartedNodeID)
+	extract, _ := builtins.Definition(nodes.AIExtractNodeID)
+	staleExtractRef := extract.Contract.NodeRef()
+	staleExtractRef.SemanticDigest = "sha256:dbcb528cb623272c3a7544c1a2ff6ed2e77c14dba1d795b6fea9511f87d99646"
+	source := schema.WorkflowSource{
+		Format: schema.Format, Version: schema.Version,
+		Workflow: schema.Workflow{ID: "incomplete-ai-contract", Name: "Incomplete AI contract"},
+		Revision: 0, EntryGraph: "main",
+		Graphs: []schema.Graph{{
+			ID: "main", Kind: schema.GraphKindMain,
+			Nodes: []schema.Node{
+				{ID: "start", NodeRef: started.Contract.NodeRef(), Position: schema.Position{}, Config: map[string]any{}, Bindings: map[string]schema.InputBinding{}},
+				{
+					ID: "extract", NodeRef: staleExtractRef, Position: schema.Position{},
+					Config: map[string]any{"fields": []any{map[string]any{
+						"name": "field1", "type": "string", "description": "", "nullable": false,
+					}}},
+					Bindings: map[string]schema.InputBinding{},
+				},
+			},
+			Edges: []schema.Edge{{
+				Channel: schema.EdgeExec,
+				From:    schema.Endpoint{NodeID: "start", PortID: "started"},
+				To:      schema.Endpoint{NodeID: "extract", PortID: "in"},
+			}},
+			Inputs: []schema.GraphPort{}, Outputs: []schema.GraphPort{},
+		}},
+		Resources: []schema.WorkflowResource{}, TargetProfileDefinitions: []schema.TargetProfileDefinition{},
+		CredentialRequirements: []schema.CredentialRequirement{}, Dependencies: []schema.NodePackageDependency{}, Variables: []schema.Variable{},
+	}
+	raw, err := artifact.Marshal(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sources.Save(context.Background(), raw, -1); err != nil {
+		t.Fatal(err)
+	}
+	if err := application.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = application.Close(context.Background()) })
+
+	migrated, err := application.GetSource(source.Workflow.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	migratedSource, diagnostics := schema.ParseSource(migrated.Artifact())
+	if len(diagnostics) != 0 {
+		t.Fatalf("migrated source diagnostics = %#v", diagnostics)
+	}
+	if got := migratedSource.Graphs[0].Nodes[1].NodeRef; got != extract.Contract.NodeRef() {
+		t.Fatalf("migrated extract ref = %#v", got)
+	}
+	compiled, err := application.CompileSource(context.Background(), source.Workflow.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, diagnostic := range compiled.Diagnostics {
+		if diagnostic.Code == compiler.CodeNodeContractMismatch || diagnostic.Code == compiler.CodeUnknownPort {
+			t.Fatalf("contract migration left derivative diagnostic = %#v", compiled.Diagnostics)
+		}
+	}
+}
+
 func TestApplicationAtomicallyGuardsReferencedStateTypeMigration(t *testing.T) {
 	now := time.Date(2026, 7, 18, 10, 0, 0, 0, time.UTC)
 	application, sources, _, builtins, _, _ := newTestApplication(t, now, nil)

@@ -1,4 +1,25 @@
-import type { MacroAction } from '@/lib/backend'
+import type { MacroAction, MacroActionKind } from '@/lib/backend'
+
+export type MacroEditorRowKind = MacroActionKind | 'key-press'
+
+export interface MacroEditorRow {
+  id: string
+  kind: MacroEditorRowKind
+  source: 'atomic' | 'key-hold' | 'mouse-hold'
+  startIndex: number
+  endIndex: number
+  actionIds: string[]
+  key?: string
+  button?: MacroAction['button']
+  point?: MacroAction['point']
+  notches?: number
+  durationUs?: number
+}
+
+export type MacroEditorRowPatch = Pick<
+  MacroAction,
+  'key' | 'button' | 'point' | 'notches' | 'durationUs'
+>
 
 export type MacroEditorIssue = {
   code:
@@ -88,6 +109,149 @@ export function moveMacroAction(actions: MacroAction[], from: number, to: number
   return next
 }
 
+export function projectMacroRows(actions: MacroAction[], simplified: boolean): MacroEditorRow[] {
+  const rows: MacroEditorRow[] = []
+  for (let index = 0; index < actions.length; index++) {
+    const first = actions[index]
+    if (!first) continue
+    const wait = actions[index + 1]
+    const last = actions[index + 2]
+    if (
+      simplified &&
+      first.kind === 'key-down' &&
+      wait?.kind === 'sleep' &&
+      last?.kind === 'key-up' &&
+      first.key === last.key
+    ) {
+      rows.push({
+        id: `key-press:${first.id}:${last.id}`,
+        kind: 'key-press',
+        source: 'key-hold',
+        startIndex: index,
+        endIndex: index + 2,
+        actionIds: [first.id, wait.id, last.id],
+        key: first.key,
+        durationUs: wait.durationUs,
+      })
+      index += 2
+      continue
+    }
+    if (
+      simplified &&
+      first.kind === 'mouse-down' &&
+      wait?.kind === 'sleep' &&
+      last?.kind === 'mouse-up' &&
+      first.button === last.button &&
+      samePoint(first.point, last.point)
+    ) {
+      rows.push({
+        id: `click:${first.id}:${last.id}`,
+        kind: 'click',
+        source: 'mouse-hold',
+        startIndex: index,
+        endIndex: index + 2,
+        actionIds: [first.id, wait.id, last.id],
+        button: first.button,
+        point: first.point ? { ...first.point } : undefined,
+        durationUs: wait.durationUs,
+      })
+      index += 2
+      continue
+    }
+    rows.push({
+      id: first.id,
+      kind: first.kind,
+      source: 'atomic',
+      startIndex: index,
+      endIndex: index,
+      actionIds: [first.id],
+      key: first.key,
+      button: first.button,
+      point: first.point ? { ...first.point } : undefined,
+      notches: first.notches,
+      durationUs: first.durationUs,
+    })
+  }
+  return rows
+}
+
+export function patchMacroRow(
+  actions: MacroAction[],
+  row: MacroEditorRow,
+  patch: Partial<MacroEditorRowPatch>,
+): MacroAction[] {
+  return actions.map((action, index) => {
+    const next = cloneMacroAction(action)
+    if (index < row.startIndex || index > row.endIndex) return next
+    if (row.source === 'key-hold') {
+      if ((next.kind === 'key-down' || next.kind === 'key-up') && patch.key !== undefined)
+        next.key = patch.key
+      if (next.kind === 'sleep' && patch.durationUs !== undefined)
+        next.durationUs = patch.durationUs
+      return next
+    }
+    if (row.source === 'mouse-hold') {
+      if (next.kind === 'mouse-down' || next.kind === 'mouse-up') {
+        if (patch.button !== undefined) next.button = patch.button
+        if (patch.point !== undefined) next.point = { ...patch.point }
+      }
+      if (next.kind === 'sleep' && patch.durationUs !== undefined)
+        next.durationUs = patch.durationUs
+      return next
+    }
+    return { ...next, ...patch, point: patch.point ? { ...patch.point } : next.point }
+  })
+}
+
+export function insertMacroActions(
+  actions: MacroAction[],
+  afterIndex: number,
+  additions: MacroAction[],
+): MacroAction[] {
+  const next = actions.map(cloneMacroAction)
+  const insertion = Math.max(0, Math.min(next.length, afterIndex + 1))
+  next.splice(insertion, 0, ...additions.map(cloneMacroAction))
+  return next
+}
+
+export function duplicateMacroRows(
+  actions: MacroAction[],
+  rows: MacroEditorRow[],
+  id: (sourceID: string, offset: number) => string,
+): MacroAction[] {
+  const sourceByID = new Map(actions.map((action) => [action.id, action]))
+  const ordered = [...rows].sort((left, right) => left.startIndex - right.startIndex)
+  const next = actions.map(cloneMacroAction)
+  const insertion = ordered.length
+    ? Math.max(...ordered.map((row) => row.endIndex)) + 1
+    : next.length
+  const copies: MacroAction[] = []
+  let offset = 0
+  for (const row of ordered) {
+    for (const actionID of row.actionIds) {
+      const source = sourceByID.get(actionID)
+      if (source) copies.push({ ...cloneMacroAction(source), id: id(source.id, offset++) })
+    }
+  }
+  next.splice(insertion, 0, ...copies)
+  return next
+}
+
+export function moveMacroRows(
+  actions: MacroAction[],
+  rows: MacroEditorRow[],
+  insertAt: number,
+): MacroAction[] {
+  const selected = new Set(rows.flatMap((row) => row.actionIds))
+  if (!selected.size) return actions.map(cloneMacroAction)
+  const boundary = Math.max(0, Math.min(actions.length, insertAt))
+  const insertion = actions.slice(0, boundary).filter((action) => !selected.has(action.id)).length
+  const moving = actions.filter((action) => selected.has(action.id)).map(cloneMacroAction)
+  const remaining = actions.filter((action) => !selected.has(action.id)).map(cloneMacroAction)
+  remaining.splice(insertion, 0, ...moving)
+  return remaining
+}
+
 export function duplicateMacroAction(
   actions: MacroAction[],
   index: number,
@@ -101,4 +265,15 @@ export function duplicateMacroAction(
 
 export function cloneMacroAction(action: MacroAction): MacroAction {
   return { ...action, point: action.point ? { ...action.point } : undefined }
+}
+
+function samePoint(left: MacroAction['point'], right: MacroAction['point']): boolean {
+  const clickJitterTolerance = 0.0025
+  return (
+    left !== undefined &&
+    right !== undefined &&
+    left.unit === right.unit &&
+    Math.abs(left.x - right.x) <= clickJitterTolerance &&
+    Math.abs(left.y - right.y) <= clickJitterTolerance
+  )
 }

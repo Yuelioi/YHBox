@@ -11,6 +11,7 @@ import type {
   DeleteSourceRequest,
   DeleteSourceResult,
   PatchView,
+  RunTimelineExportResult,
   RunView,
   SourcePage,
   SourceQuery,
@@ -100,6 +101,8 @@ export interface WorkflowTransport {
   cancelAllRuns(): Promise<void>
   getRunTimeline(runId: string): Promise<RunView>
   getRunTimelinePage(runId: string, page: number, pageSize: number): Promise<RunView>
+  chooseRunTimelineDestination(filename: string): Promise<string>
+  exportRunTimeline(runId: string, destination: string): Promise<RunTimelineExportResult>
   getAuthoringProjection(): Promise<string>
 }
 
@@ -178,6 +181,18 @@ export const workflowTransport: WorkflowTransport = {
   getRunTimeline: (runId) => invoke(WorkflowService.GetRunTimeline, runId),
   getRunTimelinePage: (runId, page, pageSize) =>
     invoke(WorkflowService.GetRunTimelinePage, runId, page, pageSize),
+  chooseRunTimelineDestination: (filename) =>
+    callRPC('workflow.chooseRunTimelineDestination', () =>
+      Dialogs.SaveFile({
+        Title: 'Export Run Timeline',
+        Filename: filename,
+        CanChooseFiles: true,
+        CanChooseDirectories: false,
+        Filters: [{ DisplayName: 'Yotta Run Timeline', Pattern: '*.json' }],
+      }),
+    ),
+  exportRunTimeline: (runId, destination) =>
+    invoke(WorkflowService.ExportRunTimeline, runId, destination),
   getAuthoringProjection: () => invoke(WorkflowService.GetAuthoringProjection),
 }
 
@@ -234,6 +249,7 @@ export type {
   DeleteSourceRequest,
   DeleteSourceResult,
   PatchView,
+  RunTimelineExportResult,
   RunView,
   SourcePage,
   SourceQuery,

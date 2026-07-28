@@ -1713,8 +1713,9 @@ func prepareAdmittedNodeContractUpgrade(node *schema.Node) {
 }
 
 // applyCompatibleNodeUpgrade advances a stale node reference only when the
-// current authoring projection is an additive-compatible replacement. It
-// never drops user config, bindings, or topology to make an upgrade fit.
+// current authoring projection can represent all existing authoring data and
+// topology. Missing required values remain compiler diagnostics; an incomplete
+// node must not keep a stale digest that hides its real repair.
 func applyCompatibleNodeUpgrade(_ *schema.WorkflowSource, graph *schema.Graph, node *schema.Node, base nodeauthoring.NodeProjection) error {
 	fields := make(map[string]nodeauthoring.FieldProjection, len(base.ConfigFields))
 	for _, field := range base.ConfigFields {
@@ -1797,10 +1798,6 @@ func applyCompatibleNodeUpgrade(_ *schema.WorkflowSource, graph *schema.Graph, n
 		}
 		if port.HasDefault {
 			node.Bindings[port.ID] = schema.InputBinding{Kind: schema.BindingDefault}
-			continue
-		}
-		if port.Binding == nodeauthoring.BindingRequired {
-			return fmt.Errorf("required input %q has no compatible default", port.ID)
 		}
 	}
 	node.NodeRef = projection.NodeRef

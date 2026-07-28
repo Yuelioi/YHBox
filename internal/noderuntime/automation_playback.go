@@ -133,7 +133,7 @@ func playInputClipTimeline(events []inputclip.Event, meta inputclip.ClipMeta, co
 }
 
 func readInputClip(ctx context.Context, invocation nodeadapter.Invocation) (*inputclip.InputClip, blob.BlobRef, error) {
-	carrier, ref, err := readPlaybackBlob(ctx, invocation, "clip", inputclip.MediaType, inputclip.MaxEncodedInputClipBytes)
+	carrier, ref, err := readBlobInput(ctx, invocation, "clip", inputclip.MediaType, inputclip.MaxEncodedInputClipBytes)
 	if err != nil {
 		return nil, blob.BlobRef{}, err
 	}
@@ -144,7 +144,7 @@ func readInputClip(ctx context.Context, invocation nodeadapter.Invocation) (*inp
 	return clip, ref, nil
 }
 
-func readPlaybackBlob(ctx context.Context, invocation nodeadapter.Invocation, inputID, mediaType string, maxBytes int) ([]byte, blob.BlobRef, error) {
+func readBlobInput(ctx context.Context, invocation nodeadapter.Invocation, inputID, mediaType string, maxBytes int) ([]byte, blob.BlobRef, error) {
 	input, ok := invocation.Inputs[inputID]
 	if !ok {
 		return nil, blob.BlobRef{}, fmt.Errorf("%s is missing", inputID)

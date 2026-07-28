@@ -43,6 +43,7 @@ const clickPointer = node('https://schemas.yotta.dev/nodes/automation/click-poin
 const pressKeys = node('https://schemas.yotta.dev/nodes/automation/press-keys')
 const typedSwitch = node('https://schemas.yotta.dev/nodes/control/switch')
 const playInputClip = node('https://schemas.yotta.dev/nodes/automation/play-input-clip')
+const aiExtract = node('https://schemas.yotta.dev/nodes/ai/extract')
 
 describe('EditorSession', () => {
   it('retracts the temporary turn-scale contract on load', async () => {
@@ -105,6 +106,53 @@ describe('EditorSession', () => {
 
     expect(session.currentGraph!.nodes[0]!.nodeRef).toEqual(concat.nodeRef)
     expect(session.dirty).toBe(true)
+  })
+
+  it('refreshes stale node contracts before saving and running an open editor session', async () => {
+    const source = emptySource()
+    const staleDigest = `sha256:${'c'.repeat(64)}`
+    source.graphs[0]!.nodes.push({
+      id: 'extract_old',
+      nodeRef: { ...aiExtract.nodeRef, semanticDigest: staleDigest },
+      position: { x: 0, y: 0 },
+      config: {
+        fields: [{ name: 'field1', type: 'string', description: '', nullable: false }],
+      },
+      bindings: {},
+    })
+    const staleAuthoring = structuredClone(authoring)
+    const staleExtract = staleAuthoring.body.nodes.find(
+      (candidate) => candidate.nodeRef.nodeTypeId === aiExtract.nodeRef.nodeTypeId,
+    )!
+    staleExtract.nodeRef.semanticDigest = staleDigest
+
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    vi.mocked(transport.getAuthoringProjection)
+      .mockResolvedValueOnce(JSON.stringify(staleAuthoring))
+      .mockResolvedValue(JSON.stringify(authoring))
+    transport.applyPatch = vi.fn(async (_workflowId, baseRevision, commands) => {
+      expect(commands.map((command: { kind: string }) => command.kind)).toEqual([
+        'upgrade-node-contract',
+        'rename-workflow',
+      ])
+      const upgraded = structuredClone(source)
+      upgraded.workflow.name = 'renamed'
+      upgraded.revision = baseRevision + 1
+      upgraded.graphs[0]!.nodes[0]!.nodeRef = structuredClone(aiExtract.nodeRef)
+      return { source: sourceView(upgraded), generatedNodes: [] }
+    })
+    const session = new EditorSession(transport)
+    await session.load(source.workflow.id)
+    expect(session.dirty).toBe(false)
+    session.apply({ kind: 'rename-workflow', name: 'renamed' })
+
+    await session.run()
+
+    const checked = JSON.parse(
+      vi.mocked(transport.checkDraft).mock.calls[0]![0],
+    ) as YottaWorkflowSource
+    expect(checked.graphs[0]!.nodes[0]!.nodeRef).toEqual(aiExtract.nodeRef)
+    expect(transport.startRun).toHaveBeenCalledOnce()
   })
 
   it('clears only a terminal run trace without mutating the workflow', () => {
@@ -2150,6 +2198,8 @@ function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
     cancelAllRuns: vi.fn(async () => undefined),
     getRunTimeline: vi.fn(async () => run),
     getRunTimelinePage: vi.fn(async () => run),
+    chooseRunTimelineDestination: vi.fn(async () => ''),
+    exportRunTimeline: vi.fn(async () => ({ path: '', entries: run.timelineTotal })),
     getAuthoringProjection: vi.fn(async () => JSON.stringify(authoring)),
   }
 }

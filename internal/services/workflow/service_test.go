@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -197,6 +198,30 @@ func TestServiceProjectsProductionWorkflowLifecycle(t *testing.T) {
 			t.Fatalf("Run remained %s", view.Status)
 		}
 		time.Sleep(10 * time.Millisecond)
+	}
+	timelinePath := filepath.Join(t.TempDir(), "run-timeline.json")
+	exported, err := service.ExportRunTimeline(started.Run.RunID, timelinePath)
+	if err != nil || exported.Path != timelinePath || exported.Entries != 4 {
+		t.Fatalf("ExportRunTimeline() = %#v, %v", exported, err)
+	}
+	raw, err := os.ReadFile(timelinePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var timelineExport struct {
+		Format  string `json:"format"`
+		Version string `json:"version"`
+		Run     struct {
+			Timeline      []workflow.TimelineEntry `json:"timeline"`
+			TimelineTotal int                      `json:"timelineTotal"`
+		} `json:"run"`
+	}
+	if err := json.Unmarshal(raw, &timelineExport); err != nil {
+		t.Fatal(err)
+	}
+	if timelineExport.Format != "yotta.run-timeline" || timelineExport.Version != "1" ||
+		len(timelineExport.Run.Timeline) != 4 || timelineExport.Run.TimelineTotal != 4 {
+		t.Fatalf("timeline export = %#v", timelineExport)
 	}
 	if err := service.CancelAllRuns(); err != nil {
 		t.Fatal(err)

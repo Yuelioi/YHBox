@@ -1,10 +1,15 @@
 package noderuntime
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
+	imagedraw "image/draw"
+	"image/jpeg"
+	"image/png"
 	"strings"
 
 	"github.com/yottaapp/yotta/internal/ai"
@@ -13,6 +18,12 @@ import (
 	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/runid"
+	"github.com/yottaapp/yotta/pkg/imageutil"
+)
+
+const (
+	maxAIImageSourceBytes = 32 << 20
+	maxAIImagePixels      = 16 << 20
 )
 
 func aiGenerate(builtins nodes.Builtins, structured bool) nodeadapter.Adapter {
@@ -40,7 +51,19 @@ func aiGenerate(builtins nodes.Builtins, structured bool) nodeadapter.Adapter {
 		if err := json.Unmarshal(promptEnvelope.InlineJSON(), &prompt); err != nil || prompt == "" {
 			return nodeadapter.AdapterResult{}, errors.New("AI prompt input must be a non-empty string")
 		}
-		request, err := aiRequest(invocation.Config, prompt, structured, promptManifest)
+		var imageInput *ai.ImageInput
+		if _, connected := invocation.Inputs["image"]; connected {
+			carrier, _, err := readBlobInput(ctx, invocation, "image", "image/png", maxAIImageSourceBytes)
+			if err != nil {
+				return nodeadapter.AdapterResult{}, fmt.Errorf("read AI image input: %w", err)
+			}
+			prepared, err := prepareAIImage(carrier)
+			if err != nil {
+				return nodeadapter.AdapterResult{}, err
+			}
+			imageInput = &prepared
+		}
+		request, err := aiRequest(invocation.Config, prompt, imageInput, structured, promptManifest)
 		if err != nil {
 			return nodeadapter.AdapterResult{}, err
 		}
@@ -106,7 +129,7 @@ func aiGenerate(builtins nodes.Builtins, structured bool) nodeadapter.Adapter {
 	}
 }
 
-func aiRequest(config map[string]any, prompt string, structured bool, manifest ai.PromptManifest) (ai.GenerateRequest, error) {
+func aiRequest(config map[string]any, prompt string, imageInput *ai.ImageInput, structured bool, manifest ai.PromptManifest) (ai.GenerateRequest, error) {
 	attemptID, err := runid.New()
 	if err != nil {
 		return ai.GenerateRequest{}, err
@@ -115,7 +138,7 @@ func aiRequest(config map[string]any, prompt string, structured bool, manifest a
 	if err != nil {
 		return ai.GenerateRequest{}, err
 	}
-	request := ai.GenerateRequest{AttemptID: attemptID, Prompt: rendered, Retention: ai.RetentionNoApplicationState}
+	request := ai.GenerateRequest{AttemptID: attemptID, Prompt: rendered, Image: imageInput, Retention: ai.RetentionNoApplicationState}
 	if value, exists := config["temperature"]; exists {
 		temperature, err := configFloat(value)
 		if err != nil {
@@ -131,11 +154,11 @@ func aiRequest(config map[string]any, prompt string, structured bool, manifest a
 		request.Limits.MaxOutputTokens = &maximum
 	}
 	if structured {
-		rawSchema, ok := config["schema"].(string)
+		fields, ok := config["fields"]
 		if !ok {
-			return ai.GenerateRequest{}, errors.New("AI Extract schema config is missing")
+			return ai.GenerateRequest{}, errors.New("AI Extract output fields are missing")
 		}
-		spec, err := ai.CompileStructuredOutput("result", json.RawMessage(rawSchema))
+		spec, err := ai.CompileStructuredFields("result", fields)
 		if err != nil {
 			return ai.GenerateRequest{}, err
 		}
@@ -147,6 +170,44 @@ func aiRequest(config map[string]any, prompt string, structured bool, manifest a
 	return request, nil
 }
 
+func prepareAIImage(content []byte) (ai.ImageInput, error) {
+	config, err := png.DecodeConfig(bytes.NewReader(content))
+	if err != nil || config.Width <= 0 || config.Height <= 0 ||
+		config.Height > maxAIImagePixels || config.Width > maxAIImagePixels/config.Height {
+		return ai.ImageInput{}, errors.Join(errors.New("AI image dimensions are invalid or too large"), err)
+	}
+	decoded, err := png.Decode(bytes.NewReader(content))
+	if err != nil {
+		return ai.ImageInput{}, fmt.Errorf("decode AI image: %w", err)
+	}
+	source := image.NewRGBA(image.Rect(0, 0, config.Width, config.Height))
+	imagedraw.Draw(source, source.Bounds(), decoded, decoded.Bounds().Min, imagedraw.Src)
+	for _, maximumDimension := range []int{1568, 1280, 1024} {
+		scaled := scaleAIImage(source, maximumDimension)
+		for _, quality := range []int{88, 78, 68, 58} {
+			var encoded bytes.Buffer
+			if err := jpeg.Encode(&encoded, scaled, &jpeg.Options{Quality: quality}); err != nil {
+				return ai.ImageInput{}, fmt.Errorf("encode AI image: %w", err)
+			}
+			if encoded.Len() <= ai.MaxImageInputBytes {
+				return ai.ImageInput{MediaType: "image/jpeg", Data: encoded.Bytes()}, nil
+			}
+		}
+	}
+	return ai.ImageInput{}, errors.New("AI image remains too large after safe resizing")
+}
+
+func scaleAIImage(source *image.RGBA, maximumDimension int) *image.RGBA {
+	width, height := source.Bounds().Dx(), source.Bounds().Dy()
+	if width <= maximumDimension && height <= maximumDimension {
+		return source
+	}
+	if width >= height {
+		return imageutil.ScaleRGBA(source, maximumDimension, max(1, height*maximumDimension/width))
+	}
+	return imageutil.ScaleRGBA(source, max(1, width*maximumDimension/height), maximumDimension)
+}
+
 func addAIRequestSummary(action *nodeadapter.AdapterAction, request ai.GenerateRequest) {
 	addFact(action.Facts, "prompt_manifest", request.Prompt.ManifestDigest.String())
 	addFact(action.Facts, "tool_set", request.ToolSet.String())
@@ -155,6 +216,13 @@ func addAIRequestSummary(action *nodeadapter.AdapterAction, request ai.GenerateR
 		if err == nil {
 			addFact(action.Facts, "output_schema", digest.String())
 		}
+	}
+	if request.Image != nil {
+		addFact(action.Facts, "image_media_type", request.Image.MediaType)
+		if action.Counters == nil {
+			action.Counters = map[string]int64{}
+		}
+		action.Counters["image_bytes"] = int64(len(request.Image.Data))
 	}
 }
 
