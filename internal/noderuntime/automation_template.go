@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"image"
 	"time"
 
 	"github.com/yottaapp/yotta/internal/artifact"
@@ -57,7 +58,7 @@ func automationTemplate(builtins nodes.Builtins, nodeTypeID string) nodeadapter.
 		}
 
 		wantPresent := nodeTypeID != nodes.WaitTemplateGoneNodeID
-		match, captures, err := waitForTemplateState(ctx, invocation, templateBytes, region, threshold, timeout, poll, wantPresent)
+		match, captures, err := waitForTemplateState(ctx, invocation, templateBytes, region, threshold, timeout, poll, wantPresent, counters)
 		counters["captures"] = int64(captures)
 		if err != nil {
 			return nodeadapter.AdapterResult{}, templateNodeFailure(err)
@@ -69,23 +70,23 @@ func automationTemplate(builtins nodes.Builtins, nodeTypeID string) nodeadapter.
 				if err := invocation.Wait(ctx, settle); err != nil {
 					return nodeadapter.AdapterResult{}, err
 				}
-				if relocated, _, relocateErr := captureAndMatch(ctx, invocation, templateBytes, region, threshold); relocateErr == nil && relocated.Matched {
+				if relocated, _, relocateErr := captureAndMatch(ctx, invocation, templateBytes, region, threshold, counters); relocateErr == nil && relocated.Matched {
 					match = relocated
 					counters["captures"]++
 				}
 			}
-			if err := emitTemplateMatchStatus(ctx, invocation, match.Matched, captures); err != nil {
+			if err := emitTemplateMatchStatus(ctx, invocation, match.Matched, counters); err != nil {
 				return nodeadapter.AdapterResult{}, err
 			}
 			return templateResult(builtins, invocation, match, choose(match.Matched, "found", "timeout"))
 		case nodes.WaitTemplateGoneNodeID:
-			if err := emitTemplateMatchStatus(ctx, invocation, !match.Matched, captures); err != nil {
+			if err := emitTemplateMatchStatus(ctx, invocation, !match.Matched, counters); err != nil {
 				return nodeadapter.AdapterResult{}, err
 			}
 			return templateResult(builtins, invocation, match, choose(!match.Matched, "gone", "timeout"))
 		case nodes.ClickTemplateNodeID:
 			if !match.Matched {
-				if err := emitTemplateMatchStatus(ctx, invocation, false, captures); err != nil {
+				if err := emitTemplateMatchStatus(ctx, invocation, false, counters); err != nil {
 					return nodeadapter.AdapterResult{}, err
 				}
 				return templateResult(builtins, invocation, match, "timeout")
@@ -94,13 +95,13 @@ func automationTemplate(builtins nodes.Builtins, nodeTypeID string) nodeadapter.
 				if err := invocation.Wait(ctx, settle); err != nil {
 					return nodeadapter.AdapterResult{}, err
 				}
-				relocated, _, relocateErr := captureAndMatch(ctx, invocation, templateBytes, region, threshold)
+				relocated, _, relocateErr := captureAndMatch(ctx, invocation, templateBytes, region, threshold, counters)
 				if relocateErr != nil {
 					return nodeadapter.AdapterResult{}, templateNodeFailure(relocateErr)
 				}
 				counters["captures"]++
 				if !relocated.Matched {
-					if err := emitTemplateMatchStatus(ctx, invocation, false, captures); err != nil {
+					if err := emitTemplateMatchStatus(ctx, invocation, false, counters); err != nil {
 						return nodeadapter.AdapterResult{}, err
 					}
 					return templateResult(builtins, invocation, relocated, "timeout")
@@ -111,7 +112,7 @@ func automationTemplate(builtins nodes.Builtins, nodeTypeID string) nodeadapter.
 				return nodeadapter.AdapterResult{}, err
 			}
 			counters["clicks"] = 1
-			if err := emitTemplateMatchStatus(ctx, invocation, true, captures); err != nil {
+			if err := emitTemplateMatchStatus(ctx, invocation, true, counters); err != nil {
 				return nodeadapter.AdapterResult{}, err
 			}
 			return templateResult(builtins, invocation, match, "completed")
@@ -121,12 +122,16 @@ func automationTemplate(builtins nodes.Builtins, nodeTypeID string) nodeadapter.
 	}
 }
 
-func emitTemplateMatchStatus(ctx context.Context, invocation nodeadapter.Invocation, matched bool, captures int) error {
+func emitTemplateMatchStatus(ctx context.Context, invocation nodeadapter.Invocation, matched bool, counters map[string]int64) error {
 	code := nodes.AutomationTemplateTimeoutStatus
 	if matched {
 		code = nodes.AutomationTemplateMatchedStatus
 	}
-	return emitTemplateStatus(ctx, invocation, code, map[string]int64{"captures": int64(captures)})
+	statusCounters := make(map[string]int64, len(counters))
+	for name, value := range counters {
+		statusCounters[name] = value
+	}
+	return emitTemplateStatus(ctx, invocation, code, statusCounters)
 }
 
 func emitTemplateStatus(ctx context.Context, invocation nodeadapter.Invocation, code string, counters map[string]int64) error {
@@ -177,9 +182,9 @@ func templateDurations(invocation nodeadapter.Invocation, nodeTypeID string) (ti
 	return time.Duration(timeoutMillis) * time.Millisecond, poll, settle, nil
 }
 
-func waitForTemplateState(ctx context.Context, invocation nodeadapter.Invocation, templateBytes []byte, region visionRegion, threshold float64, timeout, poll time.Duration, wantPresent bool) (visionMatchResult, int, error) {
+func waitForTemplateState(ctx context.Context, invocation nodeadapter.Invocation, templateBytes []byte, region visionRegion, threshold float64, timeout, poll time.Duration, wantPresent bool, counters map[string]int64) (visionMatchResult, int, error) {
 	return pollTemplateState(ctx, invocation.Wait, timeout, poll, wantPresent, func(observeCtx context.Context) (visionMatchResult, error) {
-		match, _, err := captureAndMatch(observeCtx, invocation, templateBytes, region, threshold)
+		match, _, err := captureAndMatch(observeCtx, invocation, templateBytes, region, threshold, counters)
 		return match, err
 	})
 }
@@ -205,55 +210,79 @@ func pollTemplateState(ctx context.Context, wait func(context.Context, time.Dura
 	return match, captures, nil
 }
 
-func captureAndMatch(ctx context.Context, invocation nodeadapter.Invocation, templateBytes []byte, region visionRegion, threshold float64) (visionMatchResult, int64, error) {
-	frame, err := captureTemplateFrame(ctx, invocation)
+func captureAndMatch(ctx context.Context, invocation nodeadapter.Invocation, templateBytes []byte, region visionRegion, threshold float64, counters map[string]int64) (visionMatchResult, int64, error) {
+	captureStarted := time.Now()
+	frame, captureBytes, err := captureTemplateFrame(ctx, invocation)
+	counters["capture_ms"] += time.Since(captureStarted).Milliseconds()
 	if err != nil {
 		return visionMatchResult{}, 0, err
 	}
-	match, err := matchTemplateBytes(frame, templateBytes, region, threshold)
-	return match, int64(len(frame)), err
+	counters["capture_bytes"] += captureBytes
+	matchStarted := time.Now()
+	match, err := matchTemplateFrame(frame, templateBytes, region, threshold)
+	counters["match_ms"] += time.Since(matchStarted).Milliseconds()
+	return match, captureBytes, err
 }
 
-func captureTemplateFrame(ctx context.Context, invocation nodeadapter.Invocation) (_ []byte, runErr error) {
+func captureTemplateFrame(ctx context.Context, invocation nodeadapter.Invocation) (_ *image.RGBA, captureBytes int64, runErr error) {
 	session := invocation.Sessions["capture-target"]
 	if session == nil {
-		return nil, templateFailure(installed.CodeContractViolation, errors.New("template capture capability session is missing"))
+		return nil, 0, templateFailure(installed.CodeContractViolation, errors.New("template capture capability session is missing"))
 	}
 	handle, err := session.Open(ctx, installed.CaptureOperations(), []byte(`{}`))
 	if err != nil {
-		return nil, mapAutomationFailure(err)
+		return nil, 0, mapAutomationFailure(err)
 	}
 	defer func() { runErr = errors.Join(runErr, session.Drop(context.WithoutCancel(ctx), handle)) }()
-	rawResponse, err := session.Invoke(ctx, handle, installed.OperationCapture, []byte(`{}`))
+	request, err := artifact.Marshal(installed.CaptureRequest{Format: installed.CaptureFormatRGBA})
 	if err != nil {
-		return nil, mapAutomationFailure(err)
+		return nil, 0, templateFailure(installed.CodeContractViolation, err)
+	}
+	rawResponse, err := session.Invoke(ctx, handle, installed.OperationCapture, request)
+	if err != nil {
+		return nil, 0, mapAutomationFailure(err)
 	}
 	response, err := installed.OpenCaptureResponse(rawResponse)
 	if err != nil {
-		return nil, mapAutomationFailure(err)
+		return nil, 0, mapAutomationFailure(err)
 	}
-	if response.MediaType != "image/png" || response.Size <= 0 || response.Size > maxVisionBlobBytes {
-		return nil, templateFailure(installed.CodeContractViolation, errors.New("template capture must be a bounded image/png"))
+	if response.Size <= 0 || response.Size > installed.MaxCaptureBytes {
+		return nil, 0, templateFailure(installed.CodeContractViolation, errors.New("template capture exceeds its byte budget"))
 	}
 	var content bytes.Buffer
 	content.Grow(int(response.Size))
 	for offset := int64(0); offset < response.Size; {
-		length := min(captureChunkBytes, response.Size-offset)
+		length := min(installed.MaxCaptureChunkBytes, response.Size-offset)
 		payload, err := artifact.Marshal(installed.CaptureRangeRequest{Offset: offset, Length: length})
 		if err != nil {
-			return nil, templateFailure(installed.CodeContractViolation, err)
+			return nil, 0, templateFailure(installed.CodeContractViolation, err)
 		}
 		chunk, err := session.Invoke(ctx, handle, installed.OperationReadCapture, payload)
 		if err != nil {
-			return nil, mapAutomationFailure(err)
+			return nil, 0, mapAutomationFailure(err)
 		}
 		if int64(len(chunk)) != length {
-			return nil, templateFailure(installed.CodeContractViolation, errors.New("capture provider returned an invalid chunk length"))
+			return nil, 0, templateFailure(installed.CodeContractViolation, errors.New("capture provider returned an invalid chunk length"))
 		}
 		_, _ = content.Write(chunk)
 		offset += length
 	}
-	return content.Bytes(), nil
+	switch response.MediaType {
+	case installed.CaptureMediaTypeRGBA:
+		pixels := content.Bytes()
+		return &image.RGBA{
+			Pix: pixels, Stride: int(response.Width * 4),
+			Rect: image.Rect(0, 0, int(response.Width), int(response.Height)),
+		}, response.Size, nil
+	case "image/png":
+		frame, err := decodeVisionPNG(content.Bytes())
+		if err != nil {
+			return nil, 0, templateFailure(nodes.VisionImageInvalidCode, err)
+		}
+		return frame, response.Size, nil
+	default:
+		return nil, 0, templateFailure(installed.CodeContractViolation, errors.New("template capture returned an unsupported media type"))
+	}
 }
 
 func clickTemplateMatch(ctx context.Context, invocation nodeadapter.Invocation, match visionMatchResult) (runErr error) {

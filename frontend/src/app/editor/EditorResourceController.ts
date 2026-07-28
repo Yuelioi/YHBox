@@ -124,7 +124,7 @@ export function createEditorResourceController(
 
   async function saveWorkflowMacro(): Promise<boolean> {
     const editing = workflowMacroEditing.value
-    if (!editing || !workflowMacroEditValid.value) return false
+    if (!editing || !workflowMacroEditValid.value || !editing.resource.name.trim()) return false
     workflowResourceEditBusy.value = true
     try {
       const updated = await options.port.rewriteWorkflow(copy(editing.resource), {

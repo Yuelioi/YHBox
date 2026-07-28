@@ -1,7 +1,12 @@
 package noderuntime
 
 import (
+	"bytes"
 	"encoding/json"
+	"image"
+	"image/color"
+	"image/jpeg"
+	"image/png"
 	"strings"
 	"testing"
 
@@ -33,14 +38,19 @@ func TestAIRequestSummaryRecordsCompleteArtifactLineage(t *testing.T) {
 		t.Fatal(err)
 	}
 	action := nodeadapter.AdapterAction{Facts: map[string]string{}}
-	addAIRequestSummary(&action, ai.GenerateRequest{Prompt: rendered, Output: &output, ToolSet: toolSet.Digest()})
+	addAIRequestSummary(&action, ai.GenerateRequest{
+		Prompt: rendered, Image: &ai.ImageInput{MediaType: "image/jpeg", Data: []byte("image")},
+		Output: &output, ToolSet: toolSet.Digest(),
+	})
 	outputDigest, err := output.Digest()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if action.Facts["prompt_manifest"] != manifest.Digest().String() ||
 		action.Facts["output_schema"] != outputDigest.String() ||
-		action.Facts["tool_set"] != toolSet.Digest().String() {
+		action.Facts["tool_set"] != toolSet.Digest().String() ||
+		action.Facts["image_media_type"] != "image/jpeg" ||
+		action.Counters["image_bytes"] != 5 {
 		t.Fatalf("AI request lineage = %#v", action.Facts)
 	}
 	for _, leaked := range []string{"Trusted instructions.", "untrusted input", string(schema)} {
@@ -52,16 +62,63 @@ func TestAIRequestSummaryRecordsCompleteArtifactLineage(t *testing.T) {
 	}
 }
 
-func TestAgentToolTurnRejectsPartialOrMixedProviderOutput(t *testing.T) {
-	call := ai.OutputItem{Kind: ai.OutputToolCall, ToolCall: &ai.ToolCall{CallID: "call-1", Name: "tool", Arguments: json.RawMessage(`{}`)}}
-	text := ai.OutputItem{Kind: ai.OutputText, Text: &ai.TextOutput{Text: "partial"}}
-	for _, outcome := range []ai.Outcome{
-		{Finish: ai.Finish{Kind: ai.FinishToolCalls}},
-		{Finish: ai.Finish{Kind: ai.FinishToolCalls}, Items: []ai.OutputItem{call, text}},
-		{Finish: ai.Finish{Kind: ai.FinishCompleted}, Items: []ai.OutputItem{call}},
-	} {
-		if _, err := agentToolCalls(outcome); err == nil {
-			t.Fatalf("accepted partial Agent outcome %#v", outcome)
+func TestAIRequestCompilesFriendlyFieldsIntoStrictSchema(t *testing.T) {
+	manifest, err := ai.SealPromptManifest(ai.PromptManifestDraft{
+		ID: "yotta.test.extract", Version: "1.0.0", Owner: "tests", Instructions: "Extract.",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request, err := aiRequest(map[string]any{
+		"fields": []any{
+			map[string]any{"name": "title", "type": "string", "description": "Short title"},
+			map[string]any{"name": "score", "type": "number", "nullable": true},
+		},
+	}, "extract values", nil, true, manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if request.Output == nil {
+		t.Fatal("structured output was not compiled")
+	}
+	var schema map[string]any
+	if err := json.Unmarshal(request.Output.Schema, &schema); err != nil {
+		t.Fatal(err)
+	}
+	properties := schema["properties"].(map[string]any)
+	if properties["title"].(map[string]any)["type"] != "string" {
+		t.Fatalf("title schema = %#v", properties["title"])
+	}
+	if len(properties["score"].(map[string]any)["anyOf"].([]any)) != 2 {
+		t.Fatalf("nullable score schema = %#v", properties["score"])
+	}
+}
+
+func TestPrepareAIImageProducesBoundedProviderInput(t *testing.T) {
+	source := image.NewRGBA(image.Rect(0, 0, 1920, 1080))
+	for y := 0; y < source.Bounds().Dy(); y++ {
+		for x := 0; x < source.Bounds().Dx(); x++ {
+			source.SetRGBA(x, y, color.RGBA{
+				R: uint8((x + y) % 255), G: uint8((x*3 + y) % 255), B: uint8((x + y*5) % 255), A: 255,
+			})
 		}
+	}
+	var encoded bytes.Buffer
+	if err := png.Encode(&encoded, source); err != nil {
+		t.Fatal(err)
+	}
+	prepared, err := prepareAIImage(encoded.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if prepared.MediaType != "image/jpeg" || len(prepared.Data) == 0 || len(prepared.Data) > ai.MaxImageInputBytes {
+		t.Fatalf("prepared AI image = type %q, bytes %d", prepared.MediaType, len(prepared.Data))
+	}
+	config, err := jpeg.DecodeConfig(bytes.NewReader(prepared.Data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.Width > 1568 || config.Height > 1568 {
+		t.Fatalf("prepared AI image dimensions = %dx%d", config.Width, config.Height)
 	}
 }

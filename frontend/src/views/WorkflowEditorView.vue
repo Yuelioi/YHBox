@@ -651,8 +651,10 @@
         :node-labels="debugNodeLabels"
         :unhandled-routes="unhandledRunRoutes"
         :diagnostics="session.diagnostics"
+        :timeline-exporting="timelineExporting"
         @cancel="editorRuns.execute({ kind: 'cancel' })"
         @refresh="editorRuns.execute({ kind: 'refresh' })"
+        @export-timeline="exportRunTimeline"
         @page="(page) => editorRuns.execute({ kind: 'load-timeline-page', page })"
         @focus-node="focusNode"
         @focus="focusDiagnostic"
@@ -1076,6 +1078,16 @@
       @update:open="(open) => !open && (macroEditing = null)"
     >
       <div v-if="macroEditing" class="flex h-full min-h-0 flex-col gap-3">
+        <div class="shrink-0 space-y-3 rounded-lg border border-default bg-elevated/20 p-3">
+          <RecordingMetadataFields
+            v-model:name="macroEditing.label"
+            v-model:description="macroEditing.description"
+            v-model:category="macroEditing.category"
+            v-model:tags="macroEditing.tags"
+            :categories="macroMetadataCategories"
+            :tag-suggestions="macroMetadataTags"
+          />
+        </div>
         <div
           class="flex shrink-0 items-center gap-3 rounded-lg border border-default bg-elevated/25 px-3 py-2 text-xs text-muted"
         >
@@ -1102,7 +1114,7 @@
         <UButton
           icon="i-tabler-device-floppy"
           :loading="macroEditBusy"
-          :disabled="!macroEditValid"
+          :disabled="!macroEditValid || !macroEditing?.label.trim()"
           @click="saveMacro"
         >
           {{ t('common.save') }}
@@ -1118,6 +1130,16 @@
       @update:open="(open) => !open && (workflowMacroEditing = null)"
     >
       <div v-if="workflowMacroEditing" class="flex h-full min-h-0 flex-col gap-3">
+        <div class="shrink-0 space-y-3 rounded-lg border border-default bg-elevated/20 p-3">
+          <RecordingMetadataFields
+            v-model:name="workflowMacroEditing.resource.name"
+            v-model:description="workflowMacroEditing.resource.description"
+            v-model:category="workflowMacroEditing.resource.category"
+            v-model:tags="workflowMacroEditing.resource.tags"
+            :categories="macroMetadataCategories"
+            :tag-suggestions="macroMetadataTags"
+          />
+        </div>
         <div
           class="flex shrink-0 items-center gap-3 rounded-lg border border-default bg-elevated/25 px-3 py-2 text-xs text-muted"
         >
@@ -1144,7 +1166,7 @@
         <UButton
           icon="i-tabler-device-floppy"
           :loading="workflowResourceEditBusy"
-          :disabled="!workflowMacroEditValid"
+          :disabled="!workflowMacroEditValid || !workflowMacroEditing?.resource.name.trim()"
           @click="saveWorkflowMacro"
         >
           {{ t('common.save') }}
@@ -1479,6 +1501,7 @@ const connectionError = ref('')
 const minimapOpen = ref(false)
 const runtimeWorkbenchOpen = ref(false)
 const runtimeWorkbenchTab = ref<EditorRuntimeWorkbenchTab>('logs')
+const timelineExporting = ref(false)
 const diagnosticsOpen = computed(
   () => runtimeWorkbenchOpen.value && runtimeWorkbenchTab.value === 'diagnostics',
 )
@@ -1534,6 +1557,29 @@ const {
   workflowClipPreview,
   workflowClipTrimChanged,
 } = editorResources
+const macroMetadataCategories = computed(() =>
+  [
+    ...new Set(
+      [
+        ...recordingEditor.facetCategories,
+        ...(session.source?.resources ?? []).map((resource) => resource.category),
+      ]
+        .map((value) => value?.trim() ?? '')
+        .filter(Boolean),
+    ),
+  ].sort((left, right) => left.localeCompare(right)),
+)
+const macroMetadataTags = computed(() =>
+  [
+    ...new Set([
+      ...recordingEditor.facetTags,
+      ...(session.source?.resources ?? []).flatMap((resource) => resource.tags ?? []),
+    ]),
+  ]
+    .map((value) => value?.trim() ?? '')
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right)),
+)
 const templateCaptureOpen = ref(false)
 const captureTargetSlot = ref('')
 const templateCaptureBusy = ref(false)
@@ -3915,6 +3961,24 @@ function toggleRuntimeWorkbench(tab: EditorRuntimeWorkbenchTab): void {
     return
   }
   openRuntimeWorkbench(tab)
+}
+
+async function exportRunTimeline(): Promise<void> {
+  const run = session.activeRun
+  if (!run || timelineExporting.value) return
+  const destination = await workflowTransport.chooseRunTimelineDestination(
+    `yotta-run-${run.runId}.json`,
+  )
+  if (!destination) return
+  timelineExporting.value = true
+  try {
+    const result = await workflowTransport.exportRunTimeline(run.runId, destination)
+    showSuccess(t('workflow.timeline.export_succeeded', { count: result.entries }))
+  } catch (error) {
+    showError(t('workflow.timeline.export_failed'), error)
+  } finally {
+    timelineExporting.value = false
+  }
 }
 
 async function focusDiagnostic(diagnostic: WorkflowDiagnostic): Promise<void> {

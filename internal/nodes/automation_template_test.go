@@ -32,13 +32,20 @@ func TestAutomationTemplateContractsUseExplicitBlobAndExactTargetCapabilities(t 
 			t.Fatalf("template contract %q = %#v", test.id, machine)
 		}
 		inputs := make(map[string]bool, len(machine.Ports.DataInputs))
+		defaults := make(map[string]string, len(machine.Ports.DataInputs))
 		for _, input := range machine.Ports.DataInputs {
 			inputs[input.ID] = input.Required
+			if input.Default != nil {
+				defaults[input.ID] = string(*input.Default)
+			}
 		}
 		for _, id := range []string{"template", "region", "threshold", "timeout", "poll-interval"} {
 			if !inputs[id] {
 				t.Fatalf("template contract %q omitted required input %q", test.id, id)
 			}
+		}
+		if test.id != WaitTemplateGoneNodeID && defaults["settle-duration"] != "0" {
+			t.Fatalf("template contract %q settle default = %q, want 0", test.id, defaults["settle-duration"])
 		}
 		for _, requirement := range machine.CapabilityRequirements {
 			if requirement.ID == "capture-target" || requirement.ID == "input-target" {

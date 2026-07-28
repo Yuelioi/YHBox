@@ -3,6 +3,7 @@ package ai
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -133,7 +134,30 @@ type openAIChatRequest struct {
 
 type openAIChatMessage struct {
 	Role    string `json:"role"`
-	Content string `json:"content"`
+	Content any    `json:"content"`
+}
+
+type openAIResponsesMessage struct {
+	Role    string                       `json:"role"`
+	Content []openAIResponsesContentPart `json:"content"`
+}
+
+type openAIResponsesContentPart struct {
+	Type     string `json:"type"`
+	Text     string `json:"text,omitempty"`
+	ImageURL string `json:"image_url,omitempty"`
+	Detail   string `json:"detail,omitempty"`
+}
+
+type openAIChatContentPart struct {
+	Type     string              `json:"type"`
+	Text     string              `json:"text,omitempty"`
+	ImageURL *openAIChatImageURL `json:"image_url,omitempty"`
+}
+
+type openAIChatImageURL struct {
+	URL    string `json:"url"`
+	Detail string `json:"detail,omitempty"`
 }
 
 type openAIChatResponseFormat struct {
@@ -244,6 +268,45 @@ type providerError struct {
 	Message string `json:"message"`
 }
 
+func openAIResponsesInput(text string, image *ImageInput) any {
+	if image == nil {
+		return text
+	}
+	return []openAIResponsesMessage{{
+		Role: "user",
+		Content: []openAIResponsesContentPart{
+			{Type: "input_image", ImageURL: imageDataURL(*image), Detail: "auto"},
+			{Type: "input_text", Text: text},
+		},
+	}}
+}
+
+func openAIChatInput(text string, image *ImageInput) any {
+	if image == nil {
+		return text
+	}
+	return []openAIChatContentPart{
+		{Type: "image_url", ImageURL: &openAIChatImageURL{URL: imageDataURL(*image), Detail: "auto"}},
+		{Type: "text", Text: text},
+	}
+}
+
+func anthropicUserInput(text string, image *ImageInput) any {
+	if image == nil {
+		return text
+	}
+	return []any{
+		anthropicImageBlock{Type: "image", Source: anthropicImageSource{
+			Type: "base64", MediaType: image.MediaType, Data: base64.StdEncoding.EncodeToString(image.Data),
+		}},
+		anthropicTextBlock{Type: "text", Text: text},
+	}
+}
+
+func imageDataURL(image ImageInput) string {
+	return "data:" + image.MediaType + ";base64," + base64.StdEncoding.EncodeToString(image.Data)
+}
+
 func (p *nativeProvider) generateOpenAI(ctx context.Context, credential string, request GenerateRequest, profile ModelProfileDraft) (Outcome, error) {
 	manifest, err := request.Prompt.OpenManifest()
 	if err != nil {
@@ -254,7 +317,7 @@ func (p *nativeProvider) generateOpenAI(ctx context.Context, credential string, 
 		return Outcome{}, contractFailure(err.Error())
 	}
 	payload := openAIRequest{
-		Model: profile.Model, Instructions: manifest.Machine().Instructions, Input: input,
+		Model: profile.Model, Instructions: manifest.Machine().Instructions, Input: openAIResponsesInput(input, request.Image),
 		Store: request.Retention == RetentionProviderDefault, Temperature: request.Limits.Temperature,
 		MaxOutputTokens: boundedOutputTokens(request.Limits.MaxOutputTokens, profile.MaxOutputTokens),
 	}
@@ -284,7 +347,7 @@ func (p *nativeProvider) generateOpenAIChat(ctx context.Context, credential stri
 		Model: profile.Model,
 		Messages: []openAIChatMessage{
 			{Role: "system", Content: manifest.Machine().Instructions},
-			{Role: "user", Content: input},
+			{Role: "user", Content: openAIChatInput(input, request.Image)},
 		},
 		Temperature: request.Limits.Temperature,
 		MaxTokens:   boundedOutputTokens(request.Limits.MaxOutputTokens, profile.MaxOutputTokens),
@@ -681,6 +744,22 @@ type anthropicInput struct {
 	Content any    `json:"content"`
 }
 
+type anthropicImageBlock struct {
+	Type   string               `json:"type"`
+	Source anthropicImageSource `json:"source"`
+}
+
+type anthropicImageSource struct {
+	Type      string `json:"type"`
+	MediaType string `json:"media_type"`
+	Data      string `json:"data"`
+}
+
+type anthropicTextBlock struct {
+	Type string `json:"type"`
+	Text string `json:"text"`
+}
+
 type anthropicTool struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
@@ -744,7 +823,7 @@ func (p *nativeProvider) generateAnthropic(ctx context.Context, credential strin
 	}
 	payload := anthropicRequest{
 		Model: profile.Model, MaxTokens: boundedOutputTokens(request.Limits.MaxOutputTokens, profile.MaxOutputTokens),
-		System: manifest.Machine().Instructions, Messages: []anthropicInput{{Role: "user", Content: input}}, Temperature: request.Limits.Temperature,
+		System: manifest.Machine().Instructions, Messages: []anthropicInput{{Role: "user", Content: anthropicUserInput(input, request.Image)}}, Temperature: request.Limits.Temperature,
 	}
 	if request.Output != nil {
 		payload.OutputConfig = &anthropicOutputConfig{Format: anthropicFormat{Type: "json_schema", Schema: request.Output.Schema}}

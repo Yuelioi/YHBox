@@ -3,13 +3,10 @@
 package installed
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"image"
-	"image/draw"
-	"image/png"
 	"slices"
 	"sync"
 	"time"
@@ -85,9 +82,7 @@ func (a controllerCaptureAdapter) Frame(hwnd uintptr) (controller.Frame, error) 
 		return controller.Frame{}, err
 	}
 	bounds := frame.Bounds()
-	rgba := image.NewRGBA(bounds)
-	draw.Draw(rgba, bounds, frame, bounds.Min, draw.Src)
-	return controller.Frame{Image: rgba, Space: target.SpaceWindowClient, Size: target.Size{W: bounds.Dx(), H: bounds.Dy()}}, nil
+	return controller.Frame{Image: frame, Space: target.SpaceWindowClient, Size: target.Size{W: bounds.Dx(), H: bounds.Dy()}}, nil
 }
 
 func PlatformSupported() bool { return true }
@@ -134,6 +129,21 @@ func (d *windowsDriver) ResolveTarget(ctx context.Context) (target.Target, error
 }
 
 func (d *windowsDriver) Capture(ctx context.Context) ([]byte, error) {
+	frame, err := d.CaptureFrame(ctx)
+	if err != nil {
+		return nil, err
+	}
+	encoded, err := encodeCapturePNG(frame)
+	if err != nil {
+		return nil, failure(CodeCaptureFailed, err)
+	}
+	if int64(len(encoded)) > MaxCaptureBytes {
+		return nil, failure(CodeCaptureFailed, errors.New("captured PNG exceeds byte budget"))
+	}
+	return encoded, nil
+}
+
+func (d *windowsDriver) CaptureFrame(ctx context.Context) (*image.RGBA, error) {
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -158,14 +168,7 @@ func (d *windowsDriver) Capture(ctx context.Context) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	var encoded bytes.Buffer
-	if err := png.Encode(&encoded, frame.Image); err != nil {
-		return nil, failure(CodeCaptureFailed, err)
-	}
-	if int64(encoded.Len()) > MaxCaptureBytes {
-		return nil, failure(CodeCaptureFailed, errors.New("captured PNG exceeds byte budget"))
-	}
-	return encoded.Bytes(), nil
+	return frame.Image, nil
 }
 
 func (d *windowsDriver) controller(window winutil.WindowHandle) (*controller.Win32Controller, error) {

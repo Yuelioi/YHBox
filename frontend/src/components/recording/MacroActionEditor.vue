@@ -1,11 +1,35 @@
 <template>
-  <section class="overflow-hidden rounded-xl border border-default bg-default">
-    <header class="flex flex-wrap items-center gap-2 border-b border-default bg-elevated/25 p-3">
+  <section
+    class="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-default bg-default"
+  >
+    <header
+      class="flex shrink-0 flex-wrap items-center gap-2 border-b border-default bg-elevated/25 p-3"
+    >
       <div class="min-w-48 flex-1">
         <h3 class="text-sm font-semibold text-highlighted">{{ t('macroEditor.title') }}</h3>
-        <p class="mt-0.5 text-xs text-muted">
-          {{ t('macroEditor.summary', { count: modelValue.length, duration: durationLabel }) }}
-        </p>
+        <p class="mt-0.5 text-xs text-muted">{{ summaryLabel }}</p>
+      </div>
+      <div
+        class="flex items-center rounded-lg border border-default bg-default p-0.5"
+        role="group"
+        :aria-label="t('macroEditor.view_mode')"
+      >
+        <UButton
+          size="xs"
+          color="neutral"
+          :variant="viewMode === 'simple' ? 'soft' : 'ghost'"
+          :aria-pressed="viewMode === 'simple'"
+          :label="t('macroEditor.simple_view')"
+          @click="viewMode = 'simple'"
+        />
+        <UButton
+          size="xs"
+          color="neutral"
+          :variant="viewMode === 'atomic' ? 'soft' : 'ghost'"
+          :aria-pressed="viewMode === 'atomic'"
+          :label="t('macroEditor.atomic_view')"
+          @click="viewMode = 'atomic'"
+        />
       </div>
       <UInput
         v-model="search"
@@ -15,22 +39,22 @@
         :placeholder="t('macroEditor.search')"
       />
       <UDropdownMenu :items="addMenuItems">
-        <UButton size="sm" icon="i-tabler-plus" :label="t('macroEditor.add')" />
+        <UButton size="sm" icon="i-tabler-plus" :label="addButtonLabel" />
       </UDropdownMenu>
     </header>
 
     <div
       v-if="analysis.issues.length"
-      class="flex items-start gap-2 border-b border-error/30 bg-error/10 px-3 py-2 text-xs text-error"
+      class="flex shrink-0 items-start gap-2 border-b border-error/30 bg-error/10 px-3 py-2 text-xs text-error"
       role="alert"
     >
       <UIcon name="i-tabler-alert-triangle" class="mt-0.5 size-4 shrink-0" />
       <span>{{ issueMessage }}</span>
     </div>
 
-    <div v-if="visibleActions.length" class="max-h-[28rem] overflow-auto">
+    <div v-if="visibleRows.length" class="min-h-0 flex-1 overflow-auto">
       <div
-        class="sticky top-0 z-10 grid min-w-[900px] grid-cols-[2.25rem_3rem_8rem_minmax(18rem,1fr)_8rem_3rem] items-center gap-2 border-b border-default bg-elevated px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-dimmed"
+        class="sticky top-0 z-10 grid min-w-[940px] grid-cols-[2.25rem_3rem_8rem_minmax(18rem,1fr)_8rem_5rem] items-center gap-2 border-b border-default bg-elevated px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-dimmed"
       >
         <UCheckbox
           :model-value="allVisibleSelected"
@@ -44,137 +68,193 @@
         <span />
       </div>
       <article
-        v-for="entry in visibleActions"
-        :key="entry.action.id"
-        class="grid min-h-12 min-w-[900px] grid-cols-[2.25rem_3rem_8rem_minmax(18rem,1fr)_8rem_3rem] items-center gap-2 border-b border-default/70 px-3 py-2 hover:bg-elevated/35"
-        :class="dragOverIndex === entry.index ? 'bg-primary/10' : ''"
-        :draggable="!search.trim()"
-        @dragstart="beginDrag(entry.index)"
-        @dragover.prevent="dragOverIndex = entry.index"
-        @dragleave="dragOverIndex = -1"
-        @drop.prevent="dropAt(entry.index)"
-        @dragend="endDrag"
+        v-for="entry in visibleRows"
+        :key="entry.row.id"
+        class="grid min-h-12 min-w-[940px] grid-cols-[2.25rem_3rem_8rem_minmax(18rem,1fr)_8rem_5rem] items-center gap-2 border-b border-default/70 px-3 py-2 transition-colors hover:bg-elevated/35"
+        :class="[
+          selected.has(entry.row.id) ? 'bg-primary/5' : '',
+          dragTarget?.rowId === entry.row.id ? 'ring-1 ring-inset ring-primary/70' : '',
+        ]"
+        @dragover.prevent="continueDrag(entry.row, $event)"
+        @drop.prevent="dropRows"
       >
         <UCheckbox
-          :model-value="selected.has(entry.action.id)"
-          :aria-label="t('macroEditor.select_action', { n: entry.index + 1 })"
-          @update:model-value="toggle(entry.action.id, Boolean($event))"
+          :model-value="selected.has(entry.row.id)"
+          :aria-label="t('macroEditor.select_action', { n: entry.position + 1 })"
+          @update:model-value="toggle(entry.row.id, Boolean($event))"
         />
         <span class="flex items-center gap-1 font-mono text-[10px] text-dimmed">
-          <UIcon
-            name="i-tabler-grip-vertical"
-            class="size-3.5"
-            :class="search.trim() ? 'opacity-25' : 'cursor-grab'"
-          />
-          {{ entry.index + 1 }}
+          <span
+            draggable="true"
+            class="cursor-grab rounded p-0.5 text-dimmed hover:bg-elevated hover:text-toned active:cursor-grabbing"
+            :aria-label="t('macroEditor.drag_action', { n: entry.position + 1 })"
+            :title="t('macroEditor.drag_hint')"
+            @dragstart.stop="beginDrag(entry.row, $event)"
+            @dragend="endDrag"
+          >
+            <UIcon name="i-tabler-grip-vertical" class="size-3.5" />
+          </span>
+          {{ entry.position + 1 }}
         </span>
-        <UBadge :color="actionTone(entry.action.kind)" variant="soft" size="sm">
-          {{ actionLabel(entry.action.kind) }}
+        <UBadge :color="actionTone(entry.row.kind)" variant="soft" size="sm">
+          {{ actionLabel(entry.row.kind) }}
         </UBadge>
 
         <div class="flex min-w-0 items-center gap-2">
-          <template v-if="isKeyAction(entry.action)">
+          <template v-if="isKeyRow(entry.row)">
             <UInput
-              :model-value="entry.action.key ?? ''"
+              :model-value="entry.row.key ?? ''"
               icon="i-tabler-keyboard"
               class="w-44"
               :placeholder="t('macroEditor.press_key')"
               readonly
-              @keydown.prevent.stop="captureKey(entry.index, $event)"
+              @keydown.prevent.stop="captureKey(entry.row, $event)"
             />
-            <span class="text-xs text-muted">{{ t('macroEditor.press_key_hint') }}</span>
+            <template v-if="entry.row.kind === 'key-press'">
+              <UInputNumber
+                :model-value="microsecondsToMilliseconds(entry.row.durationUs)"
+                :min="1"
+                :max="3_600_000"
+                :step="10"
+                class="w-32"
+                @update:model-value="updateDuration(entry.row, $event)"
+              />
+              <span class="text-xs text-muted">ms</span>
+            </template>
+            <span v-else class="text-xs text-muted">{{ t('macroEditor.atomic_key_hint') }}</span>
           </template>
-          <template v-else-if="entry.action.kind === 'sleep'">
+          <template v-else-if="entry.row.kind === 'sleep'">
             <UInputNumber
-              :model-value="microsecondsToMilliseconds(entry.action.durationUs)"
+              :model-value="microsecondsToMilliseconds(entry.row.durationUs)"
               :min="1"
               :max="3_600_000"
               :step="10"
               class="w-36"
-              @update:model-value="updateDuration(entry.index, $event)"
+              @update:model-value="updateDuration(entry.row, $event)"
             />
             <span class="text-xs text-muted">ms</span>
           </template>
           <template v-else>
             <AdaptiveSelect
-              v-if="entry.action.kind !== 'scroll'"
-              :model-value="entry.action.button ?? 'left'"
+              v-if="entry.row.kind !== 'scroll'"
+              :model-value="entry.row.button ?? 'left'"
               :items="buttonItems"
               class="w-28"
               width-mode="fixed"
-              @update:model-value="updateButton(entry.index, $event)"
+              @update:model-value="updateButton(entry.row, $event)"
             />
             <UInputNumber
-              v-if="entry.action.kind === 'scroll'"
-              :model-value="entry.action.notches ?? 1"
+              v-if="entry.row.kind === 'scroll'"
+              :model-value="entry.row.notches ?? 1"
               :min="-120"
               :max="120"
               :step="1"
               class="w-24"
-              @update:model-value="updateNotches(entry.index, $event)"
+              @update:model-value="updateNotches(entry.row, $event)"
             />
             <span class="text-[10px] text-dimmed">X%</span>
             <UInputNumber
-              :model-value="ratioToPercent(entry.action.point?.x)"
+              :model-value="ratioToPercent(entry.row.point?.x)"
               :min="0"
               :max="100"
               :step="1"
               class="w-24"
-              @update:model-value="updatePoint(entry.index, 'x', $event)"
+              @update:model-value="updatePoint(entry.row, 'x', $event)"
             />
             <span class="text-[10px] text-dimmed">Y%</span>
             <UInputNumber
-              :model-value="ratioToPercent(entry.action.point?.y)"
+              :model-value="ratioToPercent(entry.row.point?.y)"
               :min="0"
               :max="100"
               :step="1"
               class="w-24"
-              @update:model-value="updatePoint(entry.index, 'y', $event)"
+              @update:model-value="updatePoint(entry.row, 'y', $event)"
             />
-            <template v-if="entry.action.kind === 'click'">
+            <template v-if="entry.row.kind === 'click'">
               <UInputNumber
-                :model-value="microsecondsToMilliseconds(entry.action.durationUs)"
+                :model-value="microsecondsToMilliseconds(entry.row.durationUs)"
                 :min="1"
                 :max="5000"
                 :step="10"
                 class="w-28"
-                @update:model-value="updateDuration(entry.index, $event)"
+                @update:model-value="updateDuration(entry.row, $event)"
               />
               <span class="text-xs text-muted">ms</span>
             </template>
           </template>
         </div>
 
-        <span class="truncate text-[10px] text-muted" :title="stateAfter(entry.index)">
-          {{ stateAfter(entry.index) }}
+        <span class="truncate text-[10px] text-muted" :title="stateAfter(entry.row.endIndex)">
+          {{ stateAfter(entry.row.endIndex) }}
         </span>
-        <UDropdownMenu :items="rowMenuItems(entry.index)">
-          <UButton
-            icon="i-tabler-dots"
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            :aria-label="t('macroEditor.action_menu', { n: entry.index + 1 })"
-          />
-        </UDropdownMenu>
+        <div class="flex items-center justify-end gap-0.5">
+          <UDropdownMenu :items="rowAddMenuItems(entry.row.endIndex)">
+            <UButton
+              icon="i-tabler-plus"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              :aria-label="t('macroEditor.add_after', { n: entry.position + 1 })"
+            />
+          </UDropdownMenu>
+          <UDropdownMenu :items="rowMenuItems(entry.row)">
+            <UButton
+              icon="i-tabler-dots"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              :aria-label="t('macroEditor.action_menu', { n: entry.position + 1 })"
+            />
+          </UDropdownMenu>
+        </div>
       </article>
     </div>
 
-    <div v-else class="px-4 py-12 text-center">
-      <UIcon name="i-tabler-list-details" class="mx-auto size-8 text-dimmed" />
-      <p class="mt-2 text-sm font-medium text-highlighted">
-        {{ search.trim() ? t('macroEditor.no_results') : t('macroEditor.empty') }}
-      </p>
-      <p class="mt-1 text-xs text-muted">{{ t('macroEditor.empty_hint') }}</p>
+    <div v-else class="flex min-h-0 flex-1 items-center justify-center px-4 py-12 text-center">
+      <div>
+        <UIcon name="i-tabler-list-details" class="mx-auto size-8 text-dimmed" />
+        <p class="mt-2 text-sm font-medium text-highlighted">
+          {{ search.trim() ? t('macroEditor.no_results') : t('macroEditor.empty') }}
+        </p>
+        <p class="mt-1 text-xs text-muted">{{ emptyHint }}</p>
+      </div>
     </div>
 
     <footer
       v-if="selected.size"
-      class="flex items-center gap-2 border-t border-default bg-primary/5 px-3 py-2"
+      class="flex shrink-0 items-center gap-2 border-t border-default bg-primary/5 px-3 py-2"
     >
       <span class="mr-auto text-xs font-medium text-toned">
         {{ t('macroEditor.selected', { count: selected.size }) }}
       </span>
+      <UButton
+        size="xs"
+        color="neutral"
+        variant="soft"
+        icon="i-tabler-copy"
+        :label="t('macroEditor.duplicate_selected')"
+        @click="duplicateSelected"
+      />
+      <UButton
+        size="xs"
+        color="neutral"
+        variant="ghost"
+        icon="i-tabler-arrow-up"
+        :disabled="!canMoveSelectedUp"
+        :aria-label="t('macroEditor.move_selected_up')"
+        :title="t('macroEditor.move_selected_up')"
+        @click="moveSelected('up')"
+      />
+      <UButton
+        size="xs"
+        color="neutral"
+        variant="ghost"
+        icon="i-tabler-arrow-down"
+        :disabled="!canMoveSelectedDown"
+        :aria-label="t('macroEditor.move_selected_down')"
+        :title="t('macroEditor.move_selected_down')"
+        @click="moveSelected('down')"
+      />
       <UButton
         size="xs"
         color="neutral"
@@ -203,10 +283,18 @@ import {
   analyzeMacroActions,
   canonicalBrowserKey,
   cloneMacroAction,
-  duplicateMacroAction,
-  moveMacroAction,
+  duplicateMacroRows,
+  insertMacroActions,
+  moveMacroRows,
+  patchMacroRow,
+  projectMacroRows,
   type MacroEditorIssue,
+  type MacroEditorRow,
+  type MacroEditorRowKind,
 } from './macroEditorModel'
+
+type ViewMode = 'simple' | 'atomic'
+type InsertKind = MacroActionKind | 'key-press'
 
 const props = defineProps<{ modelValue: MacroAction[] }>()
 const emit = defineEmits<{
@@ -214,51 +302,76 @@ const emit = defineEmits<{
   validity: [valid: boolean]
 }>()
 const { t } = useI18n()
+const viewMode = ref<ViewMode>('simple')
 const search = ref('')
 const selected = reactive(new Set<string>())
-const draggedIndex = ref(-1)
-const dragOverIndex = ref(-1)
+const draggedRowIDs = ref<string[]>([])
+const dragTarget = ref<{ rowId: string; insertAt: number } | null>(null)
 
 const buttonItems = computed(() => [
   { label: t('macroEditor.button_left'), value: 'left' },
   { label: t('macroEditor.button_middle'), value: 'middle' },
   { label: t('macroEditor.button_right'), value: 'right' },
 ])
-const addMenuItems = computed(() => [
-  [
-    menuAction('key-down', 'i-tabler-keyboard-show'),
-    menuAction('key-up', 'i-tabler-keyboard-hide'),
-    menuAction('sleep', 'i-tabler-clock-pause'),
-  ],
-  [
-    menuAction('click', 'i-tabler-pointer'),
-    menuAction('mouse-down', 'i-tabler-hand-click'),
-    menuAction('mouse-up', 'i-tabler-hand-off'),
-    menuAction('scroll', 'i-tabler-mouse'),
-  ],
-])
-const visibleActions = computed(() => {
+const editorRows = computed(() => projectMacroRows(props.modelValue, viewMode.value === 'simple'))
+const selectedRows = computed(() => editorRows.value.filter((row) => selected.has(row.id)))
+const selectedRowPositions = computed(() =>
+  editorRows.value
+    .map((row, index) => (selected.has(row.id) ? index : -1))
+    .filter((index) => index >= 0),
+)
+const canMoveSelectedUp = computed(
+  () => selectedRowPositions.value.length > 0 && Math.min(...selectedRowPositions.value) > 0,
+)
+const canMoveSelectedDown = computed(
+  () =>
+    selectedRowPositions.value.length > 0 &&
+    Math.max(...selectedRowPositions.value) < editorRows.value.length - 1,
+)
+const selectedEndIndex = computed(() =>
+  selectedRows.value.length
+    ? Math.max(...selectedRows.value.map((row) => row.endIndex))
+    : props.modelValue.length - 1,
+)
+const addMenuItems = computed(() => actionMenu(selectedEndIndex.value))
+const addButtonLabel = computed(() =>
+  selected.size ? t('macroEditor.add_after_selected') : t('macroEditor.add'),
+)
+const visibleRows = computed(() => {
   const needle = search.value.trim().toLocaleLowerCase()
-  return props.modelValue
-    .map((action, index) => ({ action, index }))
-    .filter(({ action }) =>
+  return editorRows.value
+    .map((row, position) => ({ row, position }))
+    .filter(({ row }) =>
       needle
-        ? `${actionLabel(action.kind)} ${action.key ?? ''} ${action.button ?? ''}`
+        ? `${actionLabel(row.kind)} ${row.key ?? ''} ${row.button ?? ''}`
             .toLocaleLowerCase()
             .includes(needle)
         : true,
     )
 })
 const allVisibleSelected = computed(
-  () =>
-    visibleActions.value.length > 0 &&
-    visibleActions.value.every(({ action }) => selected.has(action.id)),
+  () => visibleRows.value.length > 0 && visibleRows.value.every(({ row }) => selected.has(row.id)),
 )
 const analysis = computed(() => analyzeMacroActions(props.modelValue))
 const issueMessage = computed(() =>
   analysis.value.issues[0] ? translateIssue(analysis.value.issues[0]) : '',
 )
 const durationLabel = computed(() => `${Math.round(analysis.value.durationUs / 1000)} ms`)
+const summaryLabel = computed(() =>
+  viewMode.value === 'simple'
+    ? t('macroEditor.summary_simple', {
+        count: editorRows.value.length,
+        atomic: props.modelValue.length,
+        duration: durationLabel.value,
+      })
+    : t('macroEditor.summary', {
+        count: props.modelValue.length,
+        duration: durationLabel.value,
+      }),
+)
+const emptyHint = computed(() =>
+  t(viewMode.value === 'simple' ? 'macroEditor.empty_hint' : 'macroEditor.empty_hint_atomic'),
+)
 
 watch(
   () => analysis.value.issues.length,
@@ -266,111 +379,157 @@ watch(
   { immediate: true },
 )
 watch(
-  () => props.modelValue.map((action) => action.id),
+  () => editorRows.value.map((row) => row.id),
   (ids) => {
     const live = new Set(ids)
     for (const id of selected) if (!live.has(id)) selected.delete(id)
   },
 )
+watch(viewMode, () => selected.clear())
+watch(search, () => selected.clear())
 
-function menuAction(kind: MacroActionKind, icon: string) {
-  return { label: actionLabel(kind), icon, onSelect: () => add(kind) }
+function actionMenu(afterIndex: number) {
+  return [
+    [
+      menuAction('key-press', 'i-tabler-keyboard', afterIndex),
+      menuAction('click', 'i-tabler-pointer', afterIndex),
+      menuAction('scroll', 'i-tabler-mouse', afterIndex),
+      menuAction('sleep', 'i-tabler-clock-pause', afterIndex),
+    ],
+    [
+      menuAction('key-down', 'i-tabler-keyboard-show', afterIndex),
+      menuAction('key-up', 'i-tabler-keyboard-hide', afterIndex),
+      menuAction('mouse-down', 'i-tabler-hand-click', afterIndex),
+      menuAction('mouse-up', 'i-tabler-hand-off', afterIndex),
+    ],
+  ]
 }
 
-function actionLabel(kind: MacroActionKind): string {
+function menuAction(kind: InsertKind, icon: string, afterIndex: number) {
+  return { label: actionLabel(kind), icon, onSelect: () => add(kind, afterIndex) }
+}
+
+function actionLabel(kind: MacroEditorRowKind): string {
   return t(`macroEditor.kind_${kind.replaceAll('-', '_')}`)
 }
 
-function actionTone(kind: MacroActionKind): 'primary' | 'info' | 'warning' | 'neutral' {
+function actionTone(kind: MacroEditorRowKind): 'primary' | 'info' | 'warning' | 'neutral' {
   if (kind.startsWith('key-')) return 'primary'
   if (kind === 'sleep') return 'neutral'
   if (kind === 'scroll') return 'warning'
   return 'info'
 }
 
-function add(kind: MacroActionKind): void {
-  const id = newActionID()
+function add(kind: InsertKind, afterIndex: number): void {
   const point = { x: 0.5, y: 0.5, unit: 'ratio' as const }
-  const action: MacroAction =
-    kind === 'key-down' || kind === 'key-up'
-      ? { id, kind, key: 'A' }
-      : kind === 'sleep'
-        ? { id, kind, durationUs: 100_000 }
-        : kind === 'scroll'
-          ? { id, kind, point, notches: 1 }
-          : kind === 'click'
-            ? { id, kind, point, button: 'left', durationUs: 50_000 }
-            : { id, kind, point, button: 'left' }
-  emit('update:modelValue', [...props.modelValue.map(cloneMacroAction), action])
+  let additions: MacroAction[]
+  if (kind === 'key-press') {
+    additions = [
+      { id: newActionID(), kind: 'key-down', key: 'A' },
+      { id: newActionID(), kind: 'sleep', durationUs: 100_000 },
+      { id: newActionID(), kind: 'key-up', key: 'A' },
+    ]
+  } else {
+    const id = newActionID()
+    const action: MacroAction =
+      kind === 'key-down' || kind === 'key-up'
+        ? { id, kind, key: 'A' }
+        : kind === 'sleep'
+          ? { id, kind, durationUs: 100_000 }
+          : kind === 'scroll'
+            ? { id, kind, point, notches: 1 }
+            : kind === 'click'
+              ? { id, kind, point, button: 'left', durationUs: 50_000 }
+              : { id, kind, point, button: 'left' }
+    additions = [action]
+  }
+  emit('update:modelValue', insertMacroActions(props.modelValue, afterIndex, additions))
+  selected.clear()
 }
 
-function updateAction(index: number, patch: Partial<MacroAction>): void {
-  emit(
-    'update:modelValue',
-    props.modelValue.map((action, current) =>
-      current === index
-        ? ({ ...cloneMacroAction(action), ...patch } as MacroAction)
-        : cloneMacroAction(action),
-    ),
-  )
+function patchRow(row: MacroEditorRow, patch: Parameters<typeof patchMacroRow>[2]): void {
+  emit('update:modelValue', patchMacroRow(props.modelValue, row, patch))
 }
 
-function captureKey(index: number, event: KeyboardEvent): void {
+function captureKey(row: MacroEditorRow, event: KeyboardEvent): void {
   const key = canonicalBrowserKey(event.key)
-  if (key) updateAction(index, { key })
+  if (key) patchRow(row, { key })
 }
 
-function updateDuration(index: number, value: unknown): void {
-  updateAction(index, { durationUs: Math.max(1, Math.round((Number(value) || 1) * 1000)) })
+function updateDuration(row: MacroEditorRow, value: unknown): void {
+  patchRow(row, { durationUs: Math.max(1, Math.round((Number(value) || 1) * 1000)) })
 }
 
-function updateButton(index: number, value: unknown): void {
-  if (value === 'left' || value === 'middle' || value === 'right')
-    updateAction(index, { button: value })
+function updateButton(row: MacroEditorRow, value: unknown): void {
+  if (value === 'left' || value === 'middle' || value === 'right') patchRow(row, { button: value })
 }
 
-function updateNotches(index: number, value: unknown): void {
+function updateNotches(row: MacroEditorRow, value: unknown): void {
   let notches = Math.max(-120, Math.min(120, Math.trunc(Number(value) || 0)))
   if (notches === 0) notches = 1
-  updateAction(index, { notches })
+  patchRow(row, { notches })
 }
 
-function updatePoint(index: number, axis: 'x' | 'y', value: unknown): void {
-  const current = props.modelValue[index]
-  if (!current) return
-  const point = current.point ?? { x: 0.5, y: 0.5, unit: 'ratio' as const }
-  updateAction(index, {
+function updatePoint(row: MacroEditorRow, axis: 'x' | 'y', value: unknown): void {
+  const point = row.point ?? { x: 0.5, y: 0.5, unit: 'ratio' as const }
+  patchRow(row, {
     point: { ...point, [axis]: Math.max(0, Math.min(1, (Number(value) || 0) / 100)) },
   })
 }
 
-function rowMenuItems(index: number) {
+function rowAddMenuItems(afterIndex: number) {
+  return actionMenu(afterIndex)
+}
+
+function rowMenuItems(row: MacroEditorRow) {
   return [
     [
       {
         label: t('macroEditor.duplicate'),
         icon: 'i-tabler-copy',
-        onSelect: () => duplicate(index),
+        onSelect: () => duplicateRows([row]),
       },
       {
         label: t('common.delete'),
         icon: 'i-tabler-trash',
         color: 'error' as const,
-        onSelect: () => remove(index),
+        onSelect: () => removeRows([row]),
       },
     ],
   ]
 }
 
-function duplicate(index: number): void {
-  emit('update:modelValue', duplicateMacroAction(props.modelValue, index, newActionID()))
-}
-
-function remove(index: number): void {
+function duplicateRows(rows: MacroEditorRow[]): void {
   emit(
     'update:modelValue',
-    props.modelValue.filter((_, current) => current !== index).map(cloneMacroAction),
+    duplicateMacroRows(props.modelValue, rows, () => newActionID()),
   )
+  selected.clear()
+}
+
+function duplicateSelected(): void {
+  duplicateRows(selectedRows.value)
+}
+
+function moveSelected(direction: 'up' | 'down'): void {
+  if (!selectedRows.value.length) return
+  const edge =
+    direction === 'up'
+      ? Math.min(...selectedRowPositions.value) - 1
+      : Math.max(...selectedRowPositions.value) + 1
+  const neighbor = editorRows.value[edge]
+  if (!neighbor) return
+  const insertAt = direction === 'up' ? neighbor.startIndex : neighbor.endIndex + 1
+  emit('update:modelValue', moveMacroRows(props.modelValue, selectedRows.value, insertAt))
+}
+
+function removeRows(rows: MacroEditorRow[]): void {
+  const removed = new Set(rows.flatMap((row) => row.actionIds))
+  emit(
+    'update:modelValue',
+    props.modelValue.filter((action) => !removed.has(action.id)).map(cloneMacroAction),
+  )
+  selected.clear()
 }
 
 function toggle(id: string, checked: boolean): void {
@@ -379,32 +538,49 @@ function toggle(id: string, checked: boolean): void {
 }
 
 function toggleVisible(checked: boolean): void {
-  for (const { action } of visibleActions.value) toggle(action.id, checked)
+  for (const { row } of visibleRows.value) toggle(row.id, checked)
 }
 
 function deleteSelected(): void {
-  emit(
-    'update:modelValue',
-    props.modelValue.filter((action) => !selected.has(action.id)).map(cloneMacroAction),
-  )
-  selected.clear()
+  removeRows(selectedRows.value)
 }
 
-function beginDrag(index: number): void {
-  if (search.value.trim()) return
-  draggedIndex.value = index
+function beginDrag(row: MacroEditorRow, event: DragEvent): void {
+  if (!selected.has(row.id)) {
+    selected.clear()
+    selected.add(row.id)
+  }
+  draggedRowIDs.value = editorRows.value
+    .filter((candidate) => selected.has(candidate.id))
+    .map((candidate) => candidate.id)
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', row.id)
+  }
 }
 
-function dropAt(index: number): void {
-  const from = draggedIndex.value
-  if (from < 0 || from === index) return endDrag()
-  emit('update:modelValue', moveMacroAction(props.modelValue, from, index))
+function continueDrag(row: MacroEditorRow, event: DragEvent): void {
+  if (!draggedRowIDs.value.length) return
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+  const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  const after = event.clientY >= bounds.top + bounds.height / 2
+  dragTarget.value = {
+    rowId: row.id,
+    insertAt: after ? row.endIndex + 1 : row.startIndex,
+  }
+}
+
+function dropRows(): void {
+  const target = dragTarget.value
+  if (!target) return endDrag()
+  const moving = editorRows.value.filter((row) => draggedRowIDs.value.includes(row.id))
+  emit('update:modelValue', moveMacroRows(props.modelValue, moving, target.insertAt))
   endDrag()
 }
 
 function endDrag(): void {
-  draggedIndex.value = -1
-  dragOverIndex.value = -1
+  draggedRowIDs.value = []
+  dragTarget.value = null
 }
 
 function stateAfter(index: number): string {
@@ -413,8 +589,8 @@ function stateAfter(index: number): string {
   return [...state.keys, ...state.buttons.map((button) => `${button} mouse`)].join(', ')
 }
 
-function isKeyAction(action: MacroAction): boolean {
-  return action.kind === 'key-down' || action.kind === 'key-up'
+function isKeyRow(row: MacroEditorRow): boolean {
+  return row.kind === 'key-press' || row.kind === 'key-down' || row.kind === 'key-up'
 }
 
 function newActionID(): string {

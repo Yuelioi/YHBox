@@ -33,8 +33,9 @@ task version:sync
 task versions:check
 ```
 
-`versions:check` 是只读门禁：校验 SemVer、Windows 数值范围、所有产品投影，以及当前源码中已退役的统一合同
-版本字面量。运行时版本通过 Go linker `-X` 注入；未经过正式构建入口的本地 `go run` 显示 `dev`。
+`versions:check` 是只读门禁：校验 SemVer、Windows 数值范围、所有产品投影以及生产存储路径所有权。
+各持久化合同和协议由所属 module、schema 与合同门禁独立校验，不扫描任意源码版本字面量。运行时版本
+通过 Go linker `-X` 注入；未经过正式构建入口的本地 `go run` 显示 `dev`。
 
 `task build` 完成后会自动运行 `task versions:check:binary`，验证 EXE 的 fixed/string 版本资源和
 `WINDOWS_GUI` subsystem；这同时防止产品版本遗漏和双击时出现控制台黑框。

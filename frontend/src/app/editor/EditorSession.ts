@@ -228,6 +228,7 @@ export class EditorSession {
   private readonly future: YottaWorkflowSource[] = []
   private readonly pendingCommands: PendingCommand[] = []
   private readonly revertedCommands: PendingCommand[] = []
+  private readonly durableNodeKeys = new Set<string>()
   private readonly projections = new Map<string, NodeProjection>()
   private readonly typeProjections = new Map<string, TypeProjection>()
   private readonly pendingDebugSnapshots = new Map<string, DebugSnapshot>()
@@ -1076,6 +1077,11 @@ export class EditorSession {
   }
 
   async check(): Promise<CompileView> {
+    await this.refreshAuthoringProjection()
+    return this.checkCurrentDraft()
+  }
+
+  private async checkCurrentDraft(): Promise<CompileView> {
     const result = await this.transport.checkDraft(this.serialize())
     this.sourceHash = result.sourceHash ?? ''
     this.compiledHash = result.programHash ?? ''
@@ -1203,8 +1209,9 @@ export class EditorSession {
   private async start(debug: boolean, breakpoints: DebugBreakpoint[]): Promise<RunView | null> {
     this.lastRunOutcome = null
     try {
+      await this.refreshAuthoringProjection()
       if (this.dirty) await this.save()
-      const checked = await this.check()
+      const checked = await this.checkCurrentDraft()
       if (checked.diagnostics.some((diagnostic) => diagnostic.severity === 'error')) return null
       if (!checked.programHash) throw new Error('workflow check produced no Program hash')
       this.phase = 'running'
@@ -1272,6 +1279,10 @@ export class EditorSession {
     this.future.length = 0
     this.pendingCommands.length = 0
     this.revertedCommands.length = 0
+    this.durableNodeKeys.clear()
+    for (const graph of parsed.graphs) {
+      for (const node of graph.nodes) this.durableNodeKeys.add(nodeKey(graph.id, node.id))
+    }
     this.dirty = false
     this.dismissSaveError()
     this.openFailure = ''
@@ -1281,6 +1292,7 @@ export class EditorSession {
   private upgradeCompatibleNodeContracts(): void {
     const source = this.requireSource()
     let upgraded = false
+    const commands: PendingCommand[] = []
     for (const graph of source.graphs) {
       for (const node of graph.nodes) {
         const projection = this.projections.get(node.nodeRef.nodeTypeId)
@@ -1291,17 +1303,25 @@ export class EditorSession {
         ) {
           continue
         }
-        this.pendingCommands.push({
-          graphId: graph.id,
-          command: { kind: 'upgrade-node-contract', nodeId: node.id },
-        })
+        if (this.durableNodeKeys.has(nodeKey(graph.id, node.id))) {
+          commands.push({
+            graphId: graph.id,
+            command: { kind: 'upgrade-node-contract', nodeId: node.id },
+          })
+        }
         upgraded = true
       }
     }
     if (!upgraded) return
+    this.pendingCommands.unshift(...commands)
     source.revision = this.baseRevision + 1
     this.dirty = true
     this.resetCompileFacts()
+  }
+
+  private async refreshAuthoringProjection(): Promise<void> {
+    this.loadAuthoring(await this.transport.getAuthoringProjection())
+    this.upgradeCompatibleNodeContracts()
   }
 
   private requireCurrentSubgraph(): Graph {
@@ -2458,9 +2478,9 @@ function resolveNodeInstanceProjection(
   return projection
 }
 
-// Advances only additive-compatible stale contracts. Existing authoring data
-// and topology must all remain representable; otherwise the node stays stale
-// for an explicit, user-directed repair.
+// Advances stale contracts when the current projection can represent all
+// existing authoring data and topology. Missing required values remain normal
+// diagnostics instead of keeping a stale digest that hides their real repair.
 function applyCompatibleNodeContractUpgrade(
   graph: Graph,
   node: Node,
@@ -2534,7 +2554,6 @@ function applyCompatibleNodeContractUpgrade(
   for (const port of projection.dataInputs) {
     if (port.id in bindings || incoming.has(port.id)) continue
     if (port.hasDefault) bindings[port.id] = { kind: 'default' }
-    else if (port.binding === 'required') return false
   }
   node.config = config
   node.bindings = bindings
@@ -2558,6 +2577,10 @@ function projectedEndpointExists(
       signal.channel === channel &&
       signal.direction === (output ? 'output' : 'input'),
   )
+}
+
+function nodeKey(graphId: string, nodeId: string): string {
+  return `${graphId}\u0000${nodeId}`
 }
 
 function solveGraphTypeBindings(

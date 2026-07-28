@@ -1,7 +1,13 @@
 <template>
   <section
-    class="flex shrink-0 flex-col border-t border-default bg-default"
-    :style="{ height: open ? 'clamp(220px, 32vh, 380px)' : '32px' }"
+    class="flex shrink-0 flex-col border-t border-default bg-default transition-[height] duration-200 ease-out motion-reduce:transition-none"
+    :style="{
+      height: open
+        ? expanded
+          ? 'min(70vh, calc(100vh - 96px))'
+          : 'clamp(220px, 32vh, 380px)'
+        : '32px',
+    }"
     data-testid="workflow-runtime-workbench"
   >
     <header class="flex h-8 shrink-0 items-center border-b border-default px-2">
@@ -51,6 +57,16 @@
         />
       </div>
       <UButton
+        v-if="open"
+        :label="t(expanded ? 'workflow.workbench.restore' : 'workflow.workbench.expand')"
+        :icon="expanded ? 'i-tabler-arrows-minimize' : 'i-tabler-arrows-maximize'"
+        color="neutral"
+        variant="ghost"
+        size="xs"
+        :aria-pressed="expanded"
+        @click="expanded = !expanded"
+      />
+      <UButton
         :icon="open ? 'i-tabler-chevron-down' : 'i-tabler-chevron-up'"
         color="neutral"
         variant="ghost"
@@ -74,8 +90,10 @@
         :run="run"
         :node-labels="nodeLabels"
         :unhandled-routes="unhandledRoutes"
+        :exporting="timelineExporting"
         @cancel="emit('cancel')"
         @refresh="emit('refresh')"
+        @export="emit('export-timeline')"
         @page="emit('page', $event)"
         @focus-node="(path, nodeId) => emit('focus-node', path, nodeId)"
       />
@@ -99,7 +117,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineAsyncComponent } from 'vue'
+import { defineAsyncComponent, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { DebugSnapshot, RunView } from '@/app/transport/workflow'
 import type { WorkflowDiagnostic } from '@/app/editor/workflowDiagnostics'
@@ -120,6 +138,7 @@ const props = defineProps<{
   debugBusy?: boolean
   nodeLabels?: Record<string, string>
   unhandledRoutes?: string[]
+  timelineExporting?: boolean
   diagnostics: WorkflowDiagnostic[]
 }>()
 const emit = defineEmits<{
@@ -128,6 +147,7 @@ const emit = defineEmits<{
   cancel: []
   refresh: []
   page: [page: number]
+  'export-timeline': []
   continue: []
   pause: []
   step: []
@@ -135,6 +155,7 @@ const emit = defineEmits<{
   focus: [diagnostic: WorkflowDiagnostic]
 }>()
 const { t } = useI18n()
+const expanded = ref(false)
 
 function activate(tab: WorkbenchTab): void {
   if (props.open && props.tab === tab) {

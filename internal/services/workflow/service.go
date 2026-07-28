@@ -4,10 +4,14 @@ package workflow
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 
 	appcore "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/durablefs"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
@@ -187,6 +191,11 @@ type RunView struct {
 	TimelineTotal int             `json:"timelineTotal"`
 }
 
+type RunTimelineExportResult struct {
+	Path    string `json:"path"`
+	Entries int    `json:"entries"`
+}
+
 type FailureView struct {
 	Code      string `json:"code"`
 	Category  string `json:"category"`
@@ -197,8 +206,9 @@ type FailureView struct {
 }
 
 type SummaryView struct {
-	Code     string           `json:"code"`
-	Counters map[string]int64 `json:"counters"`
+	Code     string            `json:"code"`
+	Counters map[string]int64  `json:"counters"`
+	Facts    map[string]string `json:"facts,omitempty"`
 }
 
 type TimelineEntry struct {
@@ -495,6 +505,37 @@ func (s *Service) GetRunTimelinePage(runID string, page, pageSize int) (RunView,
 	return runTimelinePageView(timeline), nil
 }
 
+func (s *Service) ExportRunTimeline(runID, destination string) (RunTimelineExportResult, error) {
+	if strings.TrimSpace(destination) == "" {
+		return RunTimelineExportResult{}, errors.New("Run timeline export destination is required")
+	}
+	record, err := s.application.GetRun(runID)
+	if err != nil {
+		return RunTimelineExportResult{}, err
+	}
+	view := runView(record)
+	view.Timeline = timelineView(record.Journal())
+	view.TimelinePage = 1
+	view.TimelinePages = 1
+	view.TimelineTotal = len(view.Timeline)
+	document := struct {
+		Format  string  `json:"format"`
+		Version string  `json:"version"`
+		Run     RunView `json:"run"`
+	}{
+		Format: "yotta.run-timeline", Version: "1", Run: view,
+	}
+	raw, err := json.MarshalIndent(document, "", "  ")
+	if err != nil {
+		return RunTimelineExportResult{}, fmt.Errorf("encode Run timeline export: %w", err)
+	}
+	raw = append(raw, '\n')
+	if err := durablefs.WriteFile(destination, raw, 0o600); err != nil {
+		return RunTimelineExportResult{}, fmt.Errorf("write Run timeline export: %w", err)
+	}
+	return RunTimelineExportResult{Path: destination, Entries: len(view.Timeline)}, nil
+}
+
 func (s *Service) GetCatalog() string { return string(s.application.CatalogArtifact()) }
 
 func (s *Service) GetAuthoringProjection() string { return string(s.authoring.Bytes()) }
@@ -612,7 +653,9 @@ func timelineView(entries []run.JournalEntry) []TimelineEntry {
 			AttemptOutcome: string(entry.AttemptOutcome), ActionOutcome: string(entry.ActionOutcome),
 			OccurredAt: entry.OccurredAt.Format("2006-01-02T15:04:05.999999999Z07:00"), ErrorCode: entry.ErrorCode,
 			StatusCode: entry.StatusCode, StatusCategory: string(entry.StatusCategory),
-			Summary: SummaryView{Code: entry.Summary.Code, Counters: entry.Summary.Counters},
+			Summary: SummaryView{
+				Code: entry.Summary.Code, Counters: entry.Summary.Counters, Facts: entry.Summary.Facts,
+			},
 		})
 	}
 	return result

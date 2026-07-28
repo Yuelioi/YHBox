@@ -1106,7 +1106,7 @@ func normalizeAuthoring(source Authoring, ports PortSet) (Authoring, error) {
 			}
 		}
 		switch port.EditorAdapter {
-		case "", "template-image":
+		case "", "multiline-text", "template-image":
 		default:
 			return Authoring{}, fmt.Errorf("unregistered port editor adapter %q", port.EditorAdapter)
 		}

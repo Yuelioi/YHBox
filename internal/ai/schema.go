@@ -7,18 +7,25 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	runtimejsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/yottaapp/yotta/internal/artifact"
 )
 
 const (
-	MaxStructuredSchemaBytes = 64 << 10
-	MaxStructuredDepth       = 32
-	MaxStructuredNodes       = 8192
-	structuredSchemaResource = "https://schemas.yotta.dev/runtime/ai-output/v1"
-	StrictSchemaValidatorID  = "https://schemas.yotta.dev/config-validators/ai-strict-output/v1"
-	structuredOutputDomain   = "yotta/ai-structured-output/v1"
+	MaxStructuredSchemaBytes      = 64 << 10
+	MaxStructuredDepth            = 32
+	MaxStructuredNodes            = 8192
+	structuredSchemaResource      = "https://schemas.yotta.dev/runtime/ai-output/v1"
+	StrictSchemaValidatorID       = "https://schemas.yotta.dev/config-validators/ai-strict-output/v1"
+	StructuredFieldsValidatorID   = "https://schemas.yotta.dev/config-validators/ai-structured-fields/v1"
+	structuredOutputDomain        = "yotta/ai-structured-output/v1"
+	MaxStructuredFields           = 64
+	MaxStructuredFieldRunes       = 64
+	MaxStructuredDescriptionRunes = 256
 )
 
 var structuredNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
@@ -38,6 +45,109 @@ func StrictSchemaValidatorDigest() (artifact.Digest, error) {
 		return "", err
 	}
 	return artifact.Sum("yotta/config-validator-implementation/v1", manifest)
+}
+
+func StructuredFieldsValidatorDigest() (artifact.Digest, error) {
+	manifest, err := artifact.Marshal(map[string]any{
+		"validatorId":         StructuredFieldsValidatorID,
+		"maxFields":           MaxStructuredFields,
+		"maxNameRunes":        MaxStructuredFieldRunes,
+		"maxDescriptionRunes": MaxStructuredDescriptionRunes,
+		"types":               []string{"boolean", "integer", "number", "string"},
+	})
+	if err != nil {
+		return "", err
+	}
+	return artifact.Sum("yotta/config-validator-implementation/v1", manifest)
+}
+
+// CompileStructuredFields turns the editor's small field list into the strict,
+// provider-facing JSON Schema. Workflow authors never need to write schema syntax.
+func CompileStructuredFields(name string, value any) (StructuredOutputSpec, error) {
+	rawFields, ok := value.([]any)
+	if !ok || len(rawFields) == 0 || len(rawFields) > MaxStructuredFields {
+		return StructuredOutputSpec{}, fmt.Errorf("AI structured output requires 1 to %d fields", MaxStructuredFields)
+	}
+	properties := make(map[string]any, len(rawFields))
+	required := make([]any, 0, len(rawFields))
+	for index, rawField := range rawFields {
+		field, ok := rawField.(map[string]any)
+		if !ok {
+			return StructuredOutputSpec{}, fmt.Errorf("AI structured output field %d is invalid", index+1)
+		}
+		fieldName, ok := field["name"].(string)
+		if !ok || !validStructuredFieldName(fieldName) {
+			return StructuredOutputSpec{}, fmt.Errorf("AI structured output field %d has an invalid name", index+1)
+		}
+		if _, exists := properties[fieldName]; exists {
+			return StructuredOutputSpec{}, fmt.Errorf("AI structured output field name %q is duplicated", fieldName)
+		}
+		fieldType, ok := field["type"].(string)
+		if !ok || !validStructuredFieldType(fieldType) {
+			return StructuredOutputSpec{}, fmt.Errorf("AI structured output field %q has an invalid type", fieldName)
+		}
+		description := ""
+		if rawDescription, exists := field["description"]; exists {
+			var ok bool
+			description, ok = rawDescription.(string)
+			if !ok || utf8.RuneCountInString(description) > MaxStructuredDescriptionRunes {
+				return StructuredOutputSpec{}, fmt.Errorf("AI structured output field %q has an invalid description", fieldName)
+			}
+		}
+		nullable := false
+		if rawNullable, exists := field["nullable"]; exists {
+			var ok bool
+			nullable, ok = rawNullable.(bool)
+			if !ok {
+				return StructuredOutputSpec{}, fmt.Errorf("AI structured output field %q has an invalid nullable flag", fieldName)
+			}
+		}
+		fieldSchema := map[string]any{"type": fieldType}
+		if nullable {
+			fieldSchema = map[string]any{
+				"anyOf": []any{
+					map[string]any{"type": fieldType},
+					map[string]any{"type": "null"},
+				},
+			}
+		}
+		if description != "" {
+			fieldSchema["description"] = description
+		}
+		properties[fieldName] = fieldSchema
+		required = append(required, fieldName)
+	}
+	rawSchema, err := artifact.Marshal(map[string]any{
+		"type":                 "object",
+		"properties":           properties,
+		"required":             required,
+		"additionalProperties": false,
+	})
+	if err != nil {
+		return StructuredOutputSpec{}, err
+	}
+	return CompileStructuredOutput(name, rawSchema)
+}
+
+func validStructuredFieldName(value string) bool {
+	if value == "" || value != strings.TrimSpace(value) || utf8.RuneCountInString(value) > MaxStructuredFieldRunes {
+		return false
+	}
+	for _, character := range value {
+		if unicode.IsControl(character) {
+			return false
+		}
+	}
+	return true
+}
+
+func validStructuredFieldType(value string) bool {
+	switch value {
+	case "string", "number", "integer", "boolean":
+		return true
+	default:
+		return false
+	}
 }
 
 func CompileStructuredOutput(name string, raw json.RawMessage) (StructuredOutputSpec, error) {

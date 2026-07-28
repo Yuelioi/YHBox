@@ -317,6 +317,46 @@ describe('workflow authoring foundations', () => {
     expect(editor).toContain('<MacroActionEditor')
   })
 
+  it('uses the same unified editor from the workflow resource dock', () => {
+    const dock = readSource('src/app/editor/WorkflowResourceDock.vue')
+    const editor = readSource('src/views/WorkflowEditorView.vue')
+    const menu = dock.slice(
+      dock.indexOf('function itemMenu'),
+      dock.indexOf('async function duplicateWorkflowResource'),
+    )
+    const globalEditor = editor.slice(
+      editor.indexOf(':open="!!macroEditing"'),
+      editor.indexOf(':open="!!workflowMacroEditing"'),
+    )
+    const workflowEditor = editor.slice(
+      editor.indexOf(':open="!!workflowMacroEditing"'),
+      editor.indexOf(':open="!!workflowClipEditing"'),
+    )
+
+    expect(menu).not.toContain("t('assets.macros.edit_actions')")
+    expect(menu).not.toContain("value.kind === 'macro' || value.kind === 'input-clip'")
+    expect(menu).toContain("value.kind !== 'macro'")
+    expect(menu).toContain("emit('edit-workflow-resource', value)")
+    expect(menu).toContain("emit('edit', value)")
+    expect(globalEditor).toContain('v-model:name="macroEditing.label"')
+    expect(globalEditor).toContain('<MacroActionEditor')
+    expect(workflowEditor).toContain('v-model:name="workflowMacroEditing.resource.name"')
+    expect(workflowEditor).toContain('<MacroActionEditor')
+  })
+
+  it('keeps the macro action list full-height and exposes simple plus atomic editing', () => {
+    const source = readSource('src/components/recording/MacroActionEditor.vue')
+
+    expect(source).toContain('class="min-h-0 flex-1 overflow-auto"')
+    expect(source).not.toContain('max-h-[28rem]')
+    expect(source).toContain("viewMode === 'simple'")
+    expect(source).toContain("viewMode === 'atomic'")
+    expect(source).toContain("menuAction('key-press'")
+    expect(source).toContain('duplicateSelected')
+    expect(source).toContain('@dragstart.stop="beginDrag(entry.row, $event)"')
+    expect(source).not.toContain(':draggable="!search.trim()"')
+  })
+
   it('lets workflow metadata create a category from the editor dialog', () => {
     const dialog = readSource('src/app/editor/WorkflowMetadataDialog.vue')
 

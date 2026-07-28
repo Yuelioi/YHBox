@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
+	"image/draw"
+	"image/png"
 	"io"
 	"math"
 	"slices"
@@ -68,7 +71,9 @@ const (
 	providerImplementation = "installed-automation-target/v2"
 	MaxInputDurationMs     = int64(60_000)
 	MaxCaptureBytes        = int64(64 << 20)
-	MaxCaptureChunkBytes   = int64(64 << 10)
+	MaxCaptureChunkBytes   = int64(1 << 20)
+	CaptureFormatRGBA      = "rgba"
+	CaptureMediaTypeRGBA   = "application/vnd.yotta.rgba"
 )
 
 var inputOperations = []string{
@@ -199,7 +204,13 @@ type TypeTextRequest struct {
 type CaptureResponse struct {
 	MediaType string `json:"mediaType"`
 	Size      int64  `json:"size"`
+	Width     int64  `json:"width,omitempty"`
+	Height    int64  `json:"height,omitempty"`
 }
+type CaptureRequest struct {
+	Format string `json:"format,omitempty"`
+}
+
 type CaptureRangeRequest struct {
 	Offset int64 `json:"offset"`
 	Length int64 `json:"length"`
@@ -233,6 +244,9 @@ type driver interface {
 	PlayEvent(context.Context, PlaybackEvent) error
 	ReleaseInput() error
 	Close() error
+}
+type captureFrameDriver interface {
+	CaptureFrame(context.Context) (*image.RGBA, error)
 }
 
 type playbackSessionDriver interface {
@@ -636,11 +650,26 @@ func (p *provider) invokeCapture(ctx context.Context, opened *captureSession, op
 		if err := p.verifyProfile(); err != nil {
 			return nil, failure(CodeIdentityChanged, err)
 		}
-		var request struct{}
-		if err := decodeExact(payload, &request, 32); err != nil {
+		var request CaptureRequest
+		if err := decodeExact(payload, &request, 128); err != nil {
 			return nil, failure(CodeInvalidRequest, err)
 		}
-		data, err := p.driver.Capture(ctx)
+		if request.Format != "" && request.Format != CaptureFormatRGBA {
+			return nil, failure(CodeInvalidRequest, errors.New("capture format is unsupported"))
+		}
+		var (
+			data      []byte
+			mediaType = "image/png"
+			width     int64
+			height    int64
+			err       error
+		)
+		if request.Format == CaptureFormatRGBA {
+			data, width, height, err = p.captureRGBA(ctx)
+			mediaType = CaptureMediaTypeRGBA
+		} else {
+			data, err = p.driver.Capture(ctx)
+		}
 		if err != nil {
 			return nil, classifyCaptureFailure(err)
 		}
@@ -648,7 +677,9 @@ func (p *provider) invokeCapture(ctx context.Context, opened *captureSession, op
 			return nil, failure(CodeCaptureFailed, errors.New("capture result exceeds byte budget"))
 		}
 		opened.data = append(opened.data[:0], data...)
-		return artifact.Marshal(CaptureResponse{MediaType: "image/png", Size: int64(len(opened.data))})
+		return artifact.Marshal(CaptureResponse{
+			MediaType: mediaType, Size: int64(len(opened.data)), Width: width, Height: height,
+		})
 	case OperationReadCapture:
 		if opened.data == nil {
 			return nil, failure(CodeContractViolation, errors.New("capture must complete before reading"))
@@ -661,6 +692,44 @@ func (p *provider) invokeCapture(ctx context.Context, opened *captureSession, op
 	default:
 		return nil, failure(CodeContractViolation, errors.New("capture operation is not granted"))
 	}
+}
+
+func (p *provider) captureRGBA(ctx context.Context) ([]byte, int64, int64, error) {
+	var frame *image.RGBA
+	if direct, ok := p.driver.(captureFrameDriver); ok {
+		var err error
+		frame, err = direct.CaptureFrame(ctx)
+		if err != nil {
+			return nil, 0, 0, err
+		}
+	} else {
+		encoded, err := p.driver.Capture(ctx)
+		if err != nil {
+			return nil, 0, 0, err
+		}
+		decoded, err := png.Decode(bytes.NewReader(encoded))
+		if err != nil {
+			return nil, 0, 0, fmt.Errorf("decode capture PNG for RGBA projection: %w", err)
+		}
+		bounds := decoded.Bounds()
+		frame = image.NewRGBA(image.Rect(0, 0, bounds.Dx(), bounds.Dy()))
+		draw.Draw(frame, frame.Bounds(), decoded, bounds.Min, draw.Src)
+	}
+	if frame == nil {
+		return nil, 0, 0, errors.New("capture returned a nil RGBA frame")
+	}
+	bounds := frame.Bounds()
+	width, height := int64(bounds.Dx()), int64(bounds.Dy())
+	if width <= 0 || height <= 0 || height > MaxCaptureBytes/4 || width > MaxCaptureBytes/(height*4) {
+		return nil, 0, 0, errors.New("capture RGBA dimensions exceed byte budget")
+	}
+	rowBytes := int(width * 4)
+	data := make([]byte, int(width*height*4))
+	for y := 0; y < int(height); y++ {
+		source := frame.PixOffset(bounds.Min.X, bounds.Min.Y+y)
+		copy(data[y*rowBytes:(y+1)*rowBytes], frame.Pix[source:source+rowBytes])
+	}
+	return data, width, height, nil
 }
 
 func classifyCaptureFailure(err error) error {
@@ -776,7 +845,7 @@ func OpenEffectResponse(raw []byte) error {
 
 func OpenCaptureResponse(raw []byte) (CaptureResponse, error) {
 	var response CaptureResponse
-	if err := decodeExact(raw, &response, 1024); err != nil || response.MediaType != "image/png" || response.Size <= 0 || response.Size > MaxCaptureBytes {
+	if err := decodeExact(raw, &response, 1024); err != nil || !validCaptureResponse(response) {
 		return CaptureResponse{}, failure(CodeContractViolation, errors.New("invalid capture response"))
 	}
 	canonical, err := artifact.Marshal(response)
@@ -784,6 +853,23 @@ func OpenCaptureResponse(raw []byte) (CaptureResponse, error) {
 		return CaptureResponse{}, failure(CodeContractViolation, errors.New("capture response is not canonical"))
 	}
 	return response, nil
+}
+
+func validCaptureResponse(response CaptureResponse) bool {
+	if response.Size <= 0 || response.Size > MaxCaptureBytes {
+		return false
+	}
+	switch response.MediaType {
+	case "image/png":
+		return response.Width == 0 && response.Height == 0
+	case CaptureMediaTypeRGBA:
+		return response.Width > 0 && response.Height > 0 &&
+			response.Height <= MaxCaptureBytes/4 &&
+			response.Width <= MaxCaptureBytes/(response.Height*4) &&
+			response.Size == response.Width*response.Height*4
+	default:
+		return false
+	}
 }
 
 func OpenWaitWindowResponse(raw []byte) (WaitWindowResponse, error) {

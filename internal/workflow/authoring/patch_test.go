@@ -98,6 +98,51 @@ func TestEngineBindsWorkflowResourceWithoutLosingPortableIdentity(t *testing.T) 
 	}
 }
 
+func TestEngineAddsTargetNodeWithWorkflowTargetDefault(t *testing.T) {
+	builtins, projection := testContracts(t)
+	engine, err := authoring.New(builtins.Catalog, projection, func() string { return "click-template" })
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := engine.Apply(emptySource(), []authoring.Command{
+		{Kind: authoring.CommandSetTargetDefault, SetTargetDefault: &authoring.SetTargetDefaultCommand{
+			Target: "target", Slot: "window-target",
+		}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{
+			GraphID: "main", NodeTypeID: nodes.ClickTemplateNodeID, Handle: "click", Position: schema.Position{},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	node := result.Source.Graphs[0].Nodes[0]
+	if node.Config["slot"] != nil {
+		t.Fatalf("workflow target default was copied into node config: %#v", node.Config)
+	}
+}
+
+func TestEngineAddsTargetNodeWithExplicitTargetSlot(t *testing.T) {
+	builtins, projection := testContracts(t)
+	engine, err := authoring.New(builtins.Catalog, projection, func() string { return "click-template" })
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := engine.Apply(emptySource(), []authoring.Command{
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{
+			GraphID: "main", NodeTypeID: nodes.ClickTemplateNodeID, Handle: "click", Position: schema.Position{},
+		}},
+		{Kind: authoring.CommandSetConfig, SetConfig: &authoring.SetConfigCommand{
+			GraphID: "main", NodeID: "$click", FieldID: "slot", Value: "window-target",
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Source.Graphs[0].Nodes[0].Config["slot"] != "window-target" {
+		t.Fatalf("node config = %#v", result.Source.Graphs[0].Nodes[0].Config)
+	}
+}
+
 func TestEngineAuthorsWorkflowResourceLifecycleAndProtectsReferences(t *testing.T) {
 	builtins, projection := testContracts(t)
 	engine, err := authoring.New(builtins.Catalog, projection, func() string { return "node-resource-lifecycle" })

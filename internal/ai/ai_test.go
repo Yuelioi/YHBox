@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/artifact"
@@ -110,6 +111,36 @@ func TestStructuredOutputCompilerRejectsPromptOnlyAndPartialSchemas(t *testing.T
 	}
 }
 
+func TestStructuredFieldsCompileFriendlyDefinitionsIntoStrictOutput(t *testing.T) {
+	spec, err := CompileStructuredFields("result", []any{
+		map[string]any{"name": "标题", "type": "string", "description": "文章标题"},
+		map[string]any{"name": "score", "type": "number", "nullable": true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var schema map[string]any
+	if err := json.Unmarshal(spec.Schema, &schema); err != nil {
+		t.Fatal(err)
+	}
+	properties := schema["properties"].(map[string]any)
+	if properties["标题"].(map[string]any)["type"] != "string" ||
+		len(properties["score"].(map[string]any)["anyOf"].([]any)) != 2 ||
+		schema["additionalProperties"] != false {
+		t.Fatalf("compiled field schema = %#v", schema)
+	}
+	for _, invalid := range []any{
+		[]any{},
+		[]any{map[string]any{"name": "value", "type": "string"}, map[string]any{"name": "value", "type": "number"}},
+		[]any{map[string]any{"name": " value ", "type": "string"}},
+		[]any{map[string]any{"name": "value", "type": "object"}},
+	} {
+		if _, err := CompileStructuredFields("result", invalid); err == nil {
+			t.Fatalf("accepted invalid structured fields %#v", invalid)
+		}
+	}
+}
+
 func TestOpenAIResponsesUsesNativeStructuredOutputAndExactUsage(t *testing.T) {
 	spec := structuredSpecForTest(t)
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -121,8 +152,19 @@ func TestOpenAIResponsesUsesNativeStructuredOutputAndExactUsage(t *testing.T) {
 		if body["model"] != "model-snapshot-1" || body["store"] != false {
 			t.Fatalf("OpenAI request = %#v", body)
 		}
-		if body["instructions"] != "Trusted test instructions." || body["input"] != "answer" {
+		if body["instructions"] != "Trusted test instructions." {
 			t.Fatalf("OpenAI prompt boundary = %#v", body)
+		}
+		input := body["input"].([]any)
+		message := input[0].(map[string]any)
+		content := message["content"].([]any)
+		imagePart := content[0].(map[string]any)
+		textPart := content[1].(map[string]any)
+		if message["role"] != "user" ||
+			imagePart["type"] != "input_image" ||
+			!strings.HasPrefix(imagePart["image_url"].(string), "data:image/jpeg;base64,") ||
+			textPart["type"] != "input_text" || textPart["text"] != "answer" {
+			t.Fatalf("OpenAI multimodal input = %#v", body["input"])
 		}
 		text := body["text"].(map[string]any)
 		format := text["format"].(map[string]any)
@@ -139,7 +181,9 @@ func TestOpenAIResponsesUsesNativeStructuredOutputAndExactUsage(t *testing.T) {
 	defer server.Close()
 	provider := nativeProviderForTest(t, profileForTest(t, ProviderOpenAIResponses), server.URL)
 	outcome, err := provider.Generate(context.Background(), "secret", GenerateRequest{
-		AttemptID: "attempt-1", Prompt: renderedPromptForTest(t, "answer"), Output: &spec, Retention: RetentionNoApplicationState,
+		AttemptID: "attempt-1", Prompt: renderedPromptForTest(t, "answer"),
+		Image:  &ImageInput{MediaType: "image/jpeg", Data: []byte("jpeg")},
+		Output: &spec, Retention: RetentionNoApplicationState,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -174,6 +218,16 @@ func TestOpenAIChatCompletionsResolvesBaseURLAndGenerates(t *testing.T) {
 		if !ok || len(messages) != 2 {
 			t.Fatalf("OpenAI Chat messages = %#v", body["messages"])
 		}
+		user := messages[1].(map[string]any)
+		content := user["content"].([]any)
+		imagePart := content[0].(map[string]any)
+		imageURL := imagePart["image_url"].(map[string]any)
+		textPart := content[1].(map[string]any)
+		if imagePart["type"] != "image_url" ||
+			!strings.HasPrefix(imageURL["url"].(string), "data:image/png;base64,") ||
+			textPart["type"] != "text" || textPart["text"] != "answer" {
+			t.Fatalf("OpenAI Chat multimodal input = %#v", user["content"])
+		}
 		writer.Header().Set("x-request-id", "request-chat")
 		_, _ = writer.Write([]byte(`{
 			"id":"chat-1","model":"deepseek-v4-flash",
@@ -196,6 +250,7 @@ func TestOpenAIChatCompletionsResolvesBaseURLAndGenerates(t *testing.T) {
 	}
 	outcome, err := provider.Generate(context.Background(), "secret", GenerateRequest{
 		AttemptID: "attempt-chat", Prompt: renderedPromptForTest(t, "answer"),
+		Image:     &ImageInput{MediaType: "image/png", Data: []byte("png")},
 		Retention: RetentionNoApplicationState,
 	})
 	if err != nil {
@@ -223,6 +278,16 @@ func TestAnthropicMessagesUsesOutputConfigAndCacheAwareUsage(t *testing.T) {
 		if body["system"] != "Trusted test instructions." {
 			t.Fatalf("Anthropic prompt boundary = %#v", body)
 		}
+		messages := body["messages"].([]any)
+		content := messages[0].(map[string]any)["content"].([]any)
+		imagePart := content[0].(map[string]any)
+		source := imagePart["source"].(map[string]any)
+		textPart := content[1].(map[string]any)
+		if imagePart["type"] != "image" || source["type"] != "base64" ||
+			source["media_type"] != "image/jpeg" || source["data"] == "" ||
+			textPart["type"] != "text" || textPart["text"] != "answer" {
+			t.Fatalf("Anthropic multimodal input = %#v", content)
+		}
 		output := body["output_config"].(map[string]any)
 		format := output["format"].(map[string]any)
 		if format["type"] != "json_schema" {
@@ -238,7 +303,9 @@ func TestAnthropicMessagesUsesOutputConfigAndCacheAwareUsage(t *testing.T) {
 	defer server.Close()
 	provider := nativeProviderForTest(t, profile, server.URL)
 	outcome, err := provider.Generate(context.Background(), "secret", GenerateRequest{
-		AttemptID: "attempt-2", Prompt: renderedPromptForTest(t, "answer"), Output: &spec, Retention: RetentionNoApplicationState,
+		AttemptID: "attempt-2", Prompt: renderedPromptForTest(t, "answer"),
+		Image:  &ImageInput{MediaType: "image/jpeg", Data: []byte("jpeg")},
+		Output: &spec, Retention: RetentionNoApplicationState,
 	})
 	if err != nil {
 		t.Fatal(err)

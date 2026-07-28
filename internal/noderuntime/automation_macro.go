@@ -21,7 +21,7 @@ func playMacro() nodeadapter.Adapter {
 				EffectID: nodes.PlayMacroEffectID, Action: "automation.play-macro", SummaryCode: "automation.play-macro", Counters: counters,
 			}, installed.CodePlaybackFailed, runErr))
 		}()
-		carrier, ref, err := readPlaybackBlob(ctx, invocation, "macro", macro.MediaType, macro.MaxEncodedMacroBytes)
+		carrier, ref, err := readBlobInput(ctx, invocation, "macro", macro.MediaType, macro.MaxEncodedMacroBytes)
 		if err != nil {
 			return nodeadapter.AdapterResult{}, macroFailure(err)
 		}

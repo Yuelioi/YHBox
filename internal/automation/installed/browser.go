@@ -1,11 +1,9 @@
 package installed
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"image/png"
 	"math"
 	"sync"
 	"time"
@@ -157,14 +155,14 @@ func (driver *browserDriver) Capture(ctx context.Context) ([]byte, error) {
 	if err != nil {
 		return nil, failure(CodeCaptureFailed, err)
 	}
-	var encoded bytes.Buffer
-	if err := png.Encode(&encoded, frame.Image); err != nil {
+	encoded, err := encodeCapturePNG(frame.Image)
+	if err != nil {
 		return nil, failure(CodeCaptureFailed, err)
 	}
-	if int64(encoded.Len()) > MaxCaptureBytes {
+	if int64(len(encoded)) > MaxCaptureBytes {
 		return nil, failure(CodeCaptureFailed, errors.New("captured PNG exceeds byte budget"))
 	}
-	return encoded.Bytes(), nil
+	return encoded, nil
 }
 
 func (driver *browserDriver) PlayEvent(context.Context, PlaybackEvent) error {
