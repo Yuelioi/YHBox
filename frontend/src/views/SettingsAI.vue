@@ -75,7 +75,8 @@
               </UFormField>
               <UFormField
                 :label="t('settingsAI.profiles.slot_label')"
-                :hint="t('settingsAI.profiles.slot_hint')"
+                :description="t('settingsAI.profiles.slot_hint')"
+                :ui="compactDescriptionUI"
               >
                 <UInput :model-value="profile.slot" size="sm" disabled class="font-mono" />
               </UFormField>
@@ -89,7 +90,8 @@
               </UFormField>
               <UFormField
                 :label="t('settingsAI.profiles.model_label')"
-                :hint="t('settingsAI.profiles.model_hint')"
+                :description="t('settingsAI.profiles.model_hint')"
+                :ui="compactDescriptionUI"
                 required
               >
                 <UInput
@@ -104,7 +106,9 @@
             <div class="rounded-lg border border-default/70 bg-elevated/35 p-3">
               <UFormField
                 :label="t('settingsAI.profiles.endpoint_label')"
-                :hint="t('settingsAI.profiles.endpoint_hint')"
+                :description="t('settingsAI.profiles.endpoint_hint')"
+                :error="endpointFieldError(profile)"
+                :ui="compactDescriptionUI"
                 required
               >
                 <div class="flex flex-col gap-2 sm:flex-row">
@@ -114,7 +118,7 @@
                     size="sm"
                     class="min-w-0 flex-1 font-mono"
                     :placeholder="defaultProviderEndpoint(profile.provider)"
-                    @change="commit"
+                    @change="commitEndpoint(profile)"
                   />
                   <UButton
                     size="sm"
@@ -155,17 +159,39 @@
             <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
               <UFormField
                 :label="t('settingsAI.profiles.max_tokens_label')"
-                :hint="t('settingsAI.profiles.max_tokens_hint')"
+                :description="t('settingsAI.profiles.max_tokens_hint')"
+                :ui="compactDescriptionUI"
               >
-                <UInputNumber
-                  v-model="profile.maxOutputTokens"
-                  :min="1"
-                  :max="1000000"
-                  :step="256"
-                  size="sm"
-                  class="w-full sm:w-48"
-                  @change="commit"
-                />
+                <div class="flex flex-wrap items-center gap-3">
+                  <UInput
+                    v-if="profile.maxOutputTokens === 0"
+                    :model-value="t('settingsAI.profiles.max_tokens_unlimited')"
+                    disabled
+                    size="sm"
+                    class="w-full sm:w-48"
+                  />
+                  <UInputNumber
+                    v-else
+                    v-model="profile.maxOutputTokens"
+                    :min="1"
+                    :max="1000000"
+                    :step="256"
+                    :step-snapping="false"
+                    size="sm"
+                    class="w-full sm:w-48"
+                    @change="commit"
+                  />
+                  <label class="flex items-center gap-2 text-xs text-toned">
+                    <USwitch
+                      :model-value="profile.maxOutputTokens === 0"
+                      size="sm"
+                      @update:model-value="
+                        (value: boolean) => setUnlimitedOutputTokens(index, value)
+                      "
+                    />
+                    <span>{{ t('settingsAI.profiles.max_tokens_unlimited') }}</span>
+                  </label>
+                </div>
               </UFormField>
               <div class="flex items-end pb-1">
                 <UBadge size="xs" color="neutral" variant="subtle">
@@ -198,6 +224,10 @@
                   <USwitch
                     :model-value="profile.capabilities[capability.key]"
                     size="sm"
+                    :disabled="
+                      profile.provider === 'openai-chat-completions' &&
+                      (capability.key === 'toolCalling' || capability.key === 'parallelTools')
+                    "
                     @update:model-value="
                       (value: boolean) => onCapability(index, capability.key, value)
                     "
@@ -253,7 +283,8 @@
 
             <UFormField
               :label="t('settingsAI.profiles.apikey_label')"
-              :hint="t('settingsAI.profiles.apikey_hint')"
+              :description="t('settingsAI.profiles.apikey_hint')"
+              :ui="compactDescriptionUI"
             >
               <UInput
                 v-model="apiKeys[profile.slot]"
@@ -336,11 +367,10 @@
                 {{
                   t('settingsAI.profiles.test_ok', {
                     model: results[profile.slot]!.resolvedModel,
-                    finish: results[profile.slot]!.finish,
                   })
                 }}
               </span>
-              <span v-else class="break-all">{{ results[profile.slot]!.error }}</span>
+              <span v-else>{{ testFailureMessage(profile, results[profile.slot]!) }}</span>
             </div>
           </div>
         </article>
@@ -376,6 +406,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import { errorMessage } from '@/lib/invoke'
+import { aiProviderEndpointIssue } from '@/settings/aiProviderEndpoint'
 
 interface AIModelProfileDraft extends AIModelProfile {
   persisted: boolean
@@ -395,9 +426,17 @@ const results = reactive<Record<string, AIProfileTestResult>>({})
 const revealed = reactive<Record<string, boolean>>({})
 const secretStatus = reactive<Record<string, boolean>>({})
 const apiKeys = reactive<Record<string, string>>({})
+const endpointValidationVisible = reactive<Record<string, boolean>>({})
+const previousOutputTokenLimits = reactive<Record<string, number>>({})
+const compactDescriptionUI = {
+  label: 'text-xs font-medium text-default',
+  description: 'mt-1 text-[11px] leading-4 font-normal text-dimmed',
+  container: 'mt-2',
+}
 
 const providerItems = computed(() => [
   { label: t('settingsAI.provider.openai_responses'), value: 'openai-responses' },
+  { label: t('settingsAI.provider.openai_chat_completions'), value: 'openai-chat-completions' },
   { label: t('settingsAI.provider.anthropic_messages'), value: 'anthropic-messages' },
 ])
 const capabilityOptions = computed<Array<{ key: CapabilityKey; label: string; hint: string }>>(
@@ -452,14 +491,18 @@ watch(
   { immediate: true },
 )
 
-const providerName = (provider: AIProviderKind) =>
-  t(
-    provider === 'openai-responses'
-      ? 'settingsAI.provider.openai_responses'
-      : 'settingsAI.provider.anthropic_messages',
-  )
+const providerName = (provider: AIProviderKind) => {
+  switch (provider) {
+    case 'openai-responses':
+      return t('settingsAI.provider.openai_responses')
+    case 'openai-chat-completions':
+      return t('settingsAI.provider.openai_chat_completions')
+    case 'anthropic-messages':
+      return t('settingsAI.provider.anthropic_messages')
+  }
+}
 const providerIcon = (provider: AIProviderKind) =>
-  provider === 'openai-responses' ? 'i-tabler-brand-openai' : 'i-tabler-letter-a'
+  provider === 'anthropic-messages' ? 'i-tabler-letter-a' : 'i-tabler-brand-openai'
 const toggleExpanded = (slot: string) =>
   (expandedSlot.value = expandedSlot.value === slot ? '' : slot)
 
@@ -515,6 +558,13 @@ function addProfile(): void {
 }
 
 async function commit(): Promise<boolean> {
+  const invalidProfiles = draft.value.filter(
+    (profile) => profileRequiredFieldsComplete(profile) && endpointIssue(profile),
+  )
+  if (invalidProfiles.length) {
+    for (const profile of invalidProfiles) endpointValidationVisible[profile.slot] = true
+    return false
+  }
   if (draft.value.some((profile) => profile.persisted && !profileComplete(profile))) {
     return false
   }
@@ -528,9 +578,28 @@ async function commit(): Promise<boolean> {
 }
 
 function profileComplete(profile: AIModelProfileDraft): boolean {
+  return Boolean(profileRequiredFieldsComplete(profile) && !endpointIssue(profile))
+}
+
+function profileRequiredFieldsComplete(profile: AIModelProfileDraft): boolean {
   return Boolean(
     profile.slot && profile.label.trim() && profile.model.trim() && profile.endpoint.trim(),
   )
+}
+
+function endpointIssue(profile: AIModelProfileDraft) {
+  return aiProviderEndpointIssue(profile.endpoint, profile.allowLocalHttp)
+}
+
+function endpointFieldError(profile: AIModelProfileDraft): string | undefined {
+  if (!endpointValidationVisible[profile.slot]) return undefined
+  const issue = endpointIssue(profile)
+  return issue ? t(`settingsAI.profiles.endpoint_${issue}`) : undefined
+}
+
+async function commitEndpoint(profile: AIModelProfileDraft): Promise<void> {
+  endpointValidationVisible[profile.slot] = true
+  await commit()
 }
 
 async function onProvider(index: number, provider: AIProviderKind): Promise<void> {
@@ -541,11 +610,28 @@ async function onProvider(index: number, provider: AIProviderKind): Promise<void
     profile.allowLocalHttp = false
   }
   profile.provider = provider
+  if (provider === 'openai-chat-completions') {
+    profile.capabilities.toolCalling = false
+    profile.capabilities.parallelTools = false
+  }
   await commit()
 }
 
 async function setLocalHTTP(index: number, enabled: boolean): Promise<void> {
   draft.value[index].allowLocalHttp = enabled
+  await commit()
+}
+
+async function setUnlimitedOutputTokens(index: number, enabled: boolean): Promise<void> {
+  const profile = draft.value[index]
+  if (enabled) {
+    if (profile.maxOutputTokens > 0) {
+      previousOutputTokenLimits[profile.slot] = profile.maxOutputTokens
+    }
+    profile.maxOutputTokens = 0
+  } else {
+    profile.maxOutputTokens = previousOutputTokenLimits[profile.slot] || 4096
+  }
   await commit()
 }
 
@@ -556,9 +642,14 @@ async function restoreProviderEndpoint(profile: AIModelProfileDraft): Promise<vo
 }
 
 function defaultProviderEndpoint(provider: AIProviderKind): string {
-  return provider === 'openai-responses'
-    ? 'https://api.openai.com/v1/responses'
-    : 'https://api.anthropic.com/v1/messages'
+  switch (provider) {
+    case 'openai-responses':
+      return 'https://api.openai.com/v1/responses'
+    case 'openai-chat-completions':
+      return 'https://api.openai.com/v1'
+    case 'anthropic-messages':
+      return 'https://api.anthropic.com/v1/messages'
+  }
 }
 
 async function onCapability(
@@ -682,6 +773,38 @@ async function testProfile(profile: AIModelProfileDraft): Promise<void> {
     showActionError(error)
   } finally {
     testing[profile.slot] = false
+  }
+}
+
+function testFailureMessage(profile: AIModelProfileDraft, result: AIProfileTestResult): string {
+  const status = result.httpStatus ? `HTTP ${result.httpStatus}` : ''
+  switch (result.failureClass) {
+    case 'not-found':
+      return t(
+        profile.provider === 'openai-responses'
+          ? 'settingsAI.test_errors.not_found_responses'
+          : 'settingsAI.test_errors.not_found',
+        { status },
+      )
+    case 'authentication':
+      return t('settingsAI.test_errors.authentication', { status })
+    case 'permission':
+      return t('settingsAI.test_errors.permission', { status })
+    case 'invalid-request':
+      return t('settingsAI.test_errors.invalid_request', { status })
+    case 'rate-limit':
+      return t('settingsAI.test_errors.rate_limit', { status })
+    case 'timeout':
+      return t('settingsAI.test_errors.timeout', { status })
+    case 'server':
+    case 'overloaded':
+      return t('settingsAI.test_errors.server', { status })
+    case 'conflict':
+      return t('settingsAI.test_errors.conflict', { status })
+    case 'cancelled':
+      return t('settingsAI.test_errors.cancelled')
+    default:
+      return t('settingsAI.test_errors.unknown')
   }
 }
 

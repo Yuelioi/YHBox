@@ -109,6 +109,7 @@ type TestProfileResult struct {
 	ResolvedModel  string          `json:"resolvedModel"`
 	Finish         ai.FinishKind   `json:"finish"`
 	FailureClass   ai.FailureClass `json:"failureClass,omitempty"`
+	HTTPStatus     int             `json:"httpStatus,omitempty"`
 	Error          string          `json:"error,omitempty"`
 }
 
@@ -135,7 +136,10 @@ func (s *AIService) TestProfile(request TestProfileRequest) TestProfileResult {
 	if err != nil {
 		return aiTestFailure(err)
 	}
-	maximum := min(profile.Machine().MaxOutputTokens, int64(8))
+	maximum := int64(8)
+	if configuredMaximum := profile.Machine().MaxOutputTokens; configuredMaximum > 0 {
+		maximum = min(configuredMaximum, maximum)
+	}
 	manifest, err := ai.SealPromptManifest(ai.PromptManifestDraft{
 		ID: "yotta.ai.connection-test", Version: "1.0.0", Owner: "settings",
 		Instructions: "Return the requested short connection-test response without adding unrelated content.",
@@ -167,6 +171,9 @@ func aiTestFailure(err error) TestProfileResult {
 	var failure *ai.ProviderFailure
 	if errors.As(err, &failure) {
 		result.FailureClass = failure.Class
+		if failure.HTTPStatus != nil {
+			result.HTTPStatus = *failure.HTTPStatus
+		}
 	}
 	return result
 }

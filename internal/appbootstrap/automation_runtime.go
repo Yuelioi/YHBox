@@ -6,30 +6,101 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/appcontrol"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
+	"github.com/yottaapp/yotta/internal/httpegress"
 )
 
-// PreparedAutomation is a fully constructed but unpublished target generation.
+// PreparedInstallations is a fully constructed but unpublished execution
+// environment generation.
 // Commit and Abort are single-use terminal operations.
-type PreparedAutomation struct {
+type PreparedInstallations struct {
 	mu           sync.Mutex
 	runtime      *Runtime
+	factory      executionEnvironmentFactory
 	applications appcontrol.Installations
 	automation   automationinstalled.Installations
+	ownsNetwork  bool
 	state        uint8
 }
 
-func (runtime *Runtime) PrepareAutomation(applicationDrafts []appcontrol.InstallationDraft, automationDrafts []automationinstalled.InstallationDraft) (*PreparedAutomation, error) {
+// PreparedAutomation is kept as the source-compatible name for callers that
+// only replace application and automation installations.
+type PreparedAutomation = PreparedInstallations
+
+func (runtime *Runtime) PrepareAutomation(
+	applicationDrafts []appcontrol.InstallationDraft,
+	automationDrafts []automationinstalled.InstallationDraft,
+) (*PreparedAutomation, error) {
+	factory, err := runtime.installationFactory()
+	if err != nil {
+		return nil, err
+	}
+	return runtime.prepareInstallations(factory, applicationDrafts, automationDrafts, false)
+}
+
+// PrepareInstallations constructs a complete replacement snapshot. Nothing is
+// published until Commit succeeds, so settings persistence and runtime
+// activation can remain one transaction.
+func (runtime *Runtime) PrepareInstallations(
+	aiDrafts []ai.InstallationDraft,
+	credentials ai.CredentialStore,
+	httpDrafts []httpegress.InstallationDraft,
+	applicationDrafts []appcontrol.InstallationDraft,
+	automationDrafts []automationinstalled.InstallationDraft,
+) (*PreparedInstallations, error) {
+	current, err := runtime.installationFactory()
+	if err != nil {
+		return nil, err
+	}
+	aiInstallations, err := ai.Install(aiDrafts, credentials)
+	if err != nil {
+		return nil, fmt.Errorf("prepare AI installations: %w", err)
+	}
+	aiInstallations, err = aiInstallations.ForEvaluationArtifacts(runtime.Builtins.AIEvaluationArtifacts())
+	if err != nil {
+		aiInstallations.CloseIdleConnections()
+		return nil, fmt.Errorf("prepare AI evaluation bindings: %w", err)
+	}
+	httpInstallations, err := httpegress.Install(httpDrafts)
+	if err != nil {
+		aiInstallations.CloseIdleConnections()
+		return nil, fmt.Errorf("prepare HTTP installations: %w", err)
+	}
+	factory, err := current.withInstallations(aiInstallations, httpInstallations)
+	if err != nil {
+		aiInstallations.CloseIdleConnections()
+		httpInstallations.CloseIdleConnections()
+		return nil, err
+	}
+	prepared, err := runtime.prepareInstallations(factory, applicationDrafts, automationDrafts, true)
+	if err != nil {
+		aiInstallations.CloseIdleConnections()
+		httpInstallations.CloseIdleConnections()
+	}
+	return prepared, err
+}
+
+func (runtime *Runtime) installationFactory() (executionEnvironmentFactory, error) {
 	if runtime == nil || runtime.Application == nil {
-		return nil, errors.New("automation target runtime is unavailable")
+		return executionEnvironmentFactory{}, errors.New("automation target runtime is unavailable")
 	}
 	runtime.automationMu.Lock()
+	defer runtime.automationMu.Unlock()
 	closed := runtime.closed
-	runtime.automationMu.Unlock()
 	if closed {
-		return nil, errors.New("automation target runtime is closed")
+		return executionEnvironmentFactory{}, errors.New("automation target runtime is closed")
 	}
+	return runtime.factory, nil
+}
+
+func (runtime *Runtime) prepareInstallations(
+	factory executionEnvironmentFactory,
+	applicationDrafts []appcontrol.InstallationDraft,
+	automationDrafts []automationinstalled.InstallationDraft,
+	ownsNetwork bool,
+) (*PreparedInstallations, error) {
 	applications, err := appcontrol.Install(applicationDrafts)
 	if err != nil {
 		return nil, fmt.Errorf("prepare installed applications: %w", err)
@@ -38,10 +109,13 @@ func (runtime *Runtime) PrepareAutomation(applicationDrafts []appcontrol.Install
 	if err != nil {
 		return nil, fmt.Errorf("prepare installed automation targets: %w", err)
 	}
-	return &PreparedAutomation{runtime: runtime, applications: applications, automation: automation}, nil
+	return &PreparedInstallations{
+		runtime: runtime, factory: factory, applications: applications,
+		automation: automation, ownsNetwork: ownsNetwork,
+	}, nil
 }
 
-func (prepared *PreparedAutomation) Commit() error {
+func (prepared *PreparedInstallations) Commit() error {
 	if prepared == nil || prepared.runtime == nil {
 		return errors.New("prepared automation generation is unavailable")
 	}
@@ -52,8 +126,14 @@ func (prepared *PreparedAutomation) Commit() error {
 	}
 	prepared.state = 1
 	prepared.mu.Unlock()
-	if err := prepared.runtime.publish(prepared.applications, prepared.automation); err != nil {
+	if err := prepared.runtime.publish(
+		prepared.factory,
+		prepared.applications,
+		prepared.automation,
+		prepared.ownsNetwork,
+	); err != nil {
 		_ = prepared.automation.Close()
+		prepared.closeOwnedNetwork()
 		prepared.mu.Lock()
 		prepared.state = 3
 		prepared.mu.Unlock()
@@ -65,7 +145,7 @@ func (prepared *PreparedAutomation) Commit() error {
 	return nil
 }
 
-func (prepared *PreparedAutomation) Abort() {
+func (prepared *PreparedInstallations) Abort() {
 	if prepared == nil {
 		return
 	}
@@ -77,13 +157,27 @@ func (prepared *PreparedAutomation) Abort() {
 	prepared.state = 3
 	prepared.mu.Unlock()
 	_ = prepared.automation.Close()
+	prepared.closeOwnedNetwork()
 }
 
-func (runtime *Runtime) publish(applications appcontrol.Installations, installations automationinstalled.Installations) error {
+func (prepared *PreparedInstallations) closeOwnedNetwork() {
+	if prepared == nil || !prepared.ownsNetwork {
+		return
+	}
+	prepared.factory.ai.CloseIdleConnections()
+	prepared.factory.http.CloseIdleConnections()
+}
+
+func (runtime *Runtime) publish(
+	factory executionEnvironmentFactory,
+	applications appcontrol.Installations,
+	installations automationinstalled.Installations,
+	replaceNetwork bool,
+) error {
 	if runtime == nil || runtime.Application == nil || !applications.Valid() || !installations.Valid() {
 		return errors.New("replacement automation installations are unavailable")
 	}
-	next, err := runtime.factory.seal(applications, installations)
+	next, err := factory.seal(applications, installations)
 	if err != nil {
 		return err
 	}
@@ -100,6 +194,7 @@ func (runtime *Runtime) publish(applications appcontrol.Installations, installat
 		return errors.New("automation target runtime is closed")
 	}
 	previous := runtime.current
+	previousAI, previousHTTP := runtime.ai, runtime.http
 	if err := runtime.authoring.Replace(next.generation); err != nil {
 		runtime.automationMu.Unlock()
 		return err
@@ -110,10 +205,19 @@ func (runtime *Runtime) publish(applications appcontrol.Installations, installat
 		return err
 	}
 	runtime.current = next
+	if replaceNetwork {
+		runtime.factory = factory
+		runtime.ai = factory.ai
+		runtime.http = factory.http
+	}
 	published = true
 	runtime.automationMu.Unlock()
 
 	_ = previous.generation.Retire()
+	if replaceNetwork {
+		previousAI.CloseIdleConnections()
+		previousHTTP.CloseIdleConnections()
+	}
 	runtime.automationMu.Lock()
 	runtime.retired = append(runtime.retired, previous.generation)
 	runtime.reapRetiredLocked()

@@ -453,13 +453,17 @@ func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot, conf
 
 func validateEffectivePortTypes(node programNode, machine nodecontract.MachineContract, state map[string]programStateSlot) error {
 	if node.InputTypes == nil || node.OutputTypes == nil ||
-		len(node.InputTypes) != len(machine.Ports.DataInputs) || len(node.OutputTypes) != len(machine.Ports.DataOutputs) {
+		len(node.InputTypes) > len(machine.Ports.DataInputs) || len(node.OutputTypes) != len(machine.Ports.DataOutputs) {
 		return errors.New("effective port type maps do not match the contract")
 	}
 	variables := map[string]datatype.ResolvedType{}
 	for _, port := range machine.Ports.DataInputs {
 		resolved, ok := node.InputTypes[port.ID]
 		if !ok {
+			_, planned := node.Inputs[port.ID]
+			if !port.Required && !planned && containsTypeVariable(port.Type) {
+				continue
+			}
 			return fmt.Errorf("input %q has no effective type", port.ID)
 		}
 		matched, err := datatype.MatchResolved(port.Type, resolved, variables)

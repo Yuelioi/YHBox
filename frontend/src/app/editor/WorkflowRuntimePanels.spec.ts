@@ -11,6 +11,8 @@ const timeline = read('RunTimelinePanel.vue')
 const debuggerPanel = read('WorkflowDebuggerPanel.vue')
 const workbench = read('WorkflowRuntimeWorkbench.vue')
 const node = read('WorkflowNode.vue')
+const valueEditor = read('WorkflowValueEditor.vue')
+const durationEditor = read('DurationValueEditor.vue')
 const editor = readFileSync(join(process.cwd(), 'src/views/WorkflowEditorView.vue'), 'utf8')
 
 describe('workflow runtime inspection UI', () => {
@@ -65,9 +67,19 @@ describe('workflow runtime inspection UI', () => {
     expect(editor).not.toContain("label: t('workflow.target_default.none'), value: ''")
   })
 
+  it('keeps inline duration controls at the compact node typography scale', () => {
+    expect(valueEditor).toContain(':compact="compact"')
+    expect(durationEditor).toContain(`:size="compact ? 'xs' : 'sm'"`)
+    expect(durationEditor).toContain(`'grid-cols-[minmax(0,1fr)_80px] gap-1.5'`)
+  })
+
   it('groups compiler diagnostics and shows only compiler-declared fixes', () => {
     expect(diagnostics).toContain('groupDiagnostics')
     expect(diagnostics).toContain('diagnostic.fix')
+    expect(diagnostics).toContain('class="w-full min-w-0"')
+    expect(diagnostics).toContain('block break-words')
+    expect(diagnostics).not.toContain('lg:grid-cols-3')
+    expect(diagnostics).not.toContain('block truncate')
     expect(diagnostics).not.toContain('suggestedFix')
     expect(editor).toContain('@focus="focusDiagnostic"')
     expect(editor).not.toContain(

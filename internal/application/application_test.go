@@ -364,7 +364,7 @@ func TestApplicationAtomicallyGuardsReferencedStateTypeMigration(t *testing.T) {
 			{Kind: authoring.CommandSetConfig, SetConfig: &authoring.SetConfigCommand{GraphID: "main", NodeID: "$read", FieldID: "variable", Value: "message"}},
 			{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.ConcatNodeID, Handle: "concat"}},
 			{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{GraphID: "main", NodeID: "$concat", PortID: "b", Value: " world"}},
-			{Kind: authoring.CommandConnect, Connect: &authoring.EdgeCommand{GraphID: "main", Edge: edge}},
+			{Kind: authoring.CommandConnect, Connect: &authoring.EdgeCommand{GraphID: "main", Edge: authoring.PatchEdgeFromSource(edge)}},
 		},
 	})
 	if err != nil {
@@ -399,7 +399,7 @@ func TestApplicationAtomicallyGuardsReferencedStateTypeMigration(t *testing.T) {
 	repairedEdge.To.NodeID = concatID
 	migrated, err := application.ApplyPatch(context.Background(), authoring.PatchRequest{
 		WorkflowID: created.WorkflowID(), BaseRevision: base.Source.Revision(), Commands: []authoring.Command{
-			{Kind: authoring.CommandDisconnect, Disconnect: &authoring.EdgeCommand{GraphID: "main", Edge: repairedEdge}},
+			{Kind: authoring.CommandDisconnect, Disconnect: &authoring.EdgeCommand{GraphID: "main", Edge: authoring.PatchEdgeFromSource(repairedEdge)}},
 			{Kind: authoring.CommandRemoveNode, RemoveNode: &authoring.NodeCommand{GraphID: "main", NodeID: concatID}},
 			update,
 		},

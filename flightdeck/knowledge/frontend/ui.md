@@ -133,7 +133,14 @@ Nuxt UI 的 Select 弹层默认跟随 trigger 宽度。基于最长选项做自�
 
 页面不要再给需要自适应的筛选器叠加 `w-*` + `width-mode="fixed"`，否则共享计算会被直接绕过。只有每页数量、紧凑日志级别或明确受表单栅格约束且已验证完整显示的控件才使用 fixed；数百条实体选择仍走可搜索 picker，不用 Select。
 
-### 反馈方式: 成功内联在触发点, toast 只留错误/后台事件
+### UFormField 的 hint 不是字段说明
+
+`UFormField.hint` 与 label 同行，只适合“可选”“只读”等极短状态；不要放完整句子。字段用途、约束和
+操作建议一律放 `description`，显示在 label 下方，窄侧栏里也不能与参数名争夺横向空间。检查器使用
+12px 参数名、11px 次级说明、再下方独占一行的控件；必填状态使用 `required` 的 `*`，不要把
+`required/optional` 当说明正文。
+
+### 反馈方式: 一个事件只用一个反馈表面
 
 用户明确不喜欢成功类 toast (顶上弹出干扰视线、和操作点割裂)。**新代码不加成功 toast** —— 按这棵决策树:
 
@@ -142,10 +149,10 @@ Nuxt UI 的 Select 弹层默认跟随 trigger 宽度。基于最长选项做自�
    - 触发点是**持久按钮** = 按钮内联闪「已复制 ✓」(本地 `copied` ref + ~1500ms 恢复, icon 切 check, 文案 `common.copied`)。
    - 触发点是**下拉菜单项** = `onSelect(e)` 里 `e.preventDefault()` **留住菜单**, 被点项 label/icon 原地切「已复制 ✓」~1500ms (范例 `NodeInspector.vue` 复制下拉)。菜单能留住就别弹 toast。
    - 仅当触发点**真的留不住**(点完必然关闭、无处可显) 才退而用短 toast (`duration: 1500`)。
-   - 错误**始终** toast (下同)。
+   - 失败如果已由当前字段或区域内 alert 持久展示，不再重复 toast；其余错误才用 toast。
 3. **有明确持久触发按钮的操作** (保存) → 按钮内联「已保存 ✓」(参 ContainerEditorToolbar 保存按钮 + useEditorSave.saveFlash, success soft ~1.6s 恢复)。
 4. **后台/跨窗口/跨位置事件, 或系统替你做了非显式动作的告知** (热键触发运行入队、导出/分享到库、录制落盘、自动重连了线、校准值变更) → **保留 toast** (这是 toast 的正当用途)。
-5. **错误/警告** → 一律保留 toast (invoke 自动错误 toast 也保留)。
+5. **错误/警告** → 字段级错误放字段旁；当前区域可恢复错误用一条 inline alert；后台或跨位置失败才用 toast；阻塞且需要选择才用 modal。完整规则见 [feedback-surfaces.md](feedback-surfaces.md)。
 
 2026-06-11 已按此把全仓 ~20 处成功 toast 收口 (删/内联), 并清掉随之死掉的 i18n 文案 key。
 

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net"
 	"net/url"
-	"path"
 	"regexp"
 	"strings"
 
@@ -18,8 +17,9 @@ const profileDigestDomain = "yotta/ai-model-profile/v2"
 type ProviderKind string
 
 const (
-	ProviderOpenAIResponses   ProviderKind = "openai-responses"
-	ProviderAnthropicMessages ProviderKind = "anthropic-messages"
+	ProviderOpenAIResponses       ProviderKind = "openai-responses"
+	ProviderOpenAIChatCompletions ProviderKind = "openai-chat-completions"
+	ProviderAnthropicMessages     ProviderKind = "anthropic-messages"
 )
 
 type EvaluationStatus string
@@ -63,12 +63,15 @@ type ModelProfile struct{ state *modelProfileState }
 var modelPattern = regexp.MustCompile(`^[^\x00-\x1f\x7f]{1,256}$`)
 
 func SealModelProfile(draft ModelProfileDraft) (ModelProfile, error) {
-	if (draft.Provider != ProviderOpenAIResponses && draft.Provider != ProviderAnthropicMessages) || !modelPattern.MatchString(draft.Model) ||
-		draft.MaxOutputTokens <= 0 || draft.MaxOutputTokens > 1_000_000 {
+	if (draft.Provider != ProviderOpenAIResponses && draft.Provider != ProviderOpenAIChatCompletions && draft.Provider != ProviderAnthropicMessages) || !modelPattern.MatchString(draft.Model) ||
+		draft.MaxOutputTokens < 0 || draft.MaxOutputTokens > 1_000_000 {
 		return ModelProfile{}, errors.New("invalid AI model profile identity or budget")
 	}
 	if draft.Capabilities.ParallelTools && !draft.Capabilities.ToolCalling {
 		return ModelProfile{}, errors.New("parallel AI tool calls require tool calling")
+	}
+	if draft.Provider == ProviderOpenAIChatCompletions && draft.Capabilities.ToolCalling {
+		return ModelProfile{}, errors.New("OpenAI Chat Completions agent tool calling is not supported")
 	}
 	endpoint, err := NormalizeProviderEndpoint(draft.Provider, draft.Endpoint, draft.AllowLocalHTTP)
 	if err != nil {
@@ -122,6 +125,8 @@ func DefaultProviderEndpoint(provider ProviderKind) string {
 	switch provider {
 	case ProviderOpenAIResponses:
 		return OpenAIResponsesEndpoint
+	case ProviderOpenAIChatCompletions:
+		return OpenAIChatCompletionsBaseURL
 	case ProviderAnthropicMessages:
 		return AnthropicMessagesEndpoint
 	default:
@@ -129,9 +134,9 @@ func DefaultProviderEndpoint(provider ProviderKind) string {
 	}
 }
 
-// NormalizeProviderEndpoint seals one exact provider-native request URL. It
-// never infers a protocol from the path and permits plain HTTP only for an
-// explicitly acknowledged loopback installation.
+// NormalizeProviderEndpoint seals the configured provider URL without
+// inventing or requiring a provider-specific request path. It permits plain
+// HTTP only for an explicitly acknowledged loopback installation.
 func NormalizeProviderEndpoint(provider ProviderKind, raw string, allowLocalHTTP bool) (string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -148,14 +153,9 @@ func NormalizeProviderEndpoint(provider ProviderKind, raw string, allowLocalHTTP
 			return "", errors.New("AI endpoint requires HTTPS; HTTP is allowed only for an explicitly enabled loopback host")
 		}
 	}
-	if parsed.Path == "" || parsed.Path == "/" {
-		return "", errors.New("AI endpoint must include the exact provider-native API path")
-	}
-	cleanPath := path.Clean(parsed.Path)
-	if cleanPath == "." || strings.Contains(parsed.Path, "\\") {
+	if strings.Contains(parsed.Path, "\\") {
 		return "", errors.New("AI endpoint path is invalid")
 	}
-	parsed.Path = cleanPath
 	parsed.RawPath = ""
 	return parsed.String(), nil
 }

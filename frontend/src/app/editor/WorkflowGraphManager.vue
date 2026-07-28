@@ -17,8 +17,8 @@
         data-testid="workflow-graph-new"
         icon="i-tabler-plus"
         size="xs"
-        color="primary"
-        variant="soft"
+        color="neutral"
+        variant="ghost"
         :label="t('workflow.graphs.new')"
         @click="createDefinition"
       />
@@ -47,15 +47,32 @@
               : 'border-transparent hover:border-default hover:bg-elevated/40'
           "
         >
-          <div class="flex min-w-0 items-start gap-1 p-1">
+          <div class="flex min-w-0 items-center gap-1 p-1">
             <button
               type="button"
+              :data-testid="`workflow-graph-definition-${definition.id}`"
+              :draggable="canCallDefinition(definition)"
               class="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left focus-visible:outline-2 focus-visible:outline-primary"
+              :class="canCallDefinition(definition) ? 'cursor-grab active:cursor-grabbing' : ''"
+              :title="
+                canCallDefinition(definition)
+                  ? t('workflow.graphs.drag_call_hint')
+                  : definition.kind === 'subgraph'
+                    ? t('workflow.graphs.call_unavailable')
+                    : undefined
+              "
+              @dragstart="startDefinitionDrag($event, definition)"
               @click="openDefinition(definition.id)"
             >
               <span class="flex min-w-0 items-center gap-2">
                 <UIcon
-                  :name="definition.kind === 'main' ? 'i-tabler-home' : 'i-tabler-folders'"
+                  :name="
+                    definition.kind === 'main'
+                      ? 'i-tabler-home'
+                      : canCallDefinition(definition)
+                        ? 'i-tabler-grip-vertical'
+                        : 'i-tabler-folders'
+                  "
                   class="size-4 shrink-0"
                   :class="definition.id === currentGraphId ? 'text-primary' : 'text-dimmed'"
                 />
@@ -93,70 +110,32 @@
               </span>
             </button>
 
-            <div v-if="definition.kind === 'subgraph'" class="flex shrink-0 items-center">
+            <div v-if="definition.kind === 'subgraph'" class="flex shrink-0 items-center gap-0.5">
               <UButton
-                icon="i-tabler-copy"
-                color="neutral"
+                data-testid="workflow-graph-insert-call"
+                icon="i-tabler-library-plus"
+                color="primary"
                 variant="ghost"
                 size="xs"
-                :aria-label="t('workflow.graphs.duplicate_definition')"
-                @click="duplicateDefinition(definition.id)"
-              />
-              <UButton
-                icon="i-tabler-pencil"
-                color="neutral"
-                variant="ghost"
-                size="xs"
-                :aria-label="t('workflow.graphs.rename_definition')"
-                @click="renameDefinition(definition.id)"
-              />
-              <UButton
-                v-if="definition.callCount > 0"
-                icon="i-tabler-trash-x"
-                color="error"
-                variant="ghost"
-                size="xs"
-                :aria-label="t('workflow.graphs.delete_definition_cascade')"
+                :label="t('workflow.graphs.call')"
+                :disabled="!canCallDefinition(definition)"
+                :aria-label="t('workflow.graphs.call_named', { name: definition.name })"
                 :title="
-                  t('workflow.graphs.delete_definition_cascade_hint', {
-                    count: definition.callCount,
-                  })
+                  canCallDefinition(definition)
+                    ? t('workflow.graphs.call_named', { name: definition.name })
+                    : t('workflow.graphs.call_unavailable')
                 "
-                @click="deleteDefinitionCascade(definition.id)"
+                @click="insertCall(definition.id)"
               />
-              <UButton
-                icon="i-tabler-trash"
-                color="error"
-                variant="ghost"
-                size="xs"
-                :disabled="definition.callCount > 0"
-                :aria-label="t('workflow.graphs.delete_definition')"
-                :title="
-                  definition.callCount
-                    ? t('workflow.graphs.delete_definition_referenced', {
-                        count: definition.callCount,
-                      })
-                    : t('workflow.graphs.delete_definition')
-                "
-                @click="deleteDefinition(definition.id)"
-              />
-            </div>
-          </div>
-
-          <div v-if="definition.references.length" class="border-t border-default/70 px-3 py-2">
-            <p class="mb-1.5 text-[9px] font-medium tracking-wide text-dimmed uppercase">
-              {{ t('workflow.graphs.call_locations') }}
-            </p>
-            <div class="flex flex-wrap gap-1">
-              <button
-                v-for="reference in definition.references"
-                :key="`${reference.parentGraphId}:${reference.callId}`"
-                type="button"
-                class="max-w-full truncate rounded-md bg-elevated px-2 py-1 text-[10px] text-toned hover:bg-accented focus-visible:outline-2 focus-visible:outline-primary"
-                @click="locateCall(reference.parentGraphId, reference.callId)"
-              >
-                {{ reference.parentGraphName }} · {{ reference.callLabel }}
-              </button>
+              <UDropdownMenu :items="definitionActions(definition)">
+                <UButton
+                  icon="i-tabler-dots-vertical"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  :aria-label="t('workflow.graphs.definition_actions', { name: definition.name })"
+                />
+              </UDropdownMenu>
             </div>
           </div>
         </article>
@@ -171,12 +150,24 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { GraphDefinitionSource } from './subgraphManagement'
+import type { GraphDefinitionSource, GraphDefinitionSummary } from './subgraphManagement'
 import { projectGraphDefinitions } from './subgraphManagement'
 
-const props = defineProps<{ source: GraphDefinitionSource; currentGraphId?: string }>()
+const props = withDefaults(
+  defineProps<{
+    source: GraphDefinitionSource
+    currentGraphId?: string
+    callableGraphIds?: string[]
+    dragFormat?: string
+  }>(),
+  {
+    callableGraphIds: () => [],
+    dragFormat: 'application/x-yotta-graph-call',
+  },
+)
 const emit = defineEmits<{
   open: [graphId: string]
+  insert: [graphId: string]
   create: []
   rename: [graphId: string]
   duplicate: [graphId: string]
@@ -196,23 +187,66 @@ function createDefinition(): void {
   emit('create')
 }
 
-function renameDefinition(graphId: string): void {
-  emit('rename', graphId)
+function canCallDefinition(definition: GraphDefinitionSummary): boolean {
+  return definition.kind === 'subgraph' && props.callableGraphIds.includes(definition.id)
 }
 
-function duplicateDefinition(graphId: string): void {
-  emit('duplicate', graphId)
+function startDefinitionDrag(event: DragEvent, definition: GraphDefinitionSummary): void {
+  if (!canCallDefinition(definition) || !event.dataTransfer) {
+    event.preventDefault()
+    return
+  }
+  event.dataTransfer.effectAllowed = 'copy'
+  event.dataTransfer.setData(props.dragFormat, definition.id)
 }
 
-function deleteDefinition(graphId: string): void {
-  emit('delete', graphId)
+function insertCall(graphId: string): void {
+  emit('insert', graphId)
 }
 
-function deleteDefinitionCascade(graphId: string): void {
-  emit('deleteCascade', graphId)
-}
-
-function locateCall(parentGraphId: string, callId: string): void {
-  emit('locate', parentGraphId, callId)
+function definitionActions(definition: GraphDefinitionSummary) {
+  const locations = definition.references.length
+    ? [
+        {
+          label: t('workflow.graphs.call_locations'),
+          icon: 'i-tabler-map-pin',
+          children: definition.references.map((reference) => ({
+            label: `${reference.parentGraphName} · ${reference.callLabel}`,
+            icon: 'i-tabler-focus-2',
+            onSelect: () => emit('locate', reference.parentGraphId, reference.callId),
+          })),
+        },
+      ]
+    : []
+  return [
+    locations,
+    [
+      {
+        label: t('common.rename'),
+        icon: 'i-tabler-pencil',
+        onSelect: () => emit('rename', definition.id),
+      },
+      {
+        label: t('common.copy'),
+        icon: 'i-tabler-copy',
+        onSelect: () => emit('duplicate', definition.id),
+      },
+    ],
+    [
+      definition.callCount
+        ? {
+            label: t('common.delete'),
+            icon: 'i-tabler-trash-x',
+            color: 'error' as const,
+            onSelect: () => emit('deleteCascade', definition.id),
+          }
+        : {
+            label: t('common.delete'),
+            icon: 'i-tabler-trash',
+            color: 'error' as const,
+            onSelect: () => emit('delete', definition.id),
+          },
+    ],
+  ].filter((group) => group.length)
 }
 </script>

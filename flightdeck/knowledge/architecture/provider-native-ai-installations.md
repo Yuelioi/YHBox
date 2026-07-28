@@ -1,9 +1,10 @@
 # Provider-native AI installation contract
 
-Yotta 不把 AI 当成可随调用拼接的 endpoint。设置只声明模型安装档案：稳定 slot、供应商原生协议、exact endpoint/model、输出预算、已验证能力、固定 token pricing 和评估状态。档案被 canonical seal 后，通过 installation generation 发布以下锁定关系：
+Yotta 不把 AI 当成可随调用拼接的 endpoint。设置只声明模型安装档案：稳定 slot、显式接口协议、API base URL、exact model、输出预算、已验证能力、固定 token pricing 和评估状态。档案被 canonical seal 后，通过 installation generation 发布以下锁定关系：
 
 - 相同 Model Profile 可共享一个 native provider 实例，但每个 slot 必须有独立 target 与 credential binding。
-- OpenAI adapter 只走 Responses API，Anthropic adapter 只走 Messages API。不得通过 Chat、prompt JSON、模型列表或 endpoint 猜测做兼容回退。
+- OpenAI Responses、OpenAI Chat Completions 与 Anthropic Messages 是三个显式 adapter；base URL 按所选协议拼接固定请求路由，不得根据域名猜测协议或静默回退。
+- Chat Completions 当前只支持普通 Generate；Agent continuation 尚未实现，因此该协议的 tool-calling/parallel-tools 声明必须在设置与 profile seal 两端拒绝。
 - API key 只按 slot 存入 OS credential store；settings、RPC 返回、日志和 trace 不得含明文 secret。
 - workflow consent 是 slot、profile digest、provider ABI 和允许 operation 的内容摘要。档案语义变化后旧 consent 必须失效，不得自动迁移或扩大。
 - 同一 sealed generation 原子投影 provider artifact、target、credential binding、Host Profile 与 consent；正在运行的 Run 持有其 generation lease，新 Run 只能看到已发布的新代。配置变化不得靠 ambient provider 热插入，也不应要求正常重启应用。
@@ -31,7 +32,7 @@ Offline evaluation 与 upgrade gate 是安装的一部分，不是 UI badge：
 - EvalReport 必须由 suite 对每个 case 精确匹配 observation 后导出；decision 与 aggregate metrics 必须可从 case results 和 thresholds 重算，unknown field、结构超限、重复 case 或 report drift 都 fail closed。
 - evaluation subject 只覆盖 model runtime identity；upgrade candidate 另将 subject 与当前 Generate/Extract/Agent/Authoring PromptManifest、Agent/Authoring ToolSet、三个 AI Node Contract semantic digest 排序绑定。任一 prompt/tool/schema/code upgrade 都使旧 candidate stale。
 - suite digest 与 exact report digest 都进入 ModelProfile；因此重新评估、report replacement、approved/rejected 变化都会改变 profile digest 并撤销旧 workflow consent。
-- Settings 可保留 unverified、rejected 或 stale profile 以便测试/重新评估，但只有 approved report 且 exact current candidate 才能进入 Host Profile。semantic profile edit 自动降级为 unverified 并清除 report、suite 与 consent。
+- Settings 可保留 unverified、rejected 或 stale profile 以便测试/重新评估。unverified profile 可进入 Host Profile 执行普通 Generate/Extract；Agent、AI authoring 和 tool authority 仍要求 approved report 与 exact current candidate。rejected 或 stale profile 不得进入 Host Profile。semantic profile edit 自动降级为 unverified 并清除 report、suite 与 consent。
 - canonical report 通过 ApplyEvaluation 显式导入、RevokeEvaluation 显式撤销；GrantWorkflowUse 必须再次验证 exact current candidate。task check 必须 regrade tracked corpus 并拒绝 report drift。
 
 AI authoring 仍是 typed Application client，不获得文件或 admission authority：

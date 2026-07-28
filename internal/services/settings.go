@@ -162,7 +162,7 @@ func (settings NetworkSettings) InstallationDrafts() []httpegress.InstallationDr
 
 // AIModelSettings is installation metadata only. Credential material lives in
 // AISecrets; model calls bind this logical slot through the trusted Host
-// Profile frozen at application startup.
+// Profile atomically published for each installation-settings generation.
 type AIModelSettings struct {
 	Slot             string                 `json:"slot"`
 	Label            string                 `json:"label"`

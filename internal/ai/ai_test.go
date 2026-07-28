@@ -56,6 +56,30 @@ func TestModelProfileRequiresPinnedPricingForToolCalling(t *testing.T) {
 	}
 }
 
+func TestOpenAIChatProfileRejectsUnsupportedAgentToolCalling(t *testing.T) {
+	_, err := SealModelProfile(ModelProfileDraft{
+		Provider: ProviderOpenAIChatCompletions, Model: "deepseek-v4-flash", MaxOutputTokens: 4096,
+		Evaluation: EvaluationUnverified, Capabilities: ProfileCapabilities{ToolCalling: true},
+		Pricing: TokenPricing{InputMicrounitsPerMillion: 1, OutputMicrounitsPerMillion: 1},
+	})
+	if err == nil {
+		t.Fatal("OpenAI Chat profile accepted unsupported agent tool calling")
+	}
+}
+
+func TestModelProfileAllowsNoInstalledOutputTokenLimit(t *testing.T) {
+	profile, err := SealModelProfile(ModelProfileDraft{
+		Provider: ProviderOpenAIChatCompletions, Model: "deepseek-v4-flash",
+		MaxOutputTokens: 0, Evaluation: EvaluationUnverified,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if profile.Machine().MaxOutputTokens != 0 {
+		t.Fatalf("unlimited output token setting = %d", profile.Machine().MaxOutputTokens)
+	}
+}
+
 func TestStructuredOutputCompilerRejectsPromptOnlyAndPartialSchemas(t *testing.T) {
 	valid := json.RawMessage(`{
 		"type":"object","properties":{
@@ -127,6 +151,60 @@ func TestOpenAIResponsesUsesNativeStructuredOutputAndExactUsage(t *testing.T) {
 	if deref(outcome.Usage.InputTotal) != 10 || deref(outcome.Usage.InputUncached) != 6 || deref(outcome.Usage.CacheRead) != 4 ||
 		deref(outcome.Usage.OutputTotal) != 2 || deref(outcome.Usage.ReasoningOutput) != 1 {
 		t.Fatalf("OpenAI usage = %#v", outcome.Usage)
+	}
+}
+
+func TestOpenAIChatCompletionsResolvesBaseURLAndGenerates(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/chat/completions" {
+			t.Fatalf("OpenAI Chat path = %q", request.URL.Path)
+		}
+		if request.Header.Get("Authorization") != "Bearer secret" {
+			t.Fatalf("OpenAI Chat authorization = %q", request.Header.Get("Authorization"))
+		}
+		var body map[string]any
+		decodeRequestForTest(t, request, &body)
+		if body["model"] != "deepseek-v4-flash" {
+			t.Fatalf("OpenAI Chat model = %#v", body["model"])
+		}
+		if _, limited := body["max_tokens"]; limited {
+			t.Fatalf("unlimited OpenAI Chat request contains max_tokens = %#v", body["max_tokens"])
+		}
+		messages, ok := body["messages"].([]any)
+		if !ok || len(messages) != 2 {
+			t.Fatalf("OpenAI Chat messages = %#v", body["messages"])
+		}
+		writer.Header().Set("x-request-id", "request-chat")
+		_, _ = writer.Write([]byte(`{
+			"id":"chat-1","model":"deepseek-v4-flash",
+			"choices":[{"index":0,"message":{"role":"assistant","content":"OK"},"finish_reason":"stop"}],
+			"usage":{"prompt_tokens":4,"completion_tokens":1,"total_tokens":5}
+		}`))
+	}))
+	defer server.Close()
+
+	profile, err := SealModelProfile(ModelProfileDraft{
+		Provider: ProviderOpenAIChatCompletions, Endpoint: server.URL, AllowLocalHTTP: true,
+		Model: "deepseek-v4-flash", MaxOutputTokens: 0, Evaluation: EvaluationUnverified,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider, err := NewNativeProvider(profile, HTTPOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	outcome, err := provider.Generate(context.Background(), "secret", GenerateRequest{
+		AttemptID: "attempt-chat", Prompt: renderedPromptForTest(t, "answer"),
+		Retention: RetentionNoApplicationState,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if outcome.Provider != ProviderOpenAIChatCompletions || outcome.ProviderRequestID != "request-chat" ||
+		outcome.ResolvedModel != "deepseek-v4-flash" || outcome.Finish.Kind != FinishCompleted ||
+		len(outcome.Items) != 1 || outcome.Items[0].Text == nil || outcome.Items[0].Text.Text != "OK" {
+		t.Fatalf("OpenAI Chat outcome = %#v", outcome)
 	}
 }
 

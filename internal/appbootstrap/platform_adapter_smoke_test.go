@@ -261,9 +261,9 @@ func bindBlob(handle, port string, ref blob.BlobRef) authoring.Command {
 }
 
 func connect(fromNode, fromPort, toNode, toPort string) authoring.Command {
-	return authoring.Command{Kind: authoring.CommandConnect, Connect: &authoring.EdgeCommand{GraphID: "main", Edge: schema.Edge{
+	return authoring.Command{Kind: authoring.CommandConnect, Connect: &authoring.EdgeCommand{GraphID: "main", Edge: authoring.PatchEdgeFromSource(schema.Edge{
 		Channel: schema.EdgeExec, From: schema.Endpoint{NodeID: fromNode, PortID: fromPort}, To: schema.Endpoint{NodeID: toNode, PortID: toPort},
-	}}}
+	})}}
 }
 
 func startAndWaitForPlatformRun(t *testing.T, service *workflow.Service, workflowID string) workflow.RunView {

@@ -312,7 +312,7 @@ export interface BlobPreview {
   height: number
 }
 
-export type AIProviderKind = 'openai-responses' | 'anthropic-messages'
+export type AIProviderKind = 'openai-responses' | 'openai-chat-completions' | 'anthropic-messages'
 
 export interface AIProfileCapabilities {
   structuredOutput: boolean
@@ -357,6 +357,7 @@ export interface AIProfileTestResult {
   resolvedModel: string
   finish: string
   failureClass?: string
+  httpStatus?: number
   error?: string
 }
 

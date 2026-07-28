@@ -167,14 +167,24 @@ func Run(config Config) error {
 	}
 	authoringTargets := workflowRuntime.AuthoringTargets()
 	if err := app.AttachSettingsActivator(func(before, after *services.Settings) (*services.SettingsActivationPlan, error) {
-		if reflect.DeepEqual(before.Applications, after.Applications) && reflect.DeepEqual(before.Automation, after.Automation) && before.ActiveMouseCounts360() == after.ActiveMouseCounts360() {
+		if reflect.DeepEqual(before.AI, after.AI) &&
+			reflect.DeepEqual(before.Network, after.Network) &&
+			reflect.DeepEqual(before.Applications, after.Applications) &&
+			reflect.DeepEqual(before.Automation, after.Automation) &&
+			before.ActiveMouseCounts360() == after.ActiveMouseCounts360() {
 			return nil, nil
 		}
 		drafts, err := after.Automation.InstallationDrafts(after.Applications, after.ActiveMouseCounts360())
 		if err != nil {
-			return nil, fmt.Errorf("prepare automation targets: %w", err)
+			return nil, fmt.Errorf("prepare installed automation: %w", err)
 		}
-		prepared, err := workflowRuntime.PrepareAutomation(after.Applications.InstallationDrafts(), drafts)
+		prepared, err := workflowRuntime.PrepareInstallations(
+			after.AI.InstallationDrafts(),
+			aiSecrets,
+			after.Network.InstallationDrafts(),
+			after.Applications.InstallationDrafts(),
+			drafts,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -183,7 +193,7 @@ func Run(config Config) error {
 			Abort:  prepared.Abort,
 		}, nil
 	}); err != nil {
-		return fmt.Errorf("attach live automation settings: %w", err)
+		return fmt.Errorf("attach live installation settings: %w", err)
 	}
 	var scheduleSvc *schedule.Service
 	workflowSvc, err := workflow.NewService(

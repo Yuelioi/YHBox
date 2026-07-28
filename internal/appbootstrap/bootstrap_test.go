@@ -283,7 +283,7 @@ func TestRuntimeHotReplacesApplicationAutomationAndAuthoringGeneration(t *testin
 		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.PressKeysNodeID, Handle: "keys", Position: schema.Position{X: 400, Y: 160}}},
 		{Kind: authoring.CommandSetConfig, SetConfig: &authoring.SetConfigCommand{GraphID: "main", NodeID: "$keys", FieldID: "slot", Value: "editor-window"}},
 		{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{GraphID: "main", NodeID: "$keys", PortID: "keys", Value: []string{"F9"}}},
-		{Kind: authoring.CommandConnect, Connect: &authoring.EdgeCommand{GraphID: "main", Edge: schema.Edge{Channel: schema.EdgeExec, From: schema.Endpoint{NodeID: "run-started", PortID: "started"}, To: schema.Endpoint{NodeID: "$keys", PortID: "in"}}}},
+		{Kind: authoring.CommandConnect, Connect: &authoring.EdgeCommand{GraphID: "main", Edge: authoring.PatchEdgeFromSource(schema.Edge{Channel: schema.EdgeExec, From: schema.Endpoint{NodeID: "run-started", PortID: "started"}, To: schema.Endpoint{NodeID: "$keys", PortID: "in"}})}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -318,6 +318,73 @@ func TestRuntimeHotReplacesApplicationAutomationAndAuthoringGeneration(t *testin
 	}
 	if _, err := runtime.AuthoringTargets().CaptureBackend("editor-window"); err == nil {
 		t.Fatal("failed publication changed the authoring generation")
+	}
+}
+
+func TestRuntimeHotInstallsAIModelForNewRuns(t *testing.T) {
+	stores := newTestWorkflowStorage(t)
+	runtime, err := appbootstrap.Build(appbootstrap.Config{
+		DataRoot: stores.roots.Data, ProgramCacheRoot: filepath.Join(stores.roots.Cache, "programs"),
+		WorkflowRepository: stores.foundation.Workflows(),
+		RunRepository:      stores.foundation.Runs(),
+		BlobStore:          stores.blobs, Limits: testLimits(),
+		AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t),
+		ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t),
+		ScriptRuntime: bootstrapScriptRuntime(t), GrantTTL: 5 * time.Minute, LogEmitter: discardWorkflowLog{},
+		OwnerCloseTimeout: time.Second, Now: time.Now,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := runtime.Application.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := runtime.Close(ctx); err != nil {
+			t.Errorf("Close = %v", err)
+		}
+	})
+
+	prepared, err := runtime.PrepareInstallations(
+		[]ai.InstallationDraft{{Slot: "model", Profile: ai.ModelProfileDraft{
+			Provider: ai.ProviderOpenAIResponses, Endpoint: "http://127.0.0.1:1/v1/responses",
+			AllowLocalHTTP: true, Model: "test-model", MaxOutputTokens: 64,
+			Evaluation: ai.EvaluationUnverified, ProviderMetadata: json.RawMessage(`{}`),
+		}}},
+		testAICredentials{},
+		nil,
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := prepared.Commit(); err != nil {
+		t.Fatal(err)
+	}
+
+	service, err := workflow.NewService(runtime.Application)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := service.CreateSource("Live AI model")
+	if err != nil {
+		t.Fatal(err)
+	}
+	patched, err := service.ApplyPatch(source.WorkflowID, source.Revision, []authoring.Command{
+		addNode("generate", nodes.AIGenerateNodeID, 320),
+		setSlot("generate", "model"),
+		bindValue("generate", "prompt", "hello"),
+		connect("run-started", "started", "$generate", "in"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	started, err := service.StartRun(patched.Source.WorkflowID)
+	if err != nil || started.Run == nil || started.Run.RunID == "" {
+		t.Fatalf("same-process AI admission = %#v, %v", started, err)
 	}
 }
 
@@ -412,6 +479,51 @@ func TestBuiltinPolicyApprovesExactConfiguredAIInstallation(t *testing.T) {
 	decision, err = policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
 	if err != nil || decision.Outcome != admission.PolicyDenied {
 		t.Fatalf("forged decision = %#v, %v", decision, err)
+	}
+}
+
+func TestBuiltinPolicyLimitsUnverifiedAIToOrdinaryGeneration(t *testing.T) {
+	now := time.Date(2026, 7, 15, 13, 15, 0, 0, time.UTC)
+	installed, err := ai.Install([]ai.InstallationDraft{{Slot: "model", Profile: ai.ModelProfileDraft{
+		Provider: ai.ProviderOpenAIResponses, Model: "gpt-test", MaxOutputTokens: 4096,
+		Evaluation: ai.EvaluationUnverified,
+	}}}, testAICredentials{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := installed.Entries()[0]
+	binding := capability.Binding{
+		GraphID: "main", NodeID: "ai", RequirementID: "model",
+		ProviderID: entry.ProviderID, ProviderArtifactDigest: entry.ProviderArtifact, ProviderABI: ai.ProviderABI,
+		TargetID: entry.TargetID, TargetKind: "ai-model", ResourceKind: ai.KindModelSession,
+		PluginInstanceID: "builtin", CredentialBindingID: entry.CredentialBindingID,
+	}
+	policy, err := appbootstrap.NewBuiltinPolicy(
+		func() time.Time { return now },
+		time.Minute,
+		installed,
+		emptyHTTPInstallations(t),
+		emptyApplicationInstallations(t),
+		emptyAutomationInstallations(t),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := admission.PolicyRequest{
+		Bindings: []capability.Binding{binding},
+		Requirements: []capability.PlanEntry{{
+			GraphID: "main", NodeID: "ai",
+			Requirement: capability.Requirement{ID: "model", Operations: []string{ai.OperationGenerate}},
+		}},
+	}
+	decision, err := policy.Authorize(context.Background(), request)
+	if err != nil || decision.Outcome != admission.PolicyApproved {
+		t.Fatalf("unverified generation decision = %#v, %v", decision, err)
+	}
+	request.Requirements[0].Requirement.Operations = []string{ai.OperationAgentStart}
+	decision, err = policy.Authorize(context.Background(), request)
+	if err != nil || decision.Outcome != admission.PolicyDenied {
+		t.Fatalf("unverified agent decision = %#v, %v", decision, err)
 	}
 }
 

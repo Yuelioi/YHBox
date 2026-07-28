@@ -11,6 +11,7 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/blob"
+	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/internal/stream"
 	"github.com/yottaapp/yotta/internal/workspacefs"
@@ -104,6 +105,10 @@ func (p *builtinPolicy) Authorize(_ context.Context, request admission.PolicyReq
 				if binding.ProviderID != installed.ProviderID || binding.ProviderArtifactDigest != installed.ProviderArtifact || binding.ProviderABI != ai.ProviderABI || binding.TargetKind != "ai-model" || binding.ResourceKind != ai.KindModelSession || binding.CredentialBindingID != installed.CredentialBindingID {
 					return admission.PolicyDecision{Outcome: admission.PolicyDenied}, nil
 				}
+				if installed.Profile.Machine().Evaluation != ai.EvaluationApproved &&
+					requiresApprovedAI(request.Requirements, binding) {
+					return admission.PolicyDecision{Outcome: admission.PolicyDenied}, nil
+				}
 				continue
 			}
 			if installed, ok := p.httpTargets[binding.TargetID]; ok {
@@ -129,4 +134,19 @@ func (p *builtinPolicy) Authorize(_ context.Context, request admission.PolicyReq
 	return admission.PolicyDecision{
 		Outcome: admission.PolicyApproved, Generation: "builtin-local-v4", ExpiresAt: p.now().UTC().Add(p.ttl),
 	}, nil
+}
+
+func requiresApprovedAI(requirements []capability.PlanEntry, binding capability.Binding) bool {
+	for _, entry := range requirements {
+		if entry.GraphID != binding.GraphID || entry.NodeID != binding.NodeID ||
+			entry.Requirement.ID != binding.RequirementID {
+			continue
+		}
+		for _, operation := range entry.Requirement.Operations {
+			if operation == ai.OperationAgentStart || operation == ai.OperationAgentContinue {
+				return true
+			}
+		}
+	}
+	return false
 }

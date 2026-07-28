@@ -1,0 +1,137 @@
+import { i18n } from '@/i18n'
+import { normalizeError } from '@/lib/invoke'
+import type { Command as WorkflowPatchCommand } from '../../../../contracts/workflow/current/authoring-patch'
+
+export type WorkflowSaveErrorKind = 'revision' | 'validation' | 'unknown'
+
+export interface WorkflowSaveErrorTarget {
+  graphId: string
+  nodeId: string
+  fieldId?: string
+  portId?: string
+}
+
+export interface WorkflowSaveError {
+  kind: WorkflowSaveErrorKind
+  message: string
+  target?: WorkflowSaveErrorTarget
+}
+
+const validationCodes = new Set([
+  'INVALID_FIELD',
+  'MISSING_REQUIRED_FIELD',
+  'UNKNOWN_FIELD',
+  'INVALID_EDGE',
+  'UNKNOWN_NODE',
+  'UNKNOWN_HANDLE',
+  'INVALID_COMMAND',
+  'INVALID_CONFIG_VALUE',
+  'UNKNOWN_CONFIG_FIELD',
+  'REQUIRED_CONFIG_FIELD',
+  'INVALID_BINDING_VALUE',
+  'UNKNOWN_DATA_INPUT',
+  'INVALID_BLOB_REF',
+  'INVALID_RESOURCE_BINDING',
+  'INVALID_POSITION',
+  'INVALID_LABEL',
+])
+
+export function describeWorkflowSaveError(
+  error: unknown,
+  commands: readonly WorkflowPatchCommand[] = [],
+): WorkflowSaveError {
+  const normalized = normalizeError(error)
+  const rawMessage = normalized.message?.trim() ?? ''
+  const details = asRecord(normalized.details)
+  const code = firstErrorCode(normalized, rawMessage, details)
+  const commandIndex = typeof details?.commandIndex === 'number' ? details.commandIndex : undefined
+  const target = commandIndex !== undefined ? targetFromCommand(commands[commandIndex]) : undefined
+  const lowered = `${code} ${rawMessage}`.toLocaleLowerCase()
+
+  if (lowered.includes('revision conflict')) {
+    return { kind: 'revision', message: i18n.global.t('workflow.editor.revision_conflict') }
+  }
+
+  if (validationCodes.has(code) || normalized.category === 'validation') {
+    return {
+      kind: 'validation',
+      message: target
+        ? targetMessage(target)
+        : i18n.global.te(`workflow.editor.save_error.${code}`)
+          ? i18n.global.t(`workflow.editor.save_error.${code}`)
+          : i18n.global.t('workflow.editor.save_error.validation'),
+      target,
+    }
+  }
+
+  if (code) {
+    return {
+      kind: 'unknown',
+      message: i18n.global.t('workflow.editor.save_error.internal', { code }),
+    }
+  }
+
+  return {
+    kind: 'unknown',
+    message: i18n.global.t('workflow.editor.save_error.unknown'),
+  }
+}
+
+function firstErrorCode(
+  normalized: ReturnType<typeof normalizeError>,
+  rawMessage: string,
+  details: Record<string, unknown> | undefined,
+): string {
+  const diagnosticCode = normalized.errors?.[0]?.code
+  if (diagnosticCode) return diagnosticCode
+  if (typeof details?.code === 'string' && details.code) return details.code
+  if (normalized.code && normalized.code !== 'rpc.unclassified') return normalized.code
+  const match = rawMessage.match(/\b[A-Z][A-Z0-9_]{2,}\b/)
+  return match?.[0] ?? ''
+}
+
+function targetMessage(target: WorkflowSaveErrorTarget): string {
+  if (target.fieldId) {
+    return i18n.global.t('workflow.editor.save_error.node_field', { field: target.fieldId })
+  }
+  if (target.portId) {
+    return i18n.global.t('workflow.editor.save_error.node_input', { input: target.portId })
+  }
+  return i18n.global.t('workflow.editor.save_error.node')
+}
+
+function targetFromCommand(
+  command: WorkflowPatchCommand | undefined,
+): WorkflowSaveErrorTarget | undefined {
+  if (!command) return undefined
+  const payload = Object.values(command).find(
+    (value): value is Record<string, unknown> =>
+      typeof value === 'object' && value !== null && !Array.isArray(value),
+  )
+  if (!payload) return undefined
+
+  const graphId = typeof payload.graphId === 'string' ? payload.graphId : ''
+  let nodeId = typeof payload.nodeId === 'string' ? payload.nodeId : ''
+  let portId = typeof payload.portId === 'string' ? payload.portId : undefined
+
+  if (!nodeId && typeof payload.handle === 'string') nodeId = payload.handle
+  const edge = asRecord(payload.edge)
+  const endpoint = asRecord(edge?.to) ?? asRecord(edge?.from)
+  if (!nodeId && typeof endpoint?.nodeId === 'string') nodeId = endpoint.nodeId
+  if (!portId && typeof endpoint?.portId === 'string') portId = endpoint.portId
+
+  nodeId = nodeId.replace(/^\$/, '')
+  if (!graphId || !nodeId) return undefined
+  return {
+    graphId,
+    nodeId,
+    fieldId: typeof payload.fieldId === 'string' ? payload.fieldId : undefined,
+    portId,
+  }
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined
+}

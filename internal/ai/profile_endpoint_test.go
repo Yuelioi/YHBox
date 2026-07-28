@@ -42,7 +42,7 @@ func TestProviderEndpointRejectsAmbientOrAmbiguousNetworkAuthority(t *testing.T)
 		{name: "credentials", endpoint: "https://user:secret@gateway.example/v1/responses"},
 		{name: "query", endpoint: "https://gateway.example/v1/responses?token=secret"},
 		{name: "fragment", endpoint: "https://gateway.example/v1/responses#route"},
-		{name: "no api path", endpoint: "https://gateway.example/"},
+		{name: "provider root", endpoint: "https://gateway.example/", valid: true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

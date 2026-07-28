@@ -25,8 +25,8 @@
       />
     </header>
 
-    <div class="grid gap-3 px-4 py-3 lg:grid-cols-3">
-      <section v-for="group in groups" :key="group.severity" class="min-w-0">
+    <div class="space-y-3 px-4 py-3">
+      <section v-for="group in groups" :key="group.severity" class="w-full min-w-0">
         <h3
           class="mb-1.5 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide"
           :class="severityText[group.severity]"
@@ -46,7 +46,7 @@
             @click="emit('focus', diagnostic)"
           >
             <span class="min-w-0 flex-1">
-              <span class="block truncate text-[11px] font-medium text-toned">{{
+              <span class="block break-words text-[11px] font-medium text-toned">{{
                 diagnosticMessage(diagnostic)
               }}</span>
               <span

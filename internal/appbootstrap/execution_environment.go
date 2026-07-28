@@ -49,22 +49,31 @@ func newExecutionEnvironmentFactory(config executionEnvironmentFactory) (executi
 		!config.ai.Valid() || !config.http.Valid() || config.baseProviders == nil {
 		return executionEnvironmentFactory{}, errors.New("execution environment factory requires trusted fixed installations")
 	}
-	baseProviders := maps.Clone(config.baseProviders)
-	if err := mergeEnvironmentInstallations(baseProviders, config.ai.Entries(), ai.ProviderABI, "AI",
+	config.baseProviders = maps.Clone(config.baseProviders)
+	providers := maps.Clone(config.baseProviders)
+	if err := mergeEnvironmentInstallations(providers, config.ai.Entries(), ai.ProviderABI, "AI",
 		func(installed ai.Installation) (string, artifact.Digest, resource.Provider) {
 			return installed.ProviderID, installed.ProviderArtifact, installed.Provider
 		}); err != nil {
 		return executionEnvironmentFactory{}, err
 	}
-	if err := mergeEnvironmentInstallations(baseProviders, config.http.Entries(), httpegress.ProviderABI, "HTTP",
+	if err := mergeEnvironmentInstallations(providers, config.http.Entries(), httpegress.ProviderABI, "HTTP",
 		func(installed httpegress.Installation) (string, artifact.Digest, resource.Provider) {
 			return installed.ProviderID, installed.ProviderArtifact, installed.Provider
 		}); err != nil {
 		return executionEnvironmentFactory{}, err
 	}
-	config.baseProviders = baseProviders
 	config.pluginFeatures = append([]string(nil), config.pluginFeatures...)
 	return config, nil
+}
+
+func (factory executionEnvironmentFactory) withInstallations(
+	aiInstallations ai.Installations,
+	httpInstallations httpegress.Installations,
+) (executionEnvironmentFactory, error) {
+	factory.ai = aiInstallations
+	factory.http = httpInstallations
+	return newExecutionEnvironmentFactory(factory)
 }
 
 func (factory executionEnvironmentFactory) seal(
@@ -111,6 +120,18 @@ func (factory executionEnvironmentFactory) seal(
 		return nil, err
 	}
 	providers := maps.Clone(config.baseProviders)
+	if err := mergeEnvironmentInstallations(providers, config.ai.Entries(), ai.ProviderABI, "AI",
+		func(installed ai.Installation) (string, artifact.Digest, resource.Provider) {
+			return installed.ProviderID, installed.ProviderArtifact, installed.Provider
+		}); err != nil {
+		return nil, err
+	}
+	if err := mergeEnvironmentInstallations(providers, config.http.Entries(), httpegress.ProviderABI, "HTTP",
+		func(installed httpegress.Installation) (string, artifact.Digest, resource.Provider) {
+			return installed.ProviderID, installed.ProviderArtifact, installed.Provider
+		}); err != nil {
+		return nil, err
+	}
 	if err := mergeEnvironmentInstallations(providers, applications.Entries(), appcontrol.ProviderABI, "application",
 		func(installed appcontrol.Installation) (string, artifact.Digest, resource.Provider) {
 			return installed.ProviderID, installed.ProviderArtifact, installed.Provider

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -16,11 +17,12 @@ import (
 )
 
 const (
-	OpenAIResponsesEndpoint    = "https://api.openai.com/v1/responses"
-	AnthropicMessagesEndpoint  = "https://api.anthropic.com/v1/messages"
-	AnthropicAPIVersion        = "2023-06-01"
-	MaxProviderResponseBytes   = 16 << 20
-	MaxAgentProviderStateBytes = 16 << 20
+	OpenAIResponsesEndpoint      = "https://api.openai.com/v1/responses"
+	OpenAIChatCompletionsBaseURL = "https://api.openai.com/v1"
+	AnthropicMessagesEndpoint    = "https://api.anthropic.com/v1/messages"
+	AnthropicAPIVersion          = "2023-06-01"
+	MaxProviderResponseBytes     = 16 << 20
+	MaxAgentProviderStateBytes   = 16 << 20
 )
 
 type HTTPOptions struct {
@@ -52,7 +54,11 @@ func NewNativeProvider(profile ModelProfile, options HTTPOptions) (Provider, err
 		}
 	}
 	if options.Endpoint == "" {
-		options.Endpoint = profile.Machine().Endpoint
+		var err error
+		options.Endpoint, err = providerRequestEndpoint(profile.Machine().Provider, profile.Machine().Endpoint)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if options.Endpoint == "" {
 		return nil, errors.New("native AI provider endpoint is unavailable")
@@ -68,7 +74,7 @@ func (p *nativeProvider) Generate(ctx context.Context, credential string, reques
 		return Outcome{}, contractFailure(err.Error())
 	}
 	profile := p.profile.Machine()
-	if request.Limits.MaxOutputTokens != nil && *request.Limits.MaxOutputTokens > profile.MaxOutputTokens {
+	if exceedsInstalledOutputLimit(request.Limits.MaxOutputTokens, profile.MaxOutputTokens) {
 		return Outcome{}, contractFailure("AI request exceeds the installed model output budget")
 	}
 	if request.Output != nil && !profile.Capabilities.StructuredOutput {
@@ -82,6 +88,8 @@ func (p *nativeProvider) Generate(ctx context.Context, credential string, reques
 	switch profile.Provider {
 	case ProviderOpenAIResponses:
 		outcome, err = p.generateOpenAI(ctx, credential, request, profile)
+	case ProviderOpenAIChatCompletions:
+		outcome, err = p.generateOpenAIChat(ctx, credential, request, profile)
 	case ProviderAnthropicMessages:
 		outcome, err = p.generateAnthropic(ctx, credential, request, profile)
 	default:
@@ -113,6 +121,58 @@ type openAIRequest struct {
 	Tools              []openAITool      `json:"tools,omitempty"`
 	ParallelToolCalls  *bool             `json:"parallel_tool_calls,omitempty"`
 	Include            []string          `json:"include,omitempty"`
+}
+
+type openAIChatRequest struct {
+	Model          string                    `json:"model"`
+	Messages       []openAIChatMessage       `json:"messages"`
+	Temperature    *float64                  `json:"temperature,omitempty"`
+	MaxTokens      *int64                    `json:"max_tokens,omitempty"`
+	ResponseFormat *openAIChatResponseFormat `json:"response_format,omitempty"`
+}
+
+type openAIChatMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+type openAIChatResponseFormat struct {
+	Type       string               `json:"type"`
+	JSONSchema openAIChatJSONSchema `json:"json_schema"`
+}
+
+type openAIChatJSONSchema struct {
+	Name   string          `json:"name"`
+	Strict bool            `json:"strict"`
+	Schema json.RawMessage `json:"schema"`
+}
+
+type openAIChatResponse struct {
+	ID      string             `json:"id"`
+	Model   string             `json:"model"`
+	Choices []openAIChatChoice `json:"choices"`
+	Usage   openAIChatUsage    `json:"usage"`
+}
+
+type openAIChatChoice struct {
+	Message      openAIChatResponseMessage `json:"message"`
+	FinishReason string                    `json:"finish_reason"`
+}
+
+type openAIChatResponseMessage struct {
+	Content string `json:"content"`
+	Refusal string `json:"refusal"`
+}
+
+type openAIChatUsage struct {
+	PromptTokens     *int64 `json:"prompt_tokens"`
+	CompletionTokens *int64 `json:"completion_tokens"`
+	PromptDetails    *struct {
+		CachedTokens *int64 `json:"cached_tokens"`
+	} `json:"prompt_tokens_details"`
+	CompletionDetails *struct {
+		ReasoningTokens *int64 `json:"reasoning_tokens"`
+	} `json:"completion_tokens_details"`
 }
 
 type openAITool struct {
@@ -211,6 +271,95 @@ func (p *nativeProvider) generateOpenAI(ctx context.Context, credential string, 
 	return openAIOutcome(profile, request.Output, requestID, raw, response)
 }
 
+func (p *nativeProvider) generateOpenAIChat(ctx context.Context, credential string, request GenerateRequest, profile ModelProfileDraft) (Outcome, error) {
+	manifest, err := request.Prompt.OpenManifest()
+	if err != nil {
+		return Outcome{}, contractFailure(err.Error())
+	}
+	input, err := request.Prompt.ProviderInput()
+	if err != nil {
+		return Outcome{}, contractFailure(err.Error())
+	}
+	payload := openAIChatRequest{
+		Model: profile.Model,
+		Messages: []openAIChatMessage{
+			{Role: "system", Content: manifest.Machine().Instructions},
+			{Role: "user", Content: input},
+		},
+		Temperature: request.Limits.Temperature,
+		MaxTokens:   boundedOutputTokens(request.Limits.MaxOutputTokens, profile.MaxOutputTokens),
+	}
+	if request.Output != nil {
+		payload.ResponseFormat = &openAIChatResponseFormat{
+			Type: "json_schema",
+			JSONSchema: openAIChatJSONSchema{
+				Name: request.Output.Name, Strict: true, Schema: request.Output.Schema,
+			},
+		}
+	}
+	var response openAIChatResponse
+	requestID, raw, err := p.doJSON(ctx, credential, request.AttemptID, payload, &response, ProviderOpenAIChatCompletions)
+	if err != nil {
+		return Outcome{}, err
+	}
+	return openAIChatOutcome(profile, request.Output, requestID, raw, response)
+}
+
+func openAIChatOutcome(profile ModelProfileDraft, structured *StructuredOutputSpec, requestID string, raw []byte, response openAIChatResponse) (Outcome, error) {
+	if len(response.Choices) == 0 {
+		return Outcome{}, contractFailureWithRequest("OpenAI Chat response has no choices", requestID)
+	}
+	choice := response.Choices[0]
+	items := make([]OutputItem, 0, 1)
+	finish := openAIChatFinish(choice.FinishReason)
+	if choice.Message.Refusal != "" {
+		items = append(items, OutputItem{Kind: OutputRefusal, Refusal: &RefusalOutput{Reason: choice.Message.Refusal}})
+		finish = Finish{Kind: FinishRefusal, RawProviderReason: choice.FinishReason}
+	} else if choice.Message.Content != "" {
+		items = append(items, OutputItem{Kind: OutputText, Text: &TextOutput{Text: choice.Message.Content}})
+	}
+	if structured != nil {
+		var err error
+		items, err = sealStructuredItems(*structured, items, finish)
+		if err != nil {
+			return Outcome{}, contractFailureWithRequest(err.Error(), requestID)
+		}
+	}
+	usageRaw, _ := artifact.Marshal(response.Usage)
+	usage := TokenUsage{
+		InputTotal: response.Usage.PromptTokens, OutputTotal: response.Usage.CompletionTokens,
+		ProviderExtras: usageRaw,
+	}
+	if response.Usage.PromptDetails != nil {
+		usage.CacheRead = response.Usage.PromptDetails.CachedTokens
+		usage.InputUncached = subtractUsage(response.Usage.PromptTokens, response.Usage.PromptDetails.CachedTokens)
+	}
+	if response.Usage.CompletionDetails != nil {
+		usage.ReasoningOutput = response.Usage.CompletionDetails.ReasoningTokens
+	}
+	return Outcome{
+		Provider: ProviderOpenAIChatCompletions, RequestedModel: profile.Model, ResolvedModel: response.Model,
+		ProviderRequestID: requestID, ProviderResponseID: response.ID, Items: items, Finish: finish, Usage: usage,
+	}, nil
+}
+
+func openAIChatFinish(reason string) Finish {
+	finish := Finish{RawProviderReason: reason}
+	switch reason {
+	case "stop":
+		finish.Kind = FinishCompleted
+	case "length":
+		finish.Kind = FinishMaxOutput
+	case "content_filter":
+		finish.Kind = FinishContentFilter
+	case "tool_calls":
+		finish.Kind = FinishToolCalls
+	default:
+		finish.Kind = FinishUnknown
+	}
+	return finish
+}
+
 func openAIOutcome(profile ModelProfileDraft, structured *StructuredOutputSpec, requestID string, raw []byte, response openAIResponse) (Outcome, error) {
 	if response.Error != nil || response.Status == "failed" {
 		code, message := "generation_failed", "provider reported generation failure"
@@ -282,7 +431,7 @@ func (p *nativeProvider) StartAgent(ctx context.Context, credential string, requ
 	if !profile.Capabilities.ToolCalling {
 		return Outcome{}, nil, contractFailure("installed AI model does not support native tool calling")
 	}
-	if request.Limits.MaxOutputTokens != nil && *request.Limits.MaxOutputTokens > profile.MaxOutputTokens {
+	if exceedsInstalledOutputLimit(request.Limits.MaxOutputTokens, profile.MaxOutputTokens) {
 		return Outcome{}, nil, contractFailure("AI request exceeds the installed model output budget")
 	}
 	if request.Retention == RetentionZeroRequired && !profile.Capabilities.ZeroRetention {
@@ -299,6 +448,9 @@ func (p *nativeProvider) StartAgent(ctx context.Context, credential string, requ
 	}
 	if profile.Provider == ProviderAnthropicMessages {
 		return p.startAnthropicAgent(ctx, credential, request, profile)
+	}
+	if profile.Provider == ProviderOpenAIChatCompletions {
+		return Outcome{}, nil, contractFailure("OpenAI Chat Completions agent continuation is not supported")
 	}
 	payload := openAIRequest{
 		Model: profile.Model, Instructions: manifest.Machine().Instructions, Input: input, Tools: tools,
@@ -515,7 +667,7 @@ func openAIFinish(status string, incomplete *struct {
 
 type anthropicRequest struct {
 	Model        string                 `json:"model"`
-	MaxTokens    int64                  `json:"max_tokens"`
+	MaxTokens    *int64                 `json:"max_tokens,omitempty"`
 	System       string                 `json:"system,omitempty"`
 	Messages     []anthropicInput       `json:"messages"`
 	Temperature  *float64               `json:"temperature,omitempty"`
@@ -591,7 +743,7 @@ func (p *nativeProvider) generateAnthropic(ctx context.Context, credential strin
 		return Outcome{}, contractFailure(err.Error())
 	}
 	payload := anthropicRequest{
-		Model: profile.Model, MaxTokens: valueOr(request.Limits.MaxOutputTokens, profile.MaxOutputTokens),
+		Model: profile.Model, MaxTokens: boundedOutputTokens(request.Limits.MaxOutputTokens, profile.MaxOutputTokens),
 		System: manifest.Machine().Instructions, Messages: []anthropicInput{{Role: "user", Content: input}}, Temperature: request.Limits.Temperature,
 	}
 	if request.Output != nil {
@@ -665,7 +817,7 @@ func (p *nativeProvider) startAnthropicAgent(ctx context.Context, credential str
 	}
 	messages := []anthropicInput{{Role: "user", Content: input}}
 	payload := anthropicRequest{
-		Model: profile.Model, MaxTokens: valueOr(request.Limits.MaxOutputTokens, profile.MaxOutputTokens),
+		Model: profile.Model, MaxTokens: boundedOutputTokens(request.Limits.MaxOutputTokens, profile.MaxOutputTokens),
 		System: manifest.Machine().Instructions, Messages: messages, Tools: tools, Temperature: request.Limits.Temperature,
 		ToolChoice: &anthropicToolChoice{Type: "auto", DisableParallelToolUse: request.MaxParallelism == 1},
 	}
@@ -709,7 +861,7 @@ func (p *nativeProvider) continueAnthropicAgent(ctx context.Context, credential 
 	messages := append([]anthropicInput(nil), current.messages...)
 	messages = append(messages, anthropicInput{Role: "user", Content: results})
 	payload := anthropicRequest{
-		Model: profile.Model, MaxTokens: valueOr(current.start.Limits.MaxOutputTokens, profile.MaxOutputTokens),
+		Model: profile.Model, MaxTokens: boundedOutputTokens(current.start.Limits.MaxOutputTokens, profile.MaxOutputTokens),
 		System: manifest.Machine().Instructions, Messages: messages, Tools: tools, Temperature: current.start.Limits.Temperature,
 		ToolChoice: &anthropicToolChoice{Type: "auto", DisableParallelToolUse: current.start.MaxParallelism == 1},
 	}
@@ -829,7 +981,7 @@ func (p *nativeProvider) doJSON(ctx context.Context, credential, attemptID strin
 	}
 	request.Header.Set("Content-Type", "application/json")
 	switch provider {
-	case ProviderOpenAIResponses:
+	case ProviderOpenAIResponses, ProviderOpenAIChatCompletions:
 		request.Header.Set("Authorization", "Bearer "+credential)
 		request.Header.Set("X-Client-Request-Id", attemptID)
 	case ProviderAnthropicMessages:
@@ -866,6 +1018,31 @@ func (p *nativeProvider) doJSON(ctx context.Context, credential, attemptID strin
 		return requestID, boundedRaw(raw), contractFailureWithRequest("decode AI provider response: "+err.Error(), requestID)
 	}
 	return requestID, boundedRaw(raw), nil
+}
+
+func providerRequestEndpoint(provider ProviderKind, configured string) (string, error) {
+	parsed, err := url.Parse(configured)
+	if err != nil || !parsed.IsAbs() || parsed.Host == "" {
+		return "", errors.New("AI provider base URL is invalid")
+	}
+	var suffix string
+	switch provider {
+	case ProviderOpenAIResponses:
+		suffix = "/responses"
+	case ProviderOpenAIChatCompletions:
+		suffix = "/chat/completions"
+	case ProviderAnthropicMessages:
+		suffix = "/v1/messages"
+	default:
+		return "", errors.New("unsupported native AI provider")
+	}
+	path := strings.TrimRight(parsed.Path, "/")
+	if !strings.HasSuffix(path, suffix) {
+		path += suffix
+	}
+	parsed.Path = path
+	parsed.RawPath = ""
+	return parsed.String(), nil
 }
 
 func httpFailure(response *http.Response, requestID string, raw []byte) error {
@@ -956,18 +1133,19 @@ func boundedRaw(raw []byte) json.RawMessage {
 }
 
 func boundedOutputTokens(requested *int64, maximum int64) *int64 {
-	value := maximum
 	if requested != nil {
-		value = *requested
+		value := *requested
+		return &value
 	}
+	if maximum <= 0 {
+		return nil
+	}
+	value := maximum
 	return &value
 }
 
-func valueOr(requested *int64, maximum int64) int64 {
-	if requested != nil {
-		return *requested
-	}
-	return maximum
+func exceedsInstalledOutputLimit(requested *int64, maximum int64) bool {
+	return requested != nil && maximum > 0 && *requested > maximum
 }
 
 func subtractUsage(total, subset *int64) *int64 {

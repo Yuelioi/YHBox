@@ -55,7 +55,7 @@ func TestInstallationsShareProviderByProfileAndBindExactSlots(t *testing.T) {
 	installations.CloseIdleConnections()
 }
 
-func TestInstallationsRejectDuplicateSlotsAndRequireCredentialsAndEvaluation(t *testing.T) {
+func TestInstallationsRejectDuplicateSlotsAndRequireCredentials(t *testing.T) {
 	profileDraft := ModelProfileDraft{
 		Provider: ProviderAnthropicMessages, Model: "claude-test", MaxOutputTokens: 4096,
 		Capabilities: ProfileCapabilities{StructuredOutput: true}, Evaluation: EvaluationUnverified,
@@ -66,12 +66,25 @@ func TestInstallationsRejectDuplicateSlotsAndRequireCredentialsAndEvaluation(t *
 	if _, err := Install([]InstallationDraft{{Slot: "same", Profile: profileDraft}}, nil); err == nil {
 		t.Fatal("accepted a model installation without credential storage")
 	}
-	skipped, err := Install([]InstallationDraft{{Slot: "unverified", Profile: profileDraft}}, installationCredentials{})
-	if err != nil || len(skipped.Entries()) != 0 {
-		t.Fatalf("unverified profile was not excluded from Host Profile: %#v, %v", skipped.Entries(), err)
+	installed, err := Install([]InstallationDraft{{Slot: "unverified", Profile: profileDraft}}, installationCredentials{})
+	if err != nil || len(installed.Entries()) != 1 {
+		t.Fatalf("unverified generation profile was not installed: %#v, %v", installed.Entries(), err)
+	}
+	filtered, err := installed.ForEvaluationArtifacts([]artifact.Digest{testArtifactDigest(t, "current")})
+	if err != nil || len(filtered.Entries()) != 1 {
+		t.Fatalf("unverified generation profile was removed by the authoring artifact filter: %#v, %v", filtered.Entries(), err)
 	}
 	empty, err := Install(nil, nil)
 	if err != nil || !empty.Valid() || len(empty.Entries()) != 0 {
 		t.Fatalf("explicit empty installation set = %#v, %v", empty, err)
 	}
+}
+
+func testArtifactDigest(t *testing.T, value string) artifact.Digest {
+	t.Helper()
+	digest, err := artifact.Sum("yotta/test/ai-installation/v1", []byte(value))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return digest
 }

@@ -20,6 +20,7 @@ export interface EditorRunCommandResult {
 
 export interface EditorRunSession {
   diagnostics: unknown[]
+  saveError?: string
   lastRunOutcome?: RunStartOutcome | null
   debugSnapshot?: DebugSnapshot | null
   check(): Promise<CompileView>
@@ -86,7 +87,8 @@ export function createEditorRunController(dependencies: EditorRunControllerDepen
       flashSave(true)
       return { ok: true }
     } catch (error) {
-      dependencies.showError(dependencies.translate('workflow.toast.save_failed'), error)
+      if (!dependencies.session.saveError)
+        dependencies.showError(dependencies.translate('workflow.toast.save_failed'), error)
       return { ok: false }
     }
   }
@@ -107,7 +109,8 @@ export function createEditorRunController(dependencies: EditorRunControllerDepen
         )
       return { ok: Boolean(run) }
     } catch (error) {
-      dependencies.showError(dependencies.translate('workflow.toast.run_failed'), error)
+      if (!dependencies.session.saveError)
+        dependencies.showError(dependencies.translate('workflow.toast.run_failed'), error)
       return { ok: false }
     }
   }
@@ -129,7 +132,8 @@ export function createEditorRunController(dependencies: EditorRunControllerDepen
       }
       return { ok: true }
     } catch (error) {
-      dependencies.showError(dependencies.translate('workflow.toast.debug_failed'), error)
+      if (!dependencies.session.saveError)
+        dependencies.showError(dependencies.translate('workflow.toast.debug_failed'), error)
       return { ok: false }
     }
   }
