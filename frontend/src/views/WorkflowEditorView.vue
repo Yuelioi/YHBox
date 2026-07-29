@@ -1332,6 +1332,7 @@ import { nodeRunStatuses, unhandledExecRouteKeys } from '@/app/editor/runTrace'
 import { nodeDiagnosticSeverities, type WorkflowDiagnostic } from '@/app/editor/workflowDiagnostics'
 import {
   compatibleCandidatePorts,
+  projectedTargetHandleChannel,
   type ConversionCandidatePlan,
   type ConnectionIssue,
 } from '@/app/editor/connectionCompatibility'
@@ -1871,7 +1872,7 @@ const flowEdges = computed<FlowEdge[]>(() => [
       source: edge.from.nodeId,
       target: edge.to.nodeId,
       sourceHandle: graphHandle(edge.channel, 'output', edge.from.portId),
-      targetHandle: graphHandle(edge.channel, 'input', edge.to.portId),
+      targetHandle: edgeTargetHandle(edge),
       selected: selectedEdgeId.value === edgeId(edge),
       type: edge.presentation?.reroutes?.length ? 'reroute' : undefined,
       data: { edge },
@@ -3628,12 +3629,20 @@ function connectionEdge(connection: Connection): Edge | null {
   const target = parseGraphHandle(connection.targetHandle)
   if (!source || !target || source.direction !== 'output' || target.direction !== 'input')
     return null
-  if (source.channel !== target.channel) return null
   return {
     channel: source.channel,
     from: { nodeId: connection.source, portId: source.portId },
     to: { nodeId: connection.target, portId: target.portId },
   }
+}
+
+function edgeTargetHandle(edge: Edge): string {
+  const node = session.currentGraph?.nodes.find((candidate) => candidate.id === edge.to.nodeId)
+  const projection = node ? session.nodeInstanceProjection(node) : undefined
+  const channel = projection
+    ? projectedTargetHandleChannel(projection, edge.channel, edge.to.portId)
+    : edge.channel
+  return graphHandle(channel, 'input', edge.to.portId)
 }
 
 function connectionIssueText(compatibility: {

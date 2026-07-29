@@ -19,6 +19,16 @@ type LogEntry struct {
 	NodeID       string
 	InvocationID string
 	Attempt      int
+	Failure      *LogFailure
+}
+
+type LogFailure struct {
+	Code         string `json:"code"`
+	Category     string `json:"category"`
+	RetryHint    bool   `json:"retryHint"`
+	SourceNodeID string `json:"sourceNodeId"`
+	SourcePortID string `json:"sourcePortId"`
+	Attempt      int    `json:"attempt"`
 }
 
 type LogEmitter interface {
@@ -66,10 +76,18 @@ func writeLog(emitter LogEmitter) nodeadapter.Adapter {
 		action.Counters["message_bytes"] = int64(len(message))
 		action.Facts["level"] = level
 		action.Facts["message_digest"] = digest.String()
-		if err := emitter.EmitWorkflowLog(ctx, LogEntry{
+		entry := LogEntry{
 			Level: level, Message: message, GraphID: invocation.GraphID, NodeID: invocation.NodeID,
 			InvocationID: invocation.InvocationID, Attempt: invocation.Attempt,
-		}); err != nil {
+		}
+		if invocation.Trigger != nil && invocation.Trigger.Failure != nil {
+			failure := invocation.Trigger.Failure
+			entry.Failure = &LogFailure{
+				Code: failure.Code, Category: failure.Category, RetryHint: failure.RetryHint,
+				SourceNodeID: failure.SourceNodeID, SourcePortID: failure.SourcePortID, Attempt: failure.Attempt,
+			}
+		}
+		if err := emitter.EmitWorkflowLog(ctx, entry); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return nodeadapter.AdapterResult{}, err
 			}

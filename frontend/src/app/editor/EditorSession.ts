@@ -777,21 +777,22 @@ export class EditorSession {
     candidate: ParsedHandle,
     position: { x: number; y: number },
   ): string {
-    if (anchor.direction === candidate.direction || anchor.channel !== candidate.channel) {
+    if (anchor.direction === candidate.direction) {
       throw new Error('connected node ports are incompatible')
     }
     const graph = this.currentGraph
     if (!graph) throw new Error('workflow graph is unavailable')
     const nodeId = uniqueNodeId(graph, this.idFactory)
+    const output = anchor.direction === 'output' ? anchor : candidate
     const edge: Edge =
       anchor.direction === 'output'
         ? {
-            channel: anchor.channel,
+            channel: output.channel,
             from: { nodeId: anchorNodeId, portId: anchor.portId },
             to: { nodeId, portId: candidate.portId },
           }
         : {
-            channel: anchor.channel,
+            channel: output.channel,
             from: { nodeId, portId: candidate.portId },
             to: { nodeId: anchorNodeId, portId: anchor.portId },
           }

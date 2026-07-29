@@ -47,8 +47,9 @@ func TestProjectionDerivesEditorFactsFromTrustedContracts(t *testing.T) {
 	}
 	clickTemplate, ok := projection.Node(nodes.ClickTemplateNodeID)
 	if !ok || len(clickTemplate.Capabilities) != 3 || len(clickTemplate.ConfigFields) != 1 ||
-		clickTemplate.ConfigFields[0].ID != "slot" || clickTemplate.DataInputs[0].ID != "template" ||
-		clickTemplate.DataInputs[0].EditorAdapter != "template-image" {
+		clickTemplate.ConfigFields[0].ID != "slot" || len(clickTemplate.DataInputs) < 2 ||
+		clickTemplate.DataInputs[0].ID != "image" || clickTemplate.DataInputs[0].Binding != nodeauthoring.BindingOptional ||
+		clickTemplate.DataInputs[1].ID != "template" || clickTemplate.DataInputs[1].EditorAdapter != "template-image" {
 		t.Fatalf("click template authoring projection = %#v", clickTemplate)
 	}
 	boundTargets := 0
@@ -65,6 +66,22 @@ func TestProjectionDerivesEditorFactsFromTrustedContracts(t *testing.T) {
 	}
 	if len(concat.ConfigFields) != 0 || concat.Availability != nodeauthoring.AvailabilityPortable {
 		t.Fatalf("concat config/availability = %#v / %q", concat.ConfigFields, concat.Availability)
+	}
+	aiGenerate, ok := projection.Node(nodes.AIGenerateNodeID)
+	if !ok {
+		t.Fatal("AI generate authoring projection is missing")
+	}
+	var aiTimeout nodeauthoring.FieldProjection
+	for _, field := range aiGenerate.ConfigFields {
+		if field.ID == "timeoutMilliseconds" {
+			aiTimeout = field
+			break
+		}
+	}
+	if aiTimeout.ID == "" || aiTimeout.Control != nodeauthoring.ControlInteger ||
+		!aiTimeout.Required || !aiTimeout.HasDefault || string(aiTimeout.Default) != "120000" ||
+		aiTimeout.TitleKey != "node.ai.config.timeoutMilliseconds.title" {
+		t.Fatalf("AI timeout authoring projection = %#v", aiTimeout)
 	}
 
 	conversion, ok := projection.Node(nodes.StreamToBlobNodeID)

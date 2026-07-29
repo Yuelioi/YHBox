@@ -187,4 +187,87 @@ describe('AssetPickerModal', () => {
     expect(onUpdateOpen).toHaveBeenCalledWith(false)
     expect(onCapture).toHaveBeenCalledTimes(1)
   })
+
+  it('offers compatible resources from the current workflow', async () => {
+    const root = document.createElement('div')
+    document.body.append(root)
+    const onSelectWorkflow = vi.fn()
+    const app = createApp(AssetPickerModal, {
+      open: true,
+      kind: 'template',
+      onSelectWorkflow,
+      resources: [
+        {
+          id: 'image-22d96f23-8318-4336-969d-708441b37e64',
+          kind: 'image',
+          name: 'F1',
+          image: {
+            variants: [
+              {
+                id: 'variant-f1',
+                resolution: [1920, 1080],
+                bbox: [0, 0, 1920, 1080],
+                blob: { digest: 'sha256:f1', mediaType: 'image/png', size: 256 },
+              },
+            ],
+          },
+        },
+      ],
+    })
+    app.component(
+      'UButton',
+      defineComponent({
+        inheritAttrs: false,
+        props: { disabled: Boolean, label: String },
+        emits: ['click'],
+        setup(props, { attrs, emit, slots }) {
+          return () =>
+            h(
+              'button',
+              {
+                ...attrs,
+                disabled: props.disabled,
+                onClick: () => emit('click'),
+              },
+              slots.default?.() ?? props.label,
+            )
+        },
+      }),
+    )
+    for (const name of ['UInput', 'USelect']) {
+      app.component(name, defineComponent({ setup: () => () => h('input') }))
+    }
+    for (const name of ['UBadge', 'UIcon', 'USkeleton']) {
+      app.component(
+        name,
+        defineComponent({
+          setup:
+            (_, { slots }) =>
+            () =>
+              h('span', slots.default?.()),
+        }),
+      )
+    }
+    mounted.push(app)
+    app.mount(root)
+    await Promise.resolve()
+    await nextTick()
+
+    expect(root.textContent).toContain('F1')
+    expect(root.textContent).toContain('1920×1080')
+
+    const card = root.querySelector('article') as HTMLElement
+    card.click()
+    await nextTick()
+    const confirm = [...root.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('assetPicker.use_template'),
+    )
+    confirm?.click()
+    await nextTick()
+
+    expect(onSelectWorkflow).toHaveBeenCalledWith({
+      resourceId: 'image-22d96f23-8318-4336-969d-708441b37e64',
+      variantId: 'variant-f1',
+    })
+  })
 })

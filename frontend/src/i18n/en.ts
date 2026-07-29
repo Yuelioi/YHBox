@@ -319,6 +319,11 @@ export default {
           description:
             'Maximum tokens generated for this request; when omitted, the installation setting is used.',
         },
+        timeoutMilliseconds: {
+          title: 'Timeout (milliseconds)',
+          description:
+            'Hard wall-time limit for this AI node attempt, from 1000 to 120000 milliseconds.',
+        },
       },
     },
     vision: {
@@ -964,8 +969,13 @@ export default {
       clickTemplate: {
         title: 'Click template',
         description:
-          'Wait for a stable template match, then click its center in the same exact window.',
+          'Check one supplied source image or capture fresh frames, then click the template match center.',
         input: {
+          image: {
+            title: 'Source image',
+            description:
+              'Optional; connect Capture Window to skip capture here. A fixed image is checked once and requires zero settle duration.',
+          },
           template: {
             title: 'Template image',
             description: 'Durable template image to wait for and click.',
@@ -980,7 +990,8 @@ export default {
           },
           timeout: {
             title: 'Wait timeout',
-            description: 'Maximum wait in milliseconds; 0 checks one frame.',
+            description:
+              'Maximum wait in milliseconds when no source image is supplied; 0 checks one frame.',
           },
           'poll-interval': {
             title: 'Poll interval',
@@ -988,7 +999,8 @@ export default {
           },
           'settle-duration': {
             title: 'Settle duration',
-            description: 'Milliseconds to wait and relocate after the first match.',
+            description:
+              'Milliseconds to wait and relocate after a live match; must be 0 with a source image.',
           },
           button: {
             title: 'Pointer button',
@@ -2585,7 +2597,6 @@ export default {
       batch_delete_description:
         '{deletable} resources will be deleted. {blocked} workflow resources still referenced by nodes will be kept.',
       batch_deleted: 'Batch deletion finished. {blocked} referenced workflow resources were kept.',
-      located: 'Located resource {id}.',
       locate_failed: 'Could not locate resource {id}; it may have been deleted.',
       capture_hint:
         'Choose the target for this capture. The visual template is saved and added to the current canvas.',
@@ -2950,6 +2961,7 @@ export default {
     search_placeholder: 'Search names, categories, or tags',
     search_all_placeholder: 'Search name, description, category, tags, or asset ID',
     search_action: 'Filter',
+    clear_search: 'Clear search',
     all_categories: 'All categories',
     all_tags: 'All tags',
     reset_filters: 'Reset filters',

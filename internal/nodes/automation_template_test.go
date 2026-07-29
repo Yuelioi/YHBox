@@ -44,6 +44,14 @@ func TestAutomationTemplateContractsUseExplicitBlobAndExactTargetCapabilities(t 
 				t.Fatalf("template contract %q omitted required input %q", test.id, id)
 			}
 		}
+		if test.id == ClickTemplateNodeID {
+			required, exists := inputs["image"]
+			if !exists || required {
+				t.Fatalf("click template source image = exists %v required %v, want optional", exists, required)
+			}
+		} else if _, exists := inputs["image"]; exists {
+			t.Fatalf("template contract %q unexpectedly exposes a fixed source image", test.id)
+		}
 		if test.id != WaitTemplateGoneNodeID && defaults["settle-duration"] != "0" {
 			t.Fatalf("template contract %q settle default = %q, want 0", test.id, defaults["settle-duration"])
 		}

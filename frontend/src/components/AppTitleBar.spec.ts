@@ -20,4 +20,9 @@ describe('AppTitleBar accessibility', () => {
     expect(source).toContain(':aria-label="t(\'editor.window.minimize\')"')
     expect(source).toContain(':aria-label="t(\'editor.window.close\')"')
   })
+
+  it('routes close requests through the workflow leave guard', () => {
+    expect(source).toContain('requestMainWindowClose')
+    expect(source).not.toContain('closeImmediate: onClose')
+  })
 })

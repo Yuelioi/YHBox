@@ -11,7 +11,13 @@ import (
 	"github.com/yottaapp/yotta/internal/nodecontract"
 )
 
-const aiImplementationVersion = "v2"
+const (
+	aiImplementationVersion = "v3"
+
+	MinAITimeoutMilliseconds     int64 = 1_000
+	DefaultAITimeoutMilliseconds int64 = 120_000
+	MaxAITimeoutMilliseconds     int64 = 120_000
+)
 
 type aiArtifacts struct {
 	generate       ai.PromptManifest
@@ -135,8 +141,16 @@ func sealAINode(nodeID string, inputRef, outputRef, imageRef datatype.TypeRef, g
 		"temperature":{"type":"number","minimum":0,"maximum":2,
 			"x-yotta-title-key":"node.ai.config.temperature.title","x-yotta-description-key":"node.ai.config.temperature.description"},
 		"maxOutputTokens":{"type":"integer","minimum":1,"maximum":1000000,
-			"x-yotta-title-key":"node.ai.config.maxOutputTokens.title","x-yotta-description-key":"node.ai.config.maxOutputTokens.description"}`
-	required := `"slot"`
+			"x-yotta-title-key":"node.ai.config.maxOutputTokens.title","x-yotta-description-key":"node.ai.config.maxOutputTokens.description"},
+		"timeoutMilliseconds":{"type":"integer","minimum":%d,"maximum":%d,"default":%d,
+			"x-yotta-title-key":"node.ai.config.timeoutMilliseconds.title","x-yotta-description-key":"node.ai.config.timeoutMilliseconds.description"}`
+	properties = fmt.Sprintf(
+		properties,
+		MinAITimeoutMilliseconds,
+		MaxAITimeoutMilliseconds,
+		DefaultAITimeoutMilliseconds,
+	)
+	required := `"slot","timeoutMilliseconds"`
 	if structured {
 		properties += `,
 		"fields":{"type":"array","minItems":1,"maxItems":64,

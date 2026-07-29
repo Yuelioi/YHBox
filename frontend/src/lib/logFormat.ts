@@ -18,6 +18,27 @@ export interface LogLine {
   attempt?: number
 }
 
+export function workflowFailureSummary(fields: unknown): string {
+  if (!fields || typeof fields !== 'object') return ''
+  const failure = (fields as Record<string, unknown>).failure
+  if (!failure || typeof failure !== 'object') return ''
+  const value = failure as Record<string, unknown>
+  if (typeof value.code !== 'string' || !value.code) return ''
+  const source =
+    typeof value.sourceNodeId === 'string' && value.sourceNodeId
+      ? `${value.sourceNodeId}${
+          typeof value.sourcePortId === 'string' && value.sourcePortId
+            ? `:${value.sourcePortId}`
+            : ''
+        }`
+      : ''
+  const attempt =
+    typeof value.attempt === 'number' && Number.isInteger(value.attempt) && value.attempt > 0
+      ? `attempt ${value.attempt}`
+      : ''
+  return [value.code, source, attempt].filter(Boolean).join(' · ')
+}
+
 export function parseLine(raw: string): LogLine {
   try {
     const o = JSON.parse(raw)

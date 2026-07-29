@@ -605,7 +605,11 @@ func newWorkflowLogEmitter(log zerolog.Logger) noderuntime.LogEmitter {
 			event = log.Info()
 		}
 		event.Str("tag", "WORKFLOW").Str("graphId", entry.GraphID).Str("nodeId", entry.NodeID).
-			Str("invocationId", entry.InvocationID).Int("attempt", entry.Attempt).Msg(entry.Message)
+			Str("invocationId", entry.InvocationID).Int("attempt", entry.Attempt)
+		if entry.Failure != nil {
+			event.Interface("failure", entry.Failure)
+		}
+		event.Msg(entry.Message)
 		return nil
 	})
 }

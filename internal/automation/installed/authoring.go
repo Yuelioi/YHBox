@@ -50,9 +50,6 @@ func (targets AuthoringTargets) ResolveWindow(ctx context.Context, slot string) 
 	if ctx == nil {
 		return target.WindowHandle{}, errors.New("resolve automation target context is required")
 	}
-	if err := provider.verifyProfile(); err != nil {
-		return target.WindowHandle{}, failure(CodeIdentityChanged, err)
-	}
 	resolved, err := provider.driver.ResolveTarget(ctx)
 	if err != nil {
 		return target.WindowHandle{}, err
@@ -74,9 +71,6 @@ func (targets AuthoringTargets) ResolveTarget(ctx context.Context, slot string) 
 	if ctx == nil {
 		return target.Target{}, errors.New("resolve automation target context is required")
 	}
-	if err := provider.verifyProfile(); err != nil {
-		return target.Target{}, failure(CodeIdentityChanged, err)
-	}
 	return provider.driver.ResolveTarget(ctx)
 }
 
@@ -89,9 +83,6 @@ func (targets AuthoringTargets) CapturePNG(ctx context.Context, slot string) ([]
 	if ctx == nil {
 		return nil, errors.New("capture automation target context is required")
 	}
-	if err := provider.verifyProfile(); err != nil {
-		return nil, failure(CodeIdentityChanged, err)
-	}
 	return provider.driver.Capture(ctx)
 }
 
@@ -103,9 +94,6 @@ func (targets AuthoringTargets) Activate(ctx context.Context, slot string) error
 	defer release()
 	if ctx == nil {
 		return errors.New("activate automation target context is required")
-	}
-	if err := provider.verifyProfile(); err != nil {
-		return failure(CodeIdentityChanged, err)
 	}
 	return provider.driver.Execute(ctx, OperationActivate, struct{}{})
 }
@@ -123,9 +111,6 @@ func (targets AuthoringTargets) AcquireRecordingTarget(ctx context.Context, slot
 	}
 	if ctx == nil {
 		return fail(errors.New("recording automation target context is required"))
-	}
-	if err := provider.verifyProfile(); err != nil {
-		return fail(failure(CodeIdentityChanged, err))
 	}
 	desktop, ok := DesktopProfile(provider.profile)
 	if !ok {

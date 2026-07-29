@@ -41,6 +41,10 @@ func TestAINodesPinTrustedPromptManifestsIntoImplementationLocks(t *testing.T) {
 				if bytes.Contains(resource.Schema, []byte(`"instructions"`)) {
 					t.Fatalf("workflow config can override trusted instructions: %s", resource.Schema)
 				}
+				if !bytes.Contains(resource.Schema, []byte(`"timeoutMilliseconds"`)) ||
+					!bytes.Contains(resource.Schema, []byte(`"default":120000`)) {
+					t.Fatalf("AI timeout is not authorable with a safe default: %s", resource.Schema)
+				}
 			}
 		})
 	}

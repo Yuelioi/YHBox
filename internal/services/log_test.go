@@ -14,13 +14,17 @@ import (
 )
 
 func TestParseSystemLogEntryPromotesWorkflowAttribution(t *testing.T) {
-	entry := parseSystemLogEntry(`{"time":"2026-07-16T00:00:00Z","level":"info","tag":"WORKFLOW","message":"node completed","graphId":"g1","nodeId":"n1","invocationId":"i1","attempt":2,"durationMs":12}`)
+	entry := parseSystemLogEntry(`{"time":"2026-07-16T00:00:00Z","level":"info","tag":"WORKFLOW","message":"node completed","graphId":"g1","nodeId":"n1","invocationId":"i1","attempt":2,"durationMs":12,"failure":{"code":"ai.generation_failed","sourceNodeId":"ai-generate"}}`)
 	if entry.Source != "WF" || entry.GraphID != "g1" || entry.NodeID != "n1" || entry.InvocationID != "i1" || entry.Attempt != 2 {
 		t.Fatalf("workflow entry = %#v", entry)
 	}
 	fields, ok := entry.Fields.(map[string]any)
 	if !ok || fields["durationMs"] != float64(12) {
 		t.Fatalf("workflow fields = %#v", entry.Fields)
+	}
+	failure, ok := fields["failure"].(map[string]any)
+	if !ok || failure["code"] != "ai.generation_failed" || failure["sourceNodeId"] != "ai-generate" {
+		t.Fatalf("workflow failure fields = %#v", fields["failure"])
 	}
 }
 

@@ -14,6 +14,8 @@ import (
 
 type aiNativeFactory func(ai.ModelProfile) (ai.Provider, error)
 
+const aiConnectionTestTimeout = 20 * time.Second
+
 // AIService exposes transient credential, verification, and authoring
 // operations without returning stored secret values.
 type AIService struct {
@@ -151,7 +153,7 @@ func (s *AIService) TestProfile(request TestProfileRequest) TestProfileResult {
 	if err != nil {
 		return aiTestFailure(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), aiConnectionTestTimeout)
 	defer cancel()
 	outcome, err := provider.Generate(ctx, credential, ai.GenerateRequest{
 		AttemptID: attemptID, Prompt: prompt, Retention: ai.RetentionNoApplicationState,

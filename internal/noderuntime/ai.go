@@ -11,6 +11,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"strings"
+	"time"
 
 	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/artifact"
@@ -36,13 +37,29 @@ func aiGenerate(builtins nodes.Builtins, structured bool) nodeadapter.Adapter {
 		promptManifest = builtins.AIExtractPrompt
 	}
 	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
+		runCtx := ctx
 		action := nodeadapter.AdapterAction{
 			EffectID: effectID, Action: "ai.provider-response", SummaryCode: "ai.generation",
 			Counters: map[string]int64{}, Facts: map[string]string{},
 		}
 		defer func() {
-			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, action, "ai.generation_failed", runErr))
+			runErr = errors.Join(runErr, recordAdapterOutcome(runCtx, invocation, action, "ai.generation_failed", runErr))
 		}()
+		timeout, err := configInt64(invocation.Config["timeoutMilliseconds"])
+		if err != nil || timeout < nodes.MinAITimeoutMilliseconds || timeout > nodes.MaxAITimeoutMilliseconds {
+			return nodeadapter.AdapterResult{}, errors.New("AI timeout config is invalid")
+		}
+		action.Counters["timeout_ms"] = timeout
+		attemptCtx, cancelAttempt := context.WithTimeout(runCtx, time.Duration(timeout)*time.Millisecond)
+		defer cancelAttempt()
+		defer func() {
+			if errors.Is(runErr, context.DeadlineExceeded) && runCtx.Err() == nil {
+				runErr = &nodeadapter.NodeFailure{
+					Code: "ai.generation_failed", Output: "failed", Cause: errors.New("AI generation timed out"),
+				}
+			}
+		}()
+		ctx = attemptCtx
 		promptEnvelope, ok := invocation.Inputs["prompt"]
 		if !ok || len(promptEnvelope.InlineJSON()) == 0 {
 			return nodeadapter.AdapterResult{}, errors.New("AI prompt input is missing")

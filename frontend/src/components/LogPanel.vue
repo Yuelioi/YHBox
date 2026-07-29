@@ -273,6 +273,13 @@
           >{{ l.level }}</span
         >
         <span class="text-default break-all">{{ l.message }}</span>
+        <span
+          v-if="workflowFailureSummary(l.fields)"
+          class="text-error/80 break-all"
+          :title="workflowFailureSummary(l.fields)"
+        >
+          [{{ workflowFailureSummary(l.fields) }}]
+        </span>
       </div>
     </div>
   </div>
@@ -284,6 +291,7 @@ import { useI18n } from 'vue-i18n'
 import { useLogStore } from '@/stores/log'
 import { useSettingsStore } from '@/stores/settings'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
+import { workflowFailureSummary } from '@/lib/logFormat'
 
 const props = defineProps<{ embedded?: boolean }>()
 const { t } = useI18n()
