@@ -394,9 +394,6 @@ func (p *provider) Open(ctx context.Context, request resource.ProviderOpenReques
 			p.stateMu.Unlock()
 			return nil, err
 		}
-		if err := p.verifyProfile(); err != nil {
-			return failOpen(failure(CodeIdentityChanged, err))
-		}
 		openedDriver := playbackSessionDriver(directPlaybackSession{driver: p.driver})
 		if opener, ok := p.driver.(playbackOpener); ok {
 			var err error
@@ -484,9 +481,6 @@ func (p *provider) Invoke(ctx context.Context, object any, operation string, pay
 	if err != nil {
 		return nil, failure(CodeInvalidRequest, err)
 	}
-	if err := p.verifyProfile(); err != nil {
-		return nil, failure(CodeIdentityChanged, err)
-	}
 	if operation == OperationWaitWindow || operation == OperationWaitWindowGone {
 		waiter, ok := p.driver.(windowWaiter)
 		if !ok {
@@ -542,9 +536,6 @@ func (p *provider) invokeHeldInput(ctx context.Context, opened *heldInputSession
 	request, err := decodeOperationRequest(operation, payload)
 	if err != nil {
 		return nil, failure(CodeInvalidRequest, err)
-	}
-	if err := p.verifyProfile(); err != nil {
-		return nil, failure(CodeIdentityChanged, err)
 	}
 	if operation == OperationReleaseHeld {
 		closeErr := opened.driver.Close()
@@ -647,9 +638,6 @@ func (p *provider) invokeCapture(ctx context.Context, opened *captureSession, op
 	}
 	switch operation {
 	case OperationCapture:
-		if err := p.verifyProfile(); err != nil {
-			return nil, failure(CodeIdentityChanged, err)
-		}
 		var request CaptureRequest
 		if err := decodeExact(payload, &request, 128); err != nil {
 			return nil, failure(CodeInvalidRequest, err)

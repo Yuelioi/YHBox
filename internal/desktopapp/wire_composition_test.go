@@ -167,13 +167,23 @@ func TestWorkflowLogEmitterPreservesLevelAndAttribution(t *testing.T) {
 	var output bytes.Buffer
 	emitter := newWorkflowLogEmitter(zerolog.New(&output).Level(zerolog.DebugLevel))
 	for _, level := range []string{"debug", "info", "warn", "error"} {
-		if err := emitter.EmitWorkflowLog(context.Background(), noderuntime.LogEntry{
+		entry := noderuntime.LogEntry{
 			Level: level, Message: "message-" + level, GraphID: "main", NodeID: "log", InvocationID: "invoke-1", Attempt: 2,
-		}); err != nil {
+		}
+		if level == "error" {
+			entry.Failure = &noderuntime.LogFailure{
+				Code: "ai.generation_failed", Category: "provider",
+				SourceNodeID: "ai-generate", SourcePortID: "failed", Attempt: 1,
+			}
+		}
+		if err := emitter.EmitWorkflowLog(context.Background(), entry); err != nil {
 			t.Fatal(err)
 		}
 	}
-	for _, fact := range []string{"message-info", "message-warn", "message-error", `"graphId":"main"`, `"nodeId":"log"`, `"attempt":2`} {
+	for _, fact := range []string{
+		"message-info", "message-warn", "message-error", `"graphId":"main"`, `"nodeId":"log"`,
+		`"attempt":2`, `"failure":{"code":"ai.generation_failed"`, `"sourceNodeId":"ai-generate"`,
+	} {
 		if !bytes.Contains(output.Bytes(), []byte(fact)) {
 			t.Fatalf("workflow log output omitted %q: %s", fact, output.String())
 		}

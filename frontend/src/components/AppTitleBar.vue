@@ -132,9 +132,10 @@
         </button>
         <button
           type="button"
-          class="w-12 flex items-center justify-center text-muted hover:bg-error hover:text-highlighted transition-colors duration-150"
+          class="w-12 flex items-center justify-center text-muted hover:bg-error hover:text-highlighted transition-colors duration-150 disabled:opacity-50"
           :title="t('editor.window.close')"
           :aria-label="t('editor.window.close')"
+          :disabled="closeRequestPending"
           @click="onClose"
         >
           <UIcon name="i-tabler-x" class="size-4" aria-hidden="true" />
@@ -151,13 +152,15 @@ import { useRoute, useRouter } from 'vue-router'
 import { useWindowControls } from '@/composables/useWindowControls'
 import { backend } from '@/lib/backend'
 import { buildAppNavigation } from '@/app/navigation/appNavigation'
+import { requestMainWindowClose } from '@/app/window/requestMainWindowClose'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
-const { isMaximised, onMinimise, onToggleMaximise, closeImmediate: onClose } = useWindowControls()
+const { isMaximised, onMinimise, onToggleMaximise, closeImmediate } = useWindowControls()
 const appVersion = ref('')
 const launcherOpening = ref(false)
+const closeRequestPending = ref(false)
 let stopMainNavigate: (() => void) | undefined
 const versionLabel = computed(() => (appVersion.value ? `v${appVersion.value}` : ''))
 
@@ -183,5 +186,14 @@ async function openLauncher(): Promise<void> {
   await backend.tools.openLauncher()
   launcherOpening.value = false
 }
-// 窗口控件 (isMaximised + onMinimise / onToggleMaximise / onClose) 全由 useWindowControls 提供
+
+async function onClose(): Promise<void> {
+  if (closeRequestPending.value) return
+  closeRequestPending.value = true
+  try {
+    await requestMainWindowClose(route.name, router, closeImmediate)
+  } finally {
+    closeRequestPending.value = false
+  }
+}
 </script>

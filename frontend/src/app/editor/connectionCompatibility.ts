@@ -57,10 +57,10 @@ export function projectedConnectionCompatibility(
   if (source.direction !== 'output' || target.direction !== 'input') {
     return invalid('direction', 'connection must run from an output to an input')
   }
-  if (source.channel !== target.channel) {
-    return invalid('channel', 'connection channels differ')
-  }
-  if (source.channel === 'data') {
+  if (source.channel === 'data' || target.channel === 'data') {
+    if (source.channel !== target.channel) {
+      return invalid('channel', 'connection channels differ')
+    }
     const output = sourceProjection.dataOutputs.find((port) => port.id === source.portId)
     const input = targetProjection.dataInputs.find((port) => port.id === target.portId)
     if (!output || !input) return invalid('port', 'data edge has invalid ports')
@@ -87,23 +87,51 @@ export function projectedConnectionCompatibility(
     return { valid: true, match, disposition: 'direct', reason: match }
   }
 
+  const acceptsFailureOnExec =
+    source.channel === 'error' &&
+    target.channel === 'exec' &&
+    targetProjection.instruction.kind === 'invoke'
+  if (source.channel !== target.channel && !acceptsFailureOnExec) {
+    return invalid('channel', 'connection channels differ')
+  }
   const output = sourceProjection.signals.find(
     (signal) =>
       signal.id === source.portId &&
       signal.direction === 'output' &&
       signal.channel === source.channel,
   )
+  const inputChannel = projectedTargetHandleChannel(targetProjection, source.channel, target.portId)
   const input = targetProjection.signals.find(
     (signal) =>
       signal.id === target.portId &&
       signal.direction === 'input' &&
-      signal.channel === target.channel,
+      signal.channel === inputChannel,
   )
   if (!output || !input) return invalid('port', `${source.channel} edge has invalid signal ports`)
   if (!instructionAcceptsSignal(targetProjection, source.channel, target.portId)) {
     return invalid('instruction', `${target.channel} edge is not accepted by the instruction`)
   }
   return { valid: true }
+}
+
+export function projectedTargetHandleChannel(
+  targetProjection: NodeProjection,
+  edgeChannel: ParsedHandle['channel'],
+  portId: string,
+): ParsedHandle['channel'] {
+  if (edgeChannel === 'data') return 'data'
+  const exact = targetProjection.signals.some(
+    (signal) =>
+      signal.id === portId && signal.direction === 'input' && signal.channel === edgeChannel,
+  )
+  if (exact) return edgeChannel
+  const invokeExecInput =
+    edgeChannel === 'error' &&
+    targetProjection.instruction.kind === 'invoke' &&
+    targetProjection.signals.some(
+      (signal) => signal.id === portId && signal.direction === 'input' && signal.channel === 'exec',
+    )
+  return invokeExecInput ? 'exec' : edgeChannel
 }
 
 export function conversionCandidates(

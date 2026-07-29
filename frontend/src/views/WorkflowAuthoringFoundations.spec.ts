@@ -421,6 +421,11 @@ describe('workflow authoring foundations', () => {
     expect(graphCallInspector).toContain('@locate-resource')
     expect(dock).toContain('applyLocateRequest')
     expect(dock).toContain(':focused-id="focusedResourceId"')
+    expect(dock).toContain('#trailing')
+    expect(dock).toContain("t('assets.clear_search')")
+    expect(dock).not.toContain("t('workflow.resources.located'")
+    expect(dock).toContain("t('workflow.resources.locate_failed'")
+    expect(dock).toContain('data-testid="workflow-resource-feedback-dismiss"')
     expect(editor).toContain('locateBoundResource')
   })
 
@@ -431,7 +436,8 @@ describe('workflow authoring foundations', () => {
     expect(editor).toContain('@connect-end="endConnection"')
     expect(editor).toContain('<WorkflowConnectionMenu')
     expect(editor).toContain('session.insertConnectedNode(')
-    expect(editor).toContain("targetHandle: graphHandle(edge.channel, 'input'")
+    expect(editor).toContain('targetHandle: edgeTargetHandle(edge)')
+    expect(editor).not.toContain('if (source.channel !== target.channel) return null')
   })
 
   it('restores multi-selection, atomic batch editing, snapping, and auto-layout', () => {

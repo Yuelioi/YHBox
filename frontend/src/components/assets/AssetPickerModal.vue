@@ -14,6 +14,25 @@
     @update:open="emit('update:open', $event)"
   >
     <div class="flex h-full min-h-0 flex-col gap-3">
+      <div
+        v-if="resources"
+        class="grid shrink-0 grid-cols-2 gap-1 rounded-lg border border-default bg-elevated/40 p-1"
+        role="group"
+        :aria-label="t('workflow.resources.title')"
+      >
+        <UButton
+          v-for="option in scopeItems"
+          :key="option.value"
+          size="sm"
+          :color="scope === option.value ? 'primary' : 'neutral'"
+          :variant="scope === option.value ? 'soft' : 'ghost'"
+          :icon="option.icon"
+          :label="option.label"
+          :aria-pressed="scope === option.value"
+          @click="changeScope(option.value)"
+        />
+      </div>
+
       <div class="flex shrink-0 items-center gap-2">
         <UInput
           v-model="searchInput"
@@ -22,7 +41,18 @@
           class="min-w-0 flex-1"
           :placeholder="t('assetPicker.search_placeholder')"
           :aria-label="t('assetPicker.search_placeholder')"
-        />
+        >
+          <template v-if="searchInput" #trailing>
+            <UButton
+              size="xs"
+              variant="link"
+              color="neutral"
+              icon="i-tabler-x"
+              :aria-label="t('assets.clear_search')"
+              @click="clearSearch"
+            />
+          </template>
+        </UInput>
         <UButton
           color="neutral"
           :variant="filtersOpen || hasFilters ? 'soft' : 'ghost'"
@@ -253,15 +283,22 @@ import BaseModal from '@/components/common/BaseModal.vue'
 import BlobPreview from '@/components/common/BlobPreview.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
+import type {
+  ResourceBinding,
+  WorkflowResource,
+} from '../../../../contracts/workflow/current/workflow-source'
+import { workspaceResourceKind } from '@/app/editor/resourceLocator'
 
 const props = defineProps<{
   open: boolean
   kind: 'template' | 'macro' | 'clip'
   selectedBlob?: BlobRef
+  resources?: WorkflowResource[]
 }>()
 const emit = defineEmits<{
   'update:open': [value: boolean]
   select: [selection: AssetPickerSelection]
+  'select-workflow': [binding: ResourceBinding]
   capture: []
 }>()
 const { t } = useI18n()
@@ -292,21 +329,84 @@ const sort = ref('recent_desc')
 const filtersOpen = ref(false)
 const page = ref(1)
 const pageSize = 40
-const total = ref(0)
-const items = ref<AssetSummary[]>([])
+const scope = ref<ResourceScope>('library')
+const libraryTotal = ref(0)
+const libraryItems = ref<AssetSummary[]>([])
 const loading = ref(false)
 const failure = ref('')
-const candidate = ref<AssetPickerSelection | null>(null)
+const candidate = ref<PickerCandidate | null>(null)
 let searchTimer: ReturnType<typeof setTimeout> | undefined
 let requestGeneration = 0
 
+type ResourceScope = 'workflow' | 'library'
+type PickerCandidate = AssetPickerSelection & {
+  scope: ResourceScope
+  variantId?: string
+}
+
+const scopeItems = computed(() => [
+  {
+    value: 'workflow' as const,
+    label: t('workflow.resources.current_workflow'),
+    icon: 'i-tabler-file-code',
+  },
+  {
+    value: 'library' as const,
+    label: t('workflow.resources.local_library'),
+    icon: 'i-tabler-database',
+  },
+])
+const compatibleWorkflowResources = computed(() =>
+  (props.resources ?? []).filter((resource) => workspaceResourceKind(resource) === props.kind),
+)
+const workflowAssets = computed(() => compatibleWorkflowResources.value.map(workflowAsset))
+const filteredWorkflowAssets = computed(() => {
+  const query = search.value.toLocaleLowerCase()
+  const tags = splitTags(tagsInput.value)
+  const matches = workflowAssets.value.filter((asset) => {
+    if (
+      query &&
+      ![asset.guid, asset.name, asset.description, asset.category, ...(asset.tags ?? [])]
+        .filter((value): value is string => Boolean(value))
+        .some((value) => value.toLocaleLowerCase().includes(query))
+    )
+      return false
+    if (category.value.trim() && asset.category !== category.value.trim()) return false
+    return tags.every((tag) => asset.tags?.includes(tag))
+  })
+  if (sort.value === 'name_asc' || sort.value === 'name_desc') {
+    matches.sort((left, right) => {
+      const order = left.name.localeCompare(right.name)
+      return sort.value === 'name_desc' ? -order : order
+    })
+  }
+  return matches
+})
+const workflowTotal = computed(() => filteredWorkflowAssets.value.length)
+const workflowItems = computed(() => {
+  const start = (page.value - 1) * pageSize
+  return filteredWorkflowAssets.value.slice(start, start + pageSize)
+})
+const total = computed(() =>
+  scope.value === 'workflow' ? workflowTotal.value : libraryTotal.value,
+)
+const items = computed(() =>
+  scope.value === 'workflow' ? workflowItems.value : libraryItems.value,
+)
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
 const hasFilters = computed(() => Boolean(category.value.trim() || tagsInput.value.trim()))
-const sortItems = computed(() => [
-  { label: t('assetPicker.sort_recent'), value: 'recent_desc' },
-  { label: t('assets.sort_name_asc'), value: 'name_asc' },
-  { label: t('assets.sort_created_desc'), value: 'created_desc' },
-])
+const sortItems = computed(() =>
+  scope.value === 'workflow'
+    ? [
+        { label: t('assets.sort_name_asc'), value: 'name_asc' },
+        { label: t('assets.sort_name_desc'), value: 'name_desc' },
+      ]
+    : [
+        { label: t('assetPicker.sort_recent'), value: 'recent_desc' },
+        { label: t('assets.sort_name_asc'), value: 'name_asc' },
+        { label: t('assets.sort_created_desc'), value: 'created_desc' },
+      ],
+)
 
 watch(
   () => [props.open, props.kind] as const,
@@ -314,6 +414,12 @@ watch(
     if (!open) return
     candidate.value = null
     page.value = 1
+    const selectedInWorkflow = workflowAssets.value.some((asset) => assetContainsSelection(asset))
+    scope.value =
+      selectedInWorkflow || (!props.selectedBlob && compatibleWorkflowResources.value.length)
+        ? 'workflow'
+        : 'library'
+    sort.value = scope.value === 'workflow' ? 'name_asc' : 'recent_desc'
     void loadPage()
   },
   { immediate: true },
@@ -321,6 +427,12 @@ watch(
 
 watch(searchInput, (value) => {
   if (searchTimer) clearTimeout(searchTimer)
+  if (!value) {
+    search.value = ''
+    page.value = 1
+    void loadPage()
+    return
+  }
   searchTimer = setTimeout(() => {
     search.value = value.trim()
     page.value = 1
@@ -331,7 +443,7 @@ watch(searchInput, (value) => {
 watch(
   () => assets.epoch,
   () => {
-    if (props.open) void loadPage(true)
+    if (props.open && scope.value === 'library') void loadPage(true)
   },
 )
 
@@ -343,8 +455,14 @@ onBeforeUnmount(() => {
 async function loadPage(force = false): Promise<void> {
   if (!props.open) return
   const generation = ++requestGeneration
-  loading.value = true
   failure.value = ''
+  if (scope.value === 'workflow') {
+    loading.value = false
+    selectCurrentCandidate(items.value)
+    if (page.value > pageCount.value) page.value = pageCount.value
+    return
+  }
+  loading.value = true
   try {
     const result = await assets.query(
       {
@@ -361,12 +479,9 @@ async function loadPage(force = false): Promise<void> {
       { force },
     )
     if (generation !== requestGeneration) return
-    items.value = result.items
-    total.value = result.total
-    if (!candidate.value && props.selectedBlob) {
-      const current = items.value.find((asset) => assetContainsSelection(asset))
-      if (current) candidate.value = selectionForAsset(current)
-    }
+    libraryItems.value = result.items
+    libraryTotal.value = result.total
+    selectCurrentCandidate(libraryItems.value)
     if (page.value > pageCount.value) {
       page.value = pageCount.value
       await loadPage(force)
@@ -384,6 +499,20 @@ function applyFilters(): void {
   void loadPage()
 }
 
+function changeScope(next: ResourceScope): void {
+  if (scope.value === next) return
+  scope.value = next
+  candidate.value = null
+  page.value = 1
+  sort.value = next === 'workflow' ? 'name_asc' : 'recent_desc'
+  void loadPage()
+}
+
+function clearSearch(): void {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchInput.value = ''
+}
+
 function goToPage(next: number): void {
   if (next < 1 || next > pageCount.value || next === page.value) return
   page.value = next
@@ -392,11 +521,13 @@ function goToPage(next: number): void {
 
 function selectCandidate(asset: AssetSummary, blob: BlobRef, resolution?: [number, number]): void {
   candidate.value = {
+    scope: scope.value,
     guid: asset.guid,
     kind: asset.kind,
     name: asset.name,
     resolution: resolution ? [resolution[0], resolution[1]] : undefined,
     blob: { ...blob },
+    ...(scope.value === 'workflow' ? { variantId: workflowVariantID(asset.guid, blob) } : {}),
   }
 }
 
@@ -407,10 +538,11 @@ function activateAsset(asset: AssetSummary, confirm = false): void {
   if (confirm) confirmSelection(selection)
 }
 
-function selectionForAsset(asset: AssetSummary): AssetPickerSelection | null {
+function selectionForAsset(asset: AssetSummary): PickerCandidate | null {
   if (asset.kind === 'clip' || asset.kind === 'macro') {
     return asset.blob
       ? {
+          scope: scope.value,
           guid: asset.guid,
           kind: asset.kind,
           name: asset.name,
@@ -422,19 +554,30 @@ function selectionForAsset(asset: AssetSummary): AssetPickerSelection | null {
     asset.variants.find((item) => sameBlob(item.blob, props.selectedBlob)) ?? asset.variants[0]
   if (!variant) return null
   return {
+    scope: scope.value,
     guid: asset.guid,
     kind: asset.kind,
     name: asset.name,
     resolution: [variant.resolution[0], variant.resolution[1]],
     blob: { ...variant.blob },
+    ...(scope.value === 'workflow'
+      ? { variantId: workflowVariantID(asset.guid, variant.blob) }
+      : {}),
   }
 }
 
 function confirmSelection(selection = candidate.value): void {
   if (!selection) return
   candidate.value = null
-  assets.markUsed(selection.guid)
-  emit('select', selection)
+  if (selection.scope === 'workflow') {
+    emit('select-workflow', {
+      resourceId: selection.guid,
+      ...(selection.variantId ? { variantId: selection.variantId } : {}),
+    })
+  } else {
+    assets.markUsed(selection.guid)
+    emit('select', selection)
+  }
   emit('update:open', false)
 }
 
@@ -453,7 +596,7 @@ function assetMeta(asset: AssetSummary): string {
 }
 
 function candidateContainsSelection(asset: AssetSummary): boolean {
-  return candidate.value?.guid === asset.guid
+  return candidate.value?.scope === scope.value && candidate.value.guid === asset.guid
 }
 
 function assetContainsSelection(asset: AssetSummary): boolean {
@@ -477,5 +620,46 @@ function splitTags(value: string): string[] {
     .split(/[,，]/)
     .map((tag) => tag.trim())
     .filter(Boolean)
+}
+
+function selectCurrentCandidate(candidates: AssetSummary[]): void {
+  if (candidate.value || !props.selectedBlob) return
+  const current = candidates.find((asset) => assetContainsSelection(asset))
+  if (current) candidate.value = selectionForAsset(current)
+}
+
+function workflowAsset(resource: WorkflowResource): AssetSummary {
+  const kind = workspaceResourceKind(resource)
+  const variants =
+    resource.kind === 'image'
+      ? (resource.image?.variants.map((variant) => ({
+          resolution: [variant.resolution[0], variant.resolution[1]] as [number, number],
+          blob: { ...variant.blob },
+        })) ?? [])
+      : []
+  const blob =
+    resource.kind === 'macro'
+      ? resource.macro?.blob
+      : resource.kind === 'input-clip'
+        ? resource.inputClip?.blob
+        : undefined
+  return {
+    guid: resource.id,
+    kind,
+    name: resource.name,
+    description: resource.description,
+    category: resource.category,
+    tags: resource.tags,
+    variantCount: variants.length,
+    variants,
+    blob: blob ? { ...blob } : undefined,
+    thumbnail: variants[0]?.blob,
+  }
+}
+
+function workflowVariantID(resourceID: string, blob: BlobRef): string | undefined {
+  const resource = compatibleWorkflowResources.value.find((item) => item.id === resourceID)
+  if (resource?.kind !== 'image') return undefined
+  return resource.image?.variants.find((variant) => sameBlob(variant.blob, blob))?.id
 }
 </script>

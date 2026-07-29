@@ -306,6 +306,10 @@ export default {
           title: '最大输出 token',
           description: '本次请求允许生成的最大 token 数；不填写时使用安装配置。',
         },
+        timeoutMilliseconds: {
+          title: '超时（毫秒）',
+          description: '本次 AI 节点尝试的硬性墙钟时间上限，范围 1000–120000 毫秒。',
+        },
       },
     },
     vision: {
@@ -738,16 +742,24 @@ export default {
       },
       clickTemplate: {
         title: '点击模板',
-        description: '等待模板稳定出现，再在同一精确窗口的命中中心执行点击。',
+        description: '复用给定源画面检查一次，或持续捕获精确窗口，再点击模板命中中心。',
         input: {
+          image: {
+            title: '源画面',
+            description:
+              '可选；连接“截取窗口”可跳过本节点截图。固定画面只检查一次，且稳定等待必须为 0。',
+          },
           template: { title: '模板图片', description: '要等待并点击的持久模板图片。' },
           region: { title: '搜索区域', description: '在窗口画面内搜索的区域。' },
           threshold: { title: '匹配阈值', description: '0 到 1；分数达到该值才允许点击。' },
-          timeout: { title: '等待超时', description: '最长等待时间（毫秒）；0 表示只检查一次。' },
+          timeout: {
+            title: '等待超时',
+            description: '未提供源画面时的最长等待时间（毫秒）；0 表示只检查一次。',
+          },
           'poll-interval': { title: '检查间隔', description: '两次新画面检查之间的时间（毫秒）。' },
           'settle-duration': {
             title: '稳定等待',
-            description: '首次命中后等待并重新定位的时间（毫秒）。',
+            description: '实时截图首次命中后等待并重新定位的时间；提供源画面时必须为 0。',
           },
           button: { title: '指针按键', description: '点击时使用左键、右键或中键。' },
           'hold-duration': { title: '按住时长', description: '按下到释放之间的时间（毫秒）。' },
@@ -2156,7 +2168,6 @@ export default {
       batch_delete_description:
         '将删除 {deletable} 个资源；仍被节点引用的 {blocked} 个工作流资源会保留。',
       batch_deleted: '批量删除完成；保留了 {blocked} 个仍被引用的工作流资源。',
-      located: '已定位资源 {id}。',
       locate_failed: '无法定位资源 {id}；它可能已被删除。',
       capture_hint: '选择本次截图使用的目标。截图完成后会保存视觉模板并添加到当前画布。',
     },
@@ -2508,6 +2519,7 @@ export default {
     search_placeholder: '搜索名称、分类或标签',
     search_all_placeholder: '搜索名称、描述、分类、标签或资源 ID',
     search_action: '筛选',
+    clear_search: '清除搜索',
     all_categories: '全部分类',
     all_tags: '全部标签',
     reset_filters: '重置筛选',

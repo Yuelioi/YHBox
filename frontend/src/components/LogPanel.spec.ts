@@ -28,6 +28,10 @@ describe('LogPanel shell', () => {
     expect(source).toContain("t('log.disabled')")
   })
 
+  it('shows routed workflow failure context next to the configured log message', () => {
+    expect(source).toContain('workflowFailureSummary(l.fields)')
+  })
+
   it('uses compact Nuxt UI controls for every logging setting', () => {
     expect(source).toContain('<USwitch')
     expect(source).toContain('<AdaptiveSelect')

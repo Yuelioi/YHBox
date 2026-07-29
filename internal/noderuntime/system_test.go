@@ -123,6 +123,46 @@ func TestLogAdapterUsesConfiguredMessageWithoutAnInputBinding(t *testing.T) {
 	}
 }
 
+func TestLogAdapterPreservesRoutedFailureContext(t *testing.T) {
+	builtins, err := nodes.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var emitted noderuntime.LogEntry
+	installed, err := noderuntime.Installed(builtins, noderuntime.Dependencies{
+		Script: unusedScriptRuntime{},
+		Log: noderuntime.LogEmitterFunc(func(_ context.Context, entry noderuntime.LogEntry) error {
+			emitted = entry
+			return nil
+		}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	definition, _ := builtins.Definition(nodes.LogNodeID)
+	result, err := installed[definition.Implementation.Entrypoint].Run(context.Background(), nodeadapter.Invocation{
+		InvocationID: "invocation-failure-log", Attempt: 1, GraphID: "main", NodeID: "log",
+		Config: map[string]any{"message": "AI generation failed", "level": "error"},
+		Trigger: &nodeadapter.SignalTrigger{Failure: &nodeadapter.RoutedFailure{
+			Code: "ai.generation_failed", Category: "provider", RetryHint: false,
+			SourceNodeID: "ai-generate", SourcePortID: "failed", Attempt: 2,
+		}},
+		RecordAction: func(context.Context, nodeadapter.AdapterAction) error { return nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.ExecOutputs) != 1 || emitted.Failure == nil {
+		t.Fatalf("failure log result = %#v / %#v", result, emitted)
+	}
+	if *emitted.Failure != (noderuntime.LogFailure{
+		Code: "ai.generation_failed", Category: "provider", RetryHint: false,
+		SourceNodeID: "ai-generate", SourcePortID: "failed", Attempt: 2,
+	}) {
+		t.Fatalf("routed failure = %#v", emitted.Failure)
+	}
+}
+
 func TestLogAndThrowReturnStableNodeFailures(t *testing.T) {
 	builtins, err := nodes.Build()
 	if err != nil {

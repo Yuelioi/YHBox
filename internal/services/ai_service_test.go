@@ -1,11 +1,13 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/yottaapp/yotta/internal/ai"
@@ -43,6 +45,46 @@ func TestProfileUsesProviderNativeGenerationAndStoredCredential(t *testing.T) {
 	if !status["primary"] || status["missing"] {
 		t.Fatalf("SecretStatus = %#v", status)
 	}
+}
+
+func TestProfileUsesTwentySecondDeadline(t *testing.T) {
+	store := newFakeSecretStore()
+	secrets := NewAISecrets(store)
+	if err := secrets.SetSlot("primary", "stored-secret"); err != nil {
+		t.Fatal(err)
+	}
+	provider := &deadlineCapturingAIProvider{}
+	service := newAIService(nil, secrets, func(ai.ModelProfile) (ai.Provider, error) {
+		return provider, nil
+	})
+
+	result := service.TestProfile(TestProfileRequest{Profile: modelSettingsForTest("primary", "Primary")})
+
+	if !result.Ok {
+		t.Fatalf("TestProfile = %#v", result)
+	}
+	if !provider.hadDeadline ||
+		provider.remaining < 19*time.Second ||
+		provider.remaining > 20*time.Second {
+		t.Fatalf("connection test deadline = %t / %s", provider.hadDeadline, provider.remaining)
+	}
+}
+
+type deadlineCapturingAIProvider struct {
+	hadDeadline bool
+	remaining   time.Duration
+}
+
+func (p *deadlineCapturingAIProvider) Generate(ctx context.Context, _ string, _ ai.GenerateRequest) (ai.Outcome, error) {
+	deadline, ok := ctx.Deadline()
+	p.hadDeadline = ok
+	if ok {
+		p.remaining = time.Until(deadline)
+	}
+	return ai.Outcome{
+		Provider: ai.ProviderOpenAIResponses, RequestedModel: "configured-model",
+		ResolvedModel: "resolved-model", Finish: ai.Finish{Kind: ai.FinishCompleted},
+	}, nil
 }
 
 func TestProfileFailureIncludesProviderHTTPStatus(t *testing.T) {

@@ -395,6 +395,10 @@ func TestApplicationMigratesIncompleteAIContractWithoutHidingItsMissingInputs(t 
 	if got := migratedSource.Graphs[0].Nodes[1].NodeRef; got != extract.Contract.NodeRef() {
 		t.Fatalf("migrated extract ref = %#v", got)
 	}
+	timeoutJSON, err := json.Marshal(migratedSource.Graphs[0].Nodes[1].Config["timeoutMilliseconds"])
+	if err != nil || string(timeoutJSON) != "120000" {
+		t.Fatalf("migrated AI timeout = %s, %v", timeoutJSON, err)
+	}
 	compiled, err := application.CompileSource(context.Background(), source.Workflow.ID)
 	if err != nil {
 		t.Fatal(err)

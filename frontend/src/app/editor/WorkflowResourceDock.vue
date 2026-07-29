@@ -90,7 +90,18 @@
         class="mt-2 w-full"
         :placeholder="t('assets.search_placeholder')"
         :aria-label="t('assets.search_action')"
-      />
+      >
+        <template v-if="searchInput" #trailing>
+          <UButton
+            size="xs"
+            variant="link"
+            color="neutral"
+            icon="i-tabler-x"
+            :aria-label="t('assets.clear_search')"
+            @click="clearSearch"
+          />
+        </template>
+      </UInput>
       <div data-testid="workflow-resource-filter-row" class="mt-2 flex min-w-0 gap-2">
         <AdaptiveSelect
           v-model="category"
@@ -188,7 +199,8 @@
 
     <div
       v-if="feedback"
-      class="shrink-0 border-b px-3 py-2 text-[10px]"
+      data-testid="workflow-resource-feedback"
+      class="flex shrink-0 items-center gap-2 border-b px-3 py-2 text-[10px]"
       :class="
         feedback.tone === 'error'
           ? 'border-error/30 bg-error/10 text-error'
@@ -196,9 +208,18 @@
             ? 'border-warning/30 bg-warning/10 text-warning'
             : 'border-success/30 bg-success/10 text-success'
       "
-      role="status"
+      :role="feedback.tone === 'success' ? 'status' : 'alert'"
     >
-      {{ feedback.message }}
+      <span class="min-w-0 flex-1">{{ feedback.message }}</span>
+      <UButton
+        data-testid="workflow-resource-feedback-dismiss"
+        size="xs"
+        :color="feedback.tone"
+        variant="ghost"
+        icon="i-tabler-x"
+        :aria-label="t('common.close')"
+        @click="dismissFeedback"
+      />
     </div>
 
     <div class="min-h-0 flex-1 overflow-y-auto p-2">
@@ -360,6 +381,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import { backend, type AssetSummary } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
 import { useConfirm } from '@/composables/useConfirm'
+import { useAutoDismissFeedback } from '@/composables/useAutoDismissFeedback'
 import { useAssetsStore, type AssetPickerSelection } from '@/stores/assets'
 import type {
   WorkflowResource,
@@ -434,6 +456,8 @@ const focusedResourceId = ref('')
 let requestGeneration = 0
 let searchTimer: ReturnType<typeof setTimeout> | undefined
 let applyingLocate = false
+
+useAutoDismissFeedback(feedback)
 
 const scopeItems = computed(() => [
   {
@@ -553,6 +577,11 @@ watch(scope, () => {
 watch(searchInput, (value) => {
   if (applyingLocate) return
   if (searchTimer) clearTimeout(searchTimer)
+  if (!value) {
+    search.value = ''
+    changeQuery()
+    return
+  }
   searchTimer = setTimeout(() => {
     search.value = value.trim()
     changeQuery()
@@ -619,6 +648,11 @@ function changeQuery(): void {
   if (scope.value === 'library') void loadLibrary()
 }
 
+function clearSearch(): void {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchInput.value = ''
+}
+
 async function applyLocateRequest(): Promise<void> {
   const request = props.locateRequest
   if (!request || request.kind !== props.kind || !request.id) return
@@ -639,7 +673,7 @@ async function applyLocateRequest(): Promise<void> {
   if (request.scope === 'library') await loadLibrary(true)
   const found = visibleItems.value.some((value) => sourceID(value) === request.id)
   if (found) {
-    showFeedback('success', t('workflow.resources.located', { id: request.id }))
+    feedback.value = null
   } else {
     focusedResourceId.value = ''
     showFeedback('warning', t('workflow.resources.locate_failed', { id: request.id }))
@@ -1038,5 +1072,9 @@ function assetMeta(asset: AssetSummary): string {
 
 function showFeedback(tone: 'success' | 'warning' | 'error', message: string): void {
   feedback.value = { tone, message }
+}
+
+function dismissFeedback(): void {
+  feedback.value = null
 }
 </script>

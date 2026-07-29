@@ -51,6 +51,25 @@ func automationTemplate(builtins nodes.Builtins, nodeTypeID string) nodeadapter.
 			return nodeadapter.AdapterResult{}, templateFailure(nodes.VisionMatchFailedCode, fmt.Errorf("read template: %w", err))
 		}
 		counters["template_bytes"] = templateRef.Size
+		var sourceFrame *image.RGBA
+		if nodeTypeID == nodes.ClickTemplateNodeID {
+			if _, supplied := invocation.Inputs["image"]; supplied {
+				if settle != 0 {
+					return nodeadapter.AdapterResult{}, templateFailure(installed.CodeInvalidRequest, errors.New("settle duration must be zero when a source image is supplied"))
+				}
+				sourceStarted := time.Now()
+				frame, ref, loadErr := loadVisionImage(ctx, invocation, "image")
+				counters["image_read_ms"] = time.Since(sourceStarted).Milliseconds()
+				if loadErr != nil {
+					return nodeadapter.AdapterResult{}, templateFailure(nodes.VisionImageInvalidCode, fmt.Errorf("read source image: %w", loadErr))
+				}
+				sourceFrame = frame
+				counters["image_bytes"] = ref.Size
+				counters["source_images"] = 1
+				counters["capture_bytes"] = 0
+				counters["capture_ms"] = 0
+			}
+		}
 		if err := emitTemplateStatus(ctx, invocation, nodes.AutomationTemplateWaitingStatus, map[string]int64{
 			"timeout_ms": timeout.Milliseconds(), "poll_ms": poll.Milliseconds(),
 		}); err != nil {
@@ -58,7 +77,17 @@ func automationTemplate(builtins nodes.Builtins, nodeTypeID string) nodeadapter.
 		}
 
 		wantPresent := nodeTypeID != nodes.WaitTemplateGoneNodeID
-		match, captures, err := waitForTemplateState(ctx, invocation, templateBytes, region, threshold, timeout, poll, wantPresent, counters)
+		var (
+			match    visionMatchResult
+			captures int
+		)
+		if sourceFrame != nil {
+			matchStarted := time.Now()
+			match, err = matchTemplateFrame(sourceFrame, templateBytes, region, threshold)
+			counters["match_ms"] = time.Since(matchStarted).Milliseconds()
+		} else {
+			match, captures, err = waitForTemplateState(ctx, invocation, templateBytes, region, threshold, timeout, poll, wantPresent, counters)
+		}
 		counters["captures"] = int64(captures)
 		if err != nil {
 			return nodeadapter.AdapterResult{}, templateNodeFailure(err)

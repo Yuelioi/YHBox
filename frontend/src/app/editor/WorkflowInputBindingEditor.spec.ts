@@ -16,6 +16,9 @@ describe('WorkflowInputBindingEditor', () => {
   it('opens the shared paged asset picker instead of expanding the full library', () => {
     expect(source).toContain('<AssetPickerModal')
     expect(source).toContain("kind: 'bind-blob'")
+    expect(source).toContain(':resources="resources"')
+    expect(source).toContain('@select-workflow="setWorkflowAsset"')
+    expect(source).toContain("kind: 'bind-resource'")
     expect(source).toContain('@capture="emit(\'capture-template\')"')
     expect(source).not.toContain('templateVariantItems')
     expect(source).not.toContain('clipItems')

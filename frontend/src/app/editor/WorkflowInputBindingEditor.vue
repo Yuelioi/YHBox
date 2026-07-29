@@ -70,7 +70,9 @@
       v-model:open="pickerOpen"
       :kind="assetKind"
       :selected-blob="bindingBlob"
+      :resources="resources"
       @select="setAsset"
+      @select-workflow="setWorkflowAsset"
       @capture="emit('capture-template')"
     />
   </div>
@@ -81,7 +83,10 @@ import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { PortProjection } from '../../../../contracts/node/current/authoring-projection'
 import type { EditorCommand, Node } from '@/app/editor/EditorSession'
-import type { WorkflowResource } from '../../../../contracts/workflow/current/workflow-source'
+import type {
+  ResourceBinding,
+  WorkflowResource,
+} from '../../../../contracts/workflow/current/workflow-source'
 import { resolvePortAdapter } from '@/app/editor/authoringSurface'
 import { bindingActionPolicy } from '@/app/editor/bindingActionPolicy'
 import { projectionLabel } from '@/app/editor/projectionLabels'
@@ -266,6 +271,15 @@ function setAsset(selection: AssetPickerSelection): void {
     nodeId: props.node.id,
     portId: props.port.id,
     blob: { ...selection.blob },
+  })
+}
+function setWorkflowAsset(resource: ResourceBinding): void {
+  immediateSelection.value = null
+  emit('command', {
+    kind: 'bind-resource',
+    nodeId: props.node.id,
+    portId: props.port.id,
+    resource: { ...resource },
   })
 }
 

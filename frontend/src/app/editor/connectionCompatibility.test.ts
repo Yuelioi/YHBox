@@ -8,6 +8,7 @@ import type {
 } from '../../../../contracts/node/current/authoring-projection'
 import {
   compatibleCandidatePorts,
+  projectedTargetHandleChannel,
   projectedConnectionCompatibility,
   typeMatch,
 } from './connectionCompatibility'
@@ -97,9 +98,10 @@ describe('connection compatibility', () => {
     })
   })
 
-  it('keeps exec and error channels distinct and instruction-aware', () => {
+  it('routes failures into invoke inputs while preserving dedicated error inputs', () => {
     const delay = projection('/control/delay')
     const retry = projection('/control/retry')
+    const log = projection('/observability/log')
     expect(
       compatibleCandidatePorts(
         delay,
@@ -108,6 +110,25 @@ describe('connection compatibility', () => {
         types,
       ).map((port) => port.handle),
     ).toEqual([{ channel: 'error', direction: 'input', portId: 'retry' }])
+    expect(
+      compatibleCandidatePorts(
+        delay,
+        { channel: 'error', direction: 'output', portId: 'failed' },
+        log,
+        types,
+      ).map((port) => port.handle),
+    ).toEqual([{ channel: 'exec', direction: 'input', portId: 'in' }])
+    expect(
+      projectedConnectionCompatibility(
+        delay,
+        { channel: 'error', direction: 'output', portId: 'failed' },
+        log,
+        { channel: 'exec', direction: 'input', portId: 'in' },
+        types,
+      ),
+    ).toEqual({ valid: true })
+    expect(projectedTargetHandleChannel(log, 'error', 'in')).toBe('exec')
+    expect(projectedTargetHandleChannel(retry, 'error', 'retry')).toBe('error')
     expect(
       projectedConnectionCompatibility(
         delay,

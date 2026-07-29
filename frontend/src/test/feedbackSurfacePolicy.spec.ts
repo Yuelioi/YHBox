@@ -34,4 +34,14 @@ describe('feedback surface policy', () => {
     expect(editor).not.toContain('v-else-if="session.failure"')
     expect(runController).toContain('if (!dependencies.session.saveError)')
   })
+
+  it('keeps persistent workflow resource feedback dismissible', () => {
+    const dock = readFileSync(join(sourceRoot, 'app/editor/WorkflowResourceDock.vue'), 'utf8')
+
+    expect(dock).toContain('data-testid="workflow-resource-feedback"')
+    expect(dock).toContain('data-testid="workflow-resource-feedback-dismiss"')
+    expect(dock).toContain(':aria-label="t(\'common.close\')"')
+    expect(dock).toContain('@click="dismissFeedback"')
+    expect(dock).toContain('useAutoDismissFeedback(feedback)')
+  })
 })

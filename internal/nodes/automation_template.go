@@ -53,7 +53,11 @@ func defineAutomationTemplateNodes(types automationTemplateTypes, capture, input
 		if err != nil {
 			return nil, nil, err
 		}
-		definition, err := defineBuiltin(contract, spec.entrypoint, "v1", "exact-target/blob-template/cancellable-poll/v1", nil)
+		implementationVersion, strategy := "v1", "exact-target/blob-template/cancellable-poll/v1"
+		if spec.kind == "click" {
+			implementationVersion, strategy = "v2", "exact-target/optional-source-image/blob-template/cancellable-poll/v2"
+		}
+		definition, err := defineBuiltin(contract, spec.entrypoint, implementationVersion, strategy, nil)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -84,6 +88,9 @@ func sealAutomationTemplateNode(spec automationTemplateNode, types automationTem
 		execOutputs = signalList("gone", "timeout")
 	}
 	if spec.kind == "click" {
+		inputs = append([]nodecontract.DataInputPort{
+			{ID: "image", Type: datatype.RefExpression(types.imageRef), Required: false},
+		}, inputs...)
 		inputs = append(inputs,
 			nodecontract.DataInputPort{ID: "button", Type: datatype.RefExpression(types.buttonRef), Required: true, Default: rawDefault(`"left"`)},
 			nodecontract.DataInputPort{ID: "hold-duration", Type: datatype.RefExpression(types.durationRef), Required: true, Default: rawDefault("50")},

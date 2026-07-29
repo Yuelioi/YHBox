@@ -267,17 +267,16 @@ func TestOpenProgramRevalidatesPinnedConfigValidator(t *testing.T) {
 		t.Fatal("RunStarted definition is missing")
 	}
 	extract := builtins.AIExtractContract.NodeRef()
-	validSchema := `{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}`
 	source := []byte(fmt.Sprintf(`{
 		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-ai-validator","name":"AI Validator"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"extract","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},
-			 "config":{"slot":"default","schema":%q},"bindings":{"prompt":{"kind":"value","value":"hello"}}}
+			 "config":{"slot":"default","timeoutMilliseconds":120000,"fields":[{"name":"value","type":"string"}]},"bindings":{"prompt":{"kind":"value","value":"hello"}}}
 		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"extract","portId":"in"}}],
 		"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
-		extract.NodeTypeID, extract.SemanticDigest, validSchema))
+		extract.NodeTypeID, extract.SemanticDigest))
 	build := testDigest(t, "AI config validator")
 	compiled, err := New(build, builtins.ConfigValidators).CompileDraft(context.Background(), CompileRequest{
 		SourceJSON: source, Catalog: builtins.Catalog,
@@ -295,7 +294,10 @@ func TestOpenProgramRevalidatesPinnedConfigValidator(t *testing.T) {
 	}
 	for index := range document.Body.Graphs[0].Nodes {
 		if document.Body.Graphs[0].Nodes[index].ID == "extract" {
-			document.Body.Graphs[0].Nodes[index].Config["schema"] = `{"type":"object","properties":{},"required":[],"additionalProperties":true}`
+			document.Body.Graphs[0].Nodes[index].Config["fields"] = []any{
+				map[string]any{"name": "value", "type": "string"},
+				map[string]any{"name": "value", "type": "number"},
+			}
 		}
 	}
 	forged, err := sealProgram(document.Body)

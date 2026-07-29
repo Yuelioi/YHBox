@@ -33,7 +33,7 @@ func TestExecutorRunsAIGenerateThroughInstallationSlotAndJournalsProviderFacts(t
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"generate","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},
-			 "config":{"slot":"default","maxOutputTokens":128},
+			 "config":{"slot":"default","maxOutputTokens":128,"timeoutMilliseconds":2500},
 			 "bindings":{"prompt":{"kind":"value","value":"hello"}}}
 		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"generate","portId":"in"}}],
 		"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
@@ -139,6 +139,11 @@ func TestExecutorRunsAIGenerateThroughInstallationSlotAndJournalsProviderFacts(t
 	if value := result.NodeOutputs["generate"]["result"].InlineJSON(); string(value) != `"generated"` || modelProvider.open.CredentialBindingID != "credential-test" {
 		t.Fatalf("AI result = %s, open = %#v", value, modelProvider.open)
 	}
+	if !modelProvider.invokeHadDeadline ||
+		modelProvider.invokeRemaining <= 2*time.Second ||
+		modelProvider.invokeRemaining > 2500*time.Millisecond {
+		t.Fatalf("AI provider deadline = %t / %s", modelProvider.invokeHadDeadline, modelProvider.invokeRemaining)
+	}
 	var facts map[string]string
 	for _, entry := range journal.Current().Journal() {
 		if entry.Kind == run.JournalAdapterAction && entry.NodeID == "generate" {
@@ -229,16 +234,25 @@ func TestCompilerRejectsLegacyAIInstructionsOverride(t *testing.T) {
 	t.Fatalf("missing INVALID_CONFIG diagnostic: %#v", compiled.Diagnostics)
 }
 
-type aiModelProvider struct{ open resource.ProviderOpenRequest }
+type aiModelProvider struct {
+	open              resource.ProviderOpenRequest
+	invokeHadDeadline bool
+	invokeRemaining   time.Duration
+}
 
 func (p *aiModelProvider) Open(_ context.Context, request resource.ProviderOpenRequest) (any, error) {
 	p.open = request
 	return struct{}{}, nil
 }
 
-func (p *aiModelProvider) Invoke(_ context.Context, _ any, operation string, _ []byte) ([]byte, error) {
+func (p *aiModelProvider) Invoke(ctx context.Context, _ any, operation string, _ []byte) ([]byte, error) {
 	if operation != ai.OperationGenerate {
 		return nil, fmt.Errorf("unexpected operation %q", operation)
+	}
+	deadline, ok := ctx.Deadline()
+	p.invokeHadDeadline = ok
+	if ok {
+		p.invokeRemaining = time.Until(deadline)
 	}
 	input, output := int64(7), int64(2)
 	return artifact.Marshal(ai.Outcome{

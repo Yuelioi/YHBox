@@ -185,6 +185,86 @@ func TestClickTemplateCapturesMatchesAndClicksTheSameExactTarget(t *testing.T) {
 	}
 }
 
+func TestClickTemplateReusesOneCapturedImageAcrossNodes(t *testing.T) {
+	builtins, err := nodes.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	frame := image.NewRGBA(image.Rect(0, 0, 80, 60))
+	draw.Draw(frame, frame.Bounds(), &image.Uniform{C: color.RGBA{R: 18, G: 22, B: 28, A: 255}}, image.Point{}, draw.Src)
+	templateImage := image.NewRGBA(image.Rect(0, 0, 12, 10))
+	for y := range 10 {
+		for x := range 12 {
+			templateImage.SetRGBA(x, y, color.RGBA{R: uint8(20 + x*13), G: uint8(30 + y*17), B: uint8(40 + (x+y)*7), A: 255})
+		}
+	}
+	draw.Draw(frame, image.Rect(24, 18, 36, 28), templateImage, image.Point{}, draw.Src)
+	framePNG, templatePNG := encodeVisionPNG(t, frame), encodeVisionPNG(t, templateImage)
+
+	store, err := blob.Open(t.TempDir(), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 2 << 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	templateRef, err := store.Put(context.Background(), "image/png", bytes.NewReader(templatePNG))
+	if err != nil {
+		t.Fatal(err)
+	}
+	blobProvider, err := blob.NewProvider(store, blob.ProviderLimits{MaxChunkBytes: 64 << 10, QueueCapacity: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider := &templateAutomationProvider{frame: framePNG}
+	providerDigest, err := artifact.Sum("yotta/test/template-automation-provider/v1", []byte("shared-captured-image"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	const providerID, targetID, slot = "template-reuse-test", "automation-target/template-reuse", "template-reuse-target"
+	profileDraft := executionProfile(t, builtins)
+	captureCapability, _ := builtins.Catalog.LookupCapability(nodes.AutomationCaptureCapabilityID)
+	inputCapability, _ := builtins.Catalog.LookupCapability(nodes.AutomationInputCapabilityID)
+	profileDraft.Providers = append(profileDraft.Providers, admission.ProviderDescriptor{
+		ID: providerID, ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, PluginInstanceID: "builtin",
+		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"},
+		Capabilities: []admission.ProviderCapability{
+			{Capability: captureCapability.Ref(), ResourceKind: automationinstalled.KindCapture},
+			{Capability: inputCapability.Ref(), ResourceKind: automationinstalled.KindInput},
+		},
+	})
+	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKindDesktopWindow, ProviderID: providerID})
+	profileDraft.TargetSlots = append(profileDraft.TargetSlots, admission.TargetSlotBinding{Slot: slot, TargetID: targetID})
+	program := compilePrimitiveProgram(t, builtins, clickTemplateReuseSource(builtins, slot, templateRef))
+	now := time.Date(2026, 7, 30, 1, 0, 0, 0, time.UTC)
+	consent, _ := artifact.Sum("yotta/test/template-automation-consent/v1", []byte(slot))
+	_, owner, journal := admittedExecutionWithConsent(t, builtins, program, map[string]run.InstalledProvider{
+		blob.ProviderID: {ArtifactDigest: blobProviderDigest(t), ABI: blob.ProviderABI, Provider: blobProvider},
+		providerID:      {ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, Provider: provider},
+	}, now, profileDraft, []artifact.Digest{consent})
+	t.Cleanup(func() { _ = owner.Close(context.Background()) })
+	adapters, err := noderuntime.Installed(builtins, testDependencies())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).Run(context.Background(), program, owner, journal); err != nil {
+		t.Fatal(err)
+	}
+	if provider.captures != 1 {
+		t.Fatalf("capture calls = %d, want exactly the explicit Capture Window call", provider.captures)
+	}
+	if len(provider.clicks) != 2 {
+		t.Fatalf("template clicks = %#v", provider.clicks)
+	}
+	for _, click := range provider.clicks {
+		if click.Point.Unit != "ratio" || click.Point.X != 0.375 || click.Point.Y != 23.0/60.0 {
+			t.Fatalf("template click = %#v", click)
+		}
+	}
+	for _, entry := range journal.Current().Journal() {
+		if entry.Action == "automation.click-template" && entry.Summary.Counters["captures"] != 0 {
+			t.Fatalf("click template captured despite a bound source image: %#v", entry.Summary.Counters)
+		}
+	}
+}
+
 func clickTemplateSource(builtins nodes.Builtins, slot string, template blob.BlobRef) []byte {
 	started, _ := builtins.Definition(nodes.RunStartedNodeID)
 	click, _ := builtins.Definition(nodes.ClickTemplateNodeID)
@@ -198,4 +278,30 @@ func clickTemplateSource(builtins nodes.Builtins, slot string, template blob.Blo
 	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
 		click.Contract.NodeRef().NodeTypeID, click.Contract.NodeRef().SemanticDigest, slot,
 		template.MediaType, template.Digest, template.Size))
+}
+
+func clickTemplateReuseSource(builtins nodes.Builtins, slot string, template blob.BlobRef) []byte {
+	started, _ := builtins.Definition(nodes.RunStartedNodeID)
+	capture, _ := builtins.Definition(nodes.CaptureWindowNodeID)
+	click, _ := builtins.Definition(nodes.ClickTemplateNodeID)
+	clickBindings := fmt.Sprintf(`"template":{"kind":"blob","blob":{"mediaType":%q,"digest":%q,"size":%d}},"region":{"kind":"default"},"threshold":{"kind":"default"},"timeout":{"kind":"value","value":5000},"poll-interval":{"kind":"value","value":100},"settle-duration":{"kind":"value","value":0},"button":{"kind":"default"},"hold-duration":{"kind":"default"}`,
+		template.MediaType, template.Digest, template.Size)
+	return []byte(fmt.Sprintf(`{
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-click-template-reuse","name":"Click Template Reuse"},"revision":0,"entryGraph":"main",
+		"graphs":[{"id":"main","kind":"main","nodes":[
+			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
+			{"id":"capture","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{"slot":%q},"bindings":{}},
+			{"id":"click-1","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":2,"y":0},"config":{"slot":%q},"bindings":{%s}},
+			{"id":"click-2","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":3,"y":0},"config":{"slot":%q},"bindings":{%s}}
+		],"edges":[
+			{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"capture","portId":"in"}},
+			{"channel":"exec","from":{"nodeId":"capture","portId":"completed"},"to":{"nodeId":"click-1","portId":"in"}},
+			{"channel":"exec","from":{"nodeId":"click-1","portId":"completed"},"to":{"nodeId":"click-2","portId":"in"}},
+			{"channel":"data","from":{"nodeId":"capture","portId":"image"},"to":{"nodeId":"click-1","portId":"image"}},
+			{"channel":"data","from":{"nodeId":"capture","portId":"image"},"to":{"nodeId":"click-2","portId":"image"}}
+		],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
+	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
+		capture.Contract.NodeRef().NodeTypeID, capture.Contract.NodeRef().SemanticDigest, slot,
+		click.Contract.NodeRef().NodeTypeID, click.Contract.NodeRef().SemanticDigest, slot, clickBindings,
+		click.Contract.NodeRef().NodeTypeID, click.Contract.NodeRef().SemanticDigest, slot, clickBindings))
 }

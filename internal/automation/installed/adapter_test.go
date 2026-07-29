@@ -108,6 +108,55 @@ func TestInstallationInterfaceUsesRegisteredAdapterDescriptor(t *testing.T) {
 	}
 }
 
+func TestInstalledProviderDoesNotReverifyProfileForCaptureAndClick(t *testing.T) {
+	profile, _ := testProfile(t)
+	draft := profile.Machine()
+	draft.AdapterKind = AdapterKindTest
+	registry := defaultAdapterRegistry()
+	opened := &fakeDriver{capture: []byte("png")}
+	targetType := cloneTargetType(productionAdapters()[0].targetType)
+	targetType.AdapterKind = AdapterKindTest
+	verifyCalls := 0
+	if err := registry.register(targetType, sealDesktopProfile, func(Profile) error {
+		verifyCalls++
+		return nil
+	}, func(Profile) (driver, error) {
+		return opened, nil
+	}, desktopProfileIntentCodec()); err != nil {
+		t.Fatal(err)
+	}
+	sealed, err := sealProfileWithRegistry(draft, registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	installations, err := installWithRegistry([]InstallationDraft{{
+		Slot: "editor", Label: "Editor", Profile: sealed.Machine(),
+	}}, registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer installations.Close()
+	if verifyCalls != 1 {
+		t.Fatalf("profile verification calls after installation = %d, want 1", verifyCalls)
+	}
+	entries := installations.Entries()
+	installedProvider, ok := entries[0].Provider.(*provider)
+	if !ok {
+		t.Fatalf("installed provider = %T", entries[0].Provider)
+	}
+	capture := openCaptureSession(t, installedProvider)
+	if _, err := installedProvider.Invoke(context.Background(), capture, OperationCapture, []byte(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+	click := openInputSession(t, installedProvider, OperationClick)
+	if _, err := installedProvider.Invoke(context.Background(), click, OperationClick, []byte(`{"point":{"x":0.5,"y":0.5,"unit":"ratio"},"button":"left","durationMilliseconds":0}`)); err != nil {
+		t.Fatal(err)
+	}
+	if verifyCalls != 1 {
+		t.Fatalf("profile verification calls after capture and click = %d, want 1", verifyCalls)
+	}
+}
+
 func TestRegistryRejectsAdapterTargetKindMismatch(t *testing.T) {
 	profile, _ := testProfile(t)
 	registry := newAdapterRegistry()

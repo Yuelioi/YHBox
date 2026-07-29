@@ -36,6 +36,7 @@ const toString = node('https://schemas.yotta.dev/nodes/conversion/to-string')
 const select = node('https://schemas.yotta.dev/nodes/logic/select')
 const delay = node('https://schemas.yotta.dev/nodes/control/delay')
 const retry = node('https://schemas.yotta.dev/nodes/control/retry')
+const log = node('https://schemas.yotta.dev/nodes/observability/log')
 const blobToStream = node('https://schemas.yotta.dev/nodes/conversion/blob-to-stream')
 const runStarted = node('https://schemas.yotta.dev/nodes/event/run-started')
 const endBranch = node('https://schemas.yotta.dev/nodes/control/end-branch')
@@ -693,6 +694,38 @@ describe('EditorSession', () => {
         expect.objectContaining({ kind: 'connect' }),
       ]),
     )
+  })
+
+  it('inserts an invoke node directly from a failure output', async () => {
+    const source = emptySource()
+    const ids = ['delay', 'log']
+    const session = new EditorSession(
+      mockTransport(sourceView(source), runView('QUEUED')),
+      () => ids.shift() ?? 'unused',
+    )
+    await session.load(source.workflow.id)
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: delay.nodeRef.nodeTypeId,
+      position: { x: 0, y: 0 },
+    })
+
+    expect(
+      session.insertConnectedNode(
+        'delay',
+        { channel: 'error', direction: 'output', portId: 'failed' },
+        log.nodeRef.nodeTypeId,
+        { channel: 'exec', direction: 'input', portId: 'in' },
+        { x: 220, y: 0 },
+      ),
+    ).toBe('log')
+    expect(session.currentGraph?.edges).toEqual([
+      {
+        channel: 'error',
+        from: { nodeId: 'delay', portId: 'failed' },
+        to: { nodeId: 'log', portId: 'in' },
+      },
+    ])
   })
 
   it('inserts a visible conversion bridge as one undoable edit', async () => {
