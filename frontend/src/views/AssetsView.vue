@@ -7,7 +7,6 @@
             <UIcon name="i-tabler-library" class="size-5" />
           </span>
           <div class="min-w-0">
-            <p class="workspace-page__eyebrow">{{ t('assets.eyebrow') }}</p>
             <div class="flex min-w-0 items-center gap-2">
               <h1 class="workspace-page__title truncate">{{ t('assets.title') }}</h1>
               <UBadge color="neutral" variant="soft" size="sm">{{ total }}</UBadge>
@@ -40,7 +39,7 @@
       data-testid="asset-library"
       :data-mode="managementMode ? 'manage' : 'browse'"
     >
-      <aside class="flex w-52 shrink-0 flex-col border-r border-default bg-elevated/15 p-2">
+      <aside class="workspace-surface flex w-52 shrink-0 flex-col border-r border-default p-2">
         <p class="px-2 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-wide text-dimmed">
           {{ t('assets.asset_types') }}
         </p>
@@ -98,7 +97,7 @@
       </aside>
 
       <main class="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div class="shrink-0 border-b border-default bg-elevated/10">
+        <div class="workspace-surface shrink-0 border-b border-default">
           <div class="flex min-h-14 items-center gap-3 border-b border-default px-3 py-2">
             <span
               class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
@@ -294,7 +293,7 @@
           {{ libraryFeedback.message }}
         </div>
 
-        <div class="min-h-0 flex-1 overflow-y-auto bg-elevated/10">
+        <div class="workspace-surface min-h-0 flex-1 overflow-y-auto">
           <div v-if="loading" class="space-y-px p-2">
             <USkeleton v-for="index in 10" :key="index" class="h-14 rounded-md" />
           </div>
@@ -369,7 +368,7 @@
         </div>
         <footer
           v-if="!loading && total > 0"
-          class="flex h-11 shrink-0 items-center gap-3 border-t border-default bg-default px-3"
+          class="workspace-surface flex h-11 shrink-0 items-center gap-3 border-t border-default px-3"
         >
           <span class="mr-auto text-xs text-dimmed">
             {{ t('assets.result_range', { start: resultStart, end: resultEnd, total }) }}

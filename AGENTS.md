@@ -32,6 +32,9 @@ task check
 文档维护平行的命令清单；增量路由、full、race、跨平台 GUI build、打包和真机 smoke 的触发条件见
 `flightdeck/knowledge/build/build.md`。
 
+- 前端视觉验收默认使用 CLI Playwright 对本地页面执行交互与截图检查；不要依赖内置浏览器，也不要把
+  内置浏览器不可用当作视觉验收阻塞。
+
 ## 生成物与修改边界
 
 - `frontend/bindings/` 由 Wails 生成且被 gitignore；不要手改。改 Go 导出 API 后通过正式 Task/Wails 入口重新生成。

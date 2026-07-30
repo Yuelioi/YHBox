@@ -49,7 +49,7 @@
         <UBadge color="neutral" variant="subtle" size="xs">{{ group.entries.length }}</UBadge>
       </template>
 
-      <div class="divide-y divide-default/60 border-y border-default/60">
+      <div class="settings-collection">
         <div v-for="entry in group.entries" :key="entry.key" class="hotkey-row">
           <div class="min-w-0 flex-1">
             <div class="truncate text-sm font-medium text-default">

@@ -29,14 +29,9 @@
         {{ pickerFailure }}
       </div>
 
-      <div v-if="draft.length" class="space-y-3">
+      <div v-if="draft.length" class="settings-collection">
         <article v-for="profile in draft" :key="profile.slot" class="ai-profile">
-          <button
-            type="button"
-            class="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
-            :aria-expanded="expandedSlot === profile.slot"
-            @click="toggleExpanded(profile.slot)"
-          >
+          <div class="settings-entity-summary" @dblclick.prevent="toggleExpanded(profile.slot)">
             <span
               class="flex size-9 shrink-0 items-center justify-center rounded-lg border border-default bg-elevated"
             >
@@ -50,14 +45,25 @@
                 {{ fileName(profile.executable) }} · <code>{{ profile.slot }}</code>
               </span>
             </span>
-            <UIcon
-              name="i-tabler-chevron-down"
-              class="size-4 shrink-0 text-dimmed transition-transform"
-              :class="expandedSlot === profile.slot ? 'rotate-180' : ''"
-            />
-          </button>
+            <div class="shrink-0" @dblclick.stop>
+              <UButton
+                size="xs"
+                color="neutral"
+                :variant="expandedSlot === profile.slot ? 'soft' : 'ghost'"
+                :icon="expandedSlot === profile.slot ? 'i-tabler-chevron-up' : 'i-tabler-edit'"
+                :label="t(expandedSlot === profile.slot ? 'common.close' : 'common.edit')"
+                :aria-expanded="expandedSlot === profile.slot"
+                :aria-controls="`application-profile-${profile.slot}`"
+                @click="toggleExpanded(profile.slot)"
+              />
+            </div>
+          </div>
 
-          <div v-if="expandedSlot === profile.slot" class="ai-profile__details">
+          <div
+            v-if="expandedSlot === profile.slot"
+            :id="`application-profile-${profile.slot}`"
+            class="ai-profile__details"
+          >
             <div class="grid gap-4 sm:grid-cols-2">
               <UFormField :label="t('settingsApplications.profiles.name_label')" required>
                 <UInput v-model="profile.label" size="sm" @change="commit" />

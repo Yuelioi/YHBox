@@ -17,12 +17,10 @@
           {{ t('settingsLauncher.open_now') }}
         </UButton>
       </template>
-      <div
-        class="flex flex-col gap-3 rounded-lg border border-default/70 bg-elevated/35 p-3 sm:flex-row sm:items-center"
-      >
+      <div class="settings-inset flex flex-col gap-3 sm:flex-row sm:items-center">
         <div class="min-w-0 flex-1">
-          <p class="text-xs font-medium text-default">{{ t('settingsLauncher.hotkey_title') }}</p>
-          <p class="mt-1 text-xs leading-relaxed text-dimmed">
+          <p class="settings-detail__label">{{ t('settingsLauncher.hotkey_title') }}</p>
+          <p class="settings-detail__hint">
             {{ t(`settingsLauncher.hotkey_${launcherHotkeyStatus}`) }}
           </p>
           <p v-if="launcherHotkey?.lastError" class="mt-1 break-all text-xs text-error">
@@ -204,7 +202,7 @@
           v-model="editItems"
           :animation="150"
           handle=".drag-h"
-          class="space-y-2"
+          class="launcher-block-list"
           @end="persist"
         >
           <article

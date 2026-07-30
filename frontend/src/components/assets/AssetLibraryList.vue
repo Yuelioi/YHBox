@@ -6,7 +6,7 @@
   >
     <div
       v-if="!compact"
-      class="grid h-9 items-center gap-3 border-b border-default bg-elevated/35 px-3 text-[10px] font-semibold uppercase tracking-wide text-dimmed"
+      class="workspace-surface-strong grid h-9 items-center gap-3 border-b border-default px-3 text-[10px] font-semibold uppercase tracking-wide text-dimmed"
       :class="
         selectable
           ? 'grid-cols-[2.25rem_minmax(18rem,2fr)_10rem_minmax(12rem,1.2fr)_9rem_9rem_2.5rem]'
@@ -32,8 +32,8 @@
         compact
           ? 'group flex cursor-pointer items-center gap-2 rounded-lg border bg-elevated/20 p-2 transition-colors hover:border-primary/40 hover:bg-elevated/50'
           : selectable
-            ? 'grid min-h-16 grid-cols-[2.25rem_minmax(18rem,2fr)_10rem_minmax(12rem,1.2fr)_9rem_9rem_2.5rem] items-center gap-3 border-b px-3 hover:bg-elevated/35'
-            : 'grid min-h-16 grid-cols-[minmax(18rem,2fr)_10rem_minmax(12rem,1.2fr)_9rem_9rem_2.5rem] items-center gap-3 border-b px-3 hover:bg-elevated/35',
+            ? 'workspace-table-row grid min-h-16 grid-cols-[2.25rem_minmax(18rem,2fr)_10rem_minmax(12rem,1.2fr)_9rem_9rem_2.5rem] items-center gap-3 border-b px-3'
+            : 'workspace-table-row grid min-h-16 grid-cols-[minmax(18rem,2fr)_10rem_minmax(12rem,1.2fr)_9rem_9rem_2.5rem] items-center gap-3 border-b px-3',
         focusedId === item.id
           ? 'border-primary/70 bg-primary/10 ring-1 ring-inset ring-primary/55'
           : 'border-default/70',

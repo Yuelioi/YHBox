@@ -1,10 +1,10 @@
 <template>
   <div class="settings-page">
-    <div class="flex items-start gap-3 rounded-xl border border-warning/35 bg-warning/5 p-4">
-      <UIcon name="i-tabler-shield-lock" class="mt-0.5 size-5 shrink-0 text-warning" />
+    <div class="settings-notice">
+      <UIcon name="i-tabler-key" class="settings-notice__icon" />
       <div class="min-w-0">
-        <p class="text-sm font-medium text-default">{{ t('settingsAI.security.title') }}</p>
-        <p class="mt-1 text-xs leading-relaxed text-dimmed">{{ t('settingsAI.security.hint') }}</p>
+        <p class="settings-notice__title">{{ t('settingsAI.security.title') }}</p>
+        <p class="settings-notice__description">{{ t('settingsAI.security.hint') }}</p>
       </div>
     </div>
 
@@ -22,10 +22,10 @@
         </UButton>
       </template>
 
-      <div v-if="draft.length" class="space-y-3">
+      <div v-if="draft.length" class="settings-collection">
         <article v-for="(profile, index) in draft" :key="profile.slot" class="ai-profile">
           <button
-            class="flex min-w-0 flex-1 items-center gap-3 text-left"
+            class="settings-entity-summary cursor-pointer text-left"
             type="button"
             :aria-expanded="expandedSlot === profile.slot"
             @click="toggleExpanded(profile.slot)"
@@ -76,7 +76,6 @@
               <UFormField
                 :label="t('settingsAI.profiles.slot_label')"
                 :description="t('settingsAI.profiles.slot_hint')"
-                :ui="compactDescriptionUI"
               >
                 <UInput :model-value="profile.slot" size="sm" disabled class="font-mono" />
               </UFormField>
@@ -91,7 +90,6 @@
               <UFormField
                 :label="t('settingsAI.profiles.model_label')"
                 :description="t('settingsAI.profiles.model_hint')"
-                :ui="compactDescriptionUI"
                 required
               >
                 <UInput
@@ -103,12 +101,11 @@
               </UFormField>
             </div>
 
-            <div class="rounded-lg border border-default/70 bg-elevated/35 p-3">
+            <div class="settings-inset">
               <UFormField
                 :label="t('settingsAI.profiles.endpoint_label')"
                 :description="t('settingsAI.profiles.endpoint_hint')"
                 :error="endpointFieldError(profile)"
-                :ui="compactDescriptionUI"
                 required
               >
                 <div class="flex flex-col gap-2 sm:flex-row">
@@ -137,10 +134,10 @@
               >
                 <label class="flex items-start justify-between gap-3">
                   <span class="min-w-0">
-                    <span class="block text-xs font-medium text-default">
+                    <span class="settings-detail__label block">
                       {{ t('settingsAI.profiles.local_http_title') }}
                     </span>
-                    <span class="mt-1 block text-xs leading-relaxed text-dimmed">
+                    <span class="settings-detail__hint block">
                       {{ t('settingsAI.profiles.local_http_hint') }}
                     </span>
                   </span>
@@ -160,7 +157,6 @@
               <UFormField
                 :label="t('settingsAI.profiles.max_tokens_label')"
                 :description="t('settingsAI.profiles.max_tokens_hint')"
-                :ui="compactDescriptionUI"
               >
                 <div class="flex flex-wrap items-center gap-3">
                   <UInput
@@ -200,11 +196,11 @@
               </div>
             </div>
 
-            <div class="rounded-lg border border-default/70 bg-elevated/35 p-3">
-              <p class="text-xs font-medium text-default">
+            <div class="settings-inset">
+              <p class="settings-detail__label">
                 {{ t('settingsAI.capabilities.title') }}
               </p>
-              <p class="mt-1 text-xs leading-relaxed text-dimmed">
+              <p class="settings-detail__hint">
                 {{ t('settingsAI.capabilities.hint') }}
               </p>
               <div class="mt-3 grid gap-x-5 gap-y-3 sm:grid-cols-2">
@@ -214,12 +210,8 @@
                   class="flex items-start justify-between gap-3"
                 >
                   <span class="min-w-0">
-                    <span class="block text-xs font-medium text-default">{{
-                      capability.label
-                    }}</span>
-                    <span class="mt-0.5 block text-xs leading-relaxed text-dimmed">{{
-                      capability.hint
-                    }}</span>
+                    <span class="settings-detail__label block">{{ capability.label }}</span>
+                    <span class="settings-detail__hint block">{{ capability.hint }}</span>
                   </span>
                   <USwitch
                     :model-value="profile.capabilities[capability.key]"
@@ -236,12 +228,9 @@
               </div>
             </div>
 
-            <div
-              v-if="profile.capabilities.toolCalling"
-              class="rounded-lg border border-default/70 bg-elevated/35 p-3"
-            >
-              <p class="text-xs font-medium text-default">{{ t('settingsAI.pricing.title') }}</p>
-              <p class="mt-1 text-xs leading-relaxed text-dimmed">
+            <div v-if="profile.capabilities.toolCalling" class="settings-inset">
+              <p class="settings-detail__label">{{ t('settingsAI.pricing.title') }}</p>
+              <p class="settings-detail__hint">
                 {{ t('settingsAI.pricing.hint') }}
               </p>
               <div class="mt-3 grid gap-3 sm:grid-cols-3">
@@ -284,7 +273,6 @@
             <UFormField
               :label="t('settingsAI.profiles.apikey_label')"
               :description="t('settingsAI.profiles.apikey_hint')"
-              :ui="compactDescriptionUI"
             >
               <UInput
                 v-model="apiKeys[profile.slot]"
@@ -428,12 +416,6 @@ const secretStatus = reactive<Record<string, boolean>>({})
 const apiKeys = reactive<Record<string, string>>({})
 const endpointValidationVisible = reactive<Record<string, boolean>>({})
 const previousOutputTokenLimits = reactive<Record<string, number>>({})
-const compactDescriptionUI = {
-  label: 'text-xs font-medium text-default',
-  description: 'mt-1 text-[11px] leading-4 font-normal text-dimmed',
-  container: 'mt-2',
-}
-
 const providerItems = computed(() => [
   { label: t('settingsAI.provider.openai_responses'), value: 'openai-responses' },
   { label: t('settingsAI.provider.openai_chat_completions'), value: 'openai-chat-completions' },

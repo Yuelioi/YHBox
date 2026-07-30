@@ -61,7 +61,7 @@ export const SETTINGS_THEMES: readonly SettingsThemeDefinition[] = [
     group: 'advanced',
     labelKey: 'settingsTab.network',
     descriptionKey: 'settingsCenter.theme.network',
-    icon: 'i-tabler-shield-lock',
+    icon: 'i-tabler-world-www',
   },
   {
     key: 'applications',

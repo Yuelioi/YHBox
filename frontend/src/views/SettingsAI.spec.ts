@@ -28,8 +28,9 @@ describe('SettingsAI provider endpoint installation', () => {
   })
 
   it('renders field remarks below labels as compact secondary text', () => {
-    expect(source).toContain("description: 'mt-1 text-[11px] leading-4 font-normal text-dimmed'")
-    expect(source).toContain('compactDescriptionUI')
+    expect(source).toContain(':description="t(\'settingsAI.profiles.slot_hint\')"')
+    expect(source).toContain('settings-detail__hint')
+    expect(source).not.toContain('compactDescriptionUI')
     expect(source).not.toContain(':hint="t(\'settingsAI.profiles.')
   })
 
