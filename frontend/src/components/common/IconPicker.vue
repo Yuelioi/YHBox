@@ -98,15 +98,18 @@ const shown = computed(() => {
   border-radius: 6px;
   background: rgb(255 255 255 / 5%);
   color: var(--ui-text-toned);
-  transition: all 120ms ease;
+  transition:
+    color 120ms ease,
+    border-color 120ms ease,
+    background-color 120ms ease;
 }
 .icon-chip:hover {
   background: rgb(255 255 255 / 12%);
   color: var(--ui-text-default);
 }
 .icon-chip.is-selected {
-  border-color: var(--ui-primary);
-  background: var(--ui-primary);
-  color: white;
+  border-color: color-mix(in oklab, var(--ui-primary) 45%, var(--ui-border));
+  background: color-mix(in oklab, var(--ui-primary) 12%, var(--ui-bg-elevated));
+  color: var(--ui-primary);
 }
 </style>

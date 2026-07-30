@@ -58,6 +58,8 @@
               : t('assets.recording.record_precise')
           "
           size="xs"
+          color="primary"
+          variant="soft"
           class="min-w-0 flex-1 justify-center"
           :disabled="recordingPhase !== 'idle'"
           @click="emit('start-recording', props.kind === 'macro' ? 'simple' : 'precise')"
@@ -68,6 +70,8 @@
           icon="i-tabler-camera-plus"
           :label="t('assets.templates.capture')"
           size="xs"
+          color="primary"
+          variant="soft"
           class="min-w-0 flex-1 justify-center"
           @click="emit('capture-template')"
         />
@@ -302,6 +306,7 @@
         :total="total"
         :items-per-page="pageSize"
         :sibling-count="1"
+        active-variant="subtle"
         show-edges
         size="xs"
         @update:page="goToPage"

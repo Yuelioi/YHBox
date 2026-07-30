@@ -32,6 +32,13 @@ textarea {
   --ui-surface: color-mix(in oklab, var(--ui-bg-elevated) 68%, var(--ui-bg));
   --ui-surface-hover: color-mix(in oklab, var(--ui-bg-accented) 20%, var(--ui-bg-elevated));
   --ui-surface-strong: color-mix(in oklab, var(--ui-bg-accented) 52%, var(--ui-bg-elevated));
+  --ui-action-primary-bg: color-mix(in oklab, var(--ui-primary) 7%, var(--ui-bg-elevated));
+  --ui-action-primary-hover-bg: color-mix(in oklab, var(--ui-primary) 12%, var(--ui-bg-elevated));
+  --ui-action-primary-active-bg: color-mix(in oklab, var(--ui-primary) 5%, var(--ui-bg-elevated));
+  --ui-action-primary-border: color-mix(in oklab, var(--ui-primary) 34%, var(--ui-border));
+  --ui-action-primary-highlight: color-mix(in oklab, var(--ui-primary) 18%, transparent);
+  --ui-action-primary-shadow: color-mix(in oklab, var(--ui-bg) 72%, transparent);
+  --ui-action-primary-fg: color-mix(in oklab, var(--ui-primary) 82%, var(--ui-text-highlighted));
 }
 
 /* ── 暗色基调 (唯一权威锚点): 偏冷近黑画布 + 逐级提亮的实体表面。
@@ -84,17 +91,52 @@ textarea {
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.52);
 }
 
-/* ── 主按钮唯一显眼渐变 (V4 渐变纪律: 全场只两处, 此其一)。
-   由 vite.config 的 button.compoundVariants base 引用; 普通 CSS 类(非 @utility),
-   始终输出、不被 purge。盖在 NuxtUI 默认 bg-primary 之上 (background-image 覆盖 background-color)。 ── */
-.btn-primary-raised {
-  background-image: linear-gradient(180deg, #11c08a, #0a9d6f);
+/* ── 主操作: 暗色生产力工具里的 accent-contained surface。
+   全局只负责 primary + solid；局部正向工具使用 primary + soft，选择态使用 subtle。
+   无营销式渐变和发光；靠深色实体底、薄内高光与短位移阴影获得晶莹但克制的层级。 ── */
+.btn-primary-contained {
+  color: var(--ui-action-primary-fg);
+  background-color: var(--ui-action-primary-bg);
+  background-image: none;
   box-shadow:
-    0 1px 3px rgba(16, 185, 129, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    inset 0 0 0 1px var(--ui-action-primary-border),
+    inset 0 1px 0 var(--ui-action-primary-highlight),
+    0 2px 5px var(--ui-action-primary-shadow);
+  transition:
+    color 120ms ease,
+    background-color 120ms ease,
+    box-shadow 120ms ease;
 }
-.btn-primary-raised:hover {
-  background-image: linear-gradient(180deg, #15cf96, #0caf7c);
+
+.btn-primary-contained:hover:not(:disabled):not([aria-disabled='true']) {
+  color: var(--ui-text-highlighted);
+  background-color: var(--ui-action-primary-hover-bg);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--ui-primary) 46%, var(--ui-border)),
+    inset 0 1px 0 color-mix(in oklab, var(--ui-primary) 24%, transparent),
+    0 3px 8px var(--ui-action-primary-shadow);
+}
+
+.btn-primary-contained:active:not(:disabled):not([aria-disabled='true']) {
+  color: var(--ui-action-primary-fg);
+  background-color: var(--ui-action-primary-active-bg);
+  box-shadow:
+    inset 0 0 0 1px var(--ui-action-primary-border),
+    inset 0 1px 0 color-mix(in oklab, var(--ui-primary) 10%, transparent),
+    0 1px 2px var(--ui-action-primary-shadow);
+}
+
+.btn-primary-contained:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--ui-primary) 72%, transparent);
+  outline-offset: 2px;
+}
+
+.btn-primary-contained:disabled,
+.btn-primary-contained[aria-disabled='true'] {
+  color: color-mix(in oklab, var(--ui-action-primary-fg) 68%, var(--ui-text-dimmed));
+  background-color: color-mix(in oklab, var(--ui-action-primary-bg) 72%, var(--ui-bg-elevated));
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklab, var(--ui-action-primary-border) 65%, var(--ui-border-muted));
 }
 
 /* ── Custom scrollbar (跟 dark theme 一致的细滚动条) ── */

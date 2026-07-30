@@ -378,6 +378,7 @@
             :total="total"
             :items-per-page="pageSize"
             :sibling-count="1"
+            active-variant="subtle"
             show-edges
             @update:page="goToPage"
           />

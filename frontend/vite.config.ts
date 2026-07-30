@@ -94,8 +94,8 @@ export default defineConfig(({ mode }) => {
             // 项目警告色一直是 amber 系 (NuxtUI 默认 yellow) — 钉死防漂移
             warning: 'amber',
           },
-          // 主按钮 (primary + solid) 唯一显眼渐变; 其它 variant (soft/ghost/outline) 零改动。
-          // .btn-primary-raised 在 style.css, background-image 覆盖默认 bg-primary。
+          // primary + solid 是每个任务区唯一的主操作，不是营销 CTA。
+          // 具体 surface/state 由 style.css 的 .btn-primary-contained 从语义 token 派生。
           button: {
             // Nuxt UI base 只有 items-center；固定宽高的 icon-only 按钮会沿主轴贴左。
             // 全局居中，导航/菜单等左对齐按钮用 class="justify-start" 显式覆盖。
@@ -104,7 +104,7 @@ export default defineConfig(({ mode }) => {
               {
                 color: 'primary',
                 variant: 'solid',
-                class: { base: 'btn-primary-raised' },
+                class: { base: 'btn-primary-contained' },
               },
             ],
           },
