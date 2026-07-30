@@ -39,20 +39,19 @@ func automationInput(nodeTypeID, operation string) nodeadapter.Adapter {
 		if err != nil {
 			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, err)
 		}
-		session := invocation.Sessions["target"]
-		if session == nil {
-			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("automation input capability session is missing"))
-		}
-		handle, err := session.Open(ctx, []string{operation}, []byte(`{}`))
+		handle, err := openConfiguredTarget(ctx, invocation, installed.KindInput, []string{operation})
 		if err != nil {
 			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}
-		defer func() { runErr = errors.Join(runErr, session.Drop(context.WithoutCancel(ctx), handle)) }()
-		raw, err := session.Invoke(ctx, handle, operation, payload)
+		defer func() { runErr = errors.Join(runErr, invocation.Targets.Drop(context.WithoutCancel(ctx), handle)) }()
+		raw, err := invocation.Targets.Invoke(ctx, handle, operation, payload)
 		if err != nil {
 			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}
 		if err := installed.OpenEffectResponse(raw); err != nil {
+			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
+		}
+		if err := invocation.Targets.Drop(context.WithoutCancel(ctx), handle); err != nil {
 			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}
 		return nodeadapter.AdapterResult{ExecOutputs: []string{"completed"}}, nil
@@ -191,21 +190,17 @@ func holdInput(catalog datatype.ValueTypeCatalog, operation, effectID, actionNam
 		if err != nil {
 			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, err)
 		}
-		session := invocation.Sessions["target"]
-		if session == nil {
-			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("held input capability session is missing"))
-		}
-		handle, err := session.Open(ctx, installed.HeldInputOperations(), []byte(`{}`))
+		handle, err := openConfiguredTarget(ctx, invocation, installed.KindHeldInput, installed.HeldInputOperations())
 		if err != nil {
 			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}
 		owned := true
 		defer func() {
 			if owned {
-				runErr = errors.Join(runErr, session.Drop(context.WithoutCancel(ctx), handle))
+				runErr = errors.Join(runErr, invocation.Targets.Drop(context.WithoutCancel(ctx), handle))
 			}
 		}()
-		raw, err := session.Invoke(ctx, handle, operation, payload)
+		raw, err := invocation.Targets.Invoke(ctx, handle, operation, payload)
 		if err != nil {
 			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}
@@ -239,15 +234,14 @@ func releaseHeldInput() nodeadapter.Adapter {
 		if !ok || handle.Kind != installed.KindHeldInput {
 			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeInvalidRequest, errors.New("held input lease is invalid"))
 		}
-		session := invocation.Sessions["target"]
-		if session == nil {
-			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("held input capability session is missing"))
+		if invocation.Targets == nil {
+			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("configured target runtime is unavailable"))
 		}
 		payload, err := artifact.Marshal(struct{}{})
 		if err != nil {
 			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, err)
 		}
-		raw, err := session.Invoke(ctx, handle, installed.OperationReleaseHeld, payload)
+		raw, err := invocation.Targets.Invoke(ctx, handle, installed.OperationReleaseHeld, payload)
 		if err != nil {
 			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}

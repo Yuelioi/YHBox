@@ -6,7 +6,6 @@ import (
 	"context"
 	"os"
 	"slices"
-	"strings"
 	"testing"
 	"time"
 )
@@ -18,31 +17,17 @@ func TestApplicationHelperProcess(t *testing.T) {
 	time.Sleep(30 * time.Second)
 }
 
-func TestWindowsControllerLaunchesWithoutAmbientEnvironmentAndTerminatesExactExecutable(t *testing.T) {
-	t.Setenv("YOTTA_TEST_SECRET", "must-not-be-inherited")
-	for _, entry := range applicationEnvironment() {
-		upper := strings.ToUpper(entry)
-		if strings.HasPrefix(upper, "PATH=") || strings.HasPrefix(upper, "YOTTA_TEST_SECRET=") || strings.Contains(upper, "PROXY=") {
-			t.Fatalf("application environment leaked ambient entry %q", entry)
-		}
-	}
+func TestWindowsControllerLaunchesConfiguredExecutableAndTerminatesIt(t *testing.T) {
 	executable, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
 	}
-	inspection, err := InspectExecutable(executable)
-	if err != nil {
-		t.Fatal(err)
-	}
 	profile, err := SealProfile(ProfileDraft{
-		Executable: inspection.Executable,
+		Executable: executable,
 		Arguments:  []string{"-test.run=^TestApplicationHelperProcess$", "--", "--appcontrol-helper"},
 	})
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err := VerifyProfile(profile); err == nil || !strings.Contains(err.Error(), "yotta host executable") {
-		t.Fatalf("VerifyProfile(current executable) error = %v", err)
 	}
 	controller := windowsController{}
 	pid, err := controller.Launch(context.Background(), profile)

@@ -27,9 +27,9 @@ func TestHeldInputUsesRunOwnedHandleLeaseAndExplicitRelease(t *testing.T) {
 			!slices.Equal(machine.Ports.DataOutputs[0].ResourceLease.Operations, []string{installed.OperationReleaseHeld}) {
 			t.Fatalf("held output for %q = %#v", nodeID, machine.Ports.DataOutputs)
 		}
-		if len(machine.CapabilityRequirements) != 1 || machine.CapabilityRequirements[0].Capability.CapabilityID != AutomationHeldInputCapabilityID ||
-			!slices.Equal(machine.CapabilityRequirements[0].Operations, installed.HeldInputOperations()) {
-			t.Fatalf("held requirements for %q = %#v", nodeID, machine.CapabilityRequirements)
+		if len(machine.CapabilityRequirements) != 0 || len(machine.ConfiguredTargets) != 1 ||
+			machine.Ports.DataOutputs[0].ResourceLease.TargetID != "target" {
+			t.Fatalf("held target for %q = %#v", nodeID, machine)
 		}
 	}
 	release, ok := builtins.Definition(ReleaseHeldInputNodeID)
@@ -39,7 +39,7 @@ func TestHeldInputUsesRunOwnedHandleLeaseAndExplicitRelease(t *testing.T) {
 	machine := release.Contract.Machine()
 	if len(machine.Ports.DataInputs) != 1 || machine.Ports.DataInputs[0].ResourceLease == nil ||
 		!slices.Equal(machine.Ports.DataInputs[0].ResourceLease.Operations, []string{installed.OperationReleaseHeld}) ||
-		!slices.Equal(machine.CapabilityRequirements[0].Operations, []string{installed.OperationReleaseHeld}) {
+		machine.Ports.DataInputs[0].ResourceLease.TargetID != "target" || len(machine.CapabilityRequirements) != 0 {
 		t.Fatalf("release held input contract = %#v", machine)
 	}
 }

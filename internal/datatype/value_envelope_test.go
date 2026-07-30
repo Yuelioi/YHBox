@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"testing"
-	"time"
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
@@ -109,7 +108,7 @@ func TestExternalValueEnvelopeCarriersRoundTripWithoutRawResources(t *testing.T)
 
 	streamHandle := resource.Handle{
 		Token: base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{7}, 32)),
-		Kind:  stream.Kind, ExpiresAt: time.Date(2026, 7, 15, 1, 2, 3, 0, time.UTC),
+		Kind:  stream.Kind,
 	}
 	streamEnvelope, err := SealStreamRef(types, resolved, streamHandle)
 	if err != nil {

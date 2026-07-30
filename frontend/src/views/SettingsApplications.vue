@@ -1,17 +1,5 @@
 <template>
   <div class="settings-page">
-    <div class="flex items-start gap-3 rounded-xl border border-error/30 bg-error/5 p-4">
-      <UIcon name="i-tabler-shield-exclamation" class="mt-0.5 size-5 shrink-0 text-error" />
-      <div class="min-w-0">
-        <p class="text-sm font-medium text-default">
-          {{ t('settingsApplications.security.title') }}
-        </p>
-        <p class="mt-1 text-xs leading-relaxed text-dimmed">
-          {{ t('settingsApplications.security.hint') }}
-        </p>
-      </div>
-    </div>
-
     <SettingsSection
       :title="t('settingsApplications.profiles.title')"
       :description="t('settingsApplications.profiles.hint')"
@@ -106,12 +94,6 @@
               </div>
             </UFormField>
 
-            <div
-              class="rounded-lg border border-default/70 bg-elevated/35 p-3 font-mono text-[11px] text-dimmed"
-            >
-              <p class="break-all">SHA-256 · {{ profile.executableDigest }}</p>
-            </div>
-
             <UFormField
               :label="t('settingsApplications.profiles.arguments_label')"
               :hint="t('settingsApplications.profiles.arguments_hint')"
@@ -179,7 +161,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { backend, type ExecutableInspection, type InstalledApplicationProfile } from '@/lib/backend'
+import { backend, type InstalledApplicationProfile } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
 import { useSettingsStore } from '@/stores/settings'
 import { useConfirm } from '@/composables/useConfirm'
@@ -244,15 +226,13 @@ function uniqueLabel(base: string): string {
   if (!taken.has(base)) return base
   for (let index = 2; ; index++) if (!taken.has(`${base} ${index}`)) return `${base} ${index}`
 }
-async function inspectPickedExecutable(): Promise<ExecutableInspection | null> {
+async function pickExecutable(): Promise<string | null> {
   const path = await backend.applications.pickExecutable(t('settingsApplications.picker.title'))
   if (!path) {
     pickerCancelled.value = true
     return null
   }
-  const inspection = await backend.applications.inspectExecutable(path)
-  if (!inspection) throw new Error(t('settingsApplications.picker.inspect_failed'))
-  return inspection
+  return path
 }
 async function addApplication() {
   if (picking.value) return
@@ -260,15 +240,14 @@ async function addApplication() {
   pickerCancelled.value = false
   pickerFailure.value = ''
   try {
-    const inspection = await inspectPickedExecutable()
-    if (!inspection) return
-    const name = fileName(inspection.executable).replace(/\.exe$/i, '')
+    const executable = await pickExecutable()
+    if (!executable) return
+    const name = fileName(executable).replace(/\.exe$/i, '')
     const slot = uniqueSlot(slug(name))
     draft.value.push({
       slot,
       label: uniqueLabel(name),
-      executable: inspection.executable,
-      executableDigest: inspection.digest,
+      executable,
       arguments: [],
       argumentLines: '',
       persisted: false,
@@ -286,7 +265,6 @@ function metadata(profile: ApplicationDraft): InstalledApplicationProfile {
     slot: profile.slot,
     label: profile.label.trim(),
     executable: profile.executable,
-    executableDigest: profile.executableDigest,
     arguments: profile.argumentLines
       .split('\n')
       .map((value) => value.replace(/\r$/, ''))
@@ -294,9 +272,7 @@ function metadata(profile: ApplicationDraft): InstalledApplicationProfile {
   }
 }
 async function commit() {
-  const savable = draft.value.filter(
-    (profile) => profile.label.trim() && profile.executable && profile.executableDigest,
-  )
+  const savable = draft.value.filter((profile) => profile.label.trim() && profile.executable)
   const ok = await store.patchApplicationProfiles(savable.map(metadata))
   if (ok) for (const profile of savable) profile.persisted = true
   return ok
@@ -307,10 +283,9 @@ async function replaceExecutable(profile: ApplicationDraft) {
   pickerCancelled.value = false
   pickerFailure.value = ''
   try {
-    const inspection = await inspectPickedExecutable()
-    if (inspection) {
-      profile.executable = inspection.executable
-      profile.executableDigest = inspection.digest
+    const executable = await pickExecutable()
+    if (executable) {
+      profile.executable = executable
       await commit()
     }
   } catch (error) {

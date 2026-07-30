@@ -398,9 +398,9 @@ func admittedExecutionWithConsent(t *testing.T, builtins nodes.Builtins, program
 		t.Fatal(err)
 	}
 	policy := admission.PolicyFunc(func(context.Context, admission.PolicyRequest) (admission.PolicyDecision, error) {
-		return admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "policy-1", ExpiresAt: now.Add(time.Minute), ConsentLineage: consentLineage}, nil
+		return admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "policy-1", ConsentLineage: consentLineage}, nil
 	})
-	admitter, err := admission.New(builtins.Catalog, profile, store, policy, admission.Options{Now: func() time.Time { return now }, MaxGrantTTL: 5 * time.Minute})
+	admitter, err := admission.New(builtins.Catalog, profile, store, policy, admission.Options{Now: func() time.Time { return now }})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -419,7 +419,7 @@ func admittedExecutionWithConsent(t *testing.T, builtins nodes.Builtins, program
 	if err != nil {
 		t.Fatal(err)
 	}
-	owner, err := run.NewOwner(context.Background(), result.Grant, providers, resource.Options{Now: func() time.Time { return now }})
+	owner, err := run.NewOwner(context.Background(), result.Grant, providers, resource.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

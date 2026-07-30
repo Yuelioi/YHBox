@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yottaapp/yotta/internal/admission"
-	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/nodes"
@@ -19,7 +17,7 @@ import (
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
-func TestHTTPGetUsesInstalledOriginAndRedactsRequestJournal(t *testing.T) {
+func TestHTTPGetUsesConfiguredTargetAndRedactsRequestJournal(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		if request.URL.Path != "/status" || request.URL.Query().Get("token") != "private-value" || request.Header.Get("Cookie") != "" || request.Header.Get("Authorization") != "" {
 			t.Errorf("request = %s, headers = %#v", request.URL.String(), request.Header)
@@ -34,7 +32,7 @@ func TestHTTPGetUsesInstalledOriginAndRedactsRequestJournal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	profile, err := httpegress.SealProfile(httpegress.ProfileDraft{Origin: server.URL, AllowPrivateNetwork: true, ResponseByteLimit: 4096, TimeoutMilliseconds: 5000})
+	profile, err := httpegress.SealProfile(httpegress.ProfileDraft{Origin: server.URL, ResponseByteLimit: 4096, TimeoutMilliseconds: 5000})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,40 +40,18 @@ func TestHTTPGetUsesInstalledOriginAndRedactsRequestJournal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	providerDigest, err := httpegress.ProviderArtifactDigest(profile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	const providerID = "http-test"
-	const targetID = "http-origin/test"
-	capabilityDefinition, ok := builtins.Catalog.LookupCapability(nodes.HTTPGetCapabilityID)
-	if !ok {
-		t.Fatal("HTTP capability is missing")
-	}
-	profileDraft := executionProfile(t, builtins)
-	profileDraft.Providers = append(profileDraft.Providers, admission.ProviderDescriptor{
-		ID: providerID, ArtifactDigest: providerDigest, ABI: httpegress.ProviderABI, PluginInstanceID: "builtin",
-		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"},
-		Capabilities: []admission.ProviderCapability{{Capability: capabilityDefinition.Ref(), ResourceKind: httpegress.KindHTTPSession}},
-	})
-	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: httpegress.TargetKind, ProviderID: providerID})
-	profileDraft.TargetSlots = append(profileDraft.TargetSlots, admission.TargetSlotBinding{Slot: "http-test", TargetID: targetID})
-
+	const targetID, slot = "http-target/test", "http-test"
 	program := compilePrimitiveProgram(t, builtins, httpSource(t, builtins))
 	now := time.Date(2026, 7, 16, 16, 0, 0, 0, time.UTC)
-	consent, err := artifact.Sum("yotta/test/http-consent/v1", []byte("http-test"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, owner, journal := admittedExecutionWithConsent(t, builtins, program, map[string]run.InstalledProvider{
-		providerID: {ArtifactDigest: providerDigest, ABI: httpegress.ProviderABI, Provider: provider},
-	}, now, profileDraft, []artifact.Digest{consent})
+	_, owner, journal := admittedExecution(t, builtins, program, map[string]run.InstalledProvider{}, now)
 	t.Cleanup(func() { _ = owner.Close(context.Background()) })
+	targets := configuredTargetRun(t, slot, targetID, provider)
 	adapters, err := noderuntime.Installed(builtins, testDependencies())
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).Run(context.Background(), program, owner, journal)
+	result, err := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).
+		RunWithTargets(context.Background(), program, owner, targets, journal)
 	if err != nil {
 		t.Fatal(err)
 	}

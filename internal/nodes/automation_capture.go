@@ -11,10 +11,9 @@ import (
 )
 
 const (
-	ImageTypeID                   = "https://schemas.yotta.dev/types/media/image/v1"
-	AutomationCaptureCapabilityID = installed.CapabilityCaptureID
-	CaptureWindowNodeID           = "https://schemas.yotta.dev/nodes/automation/capture-window"
-	CaptureWindowEffectID         = "https://schemas.yotta.dev/effects/automation/capture-window/v1"
+	ImageTypeID           = "https://schemas.yotta.dev/types/media/image/v1"
+	CaptureWindowNodeID   = "https://schemas.yotta.dev/nodes/automation/capture-window"
+	CaptureWindowEffectID = "https://schemas.yotta.dev/effects/automation/capture-window/v1"
 )
 
 func sealImageType() (datatype.Definition, error) {
@@ -31,20 +30,7 @@ func sealImageType() (datatype.Definition, error) {
 	})
 }
 
-func sealAutomationCaptureCapability() (capability.Definition, error) {
-	const scopeID = AutomationCaptureCapabilityID + "/scope"
-	return capability.SealDefinition(capability.DefinitionDraft{
-		CapabilityID: AutomationCaptureCapabilityID, Operations: installed.CaptureOperations(), TargetKinds: []string{installed.TargetKindDesktopWindow, installed.TargetKindAndroidDevice, installed.TargetKindBrowserCDP},
-		ScopeSchemaRoot: scopeID, ScopeSchemaBundle: []datatype.SchemaResource{{ID: scopeID, Schema: json.RawMessage(fmt.Sprintf(`{
-			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
-			"properties":{"operation":{"const":"capture"}},"required":["operation"],"additionalProperties":false
-		}`, scopeID))}},
-		Credential: capability.CredentialNone, Risk: capability.RiskSensitive, Consent: capability.ConsentNone,
-		ProviderABI: installed.ProviderABI,
-	})
-}
-
-func defineCaptureWindowNode(imageRef datatype.TypeRef, capture, blobWrite capability.Definition) (BuiltinDefinition, nodecontract.Contract, error) {
+func defineCaptureWindowNode(imageRef datatype.TypeRef, blobWrite capability.Definition) (BuiltinDefinition, nodecontract.Contract, error) {
 	const schemaID = CaptureWindowNodeID + "/config"
 	contract, err := nodecontract.Seal(nodecontract.Draft{Version: BuiltinNodeVersion,
 		NodeTypeID: CaptureWindowNodeID, ConfigSchemaRoot: schemaID,
@@ -63,14 +49,10 @@ func defineCaptureWindowNode(imageRef datatype.TypeRef, capture, blobWrite capab
 			Evaluation: nodecontract.EvaluationPush, Cache: nodecontract.CacheNone, Retry: nodecontract.RetryNever,
 			Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutRequired,
 		},
-		Instruction: nodecontract.Invoke(),
-		CapabilityRequirements: []capability.Requirement{
-			{ID: "target", Capability: capture.Ref(), Operations: installed.CaptureOperations(), TargetSlot: "target", Scope: json.RawMessage(`{"operation":"capture"}`)},
-			requirement(blobWrite, "blob-write", []string{"append", "cancel", "commit"}, "blob-store"),
-		},
-		RequirementBindings: []nodecontract.RequirementBindingSpec{{RequirementID: "target", TargetSlotConfigKey: "slot"}},
+		Instruction:            nodecontract.Invoke(),
+		CapabilityRequirements: []capability.Requirement{requirement(blobWrite, "blob-write", []string{"append", "cancel", "commit"}, "blob-store")},
+		ConfiguredTargets:      automationTargetSpec("target", installed.TargetKindDesktopWindow, installed.TargetKindAndroidDevice, installed.TargetKindBrowserCDP),
 		Errors: []nodecontract.ErrorSpec{
-			{Code: installed.CodeIdentityChanged, Category: "automation", RetryHint: false},
 			{Code: installed.CodeTargetNotFound, Category: "automation", RetryHint: true},
 			{Code: installed.CodeTargetAmbiguous, Category: "automation", RetryHint: false},
 			{Code: installed.CodeCaptureFailed, Category: "automation", RetryHint: true},
@@ -86,6 +68,6 @@ func defineCaptureWindowNode(imageRef datatype.TypeRef, capture, blobWrite capab
 	if err != nil {
 		return BuiltinDefinition{}, nodecontract.Contract{}, err
 	}
-	definition, err := defineBuiltin(contract, "automation.capture-window", "v1", "exact-target/png-capture-to-blob/v1", nil)
+	definition, err := defineBuiltin(contract, "automation.capture-window", "v1", "configured-target/png-capture-to-blob/v1", nil)
 	return definition, contract, err
 }

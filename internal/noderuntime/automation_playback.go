@@ -50,11 +50,7 @@ func playInputClip() nodeadapter.Adapter {
 }
 
 func runPlaybackSession(ctx context.Context, invocation nodeadapter.Invocation, sequence func(playbackCommands) error) (runErr error) {
-	targetSession := invocation.Sessions["target"]
-	if targetSession == nil {
-		return automationFailure(installed.CodeContractViolation, errors.New("automation playback capability session is missing"))
-	}
-	handle, err := targetSession.Open(ctx, installed.PlaybackOperations(), []byte(`{}`))
+	handle, err := openConfiguredTarget(ctx, invocation, installed.KindPlayback, installed.PlaybackOperations())
 	if err != nil {
 		return mapAutomationFailure(err)
 	}
@@ -64,10 +60,10 @@ func runPlaybackSession(ctx context.Context, invocation nodeadapter.Invocation, 
 		if !released {
 			payload, marshalErr := artifact.Marshal(struct{}{})
 			if marshalErr == nil {
-				_, _ = targetSession.Invoke(cleanupCtx, handle, installed.OperationReleaseHeld, payload)
+				_, _ = invocation.Targets.Invoke(cleanupCtx, handle, installed.OperationReleaseHeld, payload)
 			}
 		}
-		runErr = errors.Join(runErr, targetSession.Drop(cleanupCtx, handle))
+		runErr = errors.Join(runErr, invocation.Targets.Drop(cleanupCtx, handle))
 	}()
 	commands := playbackCommands{
 		Now: invocation.MonotonicNow,
@@ -85,7 +81,7 @@ func runPlaybackSession(ctx context.Context, invocation nodeadapter.Invocation, 
 			if err != nil {
 				return automationFailure(installed.CodeContractViolation, err)
 			}
-			raw, err := targetSession.Invoke(ctx, handle, installed.OperationPlayEvent, payload)
+			raw, err := invocation.Targets.Invoke(ctx, handle, installed.OperationPlayEvent, payload)
 			if err != nil {
 				return mapAutomationFailure(err)
 			}
@@ -102,7 +98,7 @@ func runPlaybackSession(ctx context.Context, invocation nodeadapter.Invocation, 
 	if err != nil {
 		return automationFailure(installed.CodeContractViolation, err)
 	}
-	raw, err := targetSession.Invoke(ctx, handle, installed.OperationReleaseHeld, releasePayload)
+	raw, err := invocation.Targets.Invoke(ctx, handle, installed.OperationReleaseHeld, releasePayload)
 	if err != nil {
 		return mapAutomationFailure(err)
 	}

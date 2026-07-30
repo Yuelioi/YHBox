@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"unsafe"
 
@@ -29,7 +28,7 @@ func (windowsController) Launch(ctx context.Context, profile Profile) (uint32, e
 	draft := profile.Machine()
 	command := exec.Command(draft.Executable, draft.Arguments...)
 	command.Dir = filepath.Dir(draft.Executable)
-	command.Env = applicationEnvironment()
+	command.Env = os.Environ()
 	command.Stdin, command.Stdout, command.Stderr = nil, nil, nil
 	command.SysProcAttr = &syscall.SysProcAttr{HideWindow: false}
 	if err := command.Start(); err != nil {
@@ -102,15 +101,4 @@ func terminateMatchingProcess(pid uint32, configured os.FileInfo) (bool, error) 
 		return false, err
 	}
 	return true, nil
-}
-
-func applicationEnvironment() []string {
-	keys := []string{"APPDATA", "LOCALAPPDATA", "ProgramData", "SystemRoot", "TEMP", "TMP", "USERPROFILE", "WINDIR"}
-	result := make([]string, 0, len(keys))
-	for _, key := range keys {
-		if value := os.Getenv(key); value != "" && !strings.ContainsRune(value, 0) {
-			result = append(result, key+"="+value)
-		}
-	}
-	return result
 }

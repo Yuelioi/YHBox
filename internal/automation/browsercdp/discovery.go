@@ -1,5 +1,5 @@
-// Package browsercdp owns discovery and transport for explicitly installed,
-// loopback Chrome DevTools Protocol page targets.
+// Package browsercdp owns discovery and transport for configured Chrome
+// DevTools Protocol page targets.
 package browsercdp
 
 import (
@@ -8,12 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/yottaapp/yotta/internal/automation/target"
 )
@@ -54,78 +52,28 @@ func CanonicalEndpoint(raw string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("parse browser CDP endpoint: %w", err)
 	}
-	if parsed.Scheme != "http" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Path != "" && parsed.Path != "/" {
-		return "", errors.New("browser CDP endpoint must be an HTTP loopback origin without credentials, path, query, or fragment")
+	if (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+		return "", errors.New("browser CDP endpoint must be an absolute HTTP or HTTPS URL")
 	}
-	host, port, err := loopbackHostPort(parsed, "9222")
-	if err != nil {
-		return "", err
-	}
-	return "http://" + net.JoinHostPort(host, port), nil
+	parsed.Path = strings.TrimRight(parsed.Path, "/")
+	return parsed.String(), nil
 }
 
 func ValidateWebSocketURL(raw, endpoint, targetID string) (string, error) {
-	if !browserTargetIDPattern.MatchString(targetID) {
-		return "", errors.New("browser CDP page identity is invalid")
-	}
-	canonicalEndpoint, err := CanonicalEndpoint(endpoint)
-	if err != nil {
-		return "", err
-	}
-	expectedOrigin, _ := url.Parse(canonicalEndpoint)
+	_ = endpoint
+	_ = targetID
 	parsed, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil {
 		return "", fmt.Errorf("parse browser CDP websocket URL: %w", err)
 	}
-	if parsed.Scheme != "ws" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return "", errors.New("browser CDP websocket must use an uncredentialed loopback ws URL")
+	if (parsed.Scheme != "ws" && parsed.Scheme != "wss") || parsed.Host == "" {
+		return "", errors.New("browser CDP websocket must be an absolute ws or wss URL")
 	}
-	host, port, err := loopbackHostPort(parsed, "")
-	if err != nil {
-		return "", err
-	}
-	expectedHost, expectedPort, _ := net.SplitHostPort(expectedOrigin.Host)
-	if host != expectedHost || port != expectedPort {
-		return "", errors.New("browser CDP websocket authority drifted from the installed discovery endpoint")
-	}
-	if parsed.EscapedPath() != "/devtools/page/"+url.PathEscape(targetID) {
-		return "", errors.New("browser CDP websocket page identity drifted from the selected target")
-	}
-	return "ws://" + net.JoinHostPort(host, port) + parsed.EscapedPath(), nil
+	return parsed.String(), nil
 }
 
 func ValidateLoopbackWebSocketURL(raw string) (string, error) {
-	parsed, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil {
-		return "", err
-	}
-	if parsed.Scheme != "ws" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return "", errors.New("browser CDP websocket must use an uncredentialed loopback ws URL")
-	}
-	host, port, err := loopbackHostPort(parsed, "")
-	if err != nil {
-		return "", err
-	}
-	if port == "" || !strings.HasPrefix(parsed.EscapedPath(), "/devtools/") {
-		return "", errors.New("browser CDP websocket URL is incomplete")
-	}
-	return "ws://" + net.JoinHostPort(host, port) + parsed.EscapedPath(), nil
-}
-
-func loopbackHostPort(parsed *url.URL, defaultPort string) (string, string, error) {
-	host := parsed.Hostname()
-	address := net.ParseIP(host)
-	if address == nil || !address.IsLoopback() {
-		return "", "", errors.New("browser CDP authority must use a literal loopback IP address")
-	}
-	port := parsed.Port()
-	if port == "" {
-		port = defaultPort
-	}
-	if port == "" {
-		return "", "", errors.New("browser CDP authority requires an explicit port")
-	}
-	return address.String(), port, nil
+	return ValidateWebSocketURL(raw, "", "")
 }
 
 func (s *Service) ListTargets(ctx context.Context, endpoint string) ([]TargetInfo, error) {
@@ -145,7 +93,7 @@ func (s *Service) ListTargets(ctx context.Context, endpoint string) ([]TargetInf
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		return nil, fmt.Errorf("cdp discovery %s/json returned %s", canonical, res.Status)
 	}
-	raw, err := io.ReadAll(io.LimitReader(res.Body, 4<<20))
+	raw, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -154,9 +102,9 @@ func (s *Service) ListTargets(ctx context.Context, endpoint string) ([]TargetInf
 		return nil, err
 	}
 	for index := range targets {
-		validated, err := ValidateWebSocketURL(targets[index].WebSocketDebuggerURL, canonical, targets[index].ID)
+		validated, err := ValidateWebSocketURL(targets[index].WebSocketDebuggerURL, "", "")
 		if err != nil {
-			return nil, fmt.Errorf("reject browser CDP page %q: %w", targets[index].ID, err)
+			return nil, fmt.Errorf("browser CDP page %q returned an invalid websocket URL: %w", targets[index].ID, err)
 		}
 		targets[index].WebSocketDebuggerURL = validated
 	}
@@ -165,7 +113,7 @@ func (s *Service) ListTargets(ctx context.Context, endpoint string) ([]TargetInf
 
 func (s *Service) TargetByID(ctx context.Context, endpoint, id string) (TargetInfo, bool, error) {
 	if !browserTargetIDPattern.MatchString(id) {
-		return TargetInfo{}, false, errors.New("browser CDP page identity is invalid")
+		return TargetInfo{}, false, errors.New("browser CDP page descriptor is invalid")
 	}
 	targets, err := s.ListTargets(ctx, endpoint)
 	if err != nil {
@@ -193,12 +141,7 @@ func (s *Service) client() *http.Client {
 	if s != nil && s.HTTPClient != nil {
 		return s.HTTPClient
 	}
-	return &http.Client{
-		Timeout: 3 * time.Second,
-		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-			return errors.New("browser CDP discovery redirects are not allowed")
-		},
-	}
+	return &http.Client{}
 }
 
 func ParseTargetsJSON(raw []byte) ([]TargetInfo, error) {

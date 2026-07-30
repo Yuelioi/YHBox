@@ -1,10 +1,12 @@
 package services
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/artifact"
@@ -141,6 +143,64 @@ func TestSettingsStoreRejectsChecksumMismatch(t *testing.T) {
 	_, _, err = OpenSettingsStore(path)
 	if !errors.Is(err, ErrSettingsRecoveryRequired) {
 		t.Fatalf("tampered settings error = %v", err)
+	}
+}
+
+func TestSettingsStoreMigratesRetiredTargetSecurityFields(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	settings := defaultSettings()
+	settings.Applications.Profiles = []InstalledApplicationSettings{{
+		Slot: "demo", Label: "Demo", Executable: filepath.Join(t.TempDir(), "demo.exe"), Arguments: []string{"--run"},
+	}}
+	settings.Network.HTTPOrigins = []HTTPOriginSettings{{
+		Slot: "api", Label: "API", Origin: "http://127.0.0.1:8080",
+		ResponseByteLimit: 4096, TimeoutMilliseconds: 5000,
+	}}
+	payload, err := artifact.Marshal(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var legacy map[string]any
+	if err := json.Unmarshal(payload, &legacy); err != nil {
+		t.Fatal(err)
+	}
+	applications := legacy["applications"].(map[string]any)["profiles"].([]any)
+	applications[0].(map[string]any)["executableDigest"] = "sha256:" + strings.Repeat("1", 64)
+	network := legacy["network"].(map[string]any)["httpOrigins"].([]any)
+	network[0].(map[string]any)["allowPrivateNetwork"] = true
+	legacyPayload, err := artifact.Marshal(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checksum, err := artifact.Sum(settingsPayloadDomain, legacyPayload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(settingsEnvelope{
+		Format: SettingsFormat, Version: SettingsSchemaVersion,
+		Generation: 7, Checksum: checksum, Payload: legacyPayload,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	store, loaded, err := OpenSettingsStore(path)
+	if err != nil {
+		t.Fatalf("OpenSettingsStore legacy target configuration: %v", err)
+	}
+	if store.Generation() != 8 || len(loaded.Applications.Profiles) != 1 || len(loaded.Network.HTTPOrigins) != 1 {
+		t.Fatalf("migrated settings = generation %d, applications=%d, network=%d",
+			store.Generation(), len(loaded.Applications.Profiles), len(loaded.Network.HTTPOrigins))
+	}
+	rewritten, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(rewritten, []byte("executableDigest")) || bytes.Contains(rewritten, []byte("allowPrivateNetwork")) {
+		t.Fatalf("rewritten settings retained retired target fields: %s", rewritten)
 	}
 }
 

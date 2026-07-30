@@ -56,7 +56,7 @@ func openStream(t *testing.T, broker *resource.Broker) (resource.Scope, resource
 	handle, err := broker.Open(context.Background(), resource.OpenRequest{
 		Scope: owner, ProviderID: stream.ProviderID, TargetID: "memory", Kind: stream.Kind,
 		Operations: []string{stream.OperationSend, stream.OperationReceive, stream.OperationFinish, stream.OperationCancel},
-		ExpiresAt:  time.Now().Add(time.Minute), Config: config,
+		Config:     config,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -68,7 +68,7 @@ func TestBrokerOwnedStreamAppliesBackpressureAndDrainsBeforeEOF(t *testing.T) {
 	broker := newBroker(t)
 	producer, handle := openStream(t, broker)
 	consumer := scope(producer.RunID, "consumer")
-	receiver, err := broker.Borrow(context.Background(), producer, handle, consumer, []string{stream.OperationReceive}, time.Now().Add(30*time.Second))
+	receiver, err := broker.Borrow(context.Background(), producer, handle, consumer, []string{stream.OperationReceive})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func TestBrokerOwnedStreamCancellationWakesBlockedConsumer(t *testing.T) {
 	broker := newBroker(t)
 	owner, handle := openStream(t, broker)
 	consumer := scope(owner.RunID, "consumer")
-	receiver, err := broker.Borrow(context.Background(), owner, handle, consumer, []string{stream.OperationReceive}, time.Now().Add(30*time.Second))
+	receiver, err := broker.Borrow(context.Background(), owner, handle, consumer, []string{stream.OperationReceive})
 	if err != nil {
 		t.Fatal(err)
 	}

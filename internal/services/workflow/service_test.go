@@ -603,7 +603,7 @@ func workflowRuntime(t *testing.T, now time.Time, maxSources ...int) *appbootstr
 		AIInstallations: aiInstallations, HTTPInstallations: httpInstallations,
 		ApplicationInstallations: applicationInstallations, AutomationInstallations: automationInstallations,
 		ScriptRuntime: scriptRuntime, LogEmitter: noderuntime.LogEmitterFunc(func(context.Context, noderuntime.LogEntry) error { return nil }),
-		GrantTTL: 5 * time.Minute, OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
+		OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yottaapp/yotta/internal/admission"
-	"github.com/yottaapp/yotta/internal/artifact"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/noderuntime"
@@ -29,7 +27,7 @@ type automationPlaybackProvider struct {
 }
 
 func (provider *automationPlaybackProvider) Open(_ context.Context, request resource.ProviderOpenRequest) (any, error) {
-	if request.Kind != automationinstalled.KindPlayback || fmt.Sprint(request.Operations) != "[play-event release-held]" || string(request.Config) != `{}` || string(request.CapabilityScope) != `{"operation":"play"}` {
+	if request.Kind != automationinstalled.KindPlayback || fmt.Sprint(request.Operations) != "[play-event release-held]" || string(request.Config) != `{}` || len(request.CapabilityScope) != 0 {
 		return nil, fmt.Errorf("unexpected automation playback open request: %#v", request)
 	}
 	return struct{}{}, nil
@@ -90,39 +88,20 @@ func TestPlayInputClipReadsNominalBlobAndUsesExclusivePlaybackSession(t *testing
 		t.Fatal(err)
 	}
 	playbackProvider := &automationPlaybackProvider{}
-	providerDigest, err := artifact.Sum("yotta/test/automation-playback-provider/v1", []byte("exact-installed-window-playback"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	const providerID, targetID, slot = "automation-playback-test", "automation-target/playback-test", "playback-test"
-	playbackCapability, ok := builtins.Catalog.LookupCapability(nodes.AutomationPlaybackCapabilityID)
-	if !ok {
-		t.Fatal("automation playback capability is missing")
-	}
-	profileDraft := executionProfile(t, builtins)
-	profileDraft.Providers = append(profileDraft.Providers, admission.ProviderDescriptor{
-		ID: providerID, ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, PluginInstanceID: "builtin",
-		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"},
-		Capabilities: []admission.ProviderCapability{{Capability: playbackCapability.Ref(), ResourceKind: automationinstalled.KindPlayback}},
-	})
-	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKindDesktopWindow, ProviderID: providerID})
-	profileDraft.TargetSlots = append(profileDraft.TargetSlots, admission.TargetSlotBinding{Slot: slot, TargetID: targetID})
+	const targetID, slot = "automation-target/playback-test", "playback-test"
 	program := compilePrimitiveProgram(t, builtins, automationPlaybackSource(builtins, slot, ref))
 	now := time.Date(2026, 7, 16, 22, 0, 0, 0, time.UTC)
-	consent, err := artifact.Sum("yotta/test/automation-playback-consent/v1", []byte(slot))
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, owner, journal := admittedExecutionWithConsent(t, builtins, program, map[string]run.InstalledProvider{
+	_, owner, journal := admittedExecution(t, builtins, program, map[string]run.InstalledProvider{
 		blob.ProviderID: {ArtifactDigest: blobProviderDigest(t), ABI: blob.ProviderABI, Provider: blobProvider},
-		providerID:      {ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, Provider: playbackProvider},
-	}, now, profileDraft, []artifact.Digest{consent})
+	}, now)
 	t.Cleanup(func() { _ = owner.Close(context.Background()) })
+	targets := configuredTargetRun(t, slot, targetID, playbackProvider)
 	adapters, err := noderuntime.Installed(builtins, testDependencies())
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).Run(context.Background(), program, owner, journal)
+	_, err = compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).
+		RunWithTargets(context.Background(), program, owner, targets, journal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,39 +158,20 @@ func TestPlayMacroPreservesOverlappingKeysAndReleasesSession(t *testing.T) {
 		t.Fatal(err)
 	}
 	playbackProvider := &automationPlaybackProvider{}
-	providerDigest, err := artifact.Sum("yotta/test/automation-playback-provider/v1", []byte("atomic-macro-playback"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	const providerID, targetID, slot = "automation-macro-test", "automation-target/macro-test", "macro-test"
-	playbackCapability, ok := builtins.Catalog.LookupCapability(nodes.AutomationPlaybackCapabilityID)
-	if !ok {
-		t.Fatal("automation playback capability is missing")
-	}
-	profileDraft := executionProfile(t, builtins)
-	profileDraft.Providers = append(profileDraft.Providers, admission.ProviderDescriptor{
-		ID: providerID, ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, PluginInstanceID: "builtin",
-		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"},
-		Capabilities: []admission.ProviderCapability{{Capability: playbackCapability.Ref(), ResourceKind: automationinstalled.KindPlayback}},
-	})
-	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKindDesktopWindow, ProviderID: providerID})
-	profileDraft.TargetSlots = append(profileDraft.TargetSlots, admission.TargetSlotBinding{Slot: slot, TargetID: targetID})
+	const targetID, slot = "automation-target/macro-test", "macro-test"
 	program := compilePrimitiveProgram(t, builtins, automationMacroSource(builtins, slot, ref))
 	now := time.Date(2026, 7, 19, 16, 0, 0, 0, time.UTC)
-	consent, err := artifact.Sum("yotta/test/automation-playback-consent/v1", []byte(slot))
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, owner, journal := admittedExecutionWithConsent(t, builtins, program, map[string]run.InstalledProvider{
+	_, owner, journal := admittedExecution(t, builtins, program, map[string]run.InstalledProvider{
 		blob.ProviderID: {ArtifactDigest: blobProviderDigest(t), ABI: blob.ProviderABI, Provider: blobProvider},
-		providerID:      {ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, Provider: playbackProvider},
-	}, now, profileDraft, []artifact.Digest{consent})
+	}, now)
 	t.Cleanup(func() { _ = owner.Close(context.Background()) })
+	targets := configuredTargetRun(t, slot, targetID, playbackProvider)
 	adapters, err := noderuntime.Installed(builtins, testDependencies())
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).Run(context.Background(), program, owner, journal)
+	_, err = compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).
+		RunWithTargets(context.Background(), program, owner, targets, journal)
 	if err != nil {
 		t.Fatal(err)
 	}

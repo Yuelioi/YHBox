@@ -126,7 +126,6 @@ func TestBrokerRejectsUnauthorizedOpenBeforeProviderSideEffects(t *testing.T) {
 	_, err = broker.Open(context.Background(), resource.OpenRequest{
 		Scope:      testScope("run-1", "node-1"),
 		ProviderID: "test", TargetID: "target-1", Kind: "test/session", Operations: []string{"read"},
-		ExpiresAt: time.Now().Add(time.Minute),
 	})
 	if err == nil {
 		t.Fatal("unauthorized resource was opened")
@@ -145,7 +144,7 @@ func TestBrokerReauthorizesEveryCallBeforeProviderSideEffects(t *testing.T) {
 	scope := testScope("run-1", "node-1")
 	handle, err := broker.Open(context.Background(), resource.OpenRequest{
 		Scope: scope, ProviderID: "test", TargetID: "target-1", Kind: "test/session",
-		Operations: []string{"read"}, ExpiresAt: time.Now().Add(time.Minute),
+		Operations: []string{"read"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -166,7 +165,7 @@ func TestBrokerInjectsGrantedScopeIntoProviderRequest(t *testing.T) {
 	}
 	request := resource.OpenRequest{
 		Scope: testScope("run-1", "node-1"), ProviderID: "test", TargetID: "target-1", Kind: "test/session",
-		Operations: []string{"read"}, ExpiresAt: time.Now().Add(time.Minute), Config: []byte(`{"untrusted":true}`),
+		Operations: []string{"read"}, Config: []byte(`{"untrusted":true}`),
 	}
 	if _, err := broker.Open(context.Background(), request); err != nil {
 		t.Fatal(err)
@@ -186,7 +185,7 @@ func TestBrokerScopesCallsBorrowAndExactlyOnceClose(t *testing.T) {
 	owner := testScope("run-1", "owner")
 	handle, err := broker.Open(context.Background(), resource.OpenRequest{
 		Scope: owner, ProviderID: "test", TargetID: "target-1", Kind: "test/session",
-		Operations: []string{"read", "write"}, ExpiresAt: time.Now().Add(time.Minute),
+		Operations: []string{"read", "write"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -208,7 +207,7 @@ func TestBrokerScopesCallsBorrowAndExactlyOnceClose(t *testing.T) {
 	}
 
 	borrower := testScope("run-1", "borrower")
-	borrowed, err := broker.Borrow(context.Background(), owner, handle, borrower, []string{"read"}, time.Now().Add(30*time.Second))
+	borrowed, err := broker.Borrow(context.Background(), owner, handle, borrower, []string{"read"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,47 +235,31 @@ func TestBrokerScopesCallsBorrowAndExactlyOnceClose(t *testing.T) {
 	}
 }
 
-func TestBrokerExpiryAndRunRevocationCleanUpResources(t *testing.T) {
-	now := time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)
+func TestBrokerRunRevocationCleansUpResources(t *testing.T) {
 	p := &provider{}
-	broker, err := resource.New(authorizer{}, map[string]resource.Provider{"test": p}, resource.Options{Now: func() time.Time { return now }})
+	broker, err := resource.New(authorizer{}, map[string]resource.Provider{"test": p}, resource.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	open := func(run, invocation string, expiry time.Time) resource.Handle {
+	open := func(run, invocation string) resource.Handle {
 		t.Helper()
 		handle, err := broker.Open(context.Background(), resource.OpenRequest{
 			Scope: testScope(run, invocation), ProviderID: "test", TargetID: "target-1",
-			Kind: "test/session", Operations: []string{"read"}, ExpiresAt: expiry,
+			Kind: "test/session", Operations: []string{"read"},
 		})
 		if err != nil {
 			t.Fatal(err)
 		}
 		return handle
 	}
-	expired := open("run-expired", "node", now.Add(time.Second))
-	now = now.Add(2 * time.Second)
-	revoked, err := broker.SweepExpired(context.Background())
-	if err != nil || revoked != 1 {
-		t.Fatalf("SweepExpired = %d, %v", revoked, err)
-	}
-	if _, err := broker.Invoke(context.Background(), resource.Call{
-		Scope: testScope("run-expired", "node"), Handle: expired, Operation: "read",
-	}); err == nil {
-		t.Fatal("expired handle remained callable")
-	}
-	if _, _, closes := p.counts(); closes != 1 {
-		t.Fatalf("expiry closed %d resources, want 1", closes)
-	}
-
-	open("run-crashed", "a", now.Add(time.Minute))
-	open("run-crashed", "b", now.Add(time.Minute))
-	other := open("run-live", "c", now.Add(time.Minute))
+	open("run-crashed", "a")
+	open("run-crashed", "b")
+	other := open("run-live", "c")
 	if err := broker.RevokeRun(context.Background(), "run-crashed"); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, closes := p.counts(); closes != 3 {
-		t.Fatalf("run revocation total closes = %d, want 3", closes)
+	if _, _, closes := p.counts(); closes != 2 {
+		t.Fatalf("run revocation total closes = %d, want 2", closes)
 	}
 	if _, err := broker.Invoke(context.Background(), resource.Call{
 		Scope: testScope("run-live", "c"), Handle: other, Operation: "read",
@@ -293,7 +276,7 @@ func TestBrokerCloseRevokesAllAuthorityAndIsPermanent(t *testing.T) {
 	}
 	request := resource.OpenRequest{
 		Scope: testScope("run-1", "node-1"), ProviderID: "test", TargetID: "target-1",
-		Kind: "test/session", Operations: []string{"read"}, ExpiresAt: time.Now().Add(time.Minute),
+		Kind: "test/session", Operations: []string{"read"},
 	}
 	handle, err := broker.Open(context.Background(), request)
 	if err != nil {
@@ -324,7 +307,7 @@ func TestBrokerCloseCancelsInflightOpenBeforeReturning(t *testing.T) {
 	}
 	request := resource.OpenRequest{
 		Scope: testScope("run-1", "node-1"), ProviderID: "test", TargetID: "target-1",
-		Kind: "test/session", Operations: []string{"read"}, ExpiresAt: time.Now().Add(time.Minute),
+		Kind: "test/session", Operations: []string{"read"},
 	}
 	openDone := make(chan error, 1)
 	go func() {
@@ -356,7 +339,7 @@ func TestBrokerRunRevocationWaitsForInflightOpenAndPermanentlyRejectsRun(t *test
 	}
 	request := resource.OpenRequest{
 		Scope: testScope("run-revoked", "node-1"), ProviderID: "test", TargetID: "target-1",
-		Kind: "test/session", Operations: []string{"read"}, ExpiresAt: time.Now().Add(time.Minute),
+		Kind: "test/session", Operations: []string{"read"},
 	}
 	openDone := make(chan error, 1)
 	go func() {
@@ -404,14 +387,14 @@ func TestBrokerRunRevocationContinuesAfterCallerTimeout(t *testing.T) {
 	scope := testScope("run-timeout", "node-normal")
 	handle, err := broker.Open(context.Background(), resource.OpenRequest{
 		Scope: scope, ProviderID: "normal", TargetID: "target-1", Kind: "test/session",
-		Operations: []string{"read"}, ExpiresAt: time.Now().Add(time.Minute),
+		Operations: []string{"read"},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	blockedRequest := resource.OpenRequest{
 		Scope: testScope("run-timeout", "node-blocked"), ProviderID: "blocked", TargetID: "target-2",
-		Kind: "test/session", Operations: []string{"read"}, ExpiresAt: time.Now().Add(time.Minute),
+		Kind: "test/session", Operations: []string{"read"},
 	}
 	openDone := make(chan error, 1)
 	go func() {
@@ -432,7 +415,7 @@ func TestBrokerRunRevocationContinuesAfterCallerTimeout(t *testing.T) {
 	}
 	if _, err := broker.Borrow(
 		context.Background(), scope, handle, testScope("run-timeout", "node-borrower"),
-		[]string{"read"}, time.Now().Add(30*time.Second),
+		[]string{"read"},
 	); !errors.Is(err, resource.ErrRunRevoked) {
 		t.Fatalf("Borrow after timed-out RevokeRun = %v", err)
 	}
@@ -466,7 +449,7 @@ func TestBrokerCloseWaitsForConcurrentRunRevocation(t *testing.T) {
 	}
 	request := resource.OpenRequest{
 		Scope: testScope("run-closing", "node-1"), ProviderID: "test", TargetID: "target-1",
-		Kind: "test/session", Operations: []string{"read"}, ExpiresAt: time.Now().Add(time.Minute),
+		Kind: "test/session", Operations: []string{"read"},
 	}
 	handle, err := broker.Open(context.Background(), request)
 	if err != nil {

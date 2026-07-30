@@ -91,6 +91,38 @@
       ],
       "type": "object"
     },
+    "ConfiguredTargetSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        },
+        "slotConfigKey": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        },
+        "targetKinds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array"
+        },
+        "targetSlot": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "targetSlot",
+        "slotConfigKey",
+        "targetKinds"
+      ],
+      "type": "object"
+    },
     "ConversionSpec": {
       "additionalProperties": false,
       "properties": {
@@ -538,6 +570,13 @@
           "maxItems": 4096,
           "type": "array"
         },
+        "configuredTargets": {
+          "items": {
+            "$ref": "#/$defs/ConfiguredTargetSpec"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
         "conversion": {
           "$ref": "#/$defs/ConversionSpec"
         },
@@ -843,10 +882,13 @@
         "requirementId": {
           "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
           "type": "string"
+        },
+        "targetId": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
         }
       },
       "required": [
-        "requirementId",
         "operations"
       ],
       "type": "object"

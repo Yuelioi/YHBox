@@ -140,18 +140,12 @@ describe('authoring surface', () => {
 
   it('resolves node target overrides before workflow defaults', () => {
     const source = projection([])
-    source.capabilities = [
+    source.configuredTargets = [
       {
-        capability: { capabilityId: 'capture', semanticDigest: 'sha256:x' },
-        consent: 'once',
-        credential: 'none',
-        operations: ['capture'],
-        requirementId: 'target',
-        risk: 'sensitive',
-        scope: {},
+        id: 'target',
+        slotConfigKey: 'slot',
         targetKinds: ['desktop-window'],
         targetSlot: 'target',
-        targetSlotConfigKey: 'slot',
       },
     ]
     const node = {

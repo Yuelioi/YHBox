@@ -15,7 +15,7 @@ import (
 	"github.com/yottaapp/yotta/internal/resource"
 )
 
-func TestBrowserProfilePinsExactLoopbackPageIdentity(t *testing.T) {
+func TestBrowserProfileStoresConfiguredPage(t *testing.T) {
 	payload := BrowserProfilePayload{
 		BrowserEndpoint: "127.0.0.1:9222", BrowserTargetID: "page-1",
 		BrowserWebSocketURL: "ws://127.0.0.1:9222/devtools/page/page-1",
@@ -30,12 +30,12 @@ func TestBrowserProfilePinsExactLoopbackPageIdentity(t *testing.T) {
 		t.Fatalf("profile = %#v", profile.Machine())
 	}
 	payload.BrowserEndpoint = "http://example.test:9222"
-	if _, err := SealProfile(NewBrowserProfileDraft(payload)); err == nil {
-		t.Fatal("accepted non-loopback browser discovery authority")
+	if _, err := SealProfile(NewBrowserProfileDraft(payload)); err != nil {
+		t.Fatalf("remote browser endpoint: %v", err)
 	}
 }
 
-func TestBrowserEndpointOrPageChangeRotatesProfileIdentity(t *testing.T) {
+func TestBrowserEndpointOrPageChangeRotatesProfileDigest(t *testing.T) {
 	first, err := SealProfile(NewBrowserProfileDraft(BrowserProfilePayload{
 		BrowserEndpoint: "http://127.0.0.1:9222", BrowserTargetID: "page-1",
 		BrowserWebSocketURL: "ws://127.0.0.1:9222/devtools/page/page-1",
@@ -53,16 +53,16 @@ func TestBrowserEndpointOrPageChangeRotatesProfileIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 	if first.Digest() == second.Digest() {
-		t.Fatalf("browser identity did not rotate: profiles %s/%s", first.Digest(), second.Digest())
+		t.Fatalf("browser configuration digest did not change: profiles %s/%s", first.Digest(), second.Digest())
 	}
 }
 
-func TestBrowserViewportSizeRejectsMissingOrUnboundedMetrics(t *testing.T) {
+func TestBrowserViewportSizeRequiresPositiveMetrics(t *testing.T) {
 	if _, err := browserViewportSize(map[string]any{}); err == nil {
 		t.Fatal("accepted missing viewport")
 	}
-	if _, err := browserViewportSize(map[string]any{"cssLayoutViewport": map[string]any{"clientWidth": float64(200_000), "clientHeight": float64(720)}}); err == nil {
-		t.Fatal("accepted unbounded viewport")
+	if _, err := browserViewportSize(map[string]any{"cssLayoutViewport": map[string]any{"clientWidth": float64(0), "clientHeight": float64(720)}}); err == nil {
+		t.Fatal("accepted non-positive viewport")
 	}
 }
 
@@ -159,8 +159,8 @@ func TestBrowserProviderRejectsOperationsOutsideItsManifest(t *testing.T) {
 	}
 	defer provider.CloseHost()
 	if _, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
-		Kind: KindWindow, Operations: []string{OperationActivate}, Config: []byte(`{}`), CapabilityScope: []byte(`{"operation":"activate"}`),
+		Kind: KindWindow, Operations: []string{OperationActivate}, Config: []byte(`{}`),
 	}); err == nil {
-		t.Fatal("browser provider opened undeclared window activation authority")
+		t.Fatal("browser provider opened an unsupported window operation")
 	}
 }

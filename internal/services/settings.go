@@ -67,7 +67,7 @@ func (configured InstalledAutomationTargetSettings) profileDraft(application Ins
 }
 
 func (configured InstalledAutomationTargetSettings) requiresApplication() bool {
-	return automationinstalled.RequiresApplicationIdentity(configured.TargetKind, configured.AdapterKind)
+	return automationinstalled.RequiresApplication(configured.TargetKind, configured.AdapterKind)
 }
 
 func (configured InstalledAutomationTargetSettings) applicationSlot() string {
@@ -109,14 +109,14 @@ func (settings AutomationSettings) InstallationDrafts(applications ApplicationSe
 	return result, nil
 }
 
-// InstalledApplicationSettings is trusted host installation metadata. A
-// workflow persists only Slot; it never receives the executable path or argv.
+// InstalledApplicationSettings is user configuration for one application
+// target. Workflows bind its Slot and the runtime uses the configured path and
+// arguments directly.
 type InstalledApplicationSettings struct {
-	Slot             string          `json:"slot"`
-	Label            string          `json:"label"`
-	Executable       string          `json:"executable"`
-	ExecutableDigest artifact.Digest `json:"executableDigest"`
-	Arguments        []string        `json:"arguments"`
+	Slot       string   `json:"slot"`
+	Label      string   `json:"label"`
+	Executable string   `json:"executable"`
+	Arguments  []string `json:"arguments"`
 }
 
 func (configured InstalledApplicationSettings) profileDraft() appcontrol.ProfileDraft {
@@ -133,19 +133,18 @@ func (settings ApplicationSettings) InstallationDrafts() []appcontrol.Installati
 	return result
 }
 
-// HTTPOriginSettings is an installed network authority. Workflows bind the
-// logical Slot and can only issue GET requests beneath the exact Origin.
+// HTTPOriginSettings is one configured HTTP target. Workflows select it by
+// logical slot and resolve request paths against its base URL.
 type HTTPOriginSettings struct {
 	Slot                string `json:"slot"`
 	Label               string `json:"label"`
 	Origin              string `json:"origin"`
-	AllowPrivateNetwork bool   `json:"allowPrivateNetwork"`
 	ResponseByteLimit   int64  `json:"responseByteLimit"`
 	TimeoutMilliseconds int64  `json:"timeoutMilliseconds"`
 }
 
 func (origin HTTPOriginSettings) profileDraft() httpegress.ProfileDraft {
-	return httpegress.ProfileDraft{Origin: origin.Origin, AllowPrivateNetwork: origin.AllowPrivateNetwork, ResponseByteLimit: origin.ResponseByteLimit, TimeoutMilliseconds: origin.TimeoutMilliseconds}
+	return httpegress.ProfileDraft{Origin: origin.Origin, ResponseByteLimit: origin.ResponseByteLimit, TimeoutMilliseconds: origin.TimeoutMilliseconds}
 }
 
 func (origin HTTPOriginSettings) installationDraft() httpegress.InstallationDraft {

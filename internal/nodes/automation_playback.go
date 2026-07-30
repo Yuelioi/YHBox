@@ -11,11 +11,10 @@ import (
 )
 
 const (
-	InputClipTypeID                = "https://schemas.yotta.dev/types/automation/input-clip/v1"
-	AutomationPlaybackCapabilityID = installed.CapabilityPlaybackID
-	PlayInputClipNodeID            = "https://schemas.yotta.dev/nodes/automation/play-input-clip"
-	PlayInputClipEffectID          = "https://schemas.yotta.dev/effects/automation/play-input-clip/v1"
-	InputClipInvalidCode           = "inputclip.invalid"
+	InputClipTypeID       = "https://schemas.yotta.dev/types/automation/input-clip/v1"
+	PlayInputClipNodeID   = "https://schemas.yotta.dev/nodes/automation/play-input-clip"
+	PlayInputClipEffectID = "https://schemas.yotta.dev/effects/automation/play-input-clip/v1"
+	InputClipInvalidCode  = "inputclip.invalid"
 )
 
 func sealInputClipType() (datatype.Definition, error) {
@@ -32,20 +31,7 @@ func sealInputClipType() (datatype.Definition, error) {
 	})
 }
 
-func sealAutomationPlaybackCapability() (capability.Definition, error) {
-	const scopeID = AutomationPlaybackCapabilityID + "/scope"
-	return capability.SealDefinition(capability.DefinitionDraft{
-		CapabilityID: AutomationPlaybackCapabilityID, Operations: installed.PlaybackOperations(), TargetKinds: []string{installed.TargetKindDesktopWindow, installed.TargetKindAndroidDevice},
-		ScopeSchemaRoot: scopeID, ScopeSchemaBundle: []datatype.SchemaResource{{ID: scopeID, Schema: json.RawMessage(fmt.Sprintf(`{
-			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
-			"properties":{"operation":{"const":"play"}},"required":["operation"],"additionalProperties":false
-		}`, scopeID))}},
-		Credential: capability.CredentialNone, Risk: capability.RiskDangerous, Consent: capability.ConsentNone,
-		ProviderABI: installed.ProviderABI,
-	})
-}
-
-func definePlayInputClipNode(inputClipRef datatype.TypeRef, playback, blobRead capability.Definition) (BuiltinDefinition, nodecontract.Contract, error) {
+func definePlayInputClipNode(inputClipRef datatype.TypeRef, blobRead capability.Definition) (BuiltinDefinition, nodecontract.Contract, error) {
 	const schemaID = PlayInputClipNodeID + "/config"
 	contract, err := nodecontract.Seal(nodecontract.Draft{Version: BuiltinNodeVersion,
 		NodeTypeID: PlayInputClipNodeID, ConfigSchemaRoot: schemaID,
@@ -64,15 +50,11 @@ func definePlayInputClipNode(inputClipRef datatype.TypeRef, playback, blobRead c
 			Evaluation: nodecontract.EvaluationPush, Cache: nodecontract.CacheNone, Retry: nodecontract.RetryNever,
 			Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutRequired,
 		},
-		Instruction: nodecontract.Invoke(),
-		CapabilityRequirements: []capability.Requirement{
-			{ID: "target", Capability: playback.Ref(), Operations: installed.PlaybackOperations(), TargetSlot: "target", Scope: json.RawMessage(`{"operation":"play"}`)},
-			requirement(blobRead, "blob-read", []string{"read-range"}, "blob-store"),
-		},
-		RequirementBindings: []nodecontract.RequirementBindingSpec{{RequirementID: "target", TargetSlotConfigKey: "slot"}},
+		Instruction:            nodecontract.Invoke(),
+		CapabilityRequirements: []capability.Requirement{requirement(blobRead, "blob-read", []string{"read-range"}, "blob-store")},
+		ConfiguredTargets:      automationTargetSpec("target", installed.TargetKindDesktopWindow, installed.TargetKindAndroidDevice),
 		Errors: []nodecontract.ErrorSpec{
 			{Code: InputClipInvalidCode, Category: "inputclip", RetryHint: false},
-			{Code: installed.CodeIdentityChanged, Category: "automation", RetryHint: false},
 			{Code: installed.CodeTargetNotFound, Category: "automation", RetryHint: true},
 			{Code: installed.CodeTargetAmbiguous, Category: "automation", RetryHint: false},
 			{Code: installed.CodePlaybackFailed, Category: "automation", RetryHint: true},
@@ -89,6 +71,6 @@ func definePlayInputClipNode(inputClipRef datatype.TypeRef, playback, blobRead c
 	if err != nil {
 		return BuiltinDefinition{}, nodecontract.Contract{}, err
 	}
-	definition, err := defineBuiltin(contract, "automation.play-input-clip", "v1", "content-addressed-input-clip/exact-target-playback/v1", nil)
+	definition, err := defineBuiltin(contract, "automation.play-input-clip", "v1", "content-addressed-input-clip/configured-target-playback/v1", nil)
 	return definition, contract, err
 }

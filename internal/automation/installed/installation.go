@@ -64,9 +64,6 @@ func installWithRegistry(drafts []InstallationDraft, registry adapterRegistry) (
 		if err != nil {
 			return Installations{}, fmt.Errorf("seal automation target profile for slot %q: %w", draft.Slot, err)
 		}
-		if err := verifyProfileWithRegistry(profile, registry); err != nil {
-			return Installations{}, fmt.Errorf("verify automation target profile for slot %q: %w", draft.Slot, err)
-		}
 		manifest, err := sealInstallationManifestForProfile(draft.Slot, draft.Label, profile, registry)
 		if err != nil {
 			return Installations{}, err
@@ -121,7 +118,7 @@ func ValidateInstallationSlot(slot string) error {
 }
 func sealInstallationManifestForProfile(slot, label string, profile Profile, registry adapterRegistry) (InstallationManifest, error) {
 	if !slotPattern.MatchString(slot) || !profile.Valid() {
-		return InstallationManifest{}, errors.New("automation target consent identity is invalid")
+		return InstallationManifest{}, errors.New("automation target configuration is invalid")
 	}
 	registered, err := registry.registration(profile)
 	if err != nil {

@@ -23,6 +23,7 @@ import (
 	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/storage"
 	"github.com/yottaapp/yotta/internal/storage/catalog"
+	"github.com/yottaapp/yotta/internal/targetruntime"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
@@ -104,13 +105,17 @@ func TestRunKeepsExactProviderGenerationLeaseAcrossHotReplacement(t *testing.T) 
 		t.Fatal(err)
 	}
 	policy := admission.PolicyFunc(func(context.Context, admission.PolicyRequest) (admission.PolicyDecision, error) {
-		return admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "lease-test", ExpiresAt: now.Add(time.Minute)}, nil
+		return admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "lease-test"}, nil
 	})
 	leased, released := make(chan struct{}), make(chan struct{})
-	if err := application.ReplaceExecutionEnvironment(profile, policy, map[string]run.InstalledProvider{}, func() (func(), error) {
+	targets, err := targetruntime.NewSnapshot(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := application.ReplaceExecutionEnvironment(profile, policy, map[string]run.InstalledProvider{}, func() (targetruntime.Snapshot, func(), error) {
 		close(leased)
 		var once sync.Once
-		return func() { once.Do(func() { close(released) }) }, nil
+		return targets, func() { once.Do(func() { close(released) }) }, nil
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -710,10 +715,10 @@ func newTestApplication(t *testing.T, now time.Time, adapterOverride nodeadapter
 		t.Fatal(err)
 	}
 	policy := admission.PolicyFunc(func(context.Context, admission.PolicyRequest) (admission.PolicyDecision, error) {
-		return admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "test-policy", ExpiresAt: now.Add(time.Minute)}, nil
+		return admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "test-policy"}, nil
 	})
 	admitter, err := admission.New(builtins.Catalog, profile, runs, policy, admission.Options{
-		Now: func() time.Time { return now }, MaxGrantTTL: 5 * time.Minute,
+		Now: func() time.Time { return now },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -740,7 +745,7 @@ func newTestApplication(t *testing.T, now time.Time, adapterOverride nodeadapter
 		BlobVerifier: compiler.BlobVerifierFunc(func(context.Context, blob.BlobRef) error { return nil }),
 		Sources:      sources, Programs: programs, Runs: runs,
 		Admitter: admitter, Executor: executor, Providers: map[string]run.InstalledProvider{},
-		ResourceOptions: resource.Options{Now: func() time.Time { return now }}, OwnerCloseTimeout: time.Second,
+		ResourceOptions: resource.Options{}, OwnerCloseTimeout: time.Second,
 		Now: func() time.Time { return now }, OnRunEvent: func(event appcore.RunEvent) { events <- event },
 		OnDebugEvent: func(event appcore.DebugEvent) { debugEvents <- event },
 	})

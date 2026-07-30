@@ -31,7 +31,7 @@ func sealMacroType() (datatype.Definition, error) {
 	})
 }
 
-func definePlayMacroNode(macroRef datatype.TypeRef, playback, blobRead capability.Definition) (BuiltinDefinition, nodecontract.Contract, error) {
+func definePlayMacroNode(macroRef datatype.TypeRef, blobRead capability.Definition) (BuiltinDefinition, nodecontract.Contract, error) {
 	const schemaID = PlayMacroNodeID + "/config"
 	contract, err := nodecontract.Seal(nodecontract.Draft{Version: BuiltinNodeVersion,
 		NodeTypeID: PlayMacroNodeID, ConfigSchemaRoot: schemaID,
@@ -50,15 +50,11 @@ func definePlayMacroNode(macroRef datatype.TypeRef, playback, blobRead capabilit
 			Evaluation: nodecontract.EvaluationPush, Cache: nodecontract.CacheNone, Retry: nodecontract.RetryNever,
 			Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutRequired,
 		},
-		Instruction: nodecontract.Invoke(),
-		CapabilityRequirements: []capability.Requirement{
-			{ID: "target", Capability: playback.Ref(), Operations: installed.PlaybackOperations(), TargetSlot: "target", Scope: json.RawMessage(`{"operation":"play"}`)},
-			requirement(blobRead, "blob-read", []string{"read-range"}, "blob-store"),
-		},
-		RequirementBindings: []nodecontract.RequirementBindingSpec{{RequirementID: "target", TargetSlotConfigKey: "slot"}},
+		Instruction:            nodecontract.Invoke(),
+		CapabilityRequirements: []capability.Requirement{requirement(blobRead, "blob-read", []string{"read-range"}, "blob-store")},
+		ConfiguredTargets:      automationTargetSpec("target", installed.TargetKindDesktopWindow, installed.TargetKindAndroidDevice),
 		Errors: []nodecontract.ErrorSpec{
 			{Code: MacroInvalidCode, Category: "macro", RetryHint: false},
-			{Code: installed.CodeIdentityChanged, Category: "automation", RetryHint: false},
 			{Code: installed.CodeTargetNotFound, Category: "automation", RetryHint: true},
 			{Code: installed.CodeTargetAmbiguous, Category: "automation", RetryHint: false},
 			{Code: installed.CodePlaybackFailed, Category: "automation", RetryHint: true},
@@ -75,6 +71,6 @@ func definePlayMacroNode(macroRef datatype.TypeRef, playback, blobRead capabilit
 	if err != nil {
 		return BuiltinDefinition{}, nodecontract.Contract{}, err
 	}
-	definition, err := defineBuiltin(contract, "automation.play-macro", "v1", "content-addressed-atomic-macro/exact-target-playback/v1", nil)
+	definition, err := defineBuiltin(contract, "automation.play-macro", "v1", "content-addressed-atomic-macro/configured-target-playback/v1", nil)
 	return definition, contract, err
 }

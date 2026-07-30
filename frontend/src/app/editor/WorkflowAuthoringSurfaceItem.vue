@@ -97,7 +97,10 @@ import type {
   TargetDefault,
   WorkflowResource,
 } from '../../../../contracts/workflow/current/workflow-source'
-import type { CapabilityProjection } from '../../../../contracts/node/current/authoring-projection'
+import type {
+  CapabilityProjection,
+  ConfiguredTargetProjection,
+} from '../../../../contracts/node/current/authoring-projection'
 import { projectionLabel } from '@/app/editor/projectionLabels'
 import type { EditorCommand, Node, NodeProjection } from './EditorSession'
 import type { AuthoringSurfaceItem } from './authoringSurface'
@@ -124,10 +127,15 @@ const emit = defineEmits<{
 const { t, te } = useI18n()
 const settingsStore = useSettingsStore()
 const configFieldID = computed(() => (props.item.kind === 'config' ? props.item.field.id : ''))
-const targetCapability = computed<CapabilityProjection | undefined>(() =>
-  props.projection.capabilities.find(
-    (candidate) => candidate.targetSlotConfigKey === configFieldID.value,
-  ),
+type TargetBinding = ConfiguredTargetProjection | CapabilityProjection
+const targetCapability = computed<TargetBinding | undefined>(
+  () =>
+    (props.projection.configuredTargets ?? []).find(
+      (candidate) => candidate.slotConfigKey === configFieldID.value,
+    ) ??
+    props.projection.capabilities.find(
+      (candidate) => candidate.targetSlotConfigKey === configFieldID.value,
+    ),
 )
 const inheritedTarget = computed(() => {
   const target = targetCapability.value?.targetSlot
@@ -158,7 +166,7 @@ const targetOptions = computed<Array<{ label: string; value: string }> | undefin
       .filter((target) => capability.targetKinds.includes(target.targetKind))
       .map((target) => ({ label: `${target.label} · ${target.slot}`, value: target.slot }))
   }
-  if (capability.targetKinds.includes('installed-application'))
+  if (capability.targetKinds.includes('configured-application'))
     return settings.applications.profiles.map((application) => ({
       label: `${application.label} · ${application.slot}`,
       value: application.slot,
@@ -168,7 +176,7 @@ const targetOptions = computed<Array<{ label: string; value: string }> | undefin
       label: `${profile.label} · ${profile.slot}`,
       value: profile.slot,
     }))
-  if (capability.targetKinds.includes('http-origin'))
+  if (capability.targetKinds.includes('http-target'))
     return settings.network.httpOrigins.map((origin) => ({
       label: `${origin.label} · ${origin.slot}`,
       value: origin.slot,
@@ -177,9 +185,9 @@ const targetOptions = computed<Array<{ label: string; value: string }> | undefin
 })
 const targetSettingsSection = computed<'automation' | 'applications' | 'ai' | 'network'>(() => {
   const kinds = targetCapability.value?.targetKinds ?? []
-  if (kinds.includes('installed-application')) return 'applications'
+  if (kinds.includes('configured-application')) return 'applications'
   if (kinds.includes('ai-model')) return 'ai'
-  if (kinds.includes('http-origin')) return 'network'
+  if (kinds.includes('http-target')) return 'network'
   return 'automation'
 })
 const portTitle = computed(() => {

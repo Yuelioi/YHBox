@@ -30,24 +30,20 @@ func httpGet(builtins nodes.Builtins) nodeadapter.Adapter {
 			return nodeadapter.AdapterResult{}, httpFailure(httpegress.CodeContractViolation, err)
 		}
 		action.Facts["path_digest"] = pathDigest.String()
-		session := invocation.Sessions["origin"]
-		if session == nil {
-			return nodeadapter.AdapterResult{}, httpFailure(httpegress.CodeContractViolation, errors.New("HTTP origin capability session is missing"))
-		}
-		handle, err := session.Open(ctx, []string{httpegress.OperationGet}, []byte(`{}`))
+		handle, err := openConfiguredTarget(ctx, invocation, httpegress.KindHTTPSession, []string{httpegress.OperationGet})
 		if err != nil {
 			return nodeadapter.AdapterResult{}, mapHTTPFailure(err)
 		}
-		defer func() { runErr = errors.Join(runErr, session.Drop(context.WithoutCancel(ctx), handle)) }()
+		defer func() { runErr = errors.Join(runErr, invocation.Targets.Drop(context.WithoutCancel(ctx), handle)) }()
 		payload, err := artifact.Marshal(request)
 		if err != nil {
 			return nodeadapter.AdapterResult{}, httpFailure(httpegress.CodeContractViolation, err)
 		}
-		raw, err := session.Invoke(ctx, handle, httpegress.OperationGet, payload)
+		raw, err := invocation.Targets.Invoke(ctx, handle, httpegress.OperationGet, payload)
 		if err != nil {
 			return nodeadapter.AdapterResult{}, mapHTTPFailure(err)
 		}
-		response, err := httpegress.OpenGetResponse(raw, httpegress.MaxResponseBytes)
+		response, err := httpegress.OpenGetResponse(raw, 0)
 		if err != nil {
 			return nodeadapter.AdapterResult{}, mapHTTPFailure(err)
 		}

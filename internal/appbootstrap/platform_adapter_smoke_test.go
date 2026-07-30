@@ -214,7 +214,7 @@ func buildPlatformSmokeRuntime(t *testing.T, installations automationinstalled.I
 		AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t),
 		ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: installations,
 		ScriptRuntime: bootstrapScriptRuntime(t), LogEmitter: discardWorkflowLog{},
-		GrantTTL: 5 * time.Minute, OwnerCloseTimeout: 5 * time.Second, Now: time.Now,
+		OwnerCloseTimeout: 5 * time.Second, Now: time.Now,
 	})
 	if err != nil {
 		t.Fatal(err)

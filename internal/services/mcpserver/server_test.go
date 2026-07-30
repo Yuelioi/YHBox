@@ -202,8 +202,8 @@ func testApplication(t *testing.T) *appcore.Application {
 			BlobChunkBytes:          64 << 10, BlobQueueCapacity: 2, StreamCapacity: 4, StreamChunkBytes: 64 << 10,
 		},
 		AIInstallations: installations, HTTPInstallations: httpInstallations, ApplicationInstallations: applicationInstallations, AutomationInstallations: automationInstallations, ScriptRuntime: mcpScriptRuntime(t),
-		LogEmitter: noderuntime.LogEmitterFunc(func(context.Context, noderuntime.LogEntry) error { return nil }),
-		GrantTTL:   time.Minute, OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
+		LogEmitter:        noderuntime.LogEmitterFunc(func(context.Context, noderuntime.LogEntry) error { return nil }),
+		OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
 	})
 	if err != nil {
 		t.Fatal(err)

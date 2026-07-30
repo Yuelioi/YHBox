@@ -15,7 +15,6 @@ import * as ClipService from '@bindings/github.com/yottaapp/yotta/internal/servi
 import * as MacroService from '@bindings/github.com/yottaapp/yotta/internal/services/macro/service.js'
 import * as SnippetService from '@bindings/github.com/yottaapp/yotta/internal/services/snippet/service.js'
 import * as AIService from '@bindings/github.com/yottaapp/yotta/internal/services/aiservice.js'
-import * as ApplicationService from '@bindings/github.com/yottaapp/yotta/internal/services/applicationservice.js'
 import * as AutomationService from '@bindings/github.com/yottaapp/yotta/internal/services/automationservice.js'
 import { AIModelSettings as AIModelSettingsBinding } from '@bindings/github.com/yottaapp/yotta/internal/services/models.js'
 import {
@@ -423,7 +422,6 @@ export interface HTTPOriginProfile {
   slot: string
   label: string
   origin: string
-  allowPrivateNetwork: boolean
   responseByteLimit: number
   timeoutMilliseconds: number
 }
@@ -432,7 +430,6 @@ export interface InstalledApplicationProfile {
   slot: string
   label: string
   executable: string
-  executableDigest: string
   arguments: string[]
 }
 
@@ -508,8 +505,7 @@ export interface AutomationTargetHealth {
   message: string
 }
 
-export interface AutomationCapabilityDescriptor {
-  capabilityId: string
+export interface AutomationResourceDescriptor {
   resourceKind: string
   operations: string[]
 }
@@ -527,19 +523,12 @@ export interface AutomationTargetTypeDescriptor {
   profileKind: string
   profileVersion: string
   hostAvailable: boolean
-  capabilities: AutomationCapabilityDescriptor[]
+  resources: AutomationResourceDescriptor[]
   resourceKinds: string[]
   operations: string[]
   fields: AutomationProfileFieldDescriptor[]
   inputBackends: string[]
   captureBackends: string[]
-  applicationIdentityKinds: string[]
-}
-
-export interface ExecutableInspection {
-  executable: string
-  digest: string
-  size: number
 }
 
 function toAIModelSettingsBinding(profile: AIModelProfile): AIModelSettingsBinding {
@@ -598,11 +587,9 @@ export const backend = {
         Dialogs.OpenFile({
           Title: title,
           AllowsMultipleSelection: false,
-          Filters: [{ DisplayName: 'Windows Application', Pattern: '*.exe' }],
+          Filters: [{ DisplayName: 'All files', Pattern: '*.*' }],
         }),
       ) as Promise<string>,
-    inspectExecutable: (path: string) =>
-      invoke(ApplicationService.InspectExecutable, path) as Promise<ExecutableInspection>,
   },
   automation: {
     listTargetTypes: () => invoke(AutomationService.ListTargetTypes),

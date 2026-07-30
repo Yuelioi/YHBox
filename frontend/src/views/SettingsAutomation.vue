@@ -1,19 +1,5 @@
 <template>
   <div class="settings-page">
-    <div class="flex items-start gap-3 rounded-xl border border-error/30 bg-error/5 p-4">
-      <UIcon
-        name="i-tabler-device-desktop-cog"
-        class="mt-0.5 size-5 shrink-0 text-error"
-        aria-hidden="true"
-      />
-      <div class="min-w-0">
-        <p class="text-sm font-medium text-default">{{ t('settingsAutomation.security.title') }}</p>
-        <p class="mt-1 text-xs leading-relaxed text-dimmed">
-          {{ t('settingsAutomation.security.hint') }}
-        </p>
-      </div>
-    </div>
-
     <SettingsSection
       :title="t('settingsAutomation.targets.title')"
       :description="t('settingsAutomation.targets.hint')"
@@ -263,7 +249,6 @@
                 <UInputNumber
                   v-model="target.resolveTimeoutMilliseconds"
                   :min="100"
-                  :max="10000"
                   :step="100"
                   size="sm"
                   class="w-full sm:w-48"
@@ -376,14 +361,6 @@
                     </p>
                   </div>
                 </UFormField>
-                <UFormField :label="t('settingsAutomation.android.identity_label')">
-                  <UInput
-                    :model-value="androidIdentity(target)"
-                    size="sm"
-                    disabled
-                    class="font-mono"
-                  />
-                </UFormField>
                 <UFormField :label="t('settingsAutomation.android.state_label')">
                   <div class="flex items-center gap-2">
                     <UBadge
@@ -415,7 +392,6 @@
                 <UInputNumber
                   v-model="target.resolveTimeoutMilliseconds"
                   :min="100"
-                  :max="10000"
                   :step="100"
                   size="sm"
                   class="w-full sm:w-48"
@@ -511,7 +487,6 @@
                 <UInputNumber
                   v-model="target.resolveTimeoutMilliseconds"
                   :min="100"
-                  :max="10000"
                   :step="100"
                   size="sm"
                   class="w-full sm:w-48"
@@ -1005,10 +980,6 @@ function setProfileValue(
   target.profile[fieldID] = value
   if (save) void commit()
 }
-function androidIdentity(target: AutomationTargetDraft): string {
-  if (!target.adbSerial) return '—'
-  return `${target.adbProduct || '?'} / ${target.adbModel || '?'} / ${target.adbDevice || '?'}`
-}
 function uniqueSlot(base: string): string {
   const taken = new Set([
     ...draft.value.map((target) => target.slot),
@@ -1195,21 +1166,11 @@ function openInputCalibration(): void {
 function targetComplete(target: AutomationTargetDraft): boolean {
   if (isBrowser(target)) {
     return Boolean(
-      target.label.trim() &&
-      target.browserEndpoint?.trim() &&
-      target.browserTargetId?.trim() &&
-      target.browserWebSocketUrl?.trim(),
+      target.label.trim() && target.browserEndpoint?.trim() && target.browserTargetId?.trim(),
     )
   }
   if (isAndroid(target)) {
-    return Boolean(
-      target.label.trim() &&
-      target.adbSerial &&
-      target.adbProduct &&
-      target.adbModel &&
-      target.adbDevice &&
-      target.androidPackage?.trim(),
-    )
+    return Boolean(target.label.trim() && target.adbSerial && target.androidPackage?.trim())
   }
   if (!isDesktop(target)) {
     const type = targetTypeFor(target)
@@ -1446,15 +1407,14 @@ async function acceptCapture(raw: unknown): Promise<void> {
     return
   }
   try {
-    const inspection = await backend.applications.inspectExecutable(payload.executable)
-    if (!inspection) throw new Error(t('settingsAutomation.capture.inspect_failed'))
-    const matches = matchingInstalledApplications(applications.value, inspection)
+    const executable = payload.executable
+    const matches = matchingInstalledApplications(applications.value, { executable })
     if (matches.length === 0) {
-      const executableName = fileName(inspection.executable).replace(/\.exe$/i, '')
+      const executableName = fileName(executable).replace(/\.exe$/i, '')
       const accepted = await confirm({
         title: t('settingsAutomation.capture.install_title', { name: executableName }),
         description: t('settingsAutomation.capture.install_hint', {
-          path: inspection.executable,
+          path: executable,
         }),
         confirmText: t('settingsAutomation.capture.install_confirm'),
         cancelText: t('common.cancel'),
@@ -1472,8 +1432,7 @@ async function acceptCapture(raw: unknown): Promise<void> {
       const application = {
         slot: uniqueSlot(slug(executableName)),
         label: uniqueApplicationLabel(executableName),
-        executable: inspection.executable,
-        executableDigest: inspection.digest,
+        executable,
         arguments: [],
       }
       target.applicationSlot = application.slot

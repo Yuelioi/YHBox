@@ -1,6 +1,4 @@
-// Package httpegress provides explicitly installed, origin-bound HTTP access
-// for workflow nodes. A workflow can select an installation and supply a
-// relative path, but it cannot choose a scheme, host, proxy, or redirect.
+// Package httpegress runs HTTP requests against configured base URLs.
 package httpegress
 
 import (
@@ -9,21 +7,15 @@ import (
 	"errors"
 	"net"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/yottaapp/yotta/internal/artifact"
 )
 
-const (
-	MaxResponseBytes       = 256 << 10
-	MaxTimeoutMilliseconds = 60_000
-	profileDigestDomain    = "yotta/http-egress-profile/v1"
-)
+const profileDigestDomain = "yotta/http-egress-profile/v1"
 
 type ProfileDraft struct {
 	Origin              string `json:"origin"`
-	AllowPrivateNetwork bool   `json:"allowPrivateNetwork"`
 	ResponseByteLimit   int64  `json:"responseByteLimit"`
 	TimeoutMilliseconds int64  `json:"timeoutMilliseconds"`
 }
@@ -37,18 +29,14 @@ type profileState struct {
 type Profile struct{ state *profileState }
 
 func SealProfile(draft ProfileDraft) (Profile, error) {
-	origin, err := canonicalOrigin(draft.Origin)
+	baseURL, err := canonicalBaseURL(draft.Origin)
 	if err != nil {
 		return Profile{}, err
 	}
-	if strings.HasPrefix(origin, "http://") && !draft.AllowPrivateNetwork {
-		return Profile{}, errors.New("public HTTP egress origins require TLS")
+	if draft.ResponseByteLimit <= 0 || draft.TimeoutMilliseconds <= 0 {
+		return Profile{}, errors.New("HTTP target response limit and timeout must be positive")
 	}
-	if draft.ResponseByteLimit <= 0 || draft.ResponseByteLimit > MaxResponseBytes ||
-		draft.TimeoutMilliseconds < 100 || draft.TimeoutMilliseconds > MaxTimeoutMilliseconds {
-		return Profile{}, errors.New("HTTP egress profile budgets are invalid")
-	}
-	draft.Origin = origin
+	draft.Origin = baseURL
 	raw, err := artifact.Marshal(draft)
 	if err != nil {
 		return Profile{}, err
@@ -101,36 +89,33 @@ func (p Profile) Machine() ProfileDraft {
 	return p.state.document
 }
 
-func canonicalOrigin(value string) (string, error) {
-	if value == "" || strings.TrimSpace(value) != value || len(value) > 2048 {
+func canonicalBaseURL(value string) (string, error) {
+	if value == "" || strings.TrimSpace(value) != value {
 		return "", errors.New("HTTP egress origin is invalid")
 	}
 	parsed, err := url.Parse(value)
-	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.User != nil ||
-		parsed.Host == "" || parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Path != "" && parsed.Path != "/") {
-		return "", errors.New("HTTP egress origin must contain only scheme and authority")
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") ||
+		parsed.Host == "" || parsed.Fragment != "" {
+		return "", errors.New("configured HTTP base URL must be an absolute http or https URL")
 	}
 	hostname := strings.ToLower(parsed.Hostname())
 	if hostname == "" || strings.ContainsAny(hostname, "\x00\r\n") {
 		return "", errors.New("HTTP egress origin host is invalid")
 	}
+	parsed.Scheme = strings.ToLower(parsed.Scheme)
 	port := parsed.Port()
+	if parsed.Scheme == "http" && port == "80" || parsed.Scheme == "https" && port == "443" {
+		port = ""
+	}
 	if port != "" {
-		portNumber, err := strconv.Atoi(port)
-		if err != nil || portNumber < 1 || portNumber > 65535 {
-			return "", errors.New("HTTP egress origin port is invalid")
-		}
-	}
-	if port == "" || parsed.Scheme == "https" && port == "443" || parsed.Scheme == "http" && port == "80" {
-		parsed.Host = hostname
-		if strings.Contains(hostname, ":") {
-			parsed.Host = "[" + hostname + "]"
-		}
-	} else {
 		parsed.Host = net.JoinHostPort(hostname, port)
+	} else if strings.Contains(hostname, ":") {
+		parsed.Host = "[" + hostname + "]"
+	} else {
+		parsed.Host = hostname
 	}
-	parsed.Path = ""
-	parsed.RawPath = ""
-	parsed.ForceQuery = false
+	if parsed.Path == "/" && parsed.RawQuery == "" {
+		parsed.Path = ""
+	}
 	return parsed.String(), nil
 }

@@ -274,7 +274,7 @@ func queuedRecord(t *testing.T, queuedAt time.Time) run.Record {
 	plan := streamPlan(t, definition)
 	grant, err := capability.SealRunGrant(capability.GrantRequest{
 		ProgramHash: digest("program"), Plan: plan, RunID: testRunID, Principal: "user-1", PolicyGeneration: "policy-1",
-		IssuedAt: queuedAt, ExpiresAt: queuedAt.Add(time.Hour), Bindings: []capability.Binding{{
+		IssuedAt: queuedAt, Bindings: []capability.Binding{{
 			GraphID: "main", NodeID: "producer", RequirementID: "stream", ProviderID: stream.ProviderID,
 			ProviderArtifactDigest: streamProviderDigest(t), ProviderABI: stream.ProviderABI,
 			TargetID: "memory", TargetKind: "stream-session", ResourceKind: stream.Kind, PluginInstanceID: "builtin", SessionID: "session-1",

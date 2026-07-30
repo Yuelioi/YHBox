@@ -15,6 +15,7 @@ import (
 	"github.com/yottaapp/yotta/internal/resource"
 	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/runid"
+	"github.com/yottaapp/yotta/internal/targetruntime"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
@@ -35,6 +36,7 @@ type scheduler struct {
 	executor       *Executor
 	graph          *programGraph
 	owner          *run.Owner
+	targets        *targetruntime.Run
 	journal        *run.JournalWriter
 	state          *runState
 	nodes          map[string]programNode
@@ -53,9 +55,9 @@ type scheduler struct {
 	debugPrevious  *DebugQueueEntry
 }
 
-func newScheduler(executor *Executor, graph *programGraph, owner *run.Owner, journal *run.JournalWriter, state *runState) *scheduler {
+func newScheduler(executor *Executor, graph *programGraph, owner *run.Owner, targets *targetruntime.Run, journal *run.JournalWriter, state *runState) *scheduler {
 	s := &scheduler{
-		executor: executor, graph: graph, owner: owner, journal: journal, state: state,
+		executor: executor, graph: graph, owner: owner, targets: targets, journal: journal, state: state,
 		nodes: make(map[string]programNode, len(graph.Nodes)), routes: make(map[routeKey][]programSignalRoute),
 		dataConsumers: make(map[string]int), volatile: make(map[string]bool), attempts: make(map[string]int),
 		outputSessions: make(map[string]map[string]*run.Session), evaluating: make(map[string]bool),
@@ -283,7 +285,7 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *nodeadap
 	}
 	outcome, runErr := installed.Run(ctx, nodeadapter.Invocation{
 		InvocationID: invocationID, Attempt: attempt, GraphID: graphID, NodeID: sourceNodeID, Config: config, Inputs: inputs,
-		InputTypes: cloneResolvedTypes(node.InputTypes), OutputTypes: cloneResolvedTypes(node.OutputTypes), Sessions: nodeSessions, State: stateBindings,
+		InputTypes: cloneResolvedTypes(node.InputTypes), OutputTypes: cloneResolvedTypes(node.OutputTypes), Sessions: nodeSessions, Targets: s.targets, State: stateBindings,
 		Trigger: adapterTrigger, ObservedAt: observedAt, MonotonicNow: s.executor.monotonicNow, ReadEntropy: s.executor.readEntropy,
 		Wait: s.executor.wait, Spawn: s.owner.Go, RecordAction: actions.Record, EmitStatus: statuses.Emit,
 	})
@@ -319,7 +321,7 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *nodeadap
 		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, node.GraphPath, sourceNodeID, attempt, "runtime.signal_invalid", summary)
 		return errors.Join(err, journalErr)
 	}
-	sealed, leases, err := s.executor.validateOutputs(node, outcome.Outputs, nodeSessions)
+	sealed, leases, err := s.executor.validateOutputs(node, outcome.Outputs, nodeSessions, s.targets)
 	if err != nil {
 		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, node.GraphPath, sourceNodeID, attempt, "runtime.output_invalid", summary)
 		return errors.Join(err, journalErr)
@@ -340,10 +342,12 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *nodeadap
 		envelope := sealed[port.ID]
 		s.result.attempts[node.ID][port.ID] = attempt
 		if _, _, runtimeValue := runtimeHandle(envelope); runtimeValue {
-			if s.outputSessions[node.ID] == nil {
+			if port.ResourceLease.RequirementID != "" && s.outputSessions[node.ID] == nil {
 				s.outputSessions[node.ID] = make(map[string]*run.Session)
 			}
-			s.outputSessions[node.ID][port.ID] = nodeSessions[port.ResourceLease.RequirementID]
+			if port.ResourceLease.RequirementID != "" {
+				s.outputSessions[node.ID][port.ID] = nodeSessions[port.ResourceLease.RequirementID]
+			}
 		}
 	}
 	finished, err := run.NewNodeAttemptFact(run.NodeAttemptInput{
@@ -554,24 +558,26 @@ func (s *scheduler) resolveInputs(ctx context.Context, node programNode, nodeSes
 			if !exists || outputPort.ResourceLease == nil || !resourceLeaseAssignable(outputPort.ResourceLease, inputPort.ResourceLease) {
 				return nil, errors.New("runtime authority edge has an invalid resource lease")
 			}
-			lender := s.outputSessions[sourceNode][sourcePort]
-			borrower := nodeSessions[inputPort.ResourceLease.RequirementID]
-			if lender == nil || borrower == nil {
-				return nil, errors.New("runtime authority edge has no invocation session")
-			}
-			borrowedHandle, err := s.owner.Borrow(ctx, lender, handle, borrower, inputPort.ResourceLease.Operations)
-			if err != nil {
-				return nil, err
-			}
-			s.owned = append(s.owned, ownedLease{session: borrower, handle: borrowedHandle})
-			switch runtimeKind {
-			case datatype.RepresentationStreamRef:
-				envelope, err = datatype.SealStreamRef(s.executor.catalog, envelope.Type(), borrowedHandle)
-			case datatype.RepresentationHandleRef:
-				envelope, err = datatype.SealHandleRef(s.executor.catalog, envelope.Type(), borrowedHandle)
-			}
-			if err != nil {
-				return nil, err
+			if inputPort.ResourceLease.TargetID == "" {
+				lender := s.outputSessions[sourceNode][sourcePort]
+				borrower := nodeSessions[inputPort.ResourceLease.RequirementID]
+				if lender == nil || borrower == nil {
+					return nil, errors.New("runtime authority edge has no invocation session")
+				}
+				borrowedHandle, err := s.owner.Borrow(ctx, lender, handle, borrower, inputPort.ResourceLease.Operations)
+				if err != nil {
+					return nil, err
+				}
+				s.owned = append(s.owned, ownedLease{session: borrower, handle: borrowedHandle})
+				switch runtimeKind {
+				case datatype.RepresentationStreamRef:
+					envelope, err = datatype.SealStreamRef(s.executor.catalog, envelope.Type(), borrowedHandle)
+				case datatype.RepresentationHandleRef:
+					envelope, err = datatype.SealHandleRef(s.executor.catalog, envelope.Type(), borrowedHandle)
+				}
+				if err != nil {
+					return nil, err
+				}
 			}
 		} else if inputPort.ResourceLease != nil {
 			return nil, errors.New("resource-leased input received a durable value")
@@ -663,7 +669,13 @@ func (s *scheduler) enqueueSelected(nodeID string, selected map[string]struct{},
 func (s *scheduler) cleanup() error {
 	var cleanupErrors []error
 	for index := len(s.owned) - 1; index >= 0; index-- {
-		if err := s.owned[index].session.Drop(context.Background(), s.owned[index].handle); err != nil && !errors.Is(err, resource.ErrUnknownHandle) {
+		var err error
+		if s.owned[index].targets != nil {
+			err = s.owned[index].targets.Drop(context.Background(), s.owned[index].handle)
+		} else {
+			err = s.owned[index].session.Drop(context.Background(), s.owned[index].handle)
+		}
+		if err != nil && !errors.Is(err, resource.ErrUnknownHandle) {
 			cleanupErrors = append(cleanupErrors, err)
 		}
 	}

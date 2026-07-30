@@ -71,16 +71,12 @@ func applicationLifecycleWithOutput(builtins nodes.Builtins, operation string) n
 }
 
 func invokeApplicationOperation(ctx context.Context, invocation nodeadapter.Invocation, operation string) ([]byte, error) {
-	session := invocation.Sessions["application"]
-	if session == nil {
-		return nil, applicationFailure(appcontrol.CodeContractViolation, errors.New("application lifecycle capability session is missing"))
-	}
-	handle, err := session.Open(ctx, []string{operation}, []byte(`{}`))
+	handle, err := openConfiguredTarget(ctx, invocation, appcontrol.KindApplication, []string{operation})
 	if err != nil {
 		return nil, mapApplicationFailure(err)
 	}
-	raw, invokeErr := session.Invoke(ctx, handle, operation, []byte(`{}`))
-	dropErr := session.Drop(context.WithoutCancel(ctx), handle)
+	raw, invokeErr := invocation.Targets.Invoke(ctx, handle, operation, []byte(`{}`))
+	dropErr := invocation.Targets.Drop(context.WithoutCancel(ctx), handle)
 	if err := errors.Join(invokeErr, dropErr); err != nil {
 		return nil, mapApplicationFailure(err)
 	}

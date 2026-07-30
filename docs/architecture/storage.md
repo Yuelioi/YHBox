@@ -53,8 +53,9 @@ Settings 使用 immutable snapshot：更新流程是 clone、mutate/merge、vali
 checksum。同目录随机 staging 写入并 sync，发布前保留最近有效 `.bak`，原子替换后同步父目录。启动从
 primary、backup、staging 中选择 generation 最新且 checksum 有效的唯一值；全部损坏或同代冲突时返回
 recovery-required，不以默认设置覆盖事实。后续成功保存会先把损坏 primary 保留到 `config/recovery/`。
-从 3.1.0 settings 读取到 retired `workflowConsent` 时，Store 先校验旧 payload checksum，再严格解析移除
-该字段后的当前模型，并在返回调用方前用相同 Save 协议发布下一 generation；兼容读取不是长期的内存投影。
+从旧 settings 读取到 retired `workflowConsent`、`allowPrivateNetwork` 或 `executableDigest` 时，Store 先
+校验旧 payload checksum，再严格解析移除这些字段后的当前模型，并在返回调用方前用相同 Save 协议发布
+下一 generation；兼容读取不是长期的内存投影。
 
 Workflow Source、Program 与 Run 是分离且独立版本化的 durable artifact。各 Store 只接受当前所属 contract，以 canonical bytes、内容摘要和 revision/generation CAS 约束更新；写入采用同目录临时文件、sync、原子替换和父目录 sync。内存状态只在 durable publish 后更新；rename 已提交但目录 durability 未确认时返回显式 committed-warning，不生成第二个 identity 或伪装失败。
 

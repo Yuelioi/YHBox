@@ -2,7 +2,6 @@ package installed
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -207,7 +206,7 @@ func TestAndroidDriverBoundsADBEffectCommands(t *testing.T) {
 	}
 }
 
-func TestAndroidProfilePinsDeviceAndPackageWithoutDesktopIdentity(t *testing.T) {
+func TestAndroidProfileStoresConfiguredSerialAndPackage(t *testing.T) {
 	profile, err := SealProfile(androidProfileDraft())
 	if err != nil {
 		t.Fatal(err)
@@ -219,7 +218,7 @@ func TestAndroidProfilePinsDeviceAndPackageWithoutDesktopIdentity(t *testing.T) 
 	draft := androidProfileDraft()
 	draft.Payload = append(draft.Payload[:len(draft.Payload)-1], []byte(`,"windowTitle":"forged"}`)...)
 	if _, err := SealProfile(draft); err == nil {
-		t.Fatal("accepted Android profile with desktop identity")
+		t.Fatal("accepted a desktop-only field in Android configuration")
 	}
 }
 
@@ -229,7 +228,7 @@ func TestAndroidProviderRejectsUnsupportedLowLevelInputAtOpen(t *testing.T) {
 		t.Fatal(err)
 	}
 	registry := newAdapterRegistry()
-	if err := registry.register(productionAdapters()[1].targetType, sealAndroidProfile, verifyPortableProfile, func(Profile) (driver, error) { return &fakeDriver{}, nil }, androidProfileIntentCodec()); err != nil {
+	if err := registry.register(productionAdapters()[1].targetType, sealAndroidProfile, func(Profile) (driver, error) { return &fakeDriver{}, nil }, androidProfileIntentCodec()); err != nil {
 		t.Fatal(err)
 	}
 	manifest, err := sealInstallationManifestForProfile("android", "Android", profile, registry)
@@ -240,11 +239,10 @@ func TestAndroidProviderRejectsUnsupportedLowLevelInputAtOpen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	scope, _ := json.Marshal(CapabilityScope{Operation: OperationPressKeys})
 	if _, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
-		Kind: KindInput, Operations: []string{OperationPressKeys}, Config: []byte(`{}`), CapabilityScope: scope,
+		Kind: KindInput, Operations: []string{OperationPressKeys}, Config: []byte(`{}`),
 	}); err == nil {
-		t.Fatal("Android adapter opened unsupported key-state authority")
+		t.Fatal("Android adapter opened unsupported key-state operation")
 	}
 }
 

@@ -6,7 +6,7 @@ import (
 	"github.com/yottaapp/yotta/internal/nodecontract"
 )
 
-func TestAutomationTemplateContractsUseExplicitBlobAndExactTargetCapabilities(t *testing.T) {
+func TestAutomationTemplateContractsUseBlobCapabilityAndConfiguredTargets(t *testing.T) {
 	builtins, err := Build()
 	if err != nil {
 		t.Fatal(err)
@@ -15,10 +15,11 @@ func TestAutomationTemplateContractsUseExplicitBlobAndExactTargetCapabilities(t 
 		id           string
 		execOutputs  []string
 		requirements int
+		targets      int
 	}{
-		{WaitTemplateNodeID, []string{"found", "timeout"}, 2},
-		{ClickTemplateNodeID, []string{"completed", "timeout"}, 3},
-		{WaitTemplateGoneNodeID, []string{"gone", "timeout"}, 2},
+		{WaitTemplateNodeID, []string{"found", "timeout"}, 1, 1},
+		{ClickTemplateNodeID, []string{"completed", "timeout"}, 1, 2},
+		{WaitTemplateGoneNodeID, []string{"gone", "timeout"}, 1, 1},
 	}
 	for _, test := range tests {
 		definition, ok := builtins.Definition(test.id)
@@ -28,7 +29,8 @@ func TestAutomationTemplateContractsUseExplicitBlobAndExactTargetCapabilities(t 
 		machine := definition.Contract.Machine()
 		if machine.Execution.Class != nodecontract.ExecutionEffect || machine.Execution.Timeout != nodecontract.TimeoutRequired ||
 			machine.Instruction.Kind != nodecontract.InstructionInvoke || !signalIDsEqual(machine.Ports.ExecOutputs, test.execOutputs) ||
-			!signalIDsEqual(machine.Ports.ErrorOutputs, []string{"failed"}) || len(machine.CapabilityRequirements) != test.requirements {
+			!signalIDsEqual(machine.Ports.ErrorOutputs, []string{"failed"}) || len(machine.CapabilityRequirements) != test.requirements ||
+			len(machine.ConfiguredTargets) != test.targets {
 			t.Fatalf("template contract %q = %#v", test.id, machine)
 		}
 		inputs := make(map[string]bool, len(machine.Ports.DataInputs))
@@ -55,11 +57,9 @@ func TestAutomationTemplateContractsUseExplicitBlobAndExactTargetCapabilities(t 
 		if test.id != WaitTemplateGoneNodeID && defaults["settle-duration"] != "0" {
 			t.Fatalf("template contract %q settle default = %q, want 0", test.id, defaults["settle-duration"])
 		}
-		for _, requirement := range machine.CapabilityRequirements {
-			if requirement.ID == "capture-target" || requirement.ID == "input-target" {
-				if requirement.TargetSlot != "target" {
-					t.Fatalf("template target requirement %q uses slot %q", requirement.ID, requirement.TargetSlot)
-				}
+		for _, target := range machine.ConfiguredTargets {
+			if target.TargetSlot != "target" || target.SlotConfigKey != "slot" {
+				t.Fatalf("template configured target %q = %#v", target.ID, target)
 			}
 		}
 		statuses := make(map[string]nodecontract.StatusCategory, len(machine.StatusEvents))

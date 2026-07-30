@@ -102,6 +102,10 @@ export interface MachineContract {
    * @maxItems 4096
    */
   configValidators: ConfigValidatorSpec[]
+  /**
+   * @maxItems 4096
+   */
+  configuredTargets?: ConfiguredTargetSpec[]
   conversion?: ConversionSpec
   /**
    * @maxItems 4096
@@ -157,6 +161,16 @@ export interface ConfigValidatorSpec {
   id: string
   semanticDigest: string
   validatorId: string
+}
+export interface ConfiguredTargetSpec {
+  id: string
+  slotConfigKey: string
+  /**
+   * @minItems 1
+   * @maxItems 64
+   */
+  targetKinds: [string, ...string[]]
+  targetSlot: string
 }
 export interface ConversionSpec {
   autoInsert: boolean
@@ -274,7 +288,8 @@ export interface ResourceLeaseBinding {
    * @maxItems 64
    */
   operations: [string, ...string[]]
-  requirementId: string
+  requirementId?: string
+  targetId?: string
 }
 export interface DataOutputPort {
   id: string

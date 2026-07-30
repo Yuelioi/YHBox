@@ -10,7 +10,7 @@ import (
 	"github.com/yottaapp/yotta/internal/appcontrol"
 )
 
-func TestProductionManifestsOwnCapabilityAndEditorProjection(t *testing.T) {
+func TestProductionManifestsOwnRuntimeResourcesAndEditorProjection(t *testing.T) {
 	targetTypes := TargetTypes()
 	if len(targetTypes) != 3 {
 		t.Fatalf("target types = %#v", targetTypes)
@@ -20,7 +20,7 @@ func TestProductionManifestsOwnCapabilityAndEditorProjection(t *testing.T) {
 		if err != nil {
 			t.Fatalf("seal %s: %v", targetType.AdapterKind, err)
 		}
-		if !slices.Equal(sealed.ResourceKinds, resourceKinds(sealed.Capabilities)) || !slices.Equal(sealed.Operations, operations(sealed.Capabilities)) {
+		if !slices.Equal(sealed.ResourceKinds, resourceKinds(sealed.Resources)) || !slices.Equal(sealed.Operations, operations(sealed.Resources)) {
 			t.Fatalf("%s carries a second resource/operation fact source: %#v", targetType.AdapterKind, sealed)
 		}
 		if sealed.ProfileVersion != ProfileVersionV1 || len(sealed.Fields) == 0 {
@@ -30,25 +30,25 @@ func TestProductionManifestsOwnCapabilityAndEditorProjection(t *testing.T) {
 
 	desktop := targetTypes[0]
 	if !slices.Contains(desktop.Operations, OperationPressKeys) ||
-		!hasCapability(desktop.Capabilities, CapabilityKeyInputID, KindInput, OperationPressKeys) ||
+		!hasResource(desktop.Resources, KindInput, OperationPressKeys) ||
 		!slices.Equal(optionsForField(desktop.Fields, "windowTitleMatch"), []string{"exact", "regex"}) {
 		t.Fatalf("desktop manifest lost key input or selector schema: %#v", desktop)
 	}
 	android := targetTypes[1]
 	if slices.Contains(android.Operations, OperationPressKeys) ||
-		!hasCapability(android.Capabilities, CapabilityAppLifecycleID, KindWindow, OperationStopApp) ||
-		!hasCapability(android.Capabilities, CapabilityPlaybackID, KindPlayback, OperationPlayEvent) {
-		t.Fatalf("android manifest authority = %#v", android)
+		!hasResource(android.Resources, KindWindow, OperationStopApp) ||
+		!hasResource(android.Resources, KindPlayback, OperationPlayEvent) {
+		t.Fatalf("android manifest resources = %#v", android)
 	}
 	browser := targetTypes[2]
-	if !hasCapability(browser.Capabilities, CapabilityKeyInputID, KindInput, OperationPressKeys) || slices.Contains(browser.ResourceKinds, KindWindow) {
-		t.Fatalf("browser manifest authority = %#v", browser)
+	if !hasResource(browser.Resources, KindInput, OperationPressKeys) || slices.Contains(browser.ResourceKinds, KindWindow) {
+		t.Fatalf("browser manifest resources = %#v", browser)
 	}
 }
 
-func hasCapability(capabilities []CapabilityDescriptor, capabilityID, resourceKind, operation string) bool {
-	for _, descriptor := range capabilities {
-		if descriptor.CapabilityID == capabilityID && descriptor.ResourceKind == resourceKind && slices.Contains(descriptor.Operations, operation) {
+func hasResource(resources []ResourceDescriptor, resourceKind, operation string) bool {
+	for _, descriptor := range resources {
+		if descriptor.ResourceKind == resourceKind && slices.Contains(descriptor.Operations, operation) {
 			return true
 		}
 	}
@@ -66,7 +66,7 @@ func TestInstallationInterfaceUsesRegisteredAdapterDescriptor(t *testing.T) {
 	opened := &fakeDriver{}
 	targetType := cloneTargetType(productionAdapters()[0].targetType)
 	targetType.AdapterKind = AdapterKindTest
-	if err := registry.register(targetType, sealDesktopProfile, verifyDesktopProfile, func(Profile) (driver, error) { return opened, nil }, desktopProfileIntentCodec()); err != nil {
+	if err := registry.register(targetType, sealDesktopProfile, func(Profile) (driver, error) { return opened, nil }, desktopProfileIntentCodec()); err != nil {
 		t.Fatal(err)
 	}
 	sealed, err := sealProfileWithRegistry(draft, registry)
@@ -92,23 +92,23 @@ func TestInstallationInterfaceUsesRegisteredAdapterDescriptor(t *testing.T) {
 	}
 	manifest := entries[0].Manifest.Machine()
 	if manifest.Format != InstallationManifestFormat || manifest.Version != InstallationManifestVersion ||
-		manifest.ProfileVersion != ProfileVersionV1 || manifest.ProviderID != descriptor.ProviderID || len(manifest.Capabilities) != 7 {
+		manifest.ProfileVersion != ProfileVersionV1 || manifest.ProviderID != descriptor.ProviderID || len(manifest.Resources) != 5 {
 		t.Fatalf("manifest = %#v", manifest)
 	}
 	provider, ok := entries[0].Provider.(*provider)
-	if !ok || !slices.Equal(provider.operations, operations(manifest.Capabilities)) {
-		t.Fatalf("provider operations = %#v, manifest = %#v", provider, manifest.Capabilities)
+	if !ok || !slices.Equal(provider.operations, operations(manifest.Resources)) {
+		t.Fatalf("provider operations = %#v, manifest = %#v", provider, manifest.Resources)
 	}
 	if err := CheckInstallationHealth(context.Background(), entries[0]); err != nil {
 		t.Fatalf("manifest health = %v", err)
 	}
-	manifest.Capabilities[0].Operations[0] = "forged"
-	if entries[0].Manifest.Machine().Capabilities[0].Operations[0] == "forged" {
-		t.Fatal("installation manifest exposed mutable authority")
+	manifest.Resources[0].Operations[0] = "forged"
+	if entries[0].Manifest.Machine().Resources[0].Operations[0] == "forged" {
+		t.Fatal("installation manifest exposed mutable resources")
 	}
 }
 
-func TestInstalledProviderDoesNotReverifyProfileForCaptureAndClick(t *testing.T) {
+func TestConfiguredTargetProviderRunsCaptureAndClick(t *testing.T) {
 	profile, _ := testProfile(t)
 	draft := profile.Machine()
 	draft.AdapterKind = AdapterKindTest
@@ -116,11 +116,7 @@ func TestInstalledProviderDoesNotReverifyProfileForCaptureAndClick(t *testing.T)
 	opened := &fakeDriver{capture: []byte("png")}
 	targetType := cloneTargetType(productionAdapters()[0].targetType)
 	targetType.AdapterKind = AdapterKindTest
-	verifyCalls := 0
-	if err := registry.register(targetType, sealDesktopProfile, func(Profile) error {
-		verifyCalls++
-		return nil
-	}, func(Profile) (driver, error) {
+	if err := registry.register(targetType, sealDesktopProfile, func(Profile) (driver, error) {
 		return opened, nil
 	}, desktopProfileIntentCodec()); err != nil {
 		t.Fatal(err)
@@ -136,9 +132,6 @@ func TestInstalledProviderDoesNotReverifyProfileForCaptureAndClick(t *testing.T)
 		t.Fatal(err)
 	}
 	defer installations.Close()
-	if verifyCalls != 1 {
-		t.Fatalf("profile verification calls after installation = %d, want 1", verifyCalls)
-	}
 	entries := installations.Entries()
 	installedProvider, ok := entries[0].Provider.(*provider)
 	if !ok {
@@ -152,9 +145,6 @@ func TestInstalledProviderDoesNotReverifyProfileForCaptureAndClick(t *testing.T)
 	if _, err := installedProvider.Invoke(context.Background(), click, OperationClick, []byte(`{"point":{"x":0.5,"y":0.5,"unit":"ratio"},"button":"left","durationMilliseconds":0}`)); err != nil {
 		t.Fatal(err)
 	}
-	if verifyCalls != 1 {
-		t.Fatalf("profile verification calls after capture and click = %d, want 1", verifyCalls)
-	}
 }
 
 func TestRegistryRejectsAdapterTargetKindMismatch(t *testing.T) {
@@ -162,7 +152,7 @@ func TestRegistryRejectsAdapterTargetKindMismatch(t *testing.T) {
 	registry := newAdapterRegistry()
 	targetType := cloneTargetType(productionAdapters()[0].targetType)
 	targetType.TargetKind = "different-kind"
-	if err := registry.register(targetType, sealDesktopProfile, verifyDesktopProfile, func(Profile) (driver, error) {
+	if err := registry.register(targetType, sealDesktopProfile, func(Profile) (driver, error) {
 		return &fakeDriver{}, nil
 	}, desktopProfileIntentCodec()); err != nil {
 		t.Fatal(err)
@@ -201,12 +191,11 @@ func TestMacOSNoRuntimeAdapterRegistersAndSealsWithoutCoreChanges(t *testing.T) 
 		return sealProfileDocument(draft, payload, appcontrol.Profile{}, payload.ResolveMS)
 	}
 	targetType := targetTypeDescriptor(targetKind, adapterKind, "macos-application", false,
-		[]CapabilityDescriptor{capability(CapabilityCaptureID, KindCapture, OperationCapture, OperationReadCapture)},
+		[]ResourceDescriptor{targetResource(KindCapture, OperationCapture, OperationReadCapture)},
 		[]ProfileFieldDescriptor{field("bundleId", "string", true), field("codeRequirement", "string", true), field("resolveTimeoutMilliseconds", "duration-ms", true)},
-		[]string{"apple-code-requirement"},
 	)
 	registry := newAdapterRegistry()
-	if err := registry.register(targetType, seal, verifyPortableProfile, func(Profile) (driver, error) {
+	if err := registry.register(targetType, seal, func(Profile) (driver, error) {
 		return nil, failure(CodeUnsupportedHost, errors.New("macOS automation runtime is preview-only"))
 	}, codec); err != nil {
 		t.Fatal(err)
@@ -226,7 +215,7 @@ func TestMacOSNoRuntimeAdapterRegistersAndSealsWithoutCoreChanges(t *testing.T) 
 	}
 	document := manifest.Machine()
 	if document.TargetKind != targetKind || document.AdapterKind != adapterKind || document.ProfileVersion != ProfileVersionV1 ||
-		len(document.Capabilities) != 1 || document.Capabilities[0].Operations[0] != OperationCapture {
+		len(document.Resources) != 1 || document.Resources[0].Operations[0] != OperationCapture {
 		t.Fatalf("macOS preview manifest = %#v", document)
 	}
 	if registry.byKind[adapterKind].targetType.HostAvailable {

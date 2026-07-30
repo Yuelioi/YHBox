@@ -211,6 +211,13 @@ type CapabilityProjection struct {
 	Consent                 capability.ConsentClass   `json:"consent" jsonschema:"required,enum=none,enum=once,enum=every-run"`
 }
 
+type ConfiguredTargetProjection struct {
+	ID            string   `json:"id"`
+	TargetSlot    string   `json:"targetSlot"`
+	SlotConfigKey string   `json:"slotConfigKey"`
+	TargetKinds   []string `json:"targetKinds"`
+}
+
 type StateAccessProjection struct {
 	ID            string                       `json:"id"`
 	SlotConfigKey string                       `json:"slotConfigKey"`
@@ -219,27 +226,28 @@ type StateAccessProjection struct {
 }
 
 type NodeProjection struct {
-	NodeRef          nodecontract.NodeRef                  `json:"nodeRef"`
-	TitleKey         string                                `json:"titleKey,omitempty"`
-	DescriptionKey   string                                `json:"descriptionKey,omitempty"`
-	Category         string                                `json:"category,omitempty"`
-	Tags             []string                              `json:"tags"`
-	Icon             string                                `json:"icon,omitempty"`
-	EditorAdapter    string                                `json:"editorAdapter,omitempty"`
-	Execution        nodecontract.ExecutionSpec            `json:"execution"`
-	Instruction      nodecontract.InstructionSpec          `json:"instruction"`
-	Availability     Availability                          `json:"availability" jsonschema:"required,enum=portable,enum=host-required,enum=target-required,enum=host-and-target-required"`
-	HostFeatures     []nodecontract.HostFeatureRequirement `json:"hostFeatureRequirements" jsonschema:"required,maxItems=256"`
-	DataInputs       []PortProjection                      `json:"dataInputs"`
-	DataOutputs      []PortProjection                      `json:"dataOutputs"`
-	Signals          []SignalProjection                    `json:"signals"`
-	ConfigFields     []FieldProjection                     `json:"configFields"`
-	Capabilities     []CapabilityProjection                `json:"capabilities"`
-	StateAccesses    []StateAccessProjection               `json:"stateAccesses"`
-	Conversion       *nodecontract.ConversionSpec          `json:"conversion,omitempty"`
-	Errors           []nodecontract.ErrorSpec              `json:"errors"`
-	StatusEvents     []nodecontract.StatusEventSpec        `json:"statusEvents"`
-	InstanceResolver *nodecontract.InstanceResolver        `json:"instanceResolver,omitempty"`
+	NodeRef           nodecontract.NodeRef                  `json:"nodeRef"`
+	TitleKey          string                                `json:"titleKey,omitempty"`
+	DescriptionKey    string                                `json:"descriptionKey,omitempty"`
+	Category          string                                `json:"category,omitempty"`
+	Tags              []string                              `json:"tags"`
+	Icon              string                                `json:"icon,omitempty"`
+	EditorAdapter     string                                `json:"editorAdapter,omitempty"`
+	Execution         nodecontract.ExecutionSpec            `json:"execution"`
+	Instruction       nodecontract.InstructionSpec          `json:"instruction"`
+	Availability      Availability                          `json:"availability" jsonschema:"required,enum=portable,enum=host-required,enum=target-required,enum=host-and-target-required"`
+	HostFeatures      []nodecontract.HostFeatureRequirement `json:"hostFeatureRequirements" jsonschema:"required,maxItems=256"`
+	DataInputs        []PortProjection                      `json:"dataInputs"`
+	DataOutputs       []PortProjection                      `json:"dataOutputs"`
+	Signals           []SignalProjection                    `json:"signals"`
+	ConfigFields      []FieldProjection                     `json:"configFields"`
+	Capabilities      []CapabilityProjection                `json:"capabilities"`
+	ConfiguredTargets []ConfiguredTargetProjection          `json:"configuredTargets,omitempty"`
+	StateAccesses     []StateAccessProjection               `json:"stateAccesses"`
+	Conversion        *nodecontract.ConversionSpec          `json:"conversion,omitempty"`
+	Errors            []nodecontract.ErrorSpec              `json:"errors"`
+	StatusEvents      []nodecontract.StatusEventSpec        `json:"statusEvents"`
+	InstanceResolver  *nodecontract.InstanceResolver        `json:"instanceResolver,omitempty"`
 }
 
 type body struct {
@@ -528,7 +536,7 @@ func projectNode(contract nodecontract.Contract, types map[string]TypeProjection
 		Category: authoring.Category, Tags: append([]string(nil), authoring.Tags...), Icon: authoring.Icon, EditorAdapter: authoring.EditorAdapter,
 		Execution: machine.Execution, Instruction: machine.Instruction, Availability: AvailabilityPortable,
 		HostFeatures: append([]nodecontract.HostFeatureRequirement{}, machine.HostFeatureRequirements...), DataInputs: []PortProjection{}, DataOutputs: []PortProjection{},
-		Signals: []SignalProjection{}, ConfigFields: fields, Capabilities: []CapabilityProjection{}, StateAccesses: []StateAccessProjection{}, Errors: append([]nodecontract.ErrorSpec{}, machine.Errors...),
+		Signals: []SignalProjection{}, ConfigFields: fields, Capabilities: []CapabilityProjection{}, ConfiguredTargets: []ConfiguredTargetProjection{}, StateAccesses: []StateAccessProjection{}, Errors: append([]nodecontract.ErrorSpec{}, machine.Errors...),
 		StatusEvents: append([]nodecontract.StatusEventSpec{}, machine.StatusEvents...), Conversion: machine.Conversion,
 		InstanceResolver: machine.InstanceResolver,
 	}
@@ -659,6 +667,12 @@ func projectNode(contract nodecontract.Contract, types map[string]TypeProjection
 			Risk: capabilityMachine.Risk, Consent: capabilityMachine.Consent,
 		})
 	}
+	for _, target := range machine.ConfiguredTargets {
+		projection.ConfiguredTargets = append(projection.ConfiguredTargets, ConfiguredTargetProjection{
+			ID: target.ID, TargetSlot: target.TargetSlot, SlotConfigKey: target.SlotConfigKey,
+			TargetKinds: append([]string(nil), target.TargetKinds...),
+		})
+	}
 	for _, access := range machine.StateAccesses {
 		use, err := projectTypeUse(access.Type, types)
 		if err != nil {
@@ -668,11 +682,12 @@ func projectNode(contract nodecontract.Contract, types map[string]TypeProjection
 			ID: access.ID, SlotConfigKey: access.SlotConfigKey, Type: use, Mode: access.Mode,
 		})
 	}
-	if len(projection.HostFeatures) != 0 && len(projection.Capabilities) != 0 {
+	hasTargets := len(projection.Capabilities) != 0 || len(projection.ConfiguredTargets) != 0
+	if len(projection.HostFeatures) != 0 && hasTargets {
 		projection.Availability = AvailabilityHostAndTargetRequired
 	} else if len(projection.HostFeatures) != 0 {
 		projection.Availability = AvailabilityHostRequired
-	} else if len(projection.Capabilities) != 0 {
+	} else if hasTargets {
 		projection.Availability = AvailabilityTargetRequired
 	}
 	return projection, nil

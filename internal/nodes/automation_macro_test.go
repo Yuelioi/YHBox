@@ -1,11 +1,6 @@
 package nodes
 
-import (
-	"fmt"
-	"testing"
-
-	"github.com/yottaapp/yotta/internal/automation/installed"
-)
+import "testing"
 
 func TestPlayMacroUsesDistinctTypeAndSafePlaybackAuthority(t *testing.T) {
 	builtins, err := Build()
@@ -26,11 +21,8 @@ func TestPlayMacroUsesDistinctTypeAndSafePlaybackAuthority(t *testing.T) {
 	if len(machine.Execution.Effects) != 1 || machine.Execution.Effects[0] != PlayMacroEffectID {
 		t.Fatalf("macro execution = %+v", machine.Execution)
 	}
-	requirements := map[string]struct{ Operations []string }{}
-	for _, requirement := range machine.CapabilityRequirements {
-		requirements[requirement.ID] = struct{ Operations []string }{requirement.Operations}
-	}
-	if got := fmt.Sprint(requirements["target"].Operations); got != fmt.Sprint(installed.PlaybackOperations()) {
-		t.Fatalf("playback operations = %s", got)
+	if len(machine.CapabilityRequirements) != 1 || machine.CapabilityRequirements[0].ID != "blob-read" ||
+		len(machine.ConfiguredTargets) != 1 || machine.ConfiguredTargets[0].ID != "target" {
+		t.Fatalf("macro dependencies = %#v / %#v", machine.CapabilityRequirements, machine.ConfiguredTargets)
 	}
 }

@@ -26,21 +26,23 @@ func captureWindow(builtins nodes.Builtins) nodeadapter.Adapter {
 			}, installed.CodeCaptureFailed, runErr))
 		}()
 
-		targetSession, blobSession := invocation.Sessions["target"], invocation.Sessions["blob-write"]
-		if targetSession == nil || blobSession == nil {
-			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("capture window capability session is missing"))
+		blobSession := invocation.Sessions["blob-write"]
+		if blobSession == nil {
+			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("capture blob session is missing"))
 		}
-		captureHandle, err := targetSession.Open(ctx, installed.CaptureOperations(), []byte(`{}`))
+		captureHandle, err := openConfiguredTarget(ctx, invocation, installed.KindCapture, installed.CaptureOperations())
 		if err != nil {
 			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}
-		defer func() { runErr = errors.Join(runErr, targetSession.Drop(context.WithoutCancel(ctx), captureHandle)) }()
+		defer func() {
+			runErr = errors.Join(runErr, invocation.Targets.Drop(context.WithoutCancel(ctx), captureHandle))
+		}()
 
 		capturePayload, err := artifact.Marshal(struct{}{})
 		if err != nil {
 			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, err)
 		}
-		rawResponse, err := targetSession.Invoke(ctx, captureHandle, installed.OperationCapture, capturePayload)
+		rawResponse, err := invocation.Targets.Invoke(ctx, captureHandle, installed.OperationCapture, capturePayload)
 		if err != nil {
 			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}
@@ -71,7 +73,7 @@ func captureWindow(builtins nodes.Builtins) nodeadapter.Adapter {
 			if marshalErr != nil {
 				return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, marshalErr)
 			}
-			chunk, invokeErr := targetSession.Invoke(ctx, captureHandle, installed.OperationReadCapture, rangePayload)
+			chunk, invokeErr := invocation.Targets.Invoke(ctx, captureHandle, installed.OperationReadCapture, rangePayload)
 			if invokeErr != nil {
 				return nodeadapter.AdapterResult{}, mapAutomationFailure(invokeErr)
 			}

@@ -87,11 +87,11 @@ func TestExecutorRunsAIGenerateThroughInstallationSlotAndJournalsProviderFacts(t
 	}
 	policy := admission.PolicyFunc(func(context.Context, admission.PolicyRequest) (admission.PolicyDecision, error) {
 		return admission.PolicyDecision{
-			Outcome: admission.PolicyApproved, Generation: "policy-ai", ExpiresAt: now.Add(time.Minute),
+			Outcome: admission.PolicyApproved, Generation: "policy-ai",
 			ConsentLineage: []artifact.Digest{aiTestDigest(t, "consent")},
 		}, nil
 	})
-	admitter, err := admission.New(builtins.Catalog, profile, store, policy, admission.Options{Now: func() time.Time { return now }, MaxGrantTTL: 5 * time.Minute})
+	admitter, err := admission.New(builtins.Catalog, profile, store, policy, admission.Options{Now: func() time.Time { return now }})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +122,7 @@ func TestExecutorRunsAIGenerateThroughInstallationSlotAndJournalsProviderFacts(t
 	owner, err := run.NewOwner(context.Background(), admitted.Grant, map[string]run.InstalledProvider{
 		"ai-test":       {ArtifactDigest: providerDigest, ABI: ai.ProviderABI, Provider: modelProvider},
 		blob.ProviderID: {ArtifactDigest: blobProviderDigest(t), ABI: blob.ProviderABI, Provider: blobProvider},
-	}, resource.Options{Now: func() time.Time { return now }})
+	}, resource.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -19,14 +19,11 @@ func TestProfileCanonicalizesOriginAndRoundTrips(t *testing.T) {
 	}
 }
 
-func TestProfileRejectsNonOriginAndInvalidBudgets(t *testing.T) {
+func TestProfileRejectsInvalidURLsAndNonPositiveSettings(t *testing.T) {
 	cases := []ProfileDraft{
-		{Origin: "https://user@example.com", ResponseByteLimit: 1, TimeoutMilliseconds: 100},
-		{Origin: "https://example.com/api", ResponseByteLimit: 1, TimeoutMilliseconds: 100},
 		{Origin: "ftp://example.com", ResponseByteLimit: 1, TimeoutMilliseconds: 100},
-		{Origin: "https://example.com", ResponseByteLimit: MaxResponseBytes + 1, TimeoutMilliseconds: 100},
-		{Origin: "https://example.com", ResponseByteLimit: 1, TimeoutMilliseconds: 99},
-		{Origin: "http://example.com", ResponseByteLimit: 1, TimeoutMilliseconds: 100},
+		{Origin: "https://example.com", ResponseByteLimit: 0, TimeoutMilliseconds: 100},
+		{Origin: "https://example.com", ResponseByteLimit: 1, TimeoutMilliseconds: 0},
 	}
 	for _, draft := range cases {
 		if _, err := SealProfile(draft); err == nil {
@@ -35,8 +32,17 @@ func TestProfileRejectsNonOriginAndInvalidBudgets(t *testing.T) {
 	}
 }
 
+func TestProfileAcceptsConfiguredHTTPBaseURLParts(t *testing.T) {
+	profile, err := SealProfile(ProfileDraft{
+		Origin: "http://user@example.com/api?version=1", ResponseByteLimit: 1, TimeoutMilliseconds: 100,
+	})
+	if err != nil || profile.Machine().Origin != "http://user@example.com/api?version=1" {
+		t.Fatalf("profile = %#v, error = %v", profile.Machine(), err)
+	}
+}
+
 func TestProfileCanonicalizesIPv6Authority(t *testing.T) {
-	profile, err := SealProfile(ProfileDraft{Origin: "http://[::1]:80", AllowPrivateNetwork: true, ResponseByteLimit: 1, TimeoutMilliseconds: 100})
+	profile, err := SealProfile(ProfileDraft{Origin: "http://[::1]:80", ResponseByteLimit: 1, TimeoutMilliseconds: 100})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +58,7 @@ func TestConfiguredInstallationsImmediatelyBindSlots(t *testing.T) {
 		t.Fatal(err)
 	}
 	entries := installed.Entries()
-	if len(entries) != 2 || entries[0].TargetID != "http-origin/primary" || entries[0].ProviderID != entries[1].ProviderID || entries[0].Provider != entries[1].Provider {
+	if len(entries) != 2 || entries[0].TargetID != "http-target/primary" || entries[0].ProviderID != entries[1].ProviderID || entries[0].Provider != entries[1].Provider {
 		t.Fatalf("unexpected installations: %+v", entries)
 	}
 }

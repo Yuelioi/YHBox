@@ -230,7 +230,7 @@ func testRuntime(t *testing.T, now time.Time) *appbootstrap.Runtime {
 		BlobStore:          blobStore,
 		Limits:             appbootstrap.Limits{MaxSources: 8, MaxPrograms: 8, MaxProgramCacheBytes: 8 << 20, MaxRuns: 8, MaxResourcePayloadBytes: 2 << 20, BlobChunkBytes: 64 << 10, BlobQueueCapacity: 2, StreamCapacity: 4, StreamChunkBytes: 64 << 10},
 		AIInstallations:    aiInstallations, HTTPInstallations: httpInstallations, ApplicationInstallations: applicationInstallations, AutomationInstallations: automationInstallations,
-		ScriptRuntime: script, LogEmitter: discardLog{}, GrantTTL: 5 * time.Minute, OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
+		ScriptRuntime: script, LogEmitter: discardLog{}, OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
 	})
 	if err != nil {
 		t.Fatal(err)

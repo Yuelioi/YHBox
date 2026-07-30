@@ -8,9 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yottaapp/yotta/internal/admission"
-	"github.com/yottaapp/yotta/internal/artifact"
-	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/nodes"
 	run "github.com/yottaapp/yotta/internal/run"
@@ -29,33 +26,18 @@ func TestWaitStableRunsThroughExactTargetCaptureAndRecordedJournal(t *testing.T)
 		}
 	}
 	provider := &templateAutomationProvider{frame: encodeVisionPNG(t, frame)}
-	providerDigest, err := artifact.Sum("yotta/test/frame-observation-provider/v1", []byte("stable-frame"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	const providerID, targetID, slot = "frame-observation-test", "automation-target/observation", "observation-target"
-	profileDraft := executionProfile(t, builtins)
-	captureCapability, _ := builtins.Catalog.LookupCapability(nodes.AutomationCaptureCapabilityID)
-	profileDraft.Providers = append(profileDraft.Providers, admission.ProviderDescriptor{
-		ID: providerID, ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, PluginInstanceID: "builtin",
-		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"},
-		Capabilities: []admission.ProviderCapability{{Capability: captureCapability.Ref(), ResourceKind: automationinstalled.KindCapture}},
-	})
-	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKindDesktopWindow, ProviderID: providerID})
-	profileDraft.TargetSlots = append(profileDraft.TargetSlots, admission.TargetSlotBinding{Slot: slot, TargetID: targetID})
+	const targetID, slot = "automation-target/observation", "observation-target"
 	program := compilePrimitiveProgram(t, builtins, waitStableSource(builtins, slot))
 	now := time.Date(2026, 7, 18, 14, 0, 0, 0, time.UTC)
-	consent, _ := artifact.Sum("yotta/test/frame-observation-consent/v1", []byte(slot))
-	_, owner, journal := admittedExecutionWithConsent(t, builtins, program, map[string]run.InstalledProvider{
-		providerID: {ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, Provider: provider},
-	}, now, profileDraft, []artifact.Digest{consent})
+	_, owner, journal := admittedExecution(t, builtins, program, map[string]run.InstalledProvider{}, now)
 	t.Cleanup(func() { _ = owner.Close(context.Background()) })
+	targets := configuredTargetRun(t, slot, targetID, provider)
 	adapters, err := noderuntime.Installed(builtins, testDependencies())
 	if err != nil {
 		t.Fatal(err)
 	}
 	result, err := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).
-		Run(context.Background(), program, owner, journal)
+		RunWithTargets(context.Background(), program, owner, targets, journal)
 	if err != nil {
 		t.Fatal(err)
 	}

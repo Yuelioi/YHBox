@@ -73,7 +73,7 @@ func (i Installations) Entries() []Installation {
 	}
 	return append([]Installation(nil), i.state.entries...)
 }
-func TargetID(slot string) string { return "installed-application/" + slot }
+func TargetID(slot string) string { return "configured-application/" + slot }
 func ValidateInstallationSlot(slot string) error {
 	if !slotPattern.MatchString(slot) {
 		return errors.New("invalid application installation slot")

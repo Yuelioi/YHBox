@@ -215,7 +215,7 @@ func buildReleaseRehearsalRuntime(t *testing.T, aiInstallations ai.Installations
 		AIInstallations: aiInstallations, HTTPInstallations: emptyHTTPInstallations(t),
 		ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t),
 		ScriptRuntime: bootstrapScriptRuntime(t), LogEmitter: discardWorkflowLog{},
-		GrantTTL: 5 * time.Minute, OwnerCloseTimeout: 5 * time.Second, Now: time.Now,
+		OwnerCloseTimeout: 5 * time.Second, Now: time.Now,
 	})
 	if err != nil {
 		t.Fatal(err)

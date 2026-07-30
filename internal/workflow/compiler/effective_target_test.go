@@ -3,7 +3,6 @@ package compiler
 import (
 	"testing"
 
-	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
@@ -24,9 +23,8 @@ func TestEffectiveNodeConfigResolvesWorkflowDefaultAndNodeOverride(t *testing.T)
 	if err != nil || inherited["slot"] != "workflow-target" {
 		t.Fatalf("inherited=%+v err=%v", inherited, err)
 	}
-	requirements, err := nodecontract.ResolveCapabilityRequirements(machine, inherited)
-	if err != nil || len(requirements) == 0 || requirements[0].TargetSlot != "workflow-target" {
-		t.Fatalf("requirements=%+v err=%v", requirements, err)
+	if len(machine.ConfiguredTargets) == 0 || inherited[machine.ConfiguredTargets[0].SlotConfigKey] != "workflow-target" {
+		t.Fatalf("configured targets=%+v config=%+v", machine.ConfiguredTargets, inherited)
 	}
 
 	overridden, err := effectiveNodeConfig(defaults, schema.Node{Config: map[string]any{"slot": "node-target"}}, machine)
@@ -38,7 +36,7 @@ func TestEffectiveNodeConfigResolvesWorkflowDefaultAndNodeOverride(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := nodecontract.ResolveCapabilityRequirements(machine, missing); err == nil {
-		t.Fatalf("missing config resolved: %+v", missing)
+	if _, ok := missing["slot"]; ok {
+		t.Fatalf("missing config unexpectedly contains target slot: %+v", missing)
 	}
 }
