@@ -69,15 +69,9 @@
         <span class="min-w-0 flex-1">{{ captureFeedback.message }}</span>
       </div>
 
-      <div v-if="draft.length" class="space-y-3">
+      <div v-if="draft.length" class="settings-collection">
         <article v-for="(target, index) in draft" :key="target.slot" class="ai-profile">
-          <button
-            type="button"
-            class="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
-            :aria-expanded="expandedSlot === target.slot"
-            :aria-controls="`automation-target-${target.slot}`"
-            @click="toggleExpanded(target.slot)"
-          >
+          <div class="settings-entity-summary" @dblclick.prevent="toggleExpanded(target.slot)">
             <span
               class="flex size-9 shrink-0 items-center justify-center rounded-lg border border-default bg-elevated"
             >
@@ -100,13 +94,19 @@
                 {{ targetSummary(target) }} · <code>{{ target.slot }}</code>
               </span>
             </span>
-            <UIcon
-              name="i-tabler-chevron-down"
-              class="size-4 shrink-0 text-dimmed transition-transform"
-              :class="expandedSlot === target.slot ? 'rotate-180' : ''"
-              aria-hidden="true"
-            />
-          </button>
+            <div class="shrink-0" @dblclick.stop>
+              <UButton
+                size="xs"
+                color="neutral"
+                :variant="expandedSlot === target.slot ? 'soft' : 'ghost'"
+                :icon="expandedSlot === target.slot ? 'i-tabler-chevron-up' : 'i-tabler-edit'"
+                :label="t(expandedSlot === target.slot ? 'common.close' : 'common.edit')"
+                :aria-expanded="expandedSlot === target.slot"
+                :aria-controls="`automation-target-${target.slot}`"
+                @click="toggleExpanded(target.slot)"
+              />
+            </div>
+          </div>
 
           <div
             v-if="expandedSlot === target.slot"
@@ -168,9 +168,7 @@
             </div>
 
             <template v-if="isDesktop(target)">
-              <div
-                class="flex flex-wrap items-center gap-3 rounded-lg border border-primary/25 bg-primary/5 p-3"
-              >
+              <div class="settings-inset flex flex-wrap items-center gap-3">
                 <UIcon name="i-tabler-focus-2" class="size-4 shrink-0 text-primary" />
                 <p class="min-w-0 flex-1 text-xs leading-5 text-dimmed">
                   {{ t('settingsAutomation.capture.hint') }}
@@ -255,7 +253,7 @@
                   @change="commit"
                 />
               </UFormField>
-              <div class="flex flex-wrap items-center gap-2 rounded-lg border border-default p-3">
+              <div class="settings-inset flex flex-wrap items-center gap-2">
                 <UButton
                   size="sm"
                   variant="soft"
@@ -281,7 +279,7 @@
             </template>
 
             <template v-else-if="isAndroid(target)">
-              <div class="rounded-lg border border-primary/25 bg-primary/5 p-3">
+              <div class="settings-inset">
                 <div class="flex flex-wrap items-center gap-3">
                   <UIcon name="i-tabler-brand-android" class="size-4 shrink-0 text-primary" />
                   <p class="min-w-0 flex-1 text-xs leading-5 text-dimmed">
@@ -401,7 +399,7 @@
             </template>
 
             <template v-else-if="isBrowser(target)">
-              <div class="rounded-lg border border-primary/25 bg-primary/5 p-3">
+              <div class="settings-inset">
                 <div class="flex flex-wrap items-center gap-3">
                   <UIcon name="i-tabler-brand-chrome" class="size-4 shrink-0 text-primary" />
                   <p class="min-w-0 flex-1 text-xs leading-5 text-dimmed">

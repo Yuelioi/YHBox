@@ -28,17 +28,24 @@ textarea {
   min-height: 2.5em;
 }
 
-/* ── V4 暗色基调 (唯一权威锚点): 把整套中性色阶比 NuxtUI 默认深一档。
-   NuxtUI 默认 dark 的 --ui-bg = neutral-900 (zinc-900) 比稿子的 base #09090b (neutral-950) 亮一整档,
-   而所有表面 (NuxtUI 组件底 + 下面的 @utility raised/sunken/overlay 都派生自 --ui-bg) 都浮在它上面,
-   于是整体"不够深邃"。这里一处下沉 → 全场表面跟着深, 无需散改各组件。
-   (不分层规则压过 NuxtUI @layer theme 里的 .dark 定义, 见文件末 width hack 的同款机制。) ── */
+:root {
+  --ui-surface: color-mix(in oklab, var(--ui-bg-elevated) 68%, var(--ui-bg));
+  --ui-surface-hover: color-mix(in oklab, var(--ui-bg-accented) 20%, var(--ui-bg-elevated));
+  --ui-surface-strong: color-mix(in oklab, var(--ui-bg-accented) 52%, var(--ui-bg-elevated));
+}
+
+/* ── 暗色基调 (唯一权威锚点): 偏冷近黑画布 + 逐级提亮的实体表面。
+   避免 neutral-950 纯黑画布吞掉边界，也不直接跳到 Nuxt UI 默认 neutral-900。
+   canvas / elevated / accented / border 保持稳定明度阶梯；组件只消费语义 token。
+   (不分层规则压过 Nuxt UI @layer theme 里的 .dark 定义。) ── */
 .dark {
-  --ui-bg: var(--ui-color-neutral-950); /* 画布 / 卡片底基准: was neutral-900 → #09090b */
-  --ui-bg-muted: var(--ui-color-neutral-900); /* was neutral-800 */
-  --ui-bg-elevated: var(--ui-color-neutral-900); /* 模态 / popover / 输入框底: was neutral-800 */
-  --ui-bg-accented: var(--ui-color-neutral-800); /* hover / scrollbar thumb: was neutral-700 */
-  --ui-border-accented: var(--ui-color-neutral-800); /* 浮层描边: was neutral-700 */
+  --ui-bg: oklch(17% 0.012 270);
+  --ui-bg-muted: oklch(21.5% 0.012 270);
+  --ui-bg-elevated: oklch(23% 0.013 270);
+  --ui-bg-accented: oklch(28.5% 0.014 270);
+  --ui-border: oklch(29.5% 0.012 270);
+  --ui-border-muted: oklch(24.5% 0.01 270);
+  --ui-border-accented: oklch(36% 0.014 270);
 }
 
 /* ── 凹陷面: 比主背景 (--ui-bg) 再深一档, 给终端日志区 / 时间轴轨道这类要"挖下去"的面。
@@ -47,27 +54,34 @@ textarea {
   background-color: color-mix(in oklab, var(--ui-bg) 45%, black);
 }
 
-/* ── V4 浮层表面: 主体保持黑 (--ui-bg), 只在顶部给一点高光 + 柔投影, 让卡片/面板「轻浮起」。
-   不整面提亮 (用户定 2026-06-14): 填充黑底, 仅顶部一道渐隐高光 + 1px 白线 + 亮一档上边框。
-   派生自 --ui-bg, 禁止散写 zinc 字面值。 ── */
+/* ── 实体表面: 近黑画布上只抬升一个稳定明度层，卡片内部靠间距和分隔线组织。
+   静态卡片用描边表达边界，不再叠加顶光、内阴影或嵌套卡片。 ── */
 @utility raised-surface {
-  background-color: var(--ui-bg);
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 30%);
+  background-color: var(--ui-surface);
   border: 1px solid var(--ui-border);
-  border-top-color: color-mix(in oklab, var(--ui-border) 50%, white);
-  box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
-/* ── 浮层 overlay: 菜单 / 模态 / popover, 同黑底 + 顶部高光, 但顶光略强 + 更重投影来「浮起」。 ── */
+.surface-hoverable {
+  transition: background-color 150ms ease;
+}
+
+.surface-hoverable:hover {
+  background: var(--ui-surface-hover);
+}
+
+.surface-row {
+  border: 1px solid transparent;
+}
+
+.surface-row:hover {
+  border-color: var(--ui-border-muted);
+  background: var(--ui-surface-hover);
+}
+
+/* ── 浮层 overlay: 使用最高实体表面和真实位移阴影，不再让黑底顶光承担层级。 ── */
 @utility overlay-surface {
-  background-color: var(--ui-bg);
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 25%);
-  border: 1px solid var(--ui-border-accented);
-  box-shadow:
-    0 10px 30px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  background-color: var(--ui-surface-strong);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.52);
 }
 
 /* ── 主按钮唯一显眼渐变 (V4 渐变纪律: 全场只两处, 此其一)。
@@ -127,18 +141,26 @@ textarea {
     width: 100%;
   }
 
-  /* 设置页使用一条连续内容流；分区靠节奏和分隔线组织，避免同色卡片层层嵌套。 */
+  /* 设置页只保留画布和实体区块两层。区块内的集合、字段和动作全部平铺。 */
   .settings-page {
     display: flex;
     width: 100%;
-    max-width: 920px;
+    max-width: 1040px;
     margin-inline: auto;
-    padding: 28px 32px 40px;
+    padding: 24px 32px 40px;
     flex-direction: column;
-    gap: 28px;
+    gap: 18px;
   }
 
   .settings-shell {
+    --settings-accent: var(--ui-primary);
+    --settings-section-bg: color-mix(in oklab, var(--settings-accent) 1.5%, var(--ui-surface));
+    --settings-section-border: color-mix(in oklab, var(--settings-accent) 15%, var(--ui-border));
+    --settings-row-hover-bg: color-mix(
+      in oklab,
+      var(--settings-accent) 2%,
+      var(--ui-surface-hover)
+    );
     display: grid;
     width: 100%;
     height: 100%;
@@ -146,6 +168,34 @@ textarea {
     grid-template-columns: 224px minmax(0, 1fr);
     overflow: hidden;
     background: var(--ui-bg);
+  }
+
+  .settings-shell[data-settings-theme='hotkeys'] {
+    --settings-accent: var(--ui-warning);
+  }
+
+  .settings-shell[data-settings-theme='input'] {
+    --settings-accent: var(--ui-info);
+  }
+
+  .settings-shell[data-settings-theme='launcher'] {
+    --settings-accent: var(--color-violet-400);
+  }
+
+  .settings-shell[data-settings-theme='ai'] {
+    --settings-accent: var(--color-fuchsia-400);
+  }
+
+  .settings-shell[data-settings-theme='network'] {
+    --settings-accent: var(--color-cyan-400);
+  }
+
+  .settings-shell[data-settings-theme='applications'] {
+    --settings-accent: var(--color-blue-400);
+  }
+
+  .settings-shell[data-settings-theme='automation'] {
+    --settings-accent: var(--ui-success);
   }
 
   .settings-sidebar {
@@ -190,8 +240,12 @@ textarea {
 
   .settings-nav-item--active {
     color: var(--ui-text-highlighted);
-    background: color-mix(in oklab, var(--ui-primary) 10%, var(--ui-bg));
-    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ui-primary) 24%, transparent);
+    background: color-mix(in oklab, var(--settings-accent) 10%, var(--ui-bg));
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--settings-accent) 24%, transparent);
+  }
+
+  .settings-nav-item--active .text-primary {
+    color: var(--settings-accent);
   }
 
   .settings-content {
@@ -202,21 +256,53 @@ textarea {
     overflow: hidden;
   }
 
+  .settings-tabpanel {
+    background: color-mix(in oklab, var(--settings-accent) 1%, var(--ui-bg));
+  }
+
   .settings-page-header {
     flex: none;
-    border-bottom: 1px solid var(--ui-border);
-    background: color-mix(in oklab, var(--ui-bg) 94%, var(--ui-bg-elevated));
+    border-bottom: 1px solid var(--settings-section-border);
+    background: color-mix(in oklab, var(--settings-accent) 2.5%, var(--ui-surface));
   }
 
   .settings-page-header__inner {
     display: flex;
     width: 100%;
-    max-width: 920px;
+    max-width: 1040px;
     margin-inline: auto;
     align-items: flex-start;
     justify-content: space-between;
     gap: 24px;
     padding: 24px 32px 20px;
+  }
+
+  .settings-page-header__icon {
+    display: flex;
+    width: 40px;
+    height: 40px;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid color-mix(in oklab, var(--settings-accent) 28%, var(--ui-border));
+    border-radius: 10px;
+    color: var(--settings-accent);
+    background: color-mix(in oklab, var(--settings-accent) 9%, var(--ui-bg));
+  }
+
+  .settings-page-header__title {
+    color: var(--ui-text-highlighted);
+    font-size: 18px;
+    font-weight: 650;
+    line-height: 24px;
+  }
+
+  .settings-page-header__description {
+    max-width: 68ch;
+    margin-top: 4px;
+    color: color-mix(in oklab, var(--settings-accent) 10%, var(--ui-text-muted));
+    font-size: 12px;
+    line-height: 18px;
   }
 
   .settings-row {
@@ -227,12 +313,158 @@ textarea {
     min-height: 44px;
   }
 
+  .settings-row__label {
+    color: var(--ui-text);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 18px;
+  }
+
+  .settings-row__hint {
+    max-width: 68ch;
+    margin-top: 3px;
+    color: var(--ui-text-dimmed);
+    font-size: 11px;
+    line-height: 16px;
+  }
+
   .settings-row__control {
     display: flex;
     min-width: 0;
     align-items: center;
     justify-content: flex-end;
     gap: 8px;
+  }
+
+  .settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 20px;
+    border: 1px solid var(--settings-section-border);
+    border-radius: 14px;
+    background: var(--settings-section-bg);
+  }
+
+  .settings-section__heading {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+  }
+
+  .settings-section__icon {
+    display: inline-flex;
+    width: 30px;
+    height: 30px;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    color: var(--settings-accent);
+    background: color-mix(in oklab, var(--settings-accent) 10%, transparent);
+  }
+
+  .settings-section__title {
+    color: var(--ui-text-highlighted);
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 20px;
+  }
+
+  .settings-section__description {
+    max-width: 68ch;
+    margin-top: 3px;
+    color: color-mix(in oklab, var(--settings-accent) 8%, var(--ui-text-dimmed));
+    font-size: 11px;
+    line-height: 16px;
+  }
+
+  /* Nuxt UI 默认让 label/hint 同字号左右排。设置页统一为标题在上、说明在下。 */
+  .settings-section [data-slot='root'] > [data-slot='wrapper'] > [data-slot='labelWrapper'] {
+    flex-direction: column;
+    align-items: flex-start !important;
+    justify-content: flex-start;
+    gap: 2px;
+  }
+
+  .settings-section
+    [data-slot='root']
+    > [data-slot='wrapper']
+    > [data-slot='labelWrapper']
+    > [data-slot='label'] {
+    color: var(--ui-text);
+    font-size: 13px;
+    font-weight: 600 !important;
+    line-height: 18px;
+  }
+
+  .settings-section
+    [data-slot='root']
+    > [data-slot='wrapper']
+    > [data-slot='labelWrapper']
+    > [data-slot='hint'],
+  .settings-section [data-slot='root'] > [data-slot='wrapper'] > [data-slot='description'],
+  .settings-section [data-slot='root'] > [data-slot='help'] {
+    max-width: 68ch;
+    color: var(--ui-text-dimmed);
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 16px;
+  }
+
+  .settings-section [data-slot='root'] > [data-slot='wrapper'] > [data-slot='description'] {
+    margin-top: 2px;
+  }
+
+  .settings-collection {
+    overflow: hidden;
+    border-block: 1px solid color-mix(in oklab, var(--settings-accent) 8%, var(--ui-border));
+    background: transparent;
+  }
+
+  .settings-collection > * + * {
+    border-top: 1px solid color-mix(in oklab, var(--settings-accent) 8%, var(--ui-border));
+  }
+
+  .settings-inset {
+    padding: 12px 0;
+    border-block: 1px solid color-mix(in oklab, var(--settings-accent) 8%, var(--ui-border));
+    background: transparent;
+  }
+
+  .settings-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--settings-section-border);
+    border-radius: 12px;
+    background: var(--settings-section-bg);
+  }
+
+  .settings-notice__icon {
+    width: 20px;
+    height: 20px;
+    flex: none;
+    margin-top: 1px;
+    color: var(--settings-accent);
+  }
+
+  .settings-notice__title,
+  .settings-detail__label {
+    color: var(--ui-text);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 17px;
+  }
+
+  .settings-notice__description,
+  .settings-detail__hint {
+    max-width: 68ch;
+    margin-top: 3px;
+    color: var(--ui-text-dimmed);
+    font-size: 11px;
+    line-height: 16px;
   }
 
   .settings-toolbar {
@@ -251,7 +483,7 @@ textarea {
     display: flex;
     align-items: center;
     gap: 20px;
-    padding-block: 12px;
+    padding: 12px 0;
   }
 
   .settings-empty-state {
@@ -261,8 +493,7 @@ textarea {
     align-items: center;
     justify-content: center;
     gap: 12px;
-    border: 1px dashed var(--ui-border);
-    border-radius: 12px;
+    border-block: 1px dashed var(--ui-border);
     text-align: center;
   }
 
@@ -271,18 +502,15 @@ textarea {
     align-items: flex-start;
     gap: 16px;
     padding: 16px;
-    border: 1px solid var(--ui-border);
-    border-radius: 12px;
-    background: color-mix(in oklab, var(--ui-bg-elevated) 34%, transparent);
+    background: transparent;
     transition:
       border-color 160ms ease,
       background-color 160ms ease;
   }
 
   .calibration-profile--active {
-    border-color: color-mix(in oklab, var(--ui-primary) 42%, var(--ui-border));
-    background: color-mix(in oklab, var(--ui-primary) 6%, var(--ui-bg));
-    box-shadow: inset 3px 0 0 color-mix(in oklab, var(--ui-primary) 72%, transparent);
+    background: color-mix(in oklab, var(--settings-accent) 6%, var(--ui-bg));
+    box-shadow: inset 1px 0 0 color-mix(in oklab, var(--settings-accent) 65%, transparent);
   }
 
   .launcher-block {
@@ -291,36 +519,41 @@ textarea {
     align-items: center;
     gap: 10px;
     padding: 10px 12px;
-    border: 1px solid var(--ui-border);
-    border-radius: 10px;
-    background: color-mix(in oklab, var(--ui-bg-elevated) 42%, transparent);
+    border: 0;
+    border-radius: 0;
+    background: transparent;
     transition:
       border-color 140ms ease,
       background-color 140ms ease;
   }
 
   .launcher-block:hover {
-    border-color: var(--ui-border-accented);
-    background: color-mix(in oklab, var(--ui-bg-elevated) 64%, transparent);
+    background: var(--settings-row-hover-bg);
   }
 
   .launcher-block--selected {
-    border-color: color-mix(in oklab, var(--ui-primary) 45%, var(--ui-border));
     background: color-mix(in oklab, var(--ui-primary) 7%, var(--ui-bg));
+  }
+
+  .launcher-block-list {
+    overflow: hidden;
+    border-block: 1px solid var(--ui-border);
+  }
+
+  .launcher-block-list > * + * {
+    border-top: 1px solid color-mix(in oklab, var(--ui-border) 76%, transparent);
   }
 
   .launcher-library {
     padding: 14px 16px;
-    border: 1px dashed var(--ui-border);
-    border-radius: 10px;
-    background: color-mix(in oklab, var(--ui-bg-elevated) 22%, transparent);
+    border-block: 1px dashed var(--ui-border);
+    background: transparent;
   }
 
   .launcher-health-card {
     overflow: hidden;
-    border: 1px solid var(--ui-border);
-    border-radius: 12px;
-    background: color-mix(in oklab, var(--ui-bg-elevated) 34%, transparent);
+    border-block: 1px solid var(--ui-border);
+    background: transparent;
   }
 
   .launcher-health-card--warning {
@@ -331,8 +564,7 @@ textarea {
     display: flex;
     gap: 1px;
     overflow: hidden;
-    border: 1px solid var(--ui-border);
-    border-radius: 12px;
+    border-block: 1px solid var(--ui-border);
   }
 
   .launcher-health-stats {
@@ -421,10 +653,21 @@ textarea {
 
   .ai-profile {
     overflow: hidden;
-    padding: 14px;
-    border: 1px solid var(--ui-border);
-    border-radius: 12px;
-    background: color-mix(in oklab, var(--ui-bg-elevated) 34%, transparent);
+    padding: 14px 0;
+    background: transparent;
+  }
+
+  .settings-entity-summary {
+    display: flex;
+    width: 100%;
+    min-height: 48px;
+    min-width: 0;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .settings-entity-summary:hover {
+    background: var(--settings-row-hover-bg);
   }
 
   .ai-profile__details {
@@ -442,9 +685,9 @@ textarea {
     align-items: start;
     gap: 12px;
     padding: 14px;
-    border: 1px solid var(--ui-border);
-    border-radius: 10px;
-    background: color-mix(in oklab, var(--ui-bg-elevated) 32%, transparent);
+    border-block: 1px solid var(--ui-border);
+    border-radius: 0;
+    background: transparent;
   }
 
   .mcp-capability--active {
@@ -454,19 +697,6 @@ textarea {
   .mcp-capability--danger {
     border-color: color-mix(in oklab, var(--ui-error) 38%, var(--ui-border));
     background: color-mix(in oklab, var(--ui-error) 5%, var(--ui-bg));
-  }
-
-  .settings-section {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    padding-bottom: 28px;
-    border-bottom: 1px solid var(--ui-border);
-  }
-
-  .settings-section:last-child {
-    padding-bottom: 0;
-    border-bottom: 0;
   }
 
   @media (max-width: 860px) {
@@ -518,6 +748,10 @@ textarea {
     .settings-page-header__inner,
     .settings-page {
       padding-inline: 20px;
+    }
+
+    .settings-section {
+      padding: 16px;
     }
 
     .settings-row {
@@ -574,17 +808,7 @@ textarea {
     background: color-mix(in oklab, var(--ui-primary) 8%, var(--ui-bg-elevated));
   }
 
-  .workspace-page__eyebrow {
-    font-size: 11px;
-    font-weight: 650;
-    line-height: 1;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ui-text-dimmed);
-  }
-
   .workspace-page__title {
-    margin-top: 4px;
     font-size: 20px;
     font-weight: 650;
     line-height: 1.2;
@@ -597,6 +821,22 @@ textarea {
     min-width: 280px;
   }
 
+  .workspace-surface {
+    background: var(--ui-surface);
+  }
+
+  .workspace-surface-strong {
+    background: var(--ui-surface-strong);
+  }
+
+  .workspace-table-row {
+    transition: background-color 140ms ease;
+  }
+
+  .workspace-table-row:hover {
+    background: var(--ui-surface-hover);
+  }
+
   .workspace-metrics {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -604,7 +844,7 @@ textarea {
     overflow: hidden;
     border: 1px solid var(--ui-border);
     border-radius: 10px;
-    background: color-mix(in oklab, var(--ui-bg-elevated) 24%, transparent);
+    background: var(--ui-surface);
   }
 
   .workspace-metric {
@@ -677,7 +917,7 @@ textarea {
   }
 
   .schedule-row:hover {
-    background: color-mix(in oklab, var(--ui-bg-elevated) 42%, transparent);
+    background: var(--ui-surface-hover);
   }
 
   .schedule-row--disabled {
@@ -724,7 +964,7 @@ textarea {
     padding: 18px 20px;
     border: 1px solid var(--ui-border);
     border-radius: 10px;
-    background: color-mix(in oklab, var(--ui-bg-elevated) 28%, var(--ui-bg));
+    background: var(--ui-surface);
   }
 
   .schedule-editor__section-heading {

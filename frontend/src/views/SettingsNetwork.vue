@@ -14,11 +14,11 @@
         </UButton>
       </template>
 
-      <div v-if="draft.length" class="space-y-3">
+      <div v-if="draft.length" class="settings-collection">
         <article v-for="origin in draft" :key="origin.slot" class="ai-profile">
           <button
             type="button"
-            class="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+            class="settings-entity-summary cursor-pointer text-left"
             :aria-expanded="expandedSlot === origin.slot"
             @click="toggleExpanded(origin.slot)"
           >

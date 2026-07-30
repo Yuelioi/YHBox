@@ -1,5 +1,5 @@
 <template>
-  <div class="settings-shell" data-testid="settings-view">
+  <div class="settings-shell" :data-settings-theme="activeKey" data-testid="settings-view">
     <aside class="settings-sidebar" :aria-label="t('sidebar.settings')">
       <div class="flex items-center gap-2 px-1">
         <div
@@ -111,7 +111,7 @@
         role="tabpanel"
         :aria-labelledby="`settings-tab-${activeKey}`"
         tabindex="0"
-        class="min-h-0 min-w-0 flex-1 overflow-auto focus:outline-none"
+        class="settings-tabpanel min-h-0 min-w-0 flex-1 overflow-auto focus:outline-none"
       >
         <KeepAlive>
           <component :is="activeComponent" />

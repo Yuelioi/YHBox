@@ -91,7 +91,9 @@
         </ul>
       </section>
 
-      <section class="shrink-0 overflow-hidden rounded-t-lg border border-default bg-elevated/15">
+      <section
+        class="workspace-surface shrink-0 overflow-hidden rounded-t-lg border border-default"
+      >
         <form
           class="flex items-center gap-2 border-b border-default p-3"
           role="search"
@@ -218,7 +220,7 @@
         </ul>
       </div>
 
-      <div class="min-h-0 flex-1 overflow-auto border-x border-default bg-default">
+      <div class="workspace-surface min-h-0 flex-1 overflow-auto border-x border-default">
         <div v-if="loading" class="space-y-px p-2" :aria-label="t('workflow.list.loading')">
           <USkeleton v-for="index in 10" :key="index" class="h-14 rounded-md" />
         </div>
@@ -264,7 +266,7 @@
         </EmptyState>
         <div v-else class="min-w-[1100px]" data-testid="workflow-management-table">
           <div
-            class="grid h-9 items-center gap-3 border-b border-default bg-elevated/40 px-3 text-[10px] font-semibold uppercase tracking-wide text-dimmed"
+            class="workspace-surface-strong grid h-9 items-center gap-3 border-b border-default px-3 text-[10px] font-semibold uppercase tracking-wide text-dimmed"
             :style="{ gridTemplateColumns: workflowGridTemplate }"
           >
             <UCheckbox
@@ -288,7 +290,7 @@
           <article
             v-for="source in sources"
             :key="source.workflowId"
-            class="grid min-h-16 items-center gap-3 border-b border-default/70 px-3 py-2 hover:bg-elevated/30"
+            class="workspace-table-row grid min-h-16 items-center gap-3 border-b border-default/70 px-3 py-2"
             :style="{ gridTemplateColumns: workflowGridTemplate }"
             data-testid="workflow-library-row"
             @dblclick="openWorkflow(source.workflowId)"
@@ -414,7 +416,7 @@
 
       <footer
         v-if="!loading && total > 0"
-        class="flex min-h-14 shrink-0 items-center gap-4 rounded-b-lg border border-default bg-elevated/15 px-3"
+        class="workspace-surface flex min-h-14 shrink-0 items-center gap-4 rounded-b-lg border border-default px-3"
       >
         <p class="mr-auto text-xs text-dimmed">
           {{ t('workflow.list.result_range', { start: resultStart, end: resultEnd, total }) }}

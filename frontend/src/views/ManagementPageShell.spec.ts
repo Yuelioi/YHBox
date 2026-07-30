@@ -5,6 +5,11 @@ import { describe, expect, it } from 'vitest'
 const viewSources = ['WorkflowsView.vue', 'AssetsView.vue', 'SchedulesView.vue'].map((name) =>
   readFileSync(join(process.cwd(), 'src/views', name), 'utf8'),
 )
+const styles = readFileSync(join(process.cwd(), 'src/style.css'), 'utf8')
+const assetList = readFileSync(
+  join(process.cwd(), 'src/components/assets/AssetLibraryList.vue'),
+  'utf8',
+)
 
 describe('management page shell', () => {
   it('uses one shared shell while allowing task-specific secondary context', () => {
@@ -30,5 +35,15 @@ describe('management page shell', () => {
     expect(source).toContain('data-testid="schedule-manage-button"')
     expect(source).toContain('data-testid="schedule-management"')
     expect(source).toContain(":data-mode=\"manageMode ? 'manage' : 'browse'\"")
+  })
+
+  it('uses one brighter surface for workflow and asset management tables', () => {
+    expect(styles).toContain('--ui-surface:')
+    expect(styles).toContain('.workspace-surface {')
+    expect(viewSources[0]).toContain('class="workspace-surface')
+    expect(viewSources[0]).toContain('class="workspace-table-row')
+    expect(viewSources[1]).toContain('class="workspace-surface')
+    expect(assetList).toContain('workspace-surface-strong')
+    expect(assetList).toContain('workspace-table-row')
   })
 })

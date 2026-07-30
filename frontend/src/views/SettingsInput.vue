@@ -27,7 +27,7 @@
         </UButton>
       </template>
 
-      <div v-if="draftProfiles.length" class="space-y-3">
+      <div v-if="draftProfiles.length" class="settings-collection">
         <article
           v-for="(profile, index) in draftProfiles"
           :key="profile.localID"
@@ -144,12 +144,12 @@
         </UButton>
       </div>
 
-      <div class="rounded-lg border border-default bg-elevated/20 p-3">
+      <div class="settings-inset">
         <div class="flex items-start gap-2">
           <UIcon name="i-tabler-info-circle" class="mt-0.5 size-4 shrink-0 text-primary" />
           <div class="min-w-0 flex-1">
-            <p class="text-xs font-medium text-default">{{ t('settings.input.howto.title') }}</p>
-            <p class="mt-1 text-xs leading-relaxed text-dimmed">
+            <p class="settings-detail__label">{{ t('settings.input.howto.title') }}</p>
+            <p class="settings-detail__hint">
               {{
                 t('settings.input.howto.compact', {
                   hk: hotkeys.keyFor('system.calibrate-toggle', 'F8'),

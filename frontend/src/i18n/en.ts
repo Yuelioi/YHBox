@@ -24,11 +24,10 @@ export default {
   settings: {
     general: {
       appearance_title: 'Interface & language',
-      appearance_hint: 'Control editor information density and the Yotta display language.',
-      behavior_hint: 'Choose how Yotta starts after sign-in and behaves when its window closes.',
+      appearance_hint: "Set Yotta's display language.",
+      behavior_hint: 'Set login startup and window-close behavior.',
       capture_diagnostics_title: 'Capture & diagnostics',
-      capture_diagnostics_hint:
-        'Keep the recommended defaults unless you are diagnosing compatibility or detection issues.',
+      capture_diagnostics_hint: 'Choose a capture method and control diagnostic logging.',
     },
     editor_display: {
       section_title: 'Editor display',
@@ -40,17 +39,15 @@ export default {
     language_zh: '中文',
     language_en: 'English',
     language_restart_hint:
-      'Some content (templates/configs) requires app restart after language change.',
+      'The interface switches now; templates and configuration switch on restart.',
     language_changed_title: 'Language switched',
     language_changed_desc: 'UI updated immediately; templates/configs require app restart.',
     startup: {
       section_title: 'Startup & Close',
       autostart_label: 'Auto-start on login',
-      autostart_hint:
-        'Start Yotta after Windows login through a highest-privilege scheduled task without another UAC prompt.',
+      autostart_hint: 'Start Yotta after Windows login.',
       tray_label: 'Close minimizes to tray',
-      tray_hint:
-        'Clicking close (×) hides to system tray instead of exiting. Right-click tray icon to force quit.',
+      tray_hint: 'Keep Yotta in the system tray when the main window closes.',
     },
     capture: {
       section_title: 'Capture method',
@@ -73,8 +70,7 @@ export default {
         mock: 'Development only. Replays a local sequence of PNG frames.',
       },
       dump_debug_label: 'Dump detect-annotated frames',
-      dump_debug_hint:
-        'Bot detection async writes boxed PNGs to debug/captures/. For tuning / debugging detection issues. Applies immediately.',
+      dump_debug_hint: 'Write annotated frames to debug/captures/ for detection troubleshooting.',
       method_changed_title: 'Capture switched to {method}',
       method_changed_desc: 'Restart program to apply',
     },
@@ -82,13 +78,11 @@ export default {
       section_title: 'Log',
       hint: 'Folding, file write, timestamps, line-wrap, autoscroll — settings live in the bottom log panel header gear.',
       enabled_label: 'Enable runtime logging',
-      enabled_hint:
-        'Stops log production at the source when disabled, reducing overhead during long automation runs.',
+      enabled_hint: 'Record workflow runtime logs.',
       level_label: 'Minimum level',
-      level_hint: 'Keep this level and more severe messages. INFO is recommended for daily use.',
+      level_hint: 'Record this level and more severe messages.',
       live_label: 'Stream to the log panel',
-      live_hint:
-        'When disabled, logs can still be written to file without streaming to the main window.',
+      live_hint: 'Show logs live in the main-window log panel.',
     },
     input: {
       title: 'Input calibration',
@@ -96,7 +90,7 @@ export default {
         'Mouse hardware DPI affects cross-machine replay of relative-motion recordings (camera turns). Recording stores the local 360° count in InputClip metadata; playback scales by the target-to-source ratio.',
       record: {
         title: 'Recording config',
-        hint: 'Config applies on the next recording.',
+        hint: 'Applies to the next recording.',
         mouse_mode_label: 'Mouse semantics',
         mouse_mode_hint:
           'relative (FPS): records RawDelta for camera turn. absolute (UI/Slate): records screen px MouseMove for click/hover.',
@@ -112,8 +106,7 @@ export default {
       },
       counts: {
         title: 'Mouse calibration profiles',
-        commercial_hint:
-          'Keep a profile per game or sensitivity so relative movement replays consistently across devices.',
+        commercial_hint: 'Save a 360° raw-movement baseline per game or sensitivity.',
         hint: `Each profile = one game's cumulative {'|'}dx{'|'} for a 360° turn; if in-game sensitivity differs per game on the same machine, make one profile each and pick a default`,
         col_active: 'Default',
         col_label: 'Name',
@@ -1646,11 +1639,11 @@ export default {
       editor: 'Editor',
     },
     group_hint: {
-      system: 'Affects Yotta-wide execution and system tools.',
-      recording: 'Captured by the low-level keyboard hook and not forwarded to the target app.',
+      system: 'System-wide and global shortcuts.',
+      recording: 'Controls the current recording.',
       action: 'Triggers an independent action directly.',
-      schedule: 'Provides a manual trigger for scheduled work.',
-      editor: 'Active only while the workflow editor has focus.',
+      schedule: 'Triggers a schedule manually.',
+      editor: 'Active only in the workflow editor.',
     },
     status: {
       register_failed: 'Registration failed',
@@ -2924,7 +2917,6 @@ export default {
     apply: 'Apply changes',
   },
   assets: {
-    eyebrow: 'WORKFLOW ASSETS',
     title: 'Library and recording',
     description:
       'Manage input recordings and visual templates that bind directly to nodes. Content digests pin resources into workflows.',
@@ -3308,11 +3300,10 @@ export default {
     launcher: 'Floating launcher',
     ai: 'AI connections',
     network: 'Network targets',
-    applications: 'Application configurations',
+    applications: 'Desktop applications',
     automation: 'Automation targets',
   },
   settingsCenter: {
-    eyebrow: 'YOTTA SETTINGS',
     local_hint: 'Device and workspace preferences',
     search_placeholder: 'Search settings themes',
     clear_search: 'Clear settings search',
@@ -3326,14 +3317,14 @@ export default {
       advanced: 'Advanced',
     },
     theme: {
-      general: 'Interface language, startup behavior, and app-wide defaults',
-      hotkeys: 'Review, search, and manage global and editor shortcuts',
-      input: 'Configure recorded input semantics and maintain game calibration profiles',
-      launcher: 'Arrange the floating launcher content, appearance, and quick actions',
-      ai: 'Manage AI service endpoints, credentials, and connection health',
-      network: 'Configure the HTTP origins workflows can access',
-      applications: 'Configure the desktop applications workflows can launch and terminate',
-      automation: 'Bind input nodes to configured application windows',
+      general: 'Language, startup, capture, and logs',
+      hotkeys: 'Manage global, recording, and editor shortcuts',
+      input: 'Set the recording mode and mouse calibration profiles',
+      launcher: 'Arrange launcher content and display',
+      ai: 'Manage models, endpoints, and API keys',
+      network: 'Manage HTTP addresses used by workflows',
+      applications: 'Manage desktop programs launched by workflows',
+      automation: 'Manage Windows, Android, and browser targets',
     },
     save: {
       automatic: 'Saved automatically on this device',
@@ -3451,21 +3442,17 @@ export default {
     intro:
       'Put frequent workflows into a small launcher and run them with one click. Open it from the main window, this page, or the global hotkey.',
     access_title: 'Open & shortcut',
-    access_hint:
-      'Open the launcher now. The global hotkey is a shortcut, not the only entry point; repeated opens focus the existing window.',
+    access_hint: 'Open the existing launcher window or use the global hotkey.',
     open_now: 'Open launcher',
     hotkey_title: 'Current global hotkey',
-    hotkey_active:
-      'The hotkey is registered and can show or hide the launcher from another foreground window.',
-    hotkey_unbound:
-      'No hotkey is bound. You can still open the launcher from the main window or this page.',
+    hotkey_active: 'Show or hide the launcher from another window.',
+    hotkey_unbound: 'Open it from the main window or this page.',
     hotkey_failed:
       'The hotkey failed to register or conflicts with another binding. Resolve it under Hotkeys.',
     configure_hotkey: 'Configure hotkey',
     display_label: 'Command layout',
     appearance_title: 'Appearance & display',
-    display_hint:
-      'Choose a command density. The list is informative; the compact grid suits icon-first entries.',
+    display_hint: 'Choose a list, icon grid, or text-only layout.',
     display_both: 'Command list (recommended)',
     display_icon: 'Compact icon grid',
     display_text: 'Text-only list',
@@ -3475,22 +3462,19 @@ export default {
     size_medium: 'Medium',
     size_large: 'Large',
     health_title: 'Configuration health',
-    health_hint:
-      'Checks launcher entries against stored workflows. Cleanup removes stale references only; it never deletes workflows.',
+    health_hint: 'Find and clean up entries whose workflows no longer exist.',
     health_available: 'Available',
     health_stale: 'Stale entries',
     health_attention: 'Needs attention',
     health_normal: 'Healthy',
     health_ready: 'Launcher configuration is healthy',
-    health_ready_hint:
-      'Every entry resolves to a workflow and there are no stale references to clean up.',
+    health_ready_hint: 'All entries are available.',
     stale_title: '{n} stale workflow entries found',
     cleanup_scope: 'Stale entries that will be cleaned up',
     cleanup_stale: 'Clean {n}',
     undo_cleanup: 'Undo cleanup',
     layout_title: 'Command layout',
-    layout_hint:
-      'Organize commands with headings and separators. Vertical separators stay vertical in the compact grid and become spacing in lists. Drag to reorder.',
+    layout_hint: 'Add workflows, headings, and separators, then drag to reorder.',
     empty: 'Empty launcher — add blocks below.',
     pick_icon: 'Pick icon',
     clear_icon: 'Clear icon',
@@ -3532,24 +3516,23 @@ export default {
   settingsNetwork: {
     origins: {
       title: 'HTTP targets',
-      hint: 'Configure a base URL, response size, and timeout. Workflows use the slot directly.',
+      hint: 'Configure HTTP base addresses, timeouts, and response limits for workflows.',
       add: 'Add HTTP target',
       unnamed: 'Unnamed HTTP target',
       origin_missing: 'URL not specified',
       name_label: 'Display name',
       name_placeholder: 'For example: Production status API',
       slot_label: 'Configuration slot',
-      slot_hint: 'Workflows reference this identifier. It cannot change after saving.',
+      slot_hint: 'Workflows reference this identifier; it cannot change after saving.',
       origin_label: 'Base URL',
-      origin_hint:
-        'Supports HTTP, HTTPS, paths, queries, user information, loopback, and private-network addresses.',
+      origin_hint: 'Supports HTTP/HTTPS and local, private-network, or remote addresses.',
       byte_limit_label: 'Maximum response bytes',
-      byte_limit_hint: 'Responses larger than this limit fail before entering workflow data.',
+      byte_limit_hint: 'Requests fail when the response exceeds this limit.',
       timeout_label: 'Timeout (milliseconds)',
-      timeout_hint: 'This configured value controls how long each request waits.',
+      timeout_hint: 'How long a single request waits.',
       delete: 'Delete target',
       empty: 'No HTTP targets configured',
-      empty_hint: 'Add a base URL and HTTP GET nodes can use it through the slot.',
+      empty_hint: 'Add a base URL to select it in HTTP GET nodes.',
       new_label: 'New HTTP target',
     },
     confirm: {
@@ -3560,25 +3543,23 @@ export default {
   },
   settingsApplications: {
     profiles: {
-      title: 'Application configurations',
-      hint: 'Configure a program path and arguments. Workflows launch or terminate it through the slot.',
+      title: 'Desktop applications',
+      hint: 'Manage program paths and launch arguments.',
       add: 'Add application',
       name_label: 'Display name',
       slot_label: 'Configuration slot',
-      slot_hint: 'Workflows persist this identifier. It cannot be changed after saving.',
+      slot_hint: 'Workflows reference this identifier; it cannot change after saving.',
       executable_label: 'Program path',
-      executable_hint: 'Select an absolute path. No hash or identity check is performed.',
+      executable_hint: 'Choose the program to run.',
       replace: 'Choose another',
       arguments_label: 'Launch arguments',
-      arguments_hint: 'One argument per line, passed directly from this configuration.',
+      arguments_hint: 'Enter one argument per line.',
       arguments_placeholder: '--project\nD:\\Projects\\fixed.aep',
       delete: 'Delete application',
       empty: 'No applications configured',
-      empty_hint:
-        'Select a program path and workflows can launch or terminate it through the slot.',
+      empty_hint: 'After adding it, workflows can launch or terminate the program.',
       cancelled: 'No desktop application selected',
-      cancelled_hint:
-        'The file picker was cancelled. No installation was created or changed; you can choose again when ready.',
+      cancelled_hint: 'The file picker was cancelled.',
     },
     picker: {
       title: 'Choose a program',
@@ -3591,56 +3572,50 @@ export default {
   settingsAutomation: {
     targets: {
       title: 'Automation targets',
-      hint: 'Configure a Windows window, Android ADB, or Browser CDP target. Workflows call it through the slot.',
+      hint: 'Manage Windows, Android, and browser targets.',
       add: 'Add window target',
       add_windows: 'Windows target',
       add_android: 'Android target',
       add_browser: 'Browser target',
       name_label: 'Display name',
       slot_label: 'Configuration slot',
-      slot_hint: 'Workflows persist this identifier. It cannot be changed after saving.',
+      slot_hint: 'Workflows reference this identifier; it cannot change after saving.',
       application_label: 'Application configuration',
-      application_hint:
-        'Reuses the configured installation path from Applications. Launch arguments are not inherited.',
+      application_hint: 'Choose the application that owns the window.',
       backend_label: 'Input backend',
-      backend_hint:
-        'SendInput foregrounds the target. PostMessage posts to the matching window queue.',
+      backend_hint: 'Choose system input or window messages.',
       capture_backend_label: 'Capture backend',
-      capture_backend_hint: 'Choose GDI or Windows Graphics Capture.',
+      capture_backend_hint: 'Choose the window capture method.',
       mouse_counts_label: 'Mouse counts per 360°',
       mouse_counts_hint:
-        'Precise recording follows the active Input & calibration profile. A target override takes priority and supplies relative-mouse playback scaling.',
+        'Uses the active calibration by default; a custom value controls relative-mouse recording and replay scaling.',
       mouse_counts_use_active: 'Follow active mouse calibration',
       mouse_counts_custom: 'Use a custom value for this target',
       mouse_counts_following:
-        'Following “{name}”: {n} counts/360°. Switching or recalibrating the active profile applies to the next recording.',
+        'Current: {name} · {n} counts/360°. A new default applies to the next recording.',
       mouse_counts_missing:
         'There is no valid active mouse calibration. Precise relative recording will remain unavailable.',
       open_calibration: 'Manage calibration profiles',
       window_title_match_label: 'Window title match mode',
-      window_title_match_hint:
-        'Captured windows use exact matching and preserve the title verbatim, including surrounding spaces. Explicitly select regex for dynamic titles.',
+      window_title_match_hint: 'Use exact matching for fixed titles and regex for dynamic titles.',
       window_title_match_exact: 'Exact match',
       window_title_match_regex: 'Regex match',
       window_selection_label: 'When multiple windows match',
-      window_selection_hint: 'Require one match or use the current topmost matching window.',
+      window_selection_hint: 'Choose a unique match or the current topmost match.',
       window_selection_unique: 'Require a unique match',
       window_selection_topmost: 'Use the current topmost match',
       preview_matches: 'Check current window matches',
       window_title_label: 'Window title',
-      window_title_hint:
-        'Exact mode is case-sensitive and character-for-character. Regex mode uses RE2 syntax.',
+      window_title_hint: 'Exact mode is case-sensitive; regex mode uses RE2.',
       window_class_label: 'Exact window class',
-      window_class_hint:
-        'Full Win32 class-name match. When title and class are set, both must match.',
+      window_class_hint: 'Enter a Win32 class name. If title and class are set, both must match.',
       timeout_label: 'Resolve timeout (milliseconds)',
-      timeout_hint: 'This configured value controls how long matching waits.',
+      timeout_hint: 'How long to wait for a matching window.',
       delete: 'Delete target',
       empty: 'No automation targets configured',
-      empty_hint:
-        'Add a Windows, Android, or browser target and automation nodes can use it through a stable slot.',
+      empty_hint: 'After adding a target, automation nodes can select it.',
       no_applications: 'Configure a desktop application first',
-      no_applications_hint: 'A window target references a program-path configuration.',
+      no_applications_hint: 'A window target needs a program path.',
       new_label: '{name} window',
       new_blank_label: 'New window target',
       duplicate: 'Duplicate target',
@@ -3648,16 +3623,14 @@ export default {
     },
     android: {
       new_blank_label: 'New Android target',
-      discovery_hint:
-        'Discover devices through the configured or bundled ADB and store the serial and package in target configuration.',
+      discovery_hint: 'Discover ADB devices and save the serial and package.',
       refresh: 'Refresh devices',
       none_found:
         'No ADB devices found. Start an emulator or connect a device and authorize USB debugging.',
       device_label: 'ADB device',
-      device_hint: 'Select a device or use discovery to fill its serial.',
+      device_hint: 'Choose an ADB device.',
       package_label: 'Android package',
-      package_hint:
-        'Search launchable apps from the selected device, or enter an exact package manually.',
+      package_hint: 'Choose an app from the device or enter its package.',
       refresh_apps: 'Refresh applications',
       apps_none_found:
         'No third-party launchable application was found. You can still enter an exact package manually.',
@@ -3672,16 +3645,14 @@ export default {
     },
     browser: {
       new_blank_label: 'New browser target',
-      discovery_hint:
-        'Enter any HTTP or HTTPS CDP endpoint, then select a page to write into target configuration.',
+      discovery_hint: 'Enter a CDP endpoint, then choose a page.',
       refresh: 'Discover pages',
       none_found:
         'No pages found. Confirm the browser debugging endpoint is running and reachable.',
       endpoint_label: 'CDP endpoint',
-      endpoint_hint: 'Supports local, private-network, or remote HTTP/HTTPS addresses.',
+      endpoint_hint: 'Enter an HTTP/HTTPS address.',
       page_label: 'Page',
-      page_hint:
-        'Select a page ID. Runtime rediscovers its current WebSocket URL from the endpoint.',
+      page_hint: 'The page ID is used to rediscover its connection address at runtime.',
       url_label: 'URL at discovery',
       state_label: 'Runtime health',
       not_checked: 'Not checked',
@@ -3689,7 +3660,7 @@ export default {
       unselected: 'No page selected',
     },
     capture: {
-      hint: 'Enable the capture key, switch to the target window, then press F9 (or the configured key). The result is written directly to target configuration.',
+      hint: 'Start capture, switch to the target window, then press F9 or the configured key.',
       start: 'Capture and enable window',
       start_failed: 'Could not start window capture. Try again.',
       cancel: 'Cancel capture',
@@ -3727,7 +3698,7 @@ export default {
     intro: 'Install explicit model profiles for workflows to call through stable slots.',
     security: {
       title: 'Credentials and model configuration are stored separately',
-      hint: 'API keys are written only to the operating system credential store, never to settings.json, and are never displayed again. Model profiles use provider-native protocols.',
+      hint: 'API keys are stored in the system credential store, not settings.json, and are not displayed again.',
     },
     provider: {
       openai_responses: 'OpenAI Responses',
@@ -3736,19 +3707,19 @@ export default {
     },
     profiles: {
       title: 'Installed models',
-      hint: 'Each profile binds an immutable slot, a provider-native protocol, an exact model name, and declared capabilities. Workflows reference only the slot, never an endpoint or key.',
+      hint: 'Manage models, endpoints, and API keys.',
       add: 'Install model',
       unnamed: 'Unnamed model',
       credential_saved: 'Key saved',
       model_missing: 'Model not specified',
       name_label: 'Display name',
       slot_label: 'Installation slot',
-      slot_hint: 'Workflows persist this identifier. It cannot be changed after saving.',
+      slot_hint: 'Workflows reference this identifier; it cannot change after saving.',
       provider_label: 'API protocol',
       model_label: 'Exact model name',
-      model_hint: 'Sent as entered, without discovery or alias substitution.',
+      model_hint: 'Sent as entered.',
       endpoint_label: 'API base URL',
-      endpoint_hint: 'Enter the provider base URL. The protocol determines the request route.',
+      endpoint_hint: "Enter the provider's API address.",
       endpoint_invalid:
         'Enter a complete URL without credentials, query parameters, or a fragment.',
       endpoint_https_required:
@@ -3767,12 +3738,11 @@ export default {
       max_tokens_hint: 'Per-generation limit; can be unlimited.',
       max_tokens_unlimited: 'Unlimited',
       apikey_label: 'API key',
-      apikey_hint: 'Credentials are isolated by installation slot.',
+      apikey_hint: 'Saved by model slot.',
       apikey_replace_placeholder: 'Key saved, enter a new key to replace it',
       apikey_placeholder: 'Enter the provider API key',
       reveal: 'Show or hide key',
-      apikey_secure_hint:
-        'After saving, the UI reads only the presence status and never reads the key back.',
+      apikey_secure_hint: 'Saved keys are not displayed again.',
       apikey_remove: 'Remove key',
       test: 'Test',
       delete: 'Delete model',
@@ -3804,23 +3774,21 @@ export default {
     },
     capabilities: {
       title: 'Declared capabilities',
-      hint: 'Declare only verified capabilities. Declarations enter the installation digest and admission checks; failures never trigger an automatic downgrade.',
+      hint: 'Choose the capabilities supported by this model.',
       structured_output: 'Structured output',
-      structured_output_hint: 'Allow nodes to request provider-native structured results.',
+      structured_output_hint: 'Generate structured results.',
       tool_calling: 'Tool calling',
-      tool_calling_hint: 'Allow the model to initiate tool calls.',
+      tool_calling_hint: 'Let the model initiate tool calls.',
       parallel_tools: 'Parallel tool calls',
-      parallel_tools_hint:
-        'Allow one response to contain parallel tool calls. Tool calling is also required.',
+      parallel_tools_hint: 'Call multiple tools in one response.',
       background: 'Background generation',
-      background_hint: 'Allow provider-native asynchronous or background execution.',
+      background_hint: 'Use the provider background execution mode.',
       zero_retention: 'Zero retention',
-      zero_retention_hint:
-        'Declare only when the provider and exact model configuration satisfy zero-retention requirements.',
+      zero_retention_hint: 'The provider does not retain request data.',
     },
     pricing: {
       title: 'Pinned token pricing',
-      hint: 'Required for tool calling so the host can enforce cost budgets. Enter billing microunits per one million tokens; these values enter the profile digest.',
+      hint: 'Fill this in when tool calling is enabled. Unit: billing microunits per million tokens.',
       input: 'Input',
       cache_read: 'Cache read',
       output: 'Output',

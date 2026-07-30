@@ -20,6 +20,8 @@ describe('SettingsView navigation', () => {
 
   it('uses the shared commercial settings shell and preserves theme drafts', () => {
     expect(source).toContain('class="settings-shell"')
+    expect(source).toContain(':data-settings-theme="activeKey"')
+    expect(source).toContain('class="settings-tabpanel')
     expect(source).toContain('<SettingsPageHeader')
     expect(source).toContain('<KeepAlive>')
   })

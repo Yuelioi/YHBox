@@ -16,22 +16,27 @@
 
 **定义位置** (改基调只动这几处): 三个色相钉在 `vite.config.ts` ui.colors (primary=emerald / neutral=zinc / warning=amber) → NuxtUI 生成 `--ui-*` 变量; `bg-sunken` 在 `style.css`; 画布景深色 (背景渐变/网点/minimap mask) 是有意的非 token, 集中在 ContainerEditorView 带注释.
 
-### 表面分层 — 黑底 + 顶光浮起 (v3, 用户定 2026-06-14)
+### 表面分层 — 偏冷近黑 + 实体明度阶梯 (2026-07-31)
 
-四档表面**全派生自 `--ui-bg`**, 一处 (`style.css`) 改全局变, 禁止散写 zinc 字面值:
+暗色层级集中在 `style.css`，组件禁止散写 zinc/black/white。阴影不能替代暗色里的实体明度差：
 
-1. **base** `bg-default` = `--ui-bg`。暗色基调钉在 `.dark { --ui-bg: var(--ui-color-neutral-950) }` —— 比 NuxtUI 默认 (neutral-900) **深一档**, 锚 v3 稿 `#09090b`; 整套灰阶 (muted/elevated/accented/border-accented) 跟着下沉一档。
-2. **sunken** `bg-sunken` = 再往黑混 (终端日志 / 时间轴轨道)。
-3. **raised** `raised-surface` (卡片 / 面板 / hover 行) + **overlay** `overlay-surface` (菜单 / 模态): **卡体保持纯黑** (`background-color: var(--ui-bg)`), **只在顶部给一道渐隐高光** (`linear-gradient(180deg, rgba(255,255,255,.05), transparent 30%)`) + 1px 白内高光 + 亮一档上边框 + 柔投影来「浮起」。**不整面提亮** (试过 mix 白提整面 → 发灰、描边读不出, 用户改回黑底顶光) —— 跟下面 BaseModal「纯黑平铺」同一条 philosophy。
+1. **canvas** `bg-default` = `--ui-bg`，使用 OKLCH L17 的偏冷近黑，不再使用 zinc-950 纯黑。
+2. **sunken** `bg-sunken` 只给终端、时间轴轨道等确实凹陷的内容边界。
+3. **surface** `--ui-surface` 约 L21，供普通卡片、侧栏、表格主体和一级设置区块使用。
+4. **hover / selected** `--ui-surface-hover` 约 L24，交互时必须比静态 surface 明显；选择态仍需文字、
+   图标或边框等非颜色线索。
+5. **strong / overlay** `--ui-surface-strong` 约 L26。真正遮挡内容的 overlay 可使用有位移的柔和阴影；
+   静态卡片不再使用顶光、白色内高光或阴影伪造层级。
 
-### 设置/表单类页面卡片配方 (chrome 页 — 别用 Inspector 的扁平 SectionHeader)
+设置主题的低剂量 tint 建立在同一 surface 阶梯上，只用于导航、标题、焦点和 wayfinding；成功、警告、
+错误和信息继续走语义状态色。
 
-主区的 chrome/设置/表单页 (设置各 tab / 计划编辑 / 关于) 统一用 **bordered card**, **别**用 NodeInspector 那种扁平 `SectionHeader` (那是侧栏窄面板的; 2026-06-15 在计划编辑器上栽过一次, 用户两次返工才纠到位)。配方 (照 `SettingsGeneral.vue`):
+### 设置/表单类页面层级
 
-- 每组一张卡: `<section class="rounded-xl bg-default border border-default p-5 space-y-4">` (居中页加 `mx-auto max-w-3xl`; 铺满内容区的不加 max-w)
-- 卡头: `<div class="flex items-center gap-2"><UIcon :name class="size-4 text-dimmed" /><h2 class="text-sm font-medium text-highlighted">标题</h2></div>`
-- 行: label 左 / 控件右 (`flex items-center justify-between gap-6`), 短控件给宽度 (`w-32`/`w-48`); 行间 `<div class="border-t border-default/60" />`
-- 关于页 2026-06-15 从 `AppCard` (raised-surface 顶光) 换成这套 border 卡, 跟设置统一。`AppCard` 留给列表项/浮起卡那类场景。
+设置中心统一使用 `SettingsView`、`SettingsPageHeader`、`SettingsSection` 和 `SettingsRow`，详细约定见
+[settings-page-style.md](settings-page-style.md)。`SettingsSection` 只建立一级实体区块；其内部字段、
+collection、详情和动作平铺或用分隔线组织，不得再套完整卡片。`AppCard` 留给独立列表项或真正可复用的
+实体卡，不作为设置页默认分组外壳。
 
 ### 组件必须用 NuxtUI
 

@@ -25,4 +25,10 @@ describe('settings hierarchy', () => {
     expect(groups[0]?.key).toBe('connections')
     expect(groups[0]?.themes[0]?.key).toBe('applications')
   })
+
+  it('presents network targets as a connection rather than a security gate', () => {
+    const network = SETTINGS_THEMES.find((theme) => theme.key === 'network')
+
+    expect(network?.icon).toBe('i-tabler-world-www')
+  })
 })
