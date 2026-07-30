@@ -6,8 +6,12 @@
           v-for="candidate in units"
           :key="candidate.value"
           type="button"
-          class="rounded px-2 py-1"
-          :class="point.unit === candidate.value ? 'bg-primary text-inverted' : 'text-muted'"
+          class="rounded px-2 py-1 transition-colors"
+          :class="
+            point.unit === candidate.value
+              ? 'bg-primary/10 text-primary ring-1 ring-inset ring-primary/25'
+              : 'text-muted hover:bg-elevated hover:text-default'
+          "
           @click="void setUnit(candidate.value)"
         >
           {{ candidate.label }}

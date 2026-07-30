@@ -39,7 +39,13 @@
         :placeholder="t('macroEditor.search')"
       />
       <UDropdownMenu :items="addMenuItems">
-        <UButton size="sm" icon="i-tabler-plus" :label="addButtonLabel" />
+        <UButton
+          size="sm"
+          color="primary"
+          variant="soft"
+          icon="i-tabler-plus"
+          :label="addButtonLabel"
+        />
       </UDropdownMenu>
     </header>
 
