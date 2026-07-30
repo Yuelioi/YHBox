@@ -5,74 +5,42 @@ import (
 	"fmt"
 
 	"github.com/yottaapp/yotta/internal/automation/installed"
-	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 )
 
 const (
-	AutomationWindowCapabilityID       = installed.CapabilityWindowID
-	AutomationAppLifecycleCapabilityID = installed.CapabilityAppLifecycleID
-	ActivateWindowNodeID               = "https://schemas.yotta.dev/nodes/automation/activate-window"
-	ActivateWindowEffectID             = "https://schemas.yotta.dev/effects/automation/activate-window/v1"
-	StopTargetAppNodeID                = "https://schemas.yotta.dev/nodes/automation/stop-target-app"
-	StopTargetAppEffectID              = "https://schemas.yotta.dev/effects/automation/stop-target-app/v1"
-	CloseWindowNodeID                  = "https://schemas.yotta.dev/nodes/automation/close-window"
-	MoveResizeWindowNodeID             = "https://schemas.yotta.dev/nodes/automation/move-resize-window"
-	MaximizeWindowNodeID               = "https://schemas.yotta.dev/nodes/automation/maximize-window"
-	MinimizeWindowNodeID               = "https://schemas.yotta.dev/nodes/automation/minimize-window"
-	RestoreWindowNodeID                = "https://schemas.yotta.dev/nodes/automation/restore-window"
-	GetWindowStateNodeID               = "https://schemas.yotta.dev/nodes/automation/get-window-state"
-	WaitWindowNodeID                   = "https://schemas.yotta.dev/nodes/automation/wait-window"
-	WaitWindowGoneNodeID               = "https://schemas.yotta.dev/nodes/automation/wait-window-gone"
-	CloseWindowEffectID                = "https://schemas.yotta.dev/effects/automation/close-window/v1"
-	MoveResizeWindowEffectID           = "https://schemas.yotta.dev/effects/automation/move-resize-window/v1"
-	MaximizeWindowEffectID             = "https://schemas.yotta.dev/effects/automation/maximize-window/v1"
-	MinimizeWindowEffectID             = "https://schemas.yotta.dev/effects/automation/minimize-window/v1"
-	RestoreWindowEffectID              = "https://schemas.yotta.dev/effects/automation/restore-window/v1"
-	GetWindowStateEffectID             = "https://schemas.yotta.dev/effects/automation/get-window-state/v1"
-	WaitWindowEffectID                 = "https://schemas.yotta.dev/effects/automation/wait-window/v1"
-	WaitWindowGoneEffectID             = "https://schemas.yotta.dev/effects/automation/wait-window-gone/v1"
+	ActivateWindowNodeID     = "https://schemas.yotta.dev/nodes/automation/activate-window"
+	ActivateWindowEffectID   = "https://schemas.yotta.dev/effects/automation/activate-window/v1"
+	StopTargetAppNodeID      = "https://schemas.yotta.dev/nodes/automation/stop-target-app"
+	StopTargetAppEffectID    = "https://schemas.yotta.dev/effects/automation/stop-target-app/v1"
+	CloseWindowNodeID        = "https://schemas.yotta.dev/nodes/automation/close-window"
+	MoveResizeWindowNodeID   = "https://schemas.yotta.dev/nodes/automation/move-resize-window"
+	MaximizeWindowNodeID     = "https://schemas.yotta.dev/nodes/automation/maximize-window"
+	MinimizeWindowNodeID     = "https://schemas.yotta.dev/nodes/automation/minimize-window"
+	RestoreWindowNodeID      = "https://schemas.yotta.dev/nodes/automation/restore-window"
+	GetWindowStateNodeID     = "https://schemas.yotta.dev/nodes/automation/get-window-state"
+	WaitWindowNodeID         = "https://schemas.yotta.dev/nodes/automation/wait-window"
+	WaitWindowGoneNodeID     = "https://schemas.yotta.dev/nodes/automation/wait-window-gone"
+	CloseWindowEffectID      = "https://schemas.yotta.dev/effects/automation/close-window/v1"
+	MoveResizeWindowEffectID = "https://schemas.yotta.dev/effects/automation/move-resize-window/v1"
+	MaximizeWindowEffectID   = "https://schemas.yotta.dev/effects/automation/maximize-window/v1"
+	MinimizeWindowEffectID   = "https://schemas.yotta.dev/effects/automation/minimize-window/v1"
+	RestoreWindowEffectID    = "https://schemas.yotta.dev/effects/automation/restore-window/v1"
+	GetWindowStateEffectID   = "https://schemas.yotta.dev/effects/automation/get-window-state/v1"
+	WaitWindowEffectID       = "https://schemas.yotta.dev/effects/automation/wait-window/v1"
+	WaitWindowGoneEffectID   = "https://schemas.yotta.dev/effects/automation/wait-window-gone/v1"
 )
 
-func sealAutomationWindowCapability() (capability.Definition, error) {
-	const scopeID = AutomationWindowCapabilityID + "/scope"
-	return capability.SealDefinition(capability.DefinitionDraft{
-		CapabilityID:    AutomationWindowCapabilityID,
-		Operations:      []string{installed.OperationActivate, installed.OperationCloseWindow, installed.OperationGetWindowState, installed.OperationMoveResizeWindow, installed.OperationSetWindowState, installed.OperationWaitWindow, installed.OperationWaitWindowGone},
-		TargetKinds:     []string{installed.TargetKindDesktopWindow, installed.TargetKindAndroidDevice},
-		ScopeSchemaRoot: scopeID, ScopeSchemaBundle: []datatype.SchemaResource{{ID: scopeID, Schema: json.RawMessage(fmt.Sprintf(`{
-			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
-			"properties":{"operation":{"enum":["activate","close-window","get-window-state","move-resize-window","set-window-state","wait-window","wait-window-gone"]}},
-			"required":["operation"],"additionalProperties":false
-		}`, scopeID))}},
-		Credential: capability.CredentialNone, Risk: capability.RiskDangerous, Consent: capability.ConsentNone,
-		ProviderABI: installed.ProviderABI,
-	})
+func defineActivateWindowNode() (BuiltinDefinition, nodecontract.Contract, error) {
+	return defineAutomationWindowNode(ActivateWindowNodeID, ActivateWindowEffectID, installed.OperationActivate, "automation.activate-window", "node.automation.activateWindow", "window-maximize", "configured-target/target-activation/v1", []string{installed.TargetKindDesktopWindow, installed.TargetKindAndroidDevice})
 }
 
-func sealAutomationAppLifecycleCapability() (capability.Definition, error) {
-	const scopeID = AutomationAppLifecycleCapabilityID + "/scope"
-	return capability.SealDefinition(capability.DefinitionDraft{
-		CapabilityID: AutomationAppLifecycleCapabilityID, Operations: []string{installed.OperationStopApp}, TargetKinds: []string{installed.TargetKindAndroidDevice},
-		ScopeSchemaRoot: scopeID, ScopeSchemaBundle: []datatype.SchemaResource{{ID: scopeID, Schema: json.RawMessage(fmt.Sprintf(`{
-			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
-			"properties":{"operation":{"const":"stop-app"}},"required":["operation"],"additionalProperties":false
-		}`, scopeID))}},
-		Credential: capability.CredentialNone, Risk: capability.RiskDangerous, Consent: capability.ConsentNone,
-		ProviderABI: installed.ProviderABI,
-	})
+func defineStopTargetAppNode() (BuiltinDefinition, nodecontract.Contract, error) {
+	return defineAutomationWindowNode(StopTargetAppNodeID, StopTargetAppEffectID, installed.OperationStopApp, "automation.stop-target-app", "node.automation.stopTargetApp", "player-stop", "configured-target/target-app-stop/v1", []string{installed.TargetKindAndroidDevice})
 }
 
-func defineActivateWindowNode(window capability.Definition) (BuiltinDefinition, nodecontract.Contract, error) {
-	return defineAutomationWindowNode(window, ActivateWindowNodeID, ActivateWindowEffectID, installed.OperationActivate, "automation.activate-window", "node.automation.activateWindow", "window-maximize", "exact-target/target-activation/v1")
-}
-
-func defineStopTargetAppNode(window capability.Definition) (BuiltinDefinition, nodecontract.Contract, error) {
-	return defineAutomationWindowNode(window, StopTargetAppNodeID, StopTargetAppEffectID, installed.OperationStopApp, "automation.stop-target-app", "node.automation.stopTargetApp", "player-stop", "exact-target/target-app-stop/v1")
-}
-
-func defineDesktopWindowOperationNodes(stringRef, integerRef, booleanRef, durationRef datatype.TypeRef, window capability.Definition) ([]BuiltinDefinition, []nodecontract.Contract, error) {
+func defineDesktopWindowOperationNodes(stringRef, integerRef, booleanRef, durationRef datatype.TypeRef) ([]BuiltinDefinition, []nodecontract.Contract, error) {
 	stringType := datatype.RefExpression(stringRef)
 	integerType := datatype.RefExpression(integerRef)
 	booleanType := datatype.RefExpression(booleanRef)
@@ -100,7 +68,7 @@ func defineDesktopWindowOperationNodes(stringRef, integerRef, booleanRef, durati
 	definitions := make([]BuiltinDefinition, 0, len(specs))
 	contracts := make([]nodecontract.Contract, 0, len(specs))
 	for _, item := range specs {
-		contract, err := sealAutomationWindowContract(window, item.id, item.effectID, item.operation, item.titleKey, item.icon, item.inputs, item.outputs, item.execOutputs)
+		contract, err := sealAutomationWindowContract(item.id, item.effectID, item.operation, item.titleKey, item.icon, item.inputs, item.outputs, item.execOutputs, []string{installed.TargetKindDesktopWindow})
 		if err != nil {
 			return nil, nil, err
 		}
@@ -114,8 +82,8 @@ func defineDesktopWindowOperationNodes(stringRef, integerRef, booleanRef, durati
 	return definitions, contracts, nil
 }
 
-func defineAutomationWindowNode(window capability.Definition, nodeID, effectID, operation, entrypoint, titleKey, icon, conformance string) (BuiltinDefinition, nodecontract.Contract, error) {
-	contract, err := sealAutomationWindowContract(window, nodeID, effectID, operation, titleKey, icon, nil, nil, []string{"completed"})
+func defineAutomationWindowNode(nodeID, effectID, operation, entrypoint, titleKey, icon, conformance string, targetKinds []string) (BuiltinDefinition, nodecontract.Contract, error) {
+	contract, err := sealAutomationWindowContract(nodeID, effectID, operation, titleKey, icon, nil, nil, []string{"completed"}, targetKinds)
 	if err != nil {
 		return BuiltinDefinition{}, nodecontract.Contract{}, err
 	}
@@ -123,7 +91,7 @@ func defineAutomationWindowNode(window capability.Definition, nodeID, effectID, 
 	return definition, contract, err
 }
 
-func sealAutomationWindowContract(window capability.Definition, nodeID, effectID, operation, titleKey, icon string, inputs []nodecontract.DataInputPort, outputs []nodecontract.DataOutputPort, execOutputIDs []string) (nodecontract.Contract, error) {
+func sealAutomationWindowContract(nodeID, effectID, operation, titleKey, icon string, inputs []nodecontract.DataInputPort, outputs []nodecontract.DataOutputPort, execOutputIDs, targetKinds []string) (nodecontract.Contract, error) {
 	schemaID := nodeID + "/config"
 	execOutputs := make([]nodecontract.SignalPort, 0, len(execOutputIDs))
 	for _, id := range execOutputIDs {
@@ -145,13 +113,9 @@ func sealAutomationWindowContract(window capability.Definition, nodeID, effectID
 			Evaluation: nodecontract.EvaluationPush, Cache: nodecontract.CacheNone, Retry: nodecontract.RetryNever,
 			Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutRequired,
 		},
-		Instruction: nodecontract.Invoke(),
-		CapabilityRequirements: []capability.Requirement{{
-			ID: "target", Capability: window.Ref(), Operations: []string{operation}, TargetSlot: "target", Scope: json.RawMessage(fmt.Sprintf(`{"operation":%q}`, operation)),
-		}},
-		RequirementBindings: []nodecontract.RequirementBindingSpec{{RequirementID: "target", TargetSlotConfigKey: "slot"}},
+		Instruction:       nodecontract.Invoke(),
+		ConfiguredTargets: automationTargetSpec("target", targetKinds...),
 		Errors: []nodecontract.ErrorSpec{
-			{Code: installed.CodeIdentityChanged, Category: "automation", RetryHint: false},
 			{Code: installed.CodeTargetNotFound, Category: "automation", RetryHint: true},
 			{Code: installed.CodeTargetAmbiguous, Category: "automation", RetryHint: false},
 			{Code: installed.CodeWindowFailed, Category: "automation", RetryHint: true},

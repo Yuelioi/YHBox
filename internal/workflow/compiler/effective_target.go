@@ -27,7 +27,7 @@ func ResolveNodeCapabilityRequirements(
 }
 
 func effectiveNodeConfig(defaults []schema.TargetDefault, node schema.Node, machine nodecontract.MachineContract) (map[string]any, error) {
-	config := make(map[string]any, len(node.Config)+len(machine.RequirementBindings))
+	config := make(map[string]any, len(node.Config)+len(machine.RequirementBindings)+len(machine.ConfiguredTargets))
 	for key, value := range node.Config {
 		config[key] = value
 	}
@@ -53,6 +53,20 @@ func effectiveNodeConfig(defaults []schema.TargetDefault, node schema.Node, mach
 		}
 		inheritedByConfigKey[binding.TargetSlotConfigKey] = slot
 		config[binding.TargetSlotConfigKey] = slot
+	}
+	for _, target := range machine.ConfiguredTargets {
+		if _, explicit := node.Config[target.SlotConfigKey]; explicit {
+			continue
+		}
+		slot, inherited := targetDefaultSlot(defaults, target.TargetSlot)
+		if !inherited {
+			continue
+		}
+		if existing, assigned := inheritedByConfigKey[target.SlotConfigKey]; assigned && existing != slot {
+			return nil, fmt.Errorf("target config %q resolves to multiple workflow defaults", target.SlotConfigKey)
+		}
+		inheritedByConfigKey[target.SlotConfigKey] = slot
+		config[target.SlotConfigKey] = slot
 	}
 	return config, nil
 }

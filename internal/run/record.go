@@ -203,7 +203,7 @@ func validateRecord(document recordDocument, catalog datatype.ValueTypeCatalog) 
 		!document.ProgramHash.Valid() || !document.CatalogHash.Valid() || !document.CapabilityPlanDigest.Valid() || !document.GrantDigest.Valid() ||
 		document.QueuedAt.Location() != time.UTC || document.Journal == nil || grantErr != nil || grant.Digest != document.GrantDigest ||
 		grant.RunID != document.RunID || grant.ProgramHash != document.ProgramHash || grant.CapabilityPlanHash != document.CapabilityPlanDigest ||
-		grant.PolicyGeneration != document.PolicyGeneration || grant.Principal != document.Principal || document.QueuedAt.Before(grant.IssuedAt) || !document.QueuedAt.Before(grant.ExpiresAt) {
+		grant.PolicyGeneration != document.PolicyGeneration || grant.Principal != document.Principal || document.QueuedAt.Before(grant.IssuedAt) {
 		return errors.New("invalid RunRecord identity")
 	}
 	if catalog == nil && len(document.Values) != 0 {

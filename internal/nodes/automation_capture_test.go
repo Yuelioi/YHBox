@@ -3,7 +3,6 @@ package nodes
 import (
 	"testing"
 
-	"github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecontract"
@@ -32,29 +31,17 @@ func TestCaptureWindowUsesNominalImageAndSeparateAuthorities(t *testing.T) {
 		!signalIDsEqual(machine.Ports.ErrorOutputs, []string{"failed"}) {
 		t.Fatalf("ports = %#v", machine.Ports)
 	}
-	if len(machine.CapabilityRequirements) != 2 {
+	if len(machine.CapabilityRequirements) != 1 {
 		t.Fatalf("requirements = %#v", machine.CapabilityRequirements)
 	}
 	requirements := map[string]capability.Requirement{}
 	for _, requirement := range machine.CapabilityRequirements {
 		requirements[requirement.ID] = requirement
 	}
-	if requirements["target"].Capability.CapabilityID != AutomationCaptureCapabilityID || requirements["blob-write"].Capability.CapabilityID != BlobWriteCapabilityID {
+	if requirements["blob-write"].Capability.CapabilityID != BlobWriteCapabilityID {
 		t.Fatalf("requirements = %#v", machine.CapabilityRequirements)
 	}
-	if got := requirements["target"].Operations; len(got) != 2 || got[0] != installed.OperationCapture || got[1] != installed.OperationReadCapture {
-		t.Fatalf("capture operations = %v", got)
-	}
-	capture, ok := builtins.Catalog.LookupCapability(AutomationCaptureCapabilityID)
-	if !ok || capture.Machine().Risk != capability.RiskSensitive || capture.Machine().Consent != capability.ConsentNone {
-		t.Fatalf("capture capability = %#v", capture.Machine())
-	}
-	for _, capabilityID := range []string{AutomationInputCapabilityID, AutomationWindowCapabilityID} {
-		other, _ := builtins.Catalog.LookupCapability(capabilityID)
-		for _, operation := range other.Machine().Operations {
-			if operation == installed.OperationCapture || operation == installed.OperationReadCapture {
-				t.Fatalf("%s incorrectly grants capture operation %q", capabilityID, operation)
-			}
-		}
+	if len(machine.ConfiguredTargets) != 1 || machine.ConfiguredTargets[0].ID != "target" || len(machine.ConfiguredTargets[0].TargetKinds) != 3 {
+		t.Fatalf("configured targets = %#v", machine.ConfiguredTargets)
 	}
 }

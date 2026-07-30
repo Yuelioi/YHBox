@@ -7,12 +7,14 @@ import (
 
 	"github.com/yottaapp/yotta/internal/admission"
 	run "github.com/yottaapp/yotta/internal/run"
+	"github.com/yottaapp/yotta/internal/targetruntime"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
 type leasedAdmission struct {
 	record    run.Record
 	providers map[string]run.InstalledProvider
+	targets   targetruntime.Snapshot
 	release   func()
 }
 
@@ -20,7 +22,7 @@ func (a *Application) replaceAdmissionEnvironment(
 	profile admission.HostProfile,
 	policy admission.Policy,
 	providers map[string]run.InstalledProvider,
-	providerLease func() (func(), error),
+	targets func() (targetruntime.Snapshot, func(), error),
 ) error {
 	if !profile.Valid() || policy == nil {
 		return errors.New("replacement execution environment is invalid")
@@ -35,7 +37,7 @@ func (a *Application) replaceAdmissionEnvironment(
 		return err
 	}
 	a.providers = next
-	a.providerLease = providerLease
+	a.targetSnapshot = targets
 	return nil
 }
 
@@ -55,14 +57,17 @@ func (a *Application) admitRun(
 	a.admissionMu.RLock()
 	defer a.admissionMu.RUnlock()
 	release := func() {}
-	if a.providerLease != nil {
-		var err error
-		release, err = a.providerLease()
+	targets, err := targetruntime.NewSnapshot(nil)
+	if err != nil {
+		return leasedAdmission{}, fmt.Errorf("create empty configured target snapshot: %w", err)
+	}
+	if a.targetSnapshot != nil {
+		targets, release, err = a.targetSnapshot()
 		if err != nil {
-			return leasedAdmission{}, fmt.Errorf("lease execution environment: %w", err)
+			return leasedAdmission{}, fmt.Errorf("snapshot configured targets: %w", err)
 		}
-		if release == nil {
-			return leasedAdmission{}, errors.New("execution environment returned an invalid provider lease")
+		if !targets.Valid() || release == nil {
+			return leasedAdmission{}, errors.New("execution environment returned an invalid configured target snapshot")
 		}
 	}
 	defer func() {
@@ -76,7 +81,7 @@ func (a *Application) admitRun(
 	if err != nil {
 		return leasedAdmission{record: admitted.Record}, err
 	}
-	return leasedAdmission{record: admitted.Record, providers: a.providers, release: release}, nil
+	return leasedAdmission{record: admitted.Record, providers: a.providers, targets: targets, release: release}, nil
 }
 
 func cloneProviderSnapshot(source map[string]run.InstalledProvider) (map[string]run.InstalledProvider, error) {

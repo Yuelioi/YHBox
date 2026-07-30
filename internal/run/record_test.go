@@ -87,7 +87,7 @@ func TestRunRecordRejectsRuntimeAuthorityAndTampering(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handle := resource.Handle{Token: base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{7}, 32)), Kind: stream.Kind, ExpiresAt: queuedAt.Add(time.Minute)}
+	handle := resource.Handle{Token: base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{7}, 32)), Kind: stream.Kind}
 	envelope, err := datatype.SealStreamRef(catalog, datatype.RefResolvedType(definition.TypeRef()), handle)
 	if err != nil {
 		t.Fatal(err)

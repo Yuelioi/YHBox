@@ -85,7 +85,7 @@ func (driver *fakeHeldInput) Close() error {
 func openInputSession(t *testing.T, provider *provider, operation string) any {
 	t.Helper()
 	object, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
-		Kind: KindInput, Operations: []string{operation}, CapabilityScope: []byte(`{"operation":"` + operation + `"}`), Config: []byte(`{}`),
+		Kind: KindInput, Operations: []string{operation}, Config: []byte(`{}`),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -96,7 +96,7 @@ func openInputSession(t *testing.T, provider *provider, operation string) any {
 func openWindowSession(t *testing.T, provider *provider, operation string) any {
 	t.Helper()
 	object, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
-		Kind: KindWindow, Operations: []string{operation}, CapabilityScope: []byte(`{"operation":"` + operation + `"}`), Config: []byte(`{}`),
+		Kind: KindWindow, Operations: []string{operation}, Config: []byte(`{}`),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -107,7 +107,7 @@ func openWindowSession(t *testing.T, provider *provider, operation string) any {
 func openCaptureSession(t *testing.T, provider *provider) any {
 	t.Helper()
 	object, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
-		Kind: KindCapture, Operations: CaptureOperations(), CapabilityScope: []byte(`{"operation":"capture"}`), Config: []byte(`{}`),
+		Kind: KindCapture, Operations: CaptureOperations(), Config: []byte(`{}`),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -118,7 +118,7 @@ func openCaptureSession(t *testing.T, provider *provider) any {
 func openPlaybackSession(t *testing.T, provider *provider) any {
 	t.Helper()
 	object, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
-		Kind: KindPlayback, Operations: PlaybackOperations(), CapabilityScope: []byte(`{"operation":"play"}`), Config: []byte(`{}`),
+		Kind: KindPlayback, Operations: PlaybackOperations(), Config: []byte(`{}`),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -129,7 +129,7 @@ func openPlaybackSession(t *testing.T, provider *provider) any {
 func openHeldInputSession(t *testing.T, provider *provider) any {
 	t.Helper()
 	object, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
-		Kind: KindHeldInput, Operations: HeldInputOperations(), CapabilityScope: []byte(`{"operation":"held-input"}`), Config: []byte(`{}`),
+		Kind: KindHeldInput, Operations: HeldInputOperations(), Config: []byte(`{}`),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -137,7 +137,7 @@ func openHeldInputSession(t *testing.T, provider *provider) any {
 	return object
 }
 
-func TestProviderUsesExactGrantedOperationAndCanonicalPayload(t *testing.T) {
+func TestProviderUsesConfiguredOperationAndCanonicalPayload(t *testing.T) {
 	profile, _ := testProfile(t)
 	driver := &fakeDriver{}
 	provider := &provider{profile: profile, driver: driver}
@@ -159,14 +159,9 @@ func TestProviderUsesExactGrantedOperationAndCanonicalPayload(t *testing.T) {
 	}
 }
 
-func TestProviderRejectsForgedScopeAndPayload(t *testing.T) {
+func TestProviderRejectsInvalidPayload(t *testing.T) {
 	profile, _ := testProfile(t)
 	provider := &provider{profile: profile, driver: &fakeDriver{}}
-	if _, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
-		Kind: KindInput, Operations: []string{OperationClick}, CapabilityScope: []byte(`{"operation":"move"}`), Config: []byte(`{}`),
-	}); err == nil {
-		t.Fatal("provider accepted mismatched capability scope")
-	}
 	object := openInputSession(t, provider, OperationPressKeys)
 	for _, payload := range [][]byte{
 		[]byte(`{"keys":[],"durationMilliseconds":10}`),
@@ -180,7 +175,7 @@ func TestProviderRejectsForgedScopeAndPayload(t *testing.T) {
 	}
 }
 
-func TestProviderSeparatesWindowAuthorityFromInputAuthority(t *testing.T) {
+func TestProviderRoutesOperationsBySessionKind(t *testing.T) {
 	profile, _ := testProfile(t)
 	driver := &fakeDriver{}
 	provider := &provider{profile: profile, driver: driver}
@@ -193,13 +188,13 @@ func TestProviderSeparatesWindowAuthorityFromInputAuthority(t *testing.T) {
 		t.Fatalf("activate request = %#v", driver.request)
 	}
 	for _, request := range []resource.ProviderOpenRequest{
-		{Kind: KindInput, Operations: []string{OperationActivate}, CapabilityScope: []byte(`{"operation":"activate"}`), Config: []byte(`{}`)},
-		{Kind: KindWindow, Operations: []string{OperationClick}, CapabilityScope: []byte(`{"operation":"click"}`), Config: []byte(`{}`)},
-		{Kind: KindCapture, Operations: []string{OperationCapture}, CapabilityScope: []byte(`{"operation":"capture"}`), Config: []byte(`{}`)},
-		{Kind: KindPlayback, Operations: []string{OperationPlayEvent}, CapabilityScope: []byte(`{"operation":"play"}`), Config: []byte(`{}`)},
+		{Kind: KindInput, Operations: []string{OperationActivate}, Config: []byte(`{}`)},
+		{Kind: KindWindow, Operations: []string{OperationClick}, Config: []byte(`{}`)},
+		{Kind: KindCapture, Operations: []string{OperationCapture}, Config: []byte(`{}`)},
+		{Kind: KindPlayback, Operations: []string{OperationPlayEvent}, Config: []byte(`{}`)},
 	} {
 		if _, err := provider.Open(context.Background(), request); err == nil {
-			t.Fatalf("provider accepted cross-capability request %#v", request)
+			t.Fatalf("provider accepted an operation for the wrong session kind %#v", request)
 		}
 	}
 }
@@ -216,18 +211,18 @@ func TestProviderPlaybackIsExclusiveScaledAndReleasesHeldState(t *testing.T) {
 	provider := &provider{profile: profile, driver: driver, runtimeMouseCounts360: 4134}
 	input := openInputSession(t, provider, OperationMove)
 	if _, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
-		Kind: KindPlayback, Operations: PlaybackOperations(), CapabilityScope: []byte(`{"operation":"play"}`), Config: []byte(`{}`),
+		Kind: KindPlayback, Operations: PlaybackOperations(), Config: []byte(`{}`),
 	}); err == nil {
-		t.Fatal("playback opened while atomic input authority was active")
+		t.Fatal("playback opened while an input session was active")
 	}
 	if err := provider.Close(context.Background(), input); err != nil {
 		t.Fatal(err)
 	}
 	playback := openPlaybackSession(t, provider)
 	if _, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
-		Kind: KindInput, Operations: []string{OperationClick}, CapabilityScope: []byte(`{"operation":"click"}`), Config: []byte(`{}`),
+		Kind: KindInput, Operations: []string{OperationClick}, Config: []byte(`{}`),
 	}); err == nil {
-		t.Fatal("atomic input opened while playback authority was active")
+		t.Fatal("input session opened while playback was active")
 	}
 	payload, err := artifact.Marshal(PlaybackEvent{Kind: PlaybackMoveRelative, DeltaX: 3, DeltaY: -2, SourceCounts360: 400})
 	if err != nil {
@@ -288,7 +283,7 @@ func TestProviderRelativePlaybackUsesExactCalibrationRatio(t *testing.T) {
 	}
 }
 
-func TestProviderHeldInputOwnsASeparateLeaseAndFailsSafeOnRelease(t *testing.T) {
+func TestProviderHeldInputOwnsASeparateSessionAndReleasesState(t *testing.T) {
 	profile, _ := testProfile(t)
 	driver := &fakeDriver{}
 	provider := &provider{profile: profile, driver: driver}
@@ -303,9 +298,9 @@ func TestProviderHeldInputOwnsASeparateLeaseAndFailsSafeOnRelease(t *testing.T) 
 		t.Fatalf("held request=%#v response=%s error=%v", driver.held.request, raw, err)
 	}
 	if _, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
-		Kind: KindPlayback, Operations: PlaybackOperations(), CapabilityScope: []byte(`{"operation":"play"}`), Config: []byte(`{}`),
+		Kind: KindPlayback, Operations: PlaybackOperations(), Config: []byte(`{}`),
 	}); err == nil {
-		t.Fatal("playback opened while held input authority was active")
+		t.Fatal("playback opened while held input was active")
 	}
 	raw, err = provider.Invoke(context.Background(), held, OperationReleaseHeld, []byte(`{}`))
 	if err != nil || OpenEffectResponse(raw) != nil || driver.held.closed != 1 {
@@ -404,7 +399,7 @@ func TestProviderCaptureProjectsRawRGBAWithoutPNGEncoding(t *testing.T) {
 	}
 }
 
-func TestProviderContinuesAfterAuthorizedExecutableUpdate(t *testing.T) {
+func TestProviderContinuesAfterConfiguredExecutableUpdate(t *testing.T) {
 	profile, path := testProfile(t)
 	driver := &fakeDriver{}
 	provider := &provider{profile: profile, driver: driver}

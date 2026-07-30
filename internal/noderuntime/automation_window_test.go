@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yottaapp/yotta/internal/admission"
-	"github.com/yottaapp/yotta/internal/artifact"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/noderuntime"
@@ -25,7 +23,7 @@ type automationWindowProvider struct {
 }
 
 func (provider *automationWindowProvider) Open(_ context.Context, request resource.ProviderOpenRequest) (any, error) {
-	if request.Kind != automationinstalled.KindWindow || fmt.Sprint(request.Operations) != "[activate]" || string(request.Config) != `{}` || string(request.CapabilityScope) != `{"operation":"activate"}` {
+	if request.Kind != automationinstalled.KindWindow || fmt.Sprint(request.Operations) != "[activate]" || string(request.Config) != `{}` || len(request.CapabilityScope) != 0 {
 		return nil, fmt.Errorf("unexpected automation window open request: %#v", request)
 	}
 	return automationinstalled.OperationActivate, nil
@@ -47,7 +45,7 @@ func (provider *automationWindowProvider) Close(context.Context, any) error {
 	return nil
 }
 
-func TestActivateWindowUsesDedicatedInstalledAuthorityAndJournal(t *testing.T) {
+func TestActivateWindowUsesConfiguredTargetAndJournal(t *testing.T) {
 	provider := &automationWindowProvider{}
 	journal, err := executeWindowActivation(t, provider)
 	if err != nil {
@@ -90,38 +88,18 @@ func executeWindowActivation(t *testing.T, provider *automationWindowProvider) (
 	if err != nil {
 		t.Fatal(err)
 	}
-	providerDigest, err := artifact.Sum("yotta/test/automation-window-provider/v1", []byte("exact-installed-window"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	const providerID, targetID, slot = "automation-window-test", "automation-target/test", "automation-test"
-	capabilityDefinition, ok := builtins.Catalog.LookupCapability(nodes.AutomationWindowCapabilityID)
-	if !ok {
-		t.Fatal("automation window capability is missing")
-	}
-	profileDraft := executionProfile(t, builtins)
-	profileDraft.Providers = append(profileDraft.Providers, admission.ProviderDescriptor{
-		ID: providerID, ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, PluginInstanceID: "builtin",
-		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"},
-		Capabilities: []admission.ProviderCapability{{Capability: capabilityDefinition.Ref(), ResourceKind: automationinstalled.KindWindow}},
-	})
-	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKindDesktopWindow, ProviderID: providerID})
-	profileDraft.TargetSlots = append(profileDraft.TargetSlots, admission.TargetSlotBinding{Slot: slot, TargetID: targetID})
+	const targetID, slot = "automation-target/test", "automation-test"
 	program := compilePrimitiveProgram(t, builtins, automationWindowSource(t, builtins, slot))
 	now := time.Date(2026, 7, 16, 20, 0, 0, 0, time.UTC)
-	consent, err := artifact.Sum("yotta/test/automation-window-consent/v1", []byte(slot))
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, owner, journal := admittedExecutionWithConsent(t, builtins, program, map[string]run.InstalledProvider{
-		providerID: {ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, Provider: provider},
-	}, now, profileDraft, []artifact.Digest{consent})
+	_, owner, journal := admittedExecution(t, builtins, program, map[string]run.InstalledProvider{}, now)
 	t.Cleanup(func() { _ = owner.Close(context.Background()) })
+	targets := configuredTargetRun(t, slot, targetID, provider)
 	adapters, err := noderuntime.Installed(builtins, testDependencies())
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, runErr := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).Run(context.Background(), program, owner, journal)
+	_, runErr := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).
+		RunWithTargets(context.Background(), program, owner, targets, journal)
 	return journal, runErr
 }
 

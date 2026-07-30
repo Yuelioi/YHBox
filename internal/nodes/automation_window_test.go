@@ -5,11 +5,10 @@ import (
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/automation/installed"
-	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 )
 
-func TestActivateWindowUsesDedicatedExactCapability(t *testing.T) {
+func TestActivateWindowUsesConfiguredTarget(t *testing.T) {
 	builtins, err := Build()
 	if err != nil {
 		t.Fatal(err)
@@ -28,22 +27,9 @@ func TestActivateWindowUsesDedicatedExactCapability(t *testing.T) {
 		!signalIDsEqual(machine.Ports.ErrorOutputs, []string{"failed"}) {
 		t.Fatalf("ports = %#v", machine.Ports)
 	}
-	if len(machine.CapabilityRequirements) != 1 || machine.CapabilityRequirements[0].Capability.CapabilityID != AutomationWindowCapabilityID ||
-		len(machine.CapabilityRequirements[0].Operations) != 1 || machine.CapabilityRequirements[0].Operations[0] != installed.OperationActivate {
-		t.Fatalf("requirements = %#v", machine.CapabilityRequirements)
-	}
-	windowCapability, ok := builtins.Catalog.LookupCapability(AutomationWindowCapabilityID)
-	if !ok || windowCapability.Machine().Risk != capability.RiskDangerous || windowCapability.Machine().Consent != capability.ConsentNone {
-		t.Fatalf("window capability = %#v", windowCapability.Machine())
-	}
-	inputCapability, ok := builtins.Catalog.LookupCapability(AutomationInputCapabilityID)
-	if !ok {
-		t.Fatal("automation input capability is missing")
-	}
-	for _, operation := range inputCapability.Machine().Operations {
-		if operation == installed.OperationActivate {
-			t.Fatal("input capability incorrectly grants window activation")
-		}
+	if len(machine.CapabilityRequirements) != 0 || len(machine.ConfiguredTargets) != 1 ||
+		len(machine.ConfiguredTargets[0].TargetKinds) != 2 {
+		t.Fatalf("configured target = %#v", machine.ConfiguredTargets)
 	}
 }
 
@@ -71,8 +57,8 @@ func TestDesktopWindowOperationsRemainTargetBoundAndTyped(t *testing.T) {
 			t.Fatalf("window definition %q is missing", nodeID)
 		}
 		machine := definition.Contract.Machine()
-		if len(machine.CapabilityRequirements) != 1 || machine.CapabilityRequirements[0].Capability.CapabilityID != AutomationWindowCapabilityID ||
-			!slices.Equal(machine.CapabilityRequirements[0].Operations, []string{want.operation}) || !signalIDsEqual(machine.Ports.ExecOutputs, want.exec) {
+		if len(machine.CapabilityRequirements) != 0 || len(machine.ConfiguredTargets) != 1 ||
+			!slices.Equal(machine.ConfiguredTargets[0].TargetKinds, []string{installed.TargetKindDesktopWindow}) || !signalIDsEqual(machine.Ports.ExecOutputs, want.exec) {
 			t.Fatalf("window contract %q = %#v", nodeID, machine)
 		}
 	}

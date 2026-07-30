@@ -9,6 +9,7 @@ import (
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	run "github.com/yottaapp/yotta/internal/run"
+	"github.com/yottaapp/yotta/internal/targetruntime"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
@@ -87,6 +88,7 @@ type Invocation struct {
 	InputTypes   map[string]datatype.ResolvedType
 	OutputTypes  map[string]datatype.ResolvedType
 	Sessions     map[string]*run.Session
+	Targets      *targetruntime.Run
 	State        map[string]StateBinding
 	Trigger      *SignalTrigger
 	ObservedAt   time.Time

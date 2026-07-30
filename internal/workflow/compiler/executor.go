@@ -20,6 +20,7 @@ import (
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/resource"
 	run "github.com/yottaapp/yotta/internal/run"
+	"github.com/yottaapp/yotta/internal/targetruntime"
 )
 
 var errAdapterActionFailed = errors.New("adapter recorded a failed action")
@@ -52,6 +53,7 @@ type ExecutorOptions struct {
 
 type ownedLease struct {
 	session *run.Session
+	targets *targetruntime.Run
 	handle  resource.Handle
 }
 
@@ -100,7 +102,11 @@ func (e *Executor) readEntropy(target []byte) error {
 }
 
 func (e *Executor) Run(ctx context.Context, program ProgramSnapshot, owner *run.Owner, journal *run.JournalWriter) (ExecutionResult, error) {
-	return e.run(ctx, program, owner, journal, nil)
+	return e.run(ctx, program, owner, nil, journal, nil)
+}
+
+func (e *Executor) RunWithTargets(ctx context.Context, program ProgramSnapshot, owner *run.Owner, targets *targetruntime.Run, journal *run.JournalWriter) (ExecutionResult, error) {
+	return e.run(ctx, program, owner, targets, journal, nil)
 }
 
 // RunDebug uses the same Program interpreter, Owner, journal, leases, and
@@ -109,10 +115,17 @@ func (e *Executor) RunDebug(ctx context.Context, program ProgramSnapshot, owner 
 	if control == nil {
 		return ExecutionResult{}, errors.New("debug execution requires a controller")
 	}
-	return e.run(ctx, program, owner, journal, control)
+	return e.run(ctx, program, owner, nil, journal, control)
 }
 
-func (e *Executor) run(ctx context.Context, program ProgramSnapshot, owner *run.Owner, journal *run.JournalWriter, control *DebugController) (ExecutionResult, error) {
+func (e *Executor) RunDebugWithTargets(ctx context.Context, program ProgramSnapshot, owner *run.Owner, targets *targetruntime.Run, journal *run.JournalWriter, control *DebugController) (ExecutionResult, error) {
+	if control == nil {
+		return ExecutionResult{}, errors.New("debug execution requires a controller")
+	}
+	return e.run(ctx, program, owner, targets, journal, control)
+}
+
+func (e *Executor) run(ctx context.Context, program ProgramSnapshot, owner *run.Owner, targets *targetruntime.Run, journal *run.JournalWriter, control *DebugController) (ExecutionResult, error) {
 	if ctx == nil || !program.Valid() || !e.catalog.Valid() || owner == nil || journal == nil {
 		return ExecutionResult{}, errors.New("executor requires Program, Catalog, Run Owner, and journal")
 	}
@@ -124,7 +137,7 @@ func (e *Executor) run(ctx context.Context, program ProgramSnapshot, owner *run.
 	if err := owner.ValidateAdmission(current.Admission()); err != nil {
 		return ExecutionResult{}, err
 	}
-	result, executionErr := e.execute(ctx, program, owner, journal, control)
+	result, executionErr := e.execute(ctx, program, owner, targets, journal, control)
 	finishedAt := e.now().UTC()
 	if executionErr != nil {
 		if errors.Is(executionErr, context.Canceled) || errors.Is(executionErr, context.DeadlineExceeded) {
@@ -210,7 +223,7 @@ func runErrorForExecution(executionErr error, journal []run.JournalEntry) run.Ru
 	return run.RunError{Code: "runtime.execution_failed", Category: run.ErrorCategoryInfrastructure}
 }
 
-func (e *Executor) execute(ctx context.Context, program ProgramSnapshot, owner *run.Owner, journal *run.JournalWriter, control *DebugController) (ExecutionResult, error) {
+func (e *Executor) execute(ctx context.Context, program ProgramSnapshot, owner *run.Owner, targets *targetruntime.Run, journal *run.JournalWriter, control *DebugController) (ExecutionResult, error) {
 	if ctx == nil || !program.Valid() || !e.catalog.Valid() || owner == nil || journal == nil {
 		return ExecutionResult{}, errors.New("executor requires Program, Catalog, Run Owner, and journal")
 	}
@@ -243,7 +256,7 @@ func (e *Executor) execute(ctx context.Context, program ProgramSnapshot, owner *
 	if err != nil {
 		return ExecutionResult{}, err
 	}
-	scheduler := newScheduler(e, graph, owner, journal, state)
+	scheduler := newScheduler(e, graph, owner, targets, journal, state)
 	scheduler.control = control
 	return scheduler.run(ctx)
 }
@@ -408,7 +421,7 @@ func (e *Executor) resolveInput(result ExecutionResult, input inputPlan) (dataty
 	}
 }
 
-func (e *Executor) validateOutputs(node programNode, outputs map[string]datatype.ValueEnvelope, sessions map[string]*run.Session) (map[string]datatype.ValueEnvelope, []ownedLease, error) {
+func (e *Executor) validateOutputs(node programNode, outputs map[string]datatype.ValueEnvelope, sessions map[string]*run.Session, targets *targetruntime.Run) (map[string]datatype.ValueEnvelope, []ownedLease, error) {
 	if len(outputs) != len(node.Ports.DataOutputs) {
 		return nil, nil, errors.New("adapter output count does not match Node Contract")
 	}
@@ -424,10 +437,19 @@ func (e *Executor) validateOutputs(node programNode, outputs map[string]datatype
 			return nil, nil, fmt.Errorf("adapter output %q violates its pinned type", port.ID)
 		}
 		if handle, _, runtime := runtimeHandle(envelope); runtime {
-			if port.ResourceLease == nil || sessions[port.ResourceLease.RequirementID] == nil {
+			if port.ResourceLease == nil {
 				return nil, nil, fmt.Errorf("adapter output %q has unbound runtime authority", port.ID)
 			}
-			leases = append(leases, ownedLease{session: sessions[port.ResourceLease.RequirementID], handle: handle})
+			if port.ResourceLease.TargetID != "" {
+				if targets == nil {
+					return nil, nil, fmt.Errorf("adapter output %q has no configured target runtime", port.ID)
+				}
+				leases = append(leases, ownedLease{targets: targets, handle: handle})
+			} else if session := sessions[port.ResourceLease.RequirementID]; session != nil {
+				leases = append(leases, ownedLease{session: session, handle: handle})
+			} else {
+				return nil, nil, fmt.Errorf("adapter output %q has unbound runtime authority", port.ID)
+			}
 		} else if port.ResourceLease != nil {
 			return nil, nil, fmt.Errorf("adapter output %q omitted declared runtime authority", port.ID)
 		}

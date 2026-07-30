@@ -8,6 +8,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/capability"
 	run "github.com/yottaapp/yotta/internal/run"
+	"github.com/yottaapp/yotta/internal/targetruntime"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
@@ -15,18 +16,19 @@ type runJob struct {
 	workflowID string
 	cancel     context.CancelFunc
 	providers  map[string]run.InstalledProvider
+	targets    targetruntime.Snapshot
 	release    func()
 }
 
 // The private methods below own the single production worker and every
 // in-process Run lifetime. runMu keeps worker state separate from the
 // Application command and lifecycle locks.
-func (a *Application) enqueue(runID, workflowID string, providers map[string]run.InstalledProvider, release func(), control *compiler.DebugController) {
+func (a *Application) enqueue(runID, workflowID string, providers map[string]run.InstalledProvider, targets targetruntime.Snapshot, release func(), control *compiler.DebugController) {
 	a.runMu.Lock()
 	defer a.runMu.Unlock()
 	a.jobs[runID] = &runJob{
 		workflowID: workflowID,
-		providers:  providers, release: release,
+		providers:  providers, targets: targets, release: release,
 	}
 	if control != nil {
 		a.debug[runID] = control
@@ -277,8 +279,8 @@ func (a *Application) execute(ctx context.Context, runID string) error {
 	a.runMu.Lock()
 	job := a.jobs[runID]
 	a.runMu.Unlock()
-	if job == nil || job.providers == nil {
-		return errors.New("run has no leased execution environment")
+	if job == nil || job.providers == nil || !job.targets.Valid() {
+		return errors.New("run has no execution environment")
 	}
 	record, err := a.runs.Load(runID)
 	if err != nil || record.Status() != run.StatusQueued {
@@ -331,14 +333,24 @@ func (a *Application) execute(ctx context.Context, runID string) error {
 	a.runMu.Lock()
 	control := a.debug[runID]
 	a.runMu.Unlock()
+	targets, err := job.targets.NewRun()
+	if err != nil {
+		_, terminalErr := journal.Fail(context.WithoutCancel(ctx), a.transitionTime(running.Admission().QueuedAt), run.RunError{
+			Code: "runtime.targets_failed", Category: run.ErrorCategoryInfrastructure,
+		})
+		closeCtx, cancel := context.WithTimeout(context.Background(), a.ownerCloseTimeout)
+		closeErr := owner.Close(closeCtx)
+		cancel()
+		return errors.Join(err, terminalErr, closeErr)
+	}
 	var executionErr error
 	if control == nil {
-		_, executionErr = a.executor.Run(ctx, program, owner, journal)
+		_, executionErr = a.executor.RunWithTargets(ctx, program, owner, targets, journal)
 	} else {
-		_, executionErr = a.executor.RunDebug(ctx, program, owner, journal, control)
+		_, executionErr = a.executor.RunDebugWithTargets(ctx, program, owner, targets, journal, control)
 	}
 	closeCtx, cancel := context.WithTimeout(context.Background(), a.ownerCloseTimeout)
-	closeErr := owner.Close(closeCtx)
+	closeErr := errors.Join(targets.Close(closeCtx), owner.Close(closeCtx))
 	cancel()
 	if control != nil {
 		status := "UNKNOWN"

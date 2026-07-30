@@ -31,7 +31,7 @@ func TestGrantAuthorizerDrivesBrokerAndRevokesCalls(t *testing.T) {
 	plan := streamPlan(t, definition)
 	grant, err := capability.SealRunGrant(capability.GrantRequest{
 		ProgramHash: digest("program"), Plan: plan, RunID: testRunID, Principal: "user-1", PolicyGeneration: "policy-1",
-		IssuedAt: now, ExpiresAt: now.Add(time.Minute), Bindings: []capability.Binding{{
+		IssuedAt: now, Bindings: []capability.Binding{{
 			GraphID: "main", NodeID: "producer", RequirementID: "stream", ProviderID: stream.ProviderID,
 			ProviderArtifactDigest: streamProviderDigest(t), ProviderABI: stream.ProviderABI,
 			TargetID: "memory", TargetKind: "stream-session", ResourceKind: stream.Kind,
@@ -41,7 +41,7 @@ func TestGrantAuthorizerDrivesBrokerAndRevokesCalls(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	authorizer, err := run.NewGrantAuthorizer(grant, func() time.Time { return now })
+	authorizer, err := run.NewGrantAuthorizer(grant)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestGrantAuthorizerDrivesBrokerAndRevokesCalls(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	broker, err := resource.New(authorizer, map[string]resource.Provider{stream.ProviderID: provider}, resource.Options{Now: func() time.Time { return now }})
+	broker, err := resource.New(authorizer, map[string]resource.Provider{stream.ProviderID: provider}, resource.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func TestGrantAuthorizerDrivesBrokerAndRevokesCalls(t *testing.T) {
 	config, _ := json.Marshal(stream.Config{Capacity: 1, MaxChunkBytes: 16})
 	handle, err := broker.Open(context.Background(), resource.OpenRequest{
 		Scope: scope, ProviderID: stream.ProviderID, TargetID: "memory", Kind: stream.Kind,
-		Operations: []string{stream.OperationSend, stream.OperationCancel}, ExpiresAt: now.Add(30 * time.Second), Config: config,
+		Operations: []string{stream.OperationSend, stream.OperationCancel}, Config: config,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -79,7 +79,7 @@ func TestGrantAuthorizerDrivesBrokerAndRevokesCalls(t *testing.T) {
 func TestGrantAuthorizerRejectsWrongRequirementBeforeProviderOpen(t *testing.T) {
 	// The full open path is covered above; a forged requirement cannot select
 	// another entry even when the provider/target strings happen to match.
-	authorizer, grant, now := grantAuthorizer(t)
+	authorizer, grant := grantAuthorizer(t)
 	scope := resource.Scope{
 		ProgramHash: grant.ProgramHash(), CapabilityPlanDigest: grant.PlanDigest(), GrantDigest: grant.Digest(), PolicyGeneration: grant.PolicyGeneration(),
 		RunID: grant.RunID(), Principal: grant.Principal(), PluginInstanceID: "builtin", SessionID: "session-1",
@@ -87,7 +87,7 @@ func TestGrantAuthorizerRejectsWrongRequirementBeforeProviderOpen(t *testing.T) 
 	}
 	_, err := authorizer.AuthorizeOpen(context.Background(), resource.OpenRequest{
 		Scope: scope, ProviderID: stream.ProviderID, TargetID: "memory", Kind: stream.Kind,
-		Operations: []string{stream.OperationSend}, ExpiresAt: now.Add(time.Second),
+		Operations: []string{stream.OperationSend},
 	})
 	if !errors.Is(err, run.ErrGrantDenied) {
 		t.Fatalf("forged requirement = %v", err)
@@ -95,14 +95,14 @@ func TestGrantAuthorizerRejectsWrongRequirementBeforeProviderOpen(t *testing.T) 
 }
 
 func TestGrantAuthorizerReturnsCanonicalPlannedScope(t *testing.T) {
-	authorizer, _, now := grantAuthorizer(t)
+	authorizer, _ := grantAuthorizer(t)
 	scope, err := authorizer.Scope("main", "producer", "stream", "invoke-1")
 	if err != nil {
 		t.Fatal(err)
 	}
 	authorization, err := authorizer.AuthorizeOpen(context.Background(), resource.OpenRequest{
 		Scope: scope, ProviderID: stream.ProviderID, TargetID: "memory", Kind: stream.Kind,
-		Operations: []string{stream.OperationSend}, ExpiresAt: now.Add(time.Second),
+		Operations: []string{stream.OperationSend},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -143,14 +143,14 @@ func TestGrantAuthorizerRejectsBorrowAcrossDifferentCanonicalScopes(t *testing.T
 	}
 	grant, err := capability.SealRunGrant(capability.GrantRequest{
 		ProgramHash: digest("program"), Plan: plan, RunID: testRunID, Principal: "user-1", PolicyGeneration: "policy-1",
-		IssuedAt: now, ExpiresAt: now.Add(time.Minute), Bindings: []capability.Binding{
+		IssuedAt: now, Bindings: []capability.Binding{
 			binding("owner", "stream-owner"), binding("borrower", "stream-borrower"),
 		},
 	}, catalog{definition.Ref().CapabilityID: definition})
 	if err != nil {
 		t.Fatal(err)
 	}
-	authorizer, err := run.NewGrantAuthorizer(grant, func() time.Time { return now })
+	authorizer, err := run.NewGrantAuthorizer(grant)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,21 +164,21 @@ func TestGrantAuthorizerRejectsBorrowAcrossDifferentCanonicalScopes(t *testing.T
 	}
 	err = authorizer.AuthorizeBorrow(context.Background(), resource.BorrowRequest{
 		Owner: ownerScope, Borrower: borrowerScope, ProviderID: stream.ProviderID, TargetID: "memory", Kind: stream.Kind,
-		Operations: []string{stream.OperationSend}, ExpiresAt: now.Add(30 * time.Second),
+		Operations: []string{stream.OperationSend},
 	})
 	if !errors.Is(err, run.ErrGrantDenied) {
 		t.Fatalf("cross-scope borrow = %v", err)
 	}
 }
 
-func grantAuthorizer(t *testing.T) (*run.GrantAuthorizer, capability.RunGrant, time.Time) {
+func grantAuthorizer(t *testing.T) (*run.GrantAuthorizer, capability.RunGrant) {
 	t.Helper()
 	now := time.Date(2026, 7, 15, 1, 0, 0, 0, time.UTC)
 	definition := streamCapability(t)
 	plan := streamPlan(t, definition)
 	grant, err := capability.SealRunGrant(capability.GrantRequest{
 		ProgramHash: digest("program"), Plan: plan, RunID: testRunID, Principal: "user-1", PolicyGeneration: "policy-1",
-		IssuedAt: now, ExpiresAt: now.Add(time.Minute), Bindings: []capability.Binding{{
+		IssuedAt: now, Bindings: []capability.Binding{{
 			GraphID: "main", NodeID: "producer", RequirementID: "stream", ProviderID: stream.ProviderID, TargetID: "memory",
 			ProviderArtifactDigest: streamProviderDigest(t), ProviderABI: stream.ProviderABI,
 			TargetKind: "stream-session", ResourceKind: stream.Kind, PluginInstanceID: "builtin", SessionID: "session-1",
@@ -187,11 +187,11 @@ func grantAuthorizer(t *testing.T) (*run.GrantAuthorizer, capability.RunGrant, t
 	if err != nil {
 		t.Fatal(err)
 	}
-	authorizer, err := run.NewGrantAuthorizer(grant, func() time.Time { return now })
+	authorizer, err := run.NewGrantAuthorizer(grant)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return authorizer, grant, now
+	return authorizer, grant
 }
 
 func streamCapability(t *testing.T) capability.Definition {

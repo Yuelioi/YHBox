@@ -117,7 +117,6 @@ type PolicyRequest struct {
 type PolicyDecision struct {
 	Outcome        PolicyOutcome
 	Generation     string
-	ExpiresAt      time.Time
 	ConsentLineage []artifact.Digest
 }
 
@@ -136,9 +135,8 @@ type recordCreator interface {
 }
 
 type Options struct {
-	Now         func() time.Time
-	NewRunID    func() (string, error)
-	MaxGrantTTL time.Duration
+	Now      func() time.Time
+	NewRunID func() (string, error)
 }
 
 type Admitter struct {
@@ -146,7 +144,6 @@ type Admitter struct {
 	store   recordCreator
 	now     func() time.Time
 	newID   func() (string, error)
-	maxTTL  time.Duration
 	envMu   sync.RWMutex
 	env     admissionEnvironment
 }
@@ -166,10 +163,7 @@ func New(catalog nodecatalog.Snapshot, profile HostProfile, store recordCreator,
 	if options.NewRunID == nil {
 		options.NewRunID = runid.New
 	}
-	if options.MaxGrantTTL <= 0 || options.MaxGrantTTL > 24*time.Hour {
-		return nil, errors.New("admitter requires a bounded grant TTL")
-	}
-	return &Admitter{catalog: catalog, store: store, now: options.Now, newID: options.NewRunID, maxTTL: options.MaxGrantTTL, env: admissionEnvironment{profile: profile, policy: policy}}, nil
+	return &Admitter{catalog: catalog, store: store, now: options.Now, newID: options.NewRunID, env: admissionEnvironment{profile: profile, policy: policy}}, nil
 }
 
 // ReplaceEnvironment atomically publishes a matching Host Profile and Policy.
@@ -229,12 +223,9 @@ func (a *Admitter) Admit(ctx context.Context, request Request) (Result, error) {
 		return Result{}, &Error{Code: CodePolicyInvalid}
 	}
 	now := a.now().UTC()
-	if decision.ExpiresAt.Location() != time.UTC || !decision.ExpiresAt.After(now) || decision.ExpiresAt.After(now.Add(a.maxTTL)) {
-		return Result{}, &Error{Code: CodePolicyInvalid}
-	}
 	grant, err := capability.SealRunGrant(capability.GrantRequest{
 		ProgramHash: request.Program.Hash(), Plan: request.Program.CapabilityPlan(), RunID: runID, Principal: request.Principal,
-		PolicyGeneration: decision.Generation, IssuedAt: now, ExpiresAt: decision.ExpiresAt,
+		PolicyGeneration: decision.Generation, IssuedAt: now,
 		Bindings: bindings, ConsentLineage: decision.ConsentLineage,
 	}, a.catalog)
 	if err != nil {

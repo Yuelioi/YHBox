@@ -198,10 +198,10 @@ func hasNativeFixtureEvent(events []nativeFixtureEvent, message uint32, wParam u
 	return false
 }
 
-func nativeFixtureProfile(t *testing.T, inspection appcontrol.ExecutableInspection, title, titleMatch, selection string) Profile {
+func nativeFixtureProfile(t *testing.T, executable, title, titleMatch, selection string) Profile {
 	t.Helper()
 	profile, err := SealProfile(NewDesktopProfileDraft(DesktopProfilePayload{
-		Application: appcontrol.ProfileDraft{Executable: inspection.Executable, Arguments: []string{}},
+		Application: appcontrol.ProfileDraft{Executable: executable, Arguments: []string{}},
 		WindowTitle: title, WindowTitleMatch: titleMatch, WindowSelection: selection, WindowClass: nativeFixtureClass,
 		InputBackend: "sendinput", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
 	}))
@@ -238,11 +238,7 @@ func TestNativeWindowsDriverEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	inspection, err := appcontrol.InspectExecutable(executable)
-	if err != nil {
-		t.Fatal(err)
-	}
-	profile := nativeFixtureProfile(t, inspection, nativeFixtureTitle, "exact", "unique")
+	profile := nativeFixtureProfile(t, executable, nativeFixtureTitle, "exact", "unique")
 	driver, err := newPlatformDriver(profile)
 	if err != nil {
 		t.Fatal(err)
@@ -261,7 +257,7 @@ func TestNativeWindowsDriverEndToEnd(t *testing.T) {
 	}
 
 	setNativeFixtureTitle(t, windows.primary, "Yotta Native Fixture Dynamic  ")
-	regexDriver, err := newPlatformDriver(nativeFixtureProfile(t, inspection, `^Yotta Native Fixture Dynamic  $`, "regex", "unique"))
+	regexDriver, err := newPlatformDriver(nativeFixtureProfile(t, executable, `^Yotta Native Fixture Dynamic  $`, "regex", "unique"))
 	if err != nil {
 		t.Fatal(err)
 	}

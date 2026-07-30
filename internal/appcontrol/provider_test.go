@@ -2,7 +2,6 @@ package appcontrol
 
 import (
 	"context"
-	"errors"
 	"os"
 	"testing"
 
@@ -27,7 +26,7 @@ func (p *fakePlatform) Terminate(context.Context, Profile) (int, error) {
 func openSession(t *testing.T, provider *provider, operation string) any {
 	t.Helper()
 	object, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
-		Kind: KindApplication, Operations: []string{operation}, CapabilityScope: []byte(`{"operation":"` + operation + `"}`), Config: []byte(`{}`),
+		Kind: KindApplication, Operations: []string{operation}, Config: []byte(`{}`),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -64,7 +63,7 @@ func TestProviderUsesExactInstalledOperation(t *testing.T) {
 	}
 }
 
-func TestProviderContinuesAfterAuthorizedExecutableUpdate(t *testing.T) {
+func TestProviderContinuesAfterConfiguredExecutableUpdate(t *testing.T) {
 	profile, path := testProfile(t)
 	platform := &fakePlatform{}
 	provider := &provider{profile: profile, platform: platform}
@@ -77,7 +76,7 @@ func TestProviderContinuesAfterAuthorizedExecutableUpdate(t *testing.T) {
 	}
 }
 
-func TestProviderFailsClosedWhenExecutableIsUnavailable(t *testing.T) {
+func TestProviderLeavesExecutableAvailabilityToTheConfiguredOperation(t *testing.T) {
 	profile, path := testProfile(t)
 	platform := &fakePlatform{}
 	provider := &provider{profile: profile, platform: platform}
@@ -86,19 +85,18 @@ func TestProviderFailsClosedWhenExecutableIsUnavailable(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err := provider.Invoke(context.Background(), object, OperationLaunch, []byte(`{}`))
-	var failure *Failure
-	if !errors.As(err, &failure) || failure.Code != CodeIdentityChanged || platform.launched != 0 {
+	if err != nil || platform.launched != 1 {
 		t.Fatalf("Invoke() error = %v, calls=%d", err, platform.launched)
 	}
 }
 
-func TestProviderRejectsScopeAndPayloadForgery(t *testing.T) {
+func TestProviderRejectsUnsupportedOperationAndWorkflowArguments(t *testing.T) {
 	profile, _ := testProfile(t)
 	provider := &provider{profile: profile, platform: &fakePlatform{}}
 	if _, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
-		Kind: KindApplication, Operations: []string{OperationLaunch}, CapabilityScope: []byte(`{"operation":"terminate"}`), Config: []byte(`{}`),
+		Kind: KindApplication, Operations: []string{"forged"}, Config: []byte(`{}`),
 	}); err == nil {
-		t.Fatal("Open accepted mismatched scope")
+		t.Fatal("Open accepted unsupported operation")
 	}
 	object := openSession(t, provider, OperationLaunch)
 	if _, err := provider.Invoke(context.Background(), object, OperationLaunch, []byte(`{"args":["forged"]}`)); err == nil {

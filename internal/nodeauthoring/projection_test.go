@@ -46,23 +46,23 @@ func TestProjectionDerivesEditorFactsFromTrustedContracts(t *testing.T) {
 		t.Fatalf("template port authoring projection = %#v", matchTemplate.DataInputs)
 	}
 	clickTemplate, ok := projection.Node(nodes.ClickTemplateNodeID)
-	if !ok || len(clickTemplate.Capabilities) != 3 || len(clickTemplate.ConfigFields) != 1 ||
+	if !ok || len(clickTemplate.Capabilities) != 1 || len(clickTemplate.ConfiguredTargets) != 2 || len(clickTemplate.ConfigFields) != 1 ||
 		clickTemplate.ConfigFields[0].ID != "slot" || len(clickTemplate.DataInputs) < 2 ||
 		clickTemplate.DataInputs[0].ID != "image" || clickTemplate.DataInputs[0].Binding != nodeauthoring.BindingOptional ||
 		clickTemplate.DataInputs[1].ID != "template" || clickTemplate.DataInputs[1].EditorAdapter != "template-image" {
 		t.Fatalf("click template authoring projection = %#v", clickTemplate)
 	}
 	boundTargets := 0
-	for _, requirement := range clickTemplate.Capabilities {
-		if requirement.TargetSlot == "target" {
+	for _, target := range clickTemplate.ConfiguredTargets {
+		if target.TargetSlot == "target" {
 			boundTargets++
-			if requirement.TargetSlotConfigKey != "slot" {
-				t.Fatalf("click template target binding = %#v", requirement)
+			if target.SlotConfigKey != "slot" {
+				t.Fatalf("click template target binding = %#v", target)
 			}
 		}
 	}
 	if boundTargets != 2 {
-		t.Fatalf("click template target capabilities = %#v", clickTemplate.Capabilities)
+		t.Fatalf("click template configured targets = %#v", clickTemplate.ConfiguredTargets)
 	}
 	if len(concat.ConfigFields) != 0 || concat.Availability != nodeauthoring.AvailabilityPortable {
 		t.Fatalf("concat config/availability = %#v / %q", concat.ConfigFields, concat.Availability)

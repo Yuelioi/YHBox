@@ -6,10 +6,10 @@ Workflow 是唯一内容对象，Target 保存本机差异，GUI、CLI、MCP 与
 - [Runtime and lifecycle](runtime.md)
 - [Node engine](node-engine.md)
 - [Automation targets and controllers](automation-targets.md)
+- [Network targets](network-targets.md)
+- [Application targets](application-targets.md)
 - [Storage consistency](storage.md)
 - [Threat model](threat-model.md)
-- [Installed network capabilities](network-capabilities.md)
-- [Installed application lifecycle](installed-application-lifecycle.md)
 
 源码导航：`main.go` 只保留进程入口与嵌入资源，`internal/desktopapp` 组合 Wails presentation，
 `internal/localruntime` 打开 desktop 与 CLI 共用的本地运行环境，`internal/appruntime` 管后台资源生命周期；

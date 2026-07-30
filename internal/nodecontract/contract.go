@@ -62,7 +62,8 @@ type DataOutputPort struct {
 // port. The requirement owns the scope; operations are the exact subset that
 // may be used or borrowed for a runtime-only stream/resource envelope.
 type ResourceLeaseBinding struct {
-	RequirementID string   `json:"requirementId" jsonschema:"required,pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
+	RequirementID string   `json:"requirementId,omitempty" jsonschema:"pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
+	TargetID      string   `json:"targetId,omitempty" jsonschema:"pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
 	Operations    []string `json:"operations" jsonschema:"required,minItems=1,maxItems=64"`
 }
 
@@ -119,6 +120,16 @@ type RequirementBindingSpec struct {
 	RequirementID           string `json:"requirementId" jsonschema:"required,pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
 	TargetSlotConfigKey     string `json:"targetSlotConfigKey,omitempty" jsonschema:"pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
 	CredentialSlotConfigKey string `json:"credentialSlotConfigKey,omitempty" jsonschema:"pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
+}
+
+// ConfiguredTargetSpec declares a node's direct dependency on one configured
+// network, application, or automation target. It carries selection metadata
+// only; it does not declare authority, risk, consent, or a grant scope.
+type ConfiguredTargetSpec struct {
+	ID            string   `json:"id" jsonschema:"required,pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
+	TargetSlot    string   `json:"targetSlot" jsonschema:"required,pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
+	SlotConfigKey string   `json:"slotConfigKey" jsonschema:"required,pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
+	TargetKinds   []string `json:"targetKinds" jsonschema:"required,minItems=1,maxItems=64"`
 }
 
 // ConfigValidatorSpec binds one static node config field to a versioned,
@@ -289,6 +300,7 @@ type Draft struct {
 	HostFeatureRequirements []HostFeatureRequirement
 	CapabilityRequirements  []capability.Requirement
 	RequirementBindings     []RequirementBindingSpec
+	ConfiguredTargets       []ConfiguredTargetSpec
 	ConfigValidators        []ConfigValidatorSpec
 	Errors                  []ErrorSpec
 	StatusEvents            []StatusEventSpec
@@ -312,6 +324,7 @@ type MachineContract struct {
 	HostFeatureRequirements []HostFeatureRequirement  `json:"hostFeatureRequirements" jsonschema:"required,maxItems=256"`
 	CapabilityRequirements  []capability.Requirement  `json:"capabilityRequirements" jsonschema:"required,maxItems=4096"`
 	RequirementBindings     []RequirementBindingSpec  `json:"requirementBindings" jsonschema:"required,maxItems=4096"`
+	ConfiguredTargets       []ConfiguredTargetSpec    `json:"configuredTargets,omitempty" jsonschema:"maxItems=4096"`
 	ConfigValidators        []ConfigValidatorSpec     `json:"configValidators" jsonschema:"required,maxItems=4096"`
 	Errors                  []ErrorSpec               `json:"errors" jsonschema:"required,maxItems=4096"`
 	StatusEvents            []StatusEventSpec         `json:"statusEvents" jsonschema:"required,maxItems=4096"`
@@ -390,6 +403,7 @@ func Open(raw []byte) (Contract, error) {
 		HostFeatureRequirements: decoded.Semantic.HostFeatureRequirements,
 		CapabilityRequirements:  decoded.Semantic.CapabilityRequirements,
 		RequirementBindings:     decoded.Semantic.RequirementBindings,
+		ConfiguredTargets:       decoded.Semantic.ConfiguredTargets,
 		ConfigValidators:        decoded.Semantic.ConfigValidators,
 		Errors:                  decoded.Semantic.Errors,
 		StatusEvents:            decoded.Semantic.StatusEvents,
@@ -452,7 +466,7 @@ func OpenSemantic(ref NodeRef, raw []byte) (Contract, error) {
 	normalized, err := normalizeSemantic(Draft{
 		NodeTypeID: semantic.NodeTypeID, Version: semantic.Version, ConfigSchemaRoot: semantic.ConfigSchemaRoot,
 		ConfigSchemaBundle: semantic.ConfigSchemaBundle, Ports: semantic.Ports,
-		Execution: semantic.Execution, HostFeatureRequirements: semantic.HostFeatureRequirements, CapabilityRequirements: semantic.CapabilityRequirements, RequirementBindings: semantic.RequirementBindings, ConfigValidators: semantic.ConfigValidators,
+		Execution: semantic.Execution, HostFeatureRequirements: semantic.HostFeatureRequirements, CapabilityRequirements: semantic.CapabilityRequirements, RequirementBindings: semantic.RequirementBindings, ConfiguredTargets: semantic.ConfiguredTargets, ConfigValidators: semantic.ConfigValidators,
 		Instruction: semantic.Instruction,
 		Errors:      semantic.Errors, StatusEvents: semantic.StatusEvents, StateAccesses: semantic.StateAccesses, InstanceResolver: semantic.InstanceResolver, Conversion: semantic.Conversion,
 		ImplementationABI: semantic.ImplementationABI,
@@ -603,11 +617,15 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 	if err != nil {
 		return MachineContract{}, err
 	}
+	configuredTargets, err := normalizeConfiguredTargets(draft.ConfiguredTargets)
+	if err != nil {
+		return MachineContract{}, err
+	}
 	configValidators, err := normalizeConfigValidators(draft.ConfigValidators)
 	if err != nil {
 		return MachineContract{}, err
 	}
-	if err := normalizeResourceLeaseBindings(&ports, requirements); err != nil {
+	if err := normalizeResourceLeaseBindings(&ports, requirements, configuredTargets); err != nil {
 		return MachineContract{}, err
 	}
 	if execution.Class == ExecutionPureData && len(requirements) != 0 {
@@ -634,7 +652,7 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 	if err != nil {
 		return MachineContract{}, err
 	}
-	if instruction.Kind != InstructionInvoke && (len(requirements) != 0 || len(errorsList) != 0 || len(statusEvents) != 0 ||
+	if instruction.Kind != InstructionInvoke && (len(requirements) != 0 || len(configuredTargets) != 0 || len(errorsList) != 0 || len(statusEvents) != 0 ||
 		len(stateAccesses) != 0 || len(configValidators) != 0 || resolver != nil || conversion != nil) {
 		return MachineContract{}, errors.New("host-lowered instruction cannot declare adapter capabilities, errors, status, state, or instance resolution")
 	}
@@ -654,7 +672,7 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 	return MachineContract{
 		NodeTypeID: draft.NodeTypeID, Version: draft.Version, ConfigSchemaRoot: draft.ConfigSchemaRoot,
 		ConfigSchemaBundle: bundle, Ports: ports, Execution: execution, Instruction: instruction,
-		HostFeatureRequirements: hostFeatures, CapabilityRequirements: requirements, RequirementBindings: requirementBindings, ConfigValidators: configValidators, Errors: errorsList, StatusEvents: statusEvents, StateAccesses: stateAccesses, InstanceResolver: resolver, Conversion: conversion,
+		HostFeatureRequirements: hostFeatures, CapabilityRequirements: requirements, RequirementBindings: requirementBindings, ConfiguredTargets: configuredTargets, ConfigValidators: configValidators, Errors: errorsList, StatusEvents: statusEvents, StateAccesses: stateAccesses, InstanceResolver: resolver, Conversion: conversion,
 		ImplementationABI: abis,
 	}, nil
 }
@@ -749,6 +767,34 @@ func normalizeRequirementBindings(source []RequirementBindingSpec, requirements 
 			return nil, errors.New("invalid or duplicate capability requirement binding")
 		}
 		previous = binding.RequirementID
+	}
+	return result, nil
+}
+
+func normalizeConfiguredTargets(source []ConfiguredTargetSpec) ([]ConfiguredTargetSpec, error) {
+	result := append([]ConfiguredTargetSpec(nil), source...)
+	sort.Slice(result, func(i, j int) bool { return result[i].ID < result[j].ID })
+	if result == nil {
+		result = []ConfiguredTargetSpec{}
+	}
+	previous := ""
+	for index := range result {
+		target := &result[index]
+		if target.ID <= previous || !portIDPattern.MatchString(target.ID) ||
+			!portIDPattern.MatchString(target.TargetSlot) || !portIDPattern.MatchString(target.SlotConfigKey) {
+			return nil, errors.New("invalid or duplicate configured target")
+		}
+		kinds, err := normalizeStringSet(target.TargetKinds, "configured target kind")
+		if err != nil || len(kinds) == 0 || len(kinds) > 64 {
+			return nil, errors.New("configured target kinds are invalid")
+		}
+		for _, kind := range kinds {
+			if !portIDPattern.MatchString(kind) {
+				return nil, fmt.Errorf("configured target %q has invalid kind %q", target.ID, kind)
+			}
+		}
+		target.TargetKinds = kinds
+		previous = target.ID
 	}
 	return result, nil
 }
@@ -888,34 +934,45 @@ func cloneResourceLease(source *ResourceLeaseBinding) *ResourceLeaseBinding {
 	if source == nil {
 		return nil
 	}
-	return &ResourceLeaseBinding{RequirementID: source.RequirementID, Operations: append([]string(nil), source.Operations...)}
+	return &ResourceLeaseBinding{RequirementID: source.RequirementID, TargetID: source.TargetID, Operations: append([]string(nil), source.Operations...)}
 }
 
-func normalizeResourceLeaseBindings(ports *PortSet, requirements []capability.Requirement) error {
+func normalizeResourceLeaseBindings(ports *PortSet, requirements []capability.Requirement, targets []ConfiguredTargetSpec) error {
 	byID := make(map[string]capability.Requirement, len(requirements))
 	for _, requirement := range requirements {
 		byID[requirement.ID] = requirement
+	}
+	targetByID := make(map[string]ConfiguredTargetSpec, len(targets))
+	for _, target := range targets {
+		targetByID[target.ID] = target
 	}
 	normalize := func(portID string, lease *ResourceLeaseBinding) error {
 		if lease == nil {
 			return nil
 		}
-		requirement, ok := byID[lease.RequirementID]
-		if !ok || !portIDPattern.MatchString(lease.RequirementID) {
-			return fmt.Errorf("port %q binds an unknown capability requirement", portID)
-		}
 		operations, err := normalizeStringSet(lease.Operations, "resource lease operation")
 		if err != nil || len(operations) == 0 || len(operations) > 64 {
 			return fmt.Errorf("port %q has invalid resource lease operations", portID)
 		}
-		granted := make(map[string]struct{}, len(requirement.Operations))
-		for _, operation := range requirement.Operations {
-			granted[operation] = struct{}{}
+		if (lease.RequirementID == "") == (lease.TargetID == "") {
+			return fmt.Errorf("port %q resource lifecycle must name one owner", portID)
 		}
-		for _, operation := range operations {
-			if _, ok := granted[operation]; !ok {
-				return fmt.Errorf("port %q widens capability operation %q", portID, operation)
+		if lease.RequirementID != "" {
+			requirement, ok := byID[lease.RequirementID]
+			if !ok || !portIDPattern.MatchString(lease.RequirementID) {
+				return fmt.Errorf("port %q binds an unknown capability requirement", portID)
 			}
+			granted := make(map[string]struct{}, len(requirement.Operations))
+			for _, operation := range requirement.Operations {
+				granted[operation] = struct{}{}
+			}
+			for _, operation := range operations {
+				if _, ok := granted[operation]; !ok {
+					return fmt.Errorf("port %q widens capability operation %q", portID, operation)
+				}
+			}
+		} else if _, ok := targetByID[lease.TargetID]; !ok || !portIDPattern.MatchString(lease.TargetID) {
+			return fmt.Errorf("port %q binds an unknown configured target", portID)
 		}
 		lease.Operations = operations
 		return nil

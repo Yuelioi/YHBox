@@ -254,7 +254,7 @@ func decodeSettingsEnvelope(raw []byte) (*Settings, settingsEnvelope, bool, erro
 	if err != nil || checksum != envelope.Checksum {
 		return nil, settingsEnvelope{}, false, errors.New("settings payload checksum mismatch")
 	}
-	canonical, requiresRewrite, err := removeLegacyWorkflowConsent(canonical)
+	canonical, requiresRewrite, err := migrateLegacySettingsPayload(canonical)
 	if err != nil {
 		return nil, settingsEnvelope{}, false, err
 	}
@@ -273,11 +273,11 @@ func decodeSettingsEnvelope(raw []byte) (*Settings, settingsEnvelope, bool, erro
 	return settings, envelope, requiresRewrite, nil
 }
 
-// removeLegacyWorkflowConsent is the one-way compatibility reader for
-// settings written before configured capabilities became immediately usable.
-// Unknown fields remain strict; only the four retired consent fields are
-// removed before decoding the current model.
-func removeLegacyWorkflowConsent(raw []byte) ([]byte, bool, error) {
+// migrateLegacySettingsPayload is the one-way compatibility reader for
+// settings written before configured targets became plain configuration.
+// Unknown fields remain strict; only explicitly retired fields are removed
+// before decoding the current model.
+func migrateLegacySettingsPayload(raw []byte) ([]byte, bool, error) {
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.UseNumber()
 	var payload map[string]any
@@ -285,25 +285,31 @@ func removeLegacyWorkflowConsent(raw []byte) ([]byte, bool, error) {
 		return nil, false, err
 	}
 	removed := false
-	for _, path := range [][2]string{
-		{"ai", "profiles"},
-		{"network", "httpOrigins"},
-		{"applications", "profiles"},
-		{"automation", "targets"},
+	for _, migration := range []struct {
+		section string
+		entries string
+		fields  []string
+	}{
+		{section: "ai", entries: "profiles", fields: []string{"workflowConsent"}},
+		{section: "network", entries: "httpOrigins", fields: []string{"workflowConsent", "allowPrivateNetwork"}},
+		{section: "applications", entries: "profiles", fields: []string{"workflowConsent", "executableDigest"}},
+		{section: "automation", entries: "targets", fields: []string{"workflowConsent"}},
 	} {
-		section, ok := payload[path[0]].(map[string]any)
+		section, ok := payload[migration.section].(map[string]any)
 		if !ok {
 			continue
 		}
-		entries, ok := section[path[1]].([]any)
+		entries, ok := section[migration.entries].([]any)
 		if !ok {
 			continue
 		}
 		for _, entry := range entries {
 			if object, ok := entry.(map[string]any); ok {
-				if _, exists := object["workflowConsent"]; exists {
-					delete(object, "workflowConsent")
-					removed = true
+				for _, field := range migration.fields {
+					if _, exists := object[field]; exists {
+						delete(object, field)
+						removed = true
+					}
 				}
 			}
 		}

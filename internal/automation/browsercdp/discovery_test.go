@@ -9,38 +9,28 @@ import (
 	"testing"
 )
 
-func TestCanonicalEndpointRejectsNonLoopbackAndAmbientURLParts(t *testing.T) {
-	for _, raw := range []string{
-		"http://example.com:9222", "https://127.0.0.1:9222", "http://localhost:9222",
-		"http://127.0.0.1:9222/path", "http://user@127.0.0.1:9222", "http://127.0.0.1:9222?target=x",
-	} {
-		if _, err := CanonicalEndpoint(raw); err == nil {
-			t.Fatalf("CanonicalEndpoint(%q) accepted unsafe authority", raw)
-		}
-	}
+func TestCanonicalEndpointAcceptsConfiguredHTTPURLs(t *testing.T) {
 	got, err := CanonicalEndpoint("127.0.0.1:9333")
 	if err != nil || got != "http://127.0.0.1:9333" {
 		t.Fatalf("CanonicalEndpoint() = %q, %v", got, err)
 	}
+	got, err = CanonicalEndpoint("https://example.com/cdp/")
+	if err != nil || got != "https://example.com/cdp" {
+		t.Fatalf("CanonicalEndpoint(remote) = %q, %v", got, err)
+	}
 }
 
-func TestValidateWebSocketURLRequiresExactEndpointAndPageIdentity(t *testing.T) {
-	valid, err := ValidateWebSocketURL("ws://127.0.0.1:9222/devtools/page/page-1", DefaultEndpoint, "page-1")
+func TestValidateWebSocketURLAcceptsConfiguredRemoteURLs(t *testing.T) {
+	valid, err := ValidateWebSocketURL("wss://example.com/devtools/page/current", DefaultEndpoint, "page-1")
 	if err != nil || valid == "" {
 		t.Fatalf("valid websocket = %q, %v", valid, err)
 	}
-	for _, raw := range []string{
-		"ws://127.0.0.1:9333/devtools/page/page-1",
-		"ws://127.0.0.1:9222/devtools/page/page-2",
-		"ws://192.168.1.5:9222/devtools/page/page-1",
-	} {
-		if _, err := ValidateWebSocketURL(raw, DefaultEndpoint, "page-1"); err == nil {
-			t.Fatalf("ValidateWebSocketURL(%q) accepted drifted identity", raw)
-		}
+	if _, err := ValidateWebSocketURL("not-a-websocket", "", ""); err == nil {
+		t.Fatal("accepted malformed websocket URL")
 	}
 }
 
-func TestServiceDiscoversOnlyExactLoopbackPages(t *testing.T) {
+func TestServiceDiscoversConfiguredPages(t *testing.T) {
 	var server *httptest.Server
 	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		if request.URL.Path != "/json" {
@@ -60,13 +50,14 @@ func TestServiceDiscoversOnlyExactLoopbackPages(t *testing.T) {
 	}
 }
 
-func TestServiceRejectsDriftedDiscoveryWebSocket(t *testing.T) {
+func TestServiceAcceptsWebSocketReturnedByConfiguredEndpoint(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`[{"id":"page-1","type":"page","webSocketDebuggerUrl":"ws://127.0.0.1:1/devtools/page/page-1"}]`))
 	}))
 	defer server.Close()
-	if _, err := NewService(server.URL).ListTargets(context.Background(), ""); err == nil {
-		t.Fatal("expected drifted websocket authority to be rejected")
+	targets, err := NewService(server.URL).ListTargets(context.Background(), "")
+	if err != nil || len(targets) != 1 {
+		t.Fatalf("targets = %#v, error = %v", targets, err)
 	}
 }
 

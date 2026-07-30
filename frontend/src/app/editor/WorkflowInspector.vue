@@ -86,6 +86,7 @@
         v-if="
           surface.groups.advanced.length ||
           projection.capabilities.length ||
+          (projection.configuredTargets?.length ?? 0) ||
           projection.statusEvents.length
         "
         v-model:open="advancedOpen"
@@ -130,6 +131,20 @@
                 <p class="mt-1 font-mono text-[10px] text-dimmed">
                   {{ capability.risk }} / {{ capability.consent }}
                 </p>
+              </div>
+            </section>
+
+            <section v-if="projection.configuredTargets?.length" class="space-y-2">
+              <h3 class="text-xs font-semibold text-highlighted">
+                {{ t('workflow.inspector.configured_targets') }}
+              </h3>
+              <div
+                v-for="target in projection.configuredTargets ?? []"
+                :key="target.id"
+                class="rounded-lg border border-default px-3 py-2.5"
+              >
+                <p class="text-xs font-medium text-toned">{{ target.id }}</p>
+                <p class="mt-1 text-[11px] text-muted">{{ target.targetKinds.join(', ') }}</p>
               </div>
             </section>
 

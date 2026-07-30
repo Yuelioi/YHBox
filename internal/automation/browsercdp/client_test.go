@@ -59,21 +59,37 @@ func TestClientProviderRediscoversAndConnectsExactPage(t *testing.T) {
 	}
 }
 
-func TestClientProviderRejectsStoredWebSocketIdentityDrift(t *testing.T) {
+func TestClientProviderIgnoresStoredWebSocketMetadata(t *testing.T) {
 	var server *httptest.Server
-	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		ws := "ws" + strings.TrimPrefix(server.URL, "http") + "/devtools/page/page-1"
-		_, _ = fmt.Fprintf(w, `[{"id":"page-1","type":"page","webSocketDebuggerUrl":%q}]`, ws)
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/json":
+			ws := "ws" + strings.TrimPrefix(server.URL, "http") + "/devtools/page/page-1"
+			_, _ = fmt.Fprintf(w, `[{"id":"page-1","type":"page","webSocketDebuggerUrl":%q}]`, ws)
+		case "/devtools/page/page-1":
+			connection, acceptErr := websocket.Accept(w, request, &websocket.AcceptOptions{InsecureSkipVerify: true})
+			if acceptErr != nil {
+				t.Errorf("accept: %v", acceptErr)
+				return
+			}
+			defer connection.CloseNow()
+			<-request.Context().Done()
+		default:
+			http.NotFound(w, request)
+		}
 	}))
 	defer server.Close()
-	_, err := NewClientProvider(NewService(server.URL)).ClientForTarget(target.Target{
+	client, err := NewClientProvider(NewService(server.URL)).ClientForTarget(target.Target{
 		ID: "browser:page-1", Kind: target.KindBrowserCDP, Ref: target.TargetRef{BrowserID: "page-1"},
 		Metadata: map[string]any{
 			"endpoint":             server.URL,
 			"webSocketDebuggerUrl": "ws://127.0.0.1:1/devtools/page/page-1",
 		},
 	})
-	if err == nil {
-		t.Fatal("expected stored websocket identity drift to be rejected")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if closer, ok := client.(*WebSocketClient); ok {
+		_ = closer.Close()
 	}
 }

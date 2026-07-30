@@ -70,8 +70,6 @@ import { errorMessage } from '@/lib/invoke'
 export { assignable } from './connectionCompatibility'
 
 const PLAY_INPUT_CLIP_NODE_TYPE_ID = 'https://schemas.yotta.dev/nodes/automation/play-input-clip'
-const PLAY_INPUT_CLIP_STABLE_DIGEST =
-  'sha256:bab93b5e1f655e3f5e23c254139b92a23b048c93d3d212ff7f32d2dd009e0d75'
 const PLAY_INPUT_CLIP_RETRACTED_SCALE_DIGEST =
   'sha256:ff7ea9d0b2ca91cb2062cff30dd5ca8575555ec5363b4c76e746925ee6ae027b'
 
@@ -1010,6 +1008,27 @@ export class EditorSession {
     }
   }
 
+  async refreshIfClean(): Promise<boolean> {
+    if (!this.source || this.dirty || this.phase === 'saving') return false
+    const workflowId = this.workflowId
+    const baseRevision = this.baseRevision
+    const sourceHash = this.sourceHash
+    const graphPath = [...this.graphPath]
+    const view = await this.transport.getSource(workflowId)
+    if (
+      !this.source ||
+      this.dirty ||
+      this.workflowId !== workflowId ||
+      this.baseRevision !== baseRevision ||
+      (view.revision === baseRevision && view.sourceHash === sourceHash)
+    ) {
+      return false
+    }
+    this.acceptSource(view)
+    this.openGraphPath(graphPath)
+    return true
+  }
+
   apply(command: EditorCommand): void {
     const source = this.requireSource()
     const next = clone(source)
@@ -1122,7 +1141,16 @@ export class EditorSession {
     this.dismissSaveError()
     const commands = toWorkflowPatch(this.pendingCommands)
     try {
-      const patched = await this.transport.applyPatch(this.workflowId, this.baseRevision, commands)
+      let patched
+      try {
+        patched = await this.transport.applyPatch(this.workflowId, this.baseRevision, commands)
+      } catch (error) {
+        const failure = describeWorkflowSaveError(error, commands)
+        if (failure.kind !== 'revision') throw error
+        const latest = await this.transport.getSource(this.workflowId)
+        if (latest.revision === this.baseRevision) throw error
+        patched = await this.transport.applyPatch(this.workflowId, latest.revision, commands)
+      }
       this.acceptSource(patched.source)
       this.phase = 'ready'
       return patched.source
@@ -2502,8 +2530,7 @@ function applyCompatibleNodeContractUpgrade(
   const bindings = clone(node.bindings)
   if (
     node.nodeRef.nodeTypeId === PLAY_INPUT_CLIP_NODE_TYPE_ID &&
-    node.nodeRef.semanticDigest === PLAY_INPUT_CLIP_RETRACTED_SCALE_DIGEST &&
-    base.nodeRef.semanticDigest === PLAY_INPUT_CLIP_STABLE_DIGEST
+    node.nodeRef.semanticDigest === PLAY_INPUT_CLIP_RETRACTED_SCALE_DIGEST
   ) {
     delete bindings['turn-scale']
   }

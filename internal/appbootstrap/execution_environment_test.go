@@ -4,7 +4,6 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/appcontrol"
@@ -63,8 +62,6 @@ func TestExecutionEnvironmentFactorySealsOneConsistentSnapshot(t *testing.T) {
 	factory, err := newExecutionEnvironmentFactory(executionEnvironmentFactory{
 		builtins: builtins, blobDigest: blobDigest, streamDigest: streamDigest, workspaceFileDigest: workspaceDigest,
 		scriptRuntime: scriptRuntime,
-		now:           func() time.Time { return time.Unix(1_000, 0).UTC() },
-		grantTTL:      time.Minute,
 		ai:            aiInstallations,
 		http:          httpInstallations,
 		baseProviders: map[string]run.InstalledProvider{
@@ -97,7 +94,7 @@ func TestExecutionEnvironmentFactorySealsOneConsistentSnapshot(t *testing.T) {
 		len(environment.providers) != 3 || !environment.generation.Valid() {
 		t.Fatalf("sealed environment = %#v", environment)
 	}
-	release, err := environment.acquire()
+	_, release, err := environment.acquire()
 	if err != nil {
 		t.Fatal(err)
 	}

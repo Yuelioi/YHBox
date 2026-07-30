@@ -70,9 +70,6 @@ func (driver *browserDriver) resolveLocked(ctx context.Context) (target.Target, 
 	if !ok {
 		return target.Target{}, nil, failure(CodeTargetNotFound, fmt.Errorf("browser CDP page %q is offline; reopen the page and install it again", machine.BrowserTitle))
 	}
-	if info.WebSocketDebuggerURL != machine.BrowserWebSocketURL {
-		return target.Target{}, nil, failure(CodeIdentityChanged, errors.New("browser CDP page websocket identity changed; install the page again"))
-	}
 	client, err := browsercdp.DialWebSocketClient(resolveCtx, info.WebSocketDebuggerURL)
 	if err != nil {
 		return target.Target{}, nil, failure(CodeTargetNotFound, fmt.Errorf("connect browser CDP page: %w", err))
@@ -97,7 +94,7 @@ func browserViewportSize(metrics map[string]any) (target.Size, error) {
 	}
 	width, widthOK := viewport["clientWidth"].(float64)
 	height, heightOK := viewport["clientHeight"].(float64)
-	if !widthOK || !heightOK || width <= 0 || height <= 0 || width > 100_000 || height > 100_000 {
+	if !widthOK || !heightOK || width <= 0 || height <= 0 {
 		return target.Size{}, errors.New("browser CDP layout metrics reported an invalid viewport")
 	}
 	return target.Size{W: int(math.Round(width)), H: int(math.Round(height))}, nil

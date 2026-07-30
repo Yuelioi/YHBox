@@ -319,7 +319,7 @@ func prepareSchedulerInstructionRuntime(t *testing.T, builtins nodes.Builtins, p
 	}
 	grant, err := capability.SealRunGrant(capability.GrantRequest{
 		ProgramHash: program.Hash(), Plan: program.CapabilityPlan(), RunID: id, Principal: "test-user",
-		PolicyGeneration: "policy-1", IssuedAt: now, ExpiresAt: now.Add(time.Minute), Bindings: []capability.Binding{},
+		PolicyGeneration: "policy-1", IssuedAt: now, Bindings: []capability.Binding{},
 	}, builtins.Catalog)
 	if err != nil {
 		t.Fatal(err)
@@ -349,7 +349,7 @@ func prepareSchedulerInstructionRuntime(t *testing.T, builtins nodes.Builtins, p
 	if err != nil {
 		t.Fatal(err)
 	}
-	owner, err := run.NewOwner(context.Background(), grant, map[string]run.InstalledProvider{}, resource.Options{Now: func() time.Time { return now }})
+	owner, err := run.NewOwner(context.Background(), grant, map[string]run.InstalledProvider{}, resource.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

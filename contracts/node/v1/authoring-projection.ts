@@ -64,6 +64,7 @@ export interface NodeProjection {
   capabilities: CapabilityProjection[]
   category?: string
   configFields: FieldProjection[]
+  configuredTargets?: ConfiguredTargetProjection[]
   conversion?: ConversionSpec
   dataInputs: PortProjection[]
   dataOutputs: PortProjection[]
@@ -139,6 +140,12 @@ export interface FieldConstraints {
   minimum?: any
   pattern?: string
 }
+export interface ConfiguredTargetProjection {
+  id: string
+  slotConfigKey: string
+  targetKinds: string[]
+  targetSlot: string
+}
 export interface ConversionSpec {
   autoInsert: boolean
   cost: number
@@ -172,7 +179,8 @@ export interface ResourceLeaseBinding {
    * @maxItems 64
    */
   operations: [string, ...string[]]
-  requirementId: string
+  requirementId?: string
+  targetId?: string
 }
 export interface TypeUse {
   color?: string

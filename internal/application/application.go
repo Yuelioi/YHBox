@@ -23,6 +23,7 @@ import (
 	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/resource"
 	run "github.com/yottaapp/yotta/internal/run"
+	"github.com/yottaapp/yotta/internal/targetruntime"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
@@ -46,7 +47,7 @@ type Config struct {
 	Admitter          *admission.Admitter
 	Executor          *compiler.Executor
 	Providers         map[string]run.InstalledProvider
-	ProviderLease     func() (func(), error)
+	TargetSnapshot    func() (targetruntime.Snapshot, func(), error)
 	ResourceOptions   resource.Options
 	OwnerCloseTimeout time.Duration
 	Now               func() time.Time
@@ -198,7 +199,7 @@ type Application struct {
 	runs              *run.Store
 	admitter          *admission.Admitter
 	providers         map[string]run.InstalledProvider // immutable; replacement assigns a new snapshot
-	providerLease     func() (func(), error)
+	targetSnapshot    func() (targetruntime.Snapshot, func(), error)
 	executor          *compiler.Executor
 	resourceOptions   resource.Options
 	ownerCloseTimeout time.Duration
@@ -223,7 +224,7 @@ type Application struct {
 // ReplaceExecutionEnvironment atomically switches admission and the provider
 // generation used by future Runs. Already queued/running jobs keep the exact
 // provider snapshot and lease acquired with their admission generation.
-func (a *Application) ReplaceExecutionEnvironment(profile admission.HostProfile, policy admission.Policy, providers map[string]run.InstalledProvider, providerLease func() (func(), error)) error {
+func (a *Application) ReplaceExecutionEnvironment(profile admission.HostProfile, policy admission.Policy, providers map[string]run.InstalledProvider, targets func() (targetruntime.Snapshot, func(), error)) error {
 	if a == nil {
 		return errors.New("replacement execution environment is invalid")
 	}
@@ -232,7 +233,7 @@ func (a *Application) ReplaceExecutionEnvironment(profile admission.HostProfile,
 	if a.state == stateClosed {
 		return ErrClosed
 	}
-	return a.replaceAdmissionEnvironment(profile, policy, providers, providerLease)
+	return a.replaceAdmissionEnvironment(profile, policy, providers, targets)
 }
 
 func New(config Config) (*Application, error) {
@@ -256,7 +257,7 @@ func New(config Config) (*Application, error) {
 		catalog: config.Catalog, authoring: config.Authoring, authoringEngine: authoringEngine,
 		compiler: compiler.New(config.CompilerBuild, config.ConfigValidators), blobVerifier: config.BlobVerifier,
 		sources: config.Sources, programs: config.Programs, runs: config.Runs,
-		admitter: config.Admitter, providers: providers, providerLease: config.ProviderLease, executor: config.Executor,
+		admitter: config.Admitter, providers: providers, targetSnapshot: config.TargetSnapshot, executor: config.Executor,
 		resourceOptions: config.ResourceOptions, ownerCloseTimeout: config.OwnerCloseTimeout,
 		onRunEvent: config.OnRunEvent, onDebugEvent: config.OnDebugEvent,
 		now: config.Now, state: stateNew, wake: make(chan struct{}, 1),
@@ -505,7 +506,7 @@ func (a *Application) startRunArtifact(
 			return result, err
 		}
 	}
-	a.enqueue(runID, sourceWorkflowID, admitted.providers, releaseProviders, control)
+	a.enqueue(runID, sourceWorkflowID, admitted.providers, admitted.targets, releaseProviders, control)
 	leasePublished = true
 	a.emit(admitted.record, nil)
 	return result, nil

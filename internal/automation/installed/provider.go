@@ -57,7 +57,6 @@ const (
 	OperationReleaseHeld      = "release-held"
 
 	CodeInvalidRequest    = "automation.invalid_request"
-	CodeIdentityChanged   = "automation.identity_changed"
 	CodeTargetNotFound    = "automation.target_not_found"
 	CodeTargetAmbiguous   = "automation.target_ambiguous"
 	CodeInputFailed       = "automation.input_failed"
@@ -132,9 +131,6 @@ func (e *Failure) Unwrap() error {
 	return e.Cause
 }
 
-type CapabilityScope struct {
-	Operation string `json:"operation"`
-}
 type Point struct {
 	X    float64 `json:"x"`
 	Y    float64 `json:"y"`
@@ -269,7 +265,6 @@ func (session directPlaybackSession) ReleaseInput() error { return session.drive
 type provider struct {
 	profile               Profile
 	driver                driver
-	verify                func(Profile) error
 	operations            []string
 	runtimeMouseCounts360 int64
 	closeOnce             sync.Once
@@ -279,10 +274,10 @@ type provider struct {
 	playbackOpen          bool
 }
 type session struct {
-	mu             sync.Mutex
-	operation      string
-	inputAuthority bool
-	closed         bool
+	mu           sync.Mutex
+	operation    string
+	inputSession bool
+	closed       bool
 }
 type heldInputDriver interface {
 	Execute(context.Context, string, any) error
@@ -324,13 +319,6 @@ func (p *provider) supports(operation string) bool {
 	return len(p.operations) == 0 || slices.Contains(p.operations, operation)
 }
 
-func (p *provider) verifyProfile() error {
-	if p.verify != nil {
-		return p.verify(p.profile)
-	}
-	return VerifyProfile(p.profile)
-}
-
 func newProvider(profile Profile, manifest InstallationManifest, registry adapterRegistry) (*provider, error) {
 	document := manifest.Machine()
 	if !profile.Valid() || !manifest.Valid() || document.ProfileDigest != profile.Digest() ||
@@ -346,13 +334,10 @@ func newProvider(profile Profile, manifest InstallationManifest, registry adapte
 	if err != nil {
 		return nil, err
 	}
-	return &provider{profile: profile, driver: driver, verify: registered.verify, operations: operations(document.Capabilities)}, nil
+	return &provider{profile: profile, driver: driver, operations: operations(document.Resources)}, nil
 }
 
 func (p *provider) Open(ctx context.Context, request resource.ProviderOpenRequest) (any, error) {
-	if request.CredentialBindingID != "" {
-		return nil, failure(CodeContractViolation, errors.New("invalid automation session request"))
-	}
 	var config map[string]any
 	if err := decodeExact(request.Config, &config, 1024); err != nil || len(config) != 0 {
 		return nil, failure(CodeContractViolation, errors.New("automation session config must be empty"))
@@ -364,10 +349,6 @@ func (p *provider) Open(ctx context.Context, request resource.ProviderOpenReques
 		if !slices.Equal(request.Operations, captureOperations) {
 			return nil, failure(CodeContractViolation, errors.New("capture session requires exact operations"))
 		}
-		var scope CapabilityScope
-		if err := decodeExact(request.CapabilityScope, &scope, 1024); err != nil || scope.Operation != OperationCapture {
-			return nil, failure(CodeContractViolation, errors.New("automation capability scope is invalid"))
-		}
 		return &captureSession{}, nil
 	}
 	if request.Kind == KindPlayback {
@@ -377,14 +358,10 @@ func (p *provider) Open(ctx context.Context, request resource.ProviderOpenReques
 		if !slices.Equal(request.Operations, playbackOperations) {
 			return nil, failure(CodeContractViolation, errors.New("playback session requires exact operations"))
 		}
-		var scope CapabilityScope
-		if err := decodeExact(request.CapabilityScope, &scope, 1024); err != nil || scope.Operation != "play" {
-			return nil, failure(CodeContractViolation, errors.New("automation capability scope is invalid"))
-		}
 		p.stateMu.Lock()
 		if p.playbackOpen || p.inputSessions != 0 {
 			p.stateMu.Unlock()
-			return nil, failure(CodePlaybackBusy, errors.New("installed target input authority is already in use"))
+			return nil, failure(CodePlaybackBusy, errors.New("configured target input is already in use"))
 		}
 		p.playbackOpen = true
 		p.stateMu.Unlock()
@@ -408,10 +385,6 @@ func (p *provider) Open(ctx context.Context, request resource.ProviderOpenReques
 		if !slices.Equal(request.Operations, heldInputOperations) ||
 			!p.supports(OperationHoldKeys) || !p.supports(OperationHoldButton) || !p.supports(OperationReleaseHeld) {
 			return nil, failure(CodeContractViolation, errors.New("held input session requires exact operations"))
-		}
-		var scope CapabilityScope
-		if err := decodeExact(request.CapabilityScope, &scope, 1024); err != nil || scope.Operation != "held-input" {
-			return nil, failure(CodeContractViolation, errors.New("automation capability scope is invalid"))
 		}
 		opener, ok := p.driver.(heldInputOpener)
 		if !ok {
@@ -439,12 +412,8 @@ func (p *provider) Open(ctx context.Context, request resource.ProviderOpenReques
 	if !p.supports(request.Operations[0]) {
 		return nil, failure(CodeContractViolation, fmt.Errorf("operation %q is unsupported by this automation adapter", request.Operations[0]))
 	}
-	var scope CapabilityScope
-	if err := decodeExact(request.CapabilityScope, &scope, 1024); err != nil || scope.Operation != request.Operations[0] {
-		return nil, failure(CodeContractViolation, errors.New("automation capability scope is invalid"))
-	}
-	inputAuthority := request.Kind == KindInput
-	if inputAuthority {
+	inputSession := request.Kind == KindInput
+	if inputSession {
 		p.stateMu.Lock()
 		defer p.stateMu.Unlock()
 		if p.playbackOpen {
@@ -452,7 +421,7 @@ func (p *provider) Open(ctx context.Context, request resource.ProviderOpenReques
 		}
 		p.inputSessions++
 	}
-	return &session{operation: scope.Operation, inputAuthority: inputAuthority}, nil
+	return &session{operation: request.Operations[0], inputSession: inputSession}, nil
 }
 
 func (p *provider) Invoke(ctx context.Context, object any, operation string, payload []byte) ([]byte, error) {
@@ -475,7 +444,7 @@ func (p *provider) Invoke(ctx context.Context, object any, operation string, pay
 	opened.mu.Lock()
 	defer opened.mu.Unlock()
 	if opened.closed || operation != opened.operation {
-		return nil, failure(CodeContractViolation, errors.New("automation session is closed or operation is not granted"))
+		return nil, failure(CodeContractViolation, errors.New("automation session is closed or operation is unsupported"))
 	}
 	request, err := decodeOperationRequest(operation, payload)
 	if err != nil {
@@ -531,7 +500,7 @@ func (p *provider) invokeHeldInput(ctx context.Context, opened *heldInputSession
 	opened.mu.Lock()
 	defer opened.mu.Unlock()
 	if opened.closed || !opened.active || !slices.Contains(opened.operations, operation) {
-		return nil, failure(CodeContractViolation, errors.New("held input session is closed or operation is not granted"))
+		return nil, failure(CodeContractViolation, errors.New("held input session is closed or does not implement the operation"))
 	}
 	request, err := decodeOperationRequest(operation, payload)
 	if err != nil {
@@ -541,7 +510,7 @@ func (p *provider) invokeHeldInput(ctx context.Context, opened *heldInputSession
 		closeErr := opened.driver.Close()
 		opened.closed = true
 		opened.active = false
-		p.releaseInputAuthority()
+		p.releaseInputSession()
 		if closeErr != nil {
 			return nil, failure(CodeInputFailed, closeErr)
 		}
@@ -554,7 +523,7 @@ func (p *provider) invokeHeldInput(ctx context.Context, opened *heldInputSession
 		closeErr := opened.driver.Close()
 		opened.closed = true
 		opened.active = false
-		p.releaseInputAuthority()
+		p.releaseInputSession()
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return nil, errors.Join(err, closeErr)
 		}
@@ -564,7 +533,7 @@ func (p *provider) invokeHeldInput(ctx context.Context, opened *heldInputSession
 	return artifact.Marshal(struct{}{})
 }
 
-func (p *provider) releaseInputAuthority() {
+func (p *provider) releaseInputSession() {
 	p.stateMu.Lock()
 	p.inputSessions--
 	p.stateMu.Unlock()
@@ -615,7 +584,7 @@ func (p *provider) invokePlayback(ctx context.Context, opened *playbackSession, 
 		}
 		return artifact.Marshal(struct{}{})
 	default:
-		return nil, failure(CodeContractViolation, errors.New("playback operation is not granted"))
+		return nil, failure(CodeContractViolation, errors.New("playback session does not implement the operation"))
 	}
 }
 
@@ -678,7 +647,7 @@ func (p *provider) invokeCapture(ctx context.Context, opened *captureSession, op
 		}
 		return append([]byte(nil), opened.data[request.Offset:request.Offset+request.Length]...), nil
 	default:
-		return nil, failure(CodeContractViolation, errors.New("capture operation is not granted"))
+		return nil, failure(CodeContractViolation, errors.New("capture session does not implement the operation"))
 	}
 }
 
@@ -747,7 +716,7 @@ func (p *provider) Close(_ context.Context, object any) error {
 			closeErr := held.driver.Close()
 			held.mu.Unlock()
 			if wasActive {
-				p.releaseInputAuthority()
+				p.releaseInputSession()
 			}
 			if closeErr != nil {
 				return failure(CodeInputFailed, closeErr)
@@ -786,9 +755,9 @@ func (p *provider) Close(_ context.Context, object any) error {
 		return nil
 	}
 	opened.closed = true
-	inputAuthority := opened.inputAuthority
+	inputSession := opened.inputSession
 	opened.mu.Unlock()
-	if inputAuthority {
+	if inputSession {
 		p.stateMu.Lock()
 		p.inputSessions--
 		p.stateMu.Unlock()

@@ -224,46 +224,6 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
-	httpGetCapability, err := sealHTTPGetCapability()
-	if err != nil {
-		return Builtins{}, err
-	}
-	applicationLifecycle, err := sealApplicationLifecycleCapability()
-	if err != nil {
-		return Builtins{}, err
-	}
-	automationInput, err := sealAutomationInputCapability()
-	if err != nil {
-		return Builtins{}, err
-	}
-	automationDesktopInput, err := sealAutomationDesktopInputCapability()
-	if err != nil {
-		return Builtins{}, err
-	}
-	automationKeyInput, err := sealAutomationKeyInputCapability()
-	if err != nil {
-		return Builtins{}, err
-	}
-	automationHeldInput, err := sealAutomationHeldInputCapability()
-	if err != nil {
-		return Builtins{}, err
-	}
-	automationWindow, err := sealAutomationWindowCapability()
-	if err != nil {
-		return Builtins{}, err
-	}
-	automationAppLifecycle, err := sealAutomationAppLifecycleCapability()
-	if err != nil {
-		return Builtins{}, err
-	}
-	automationCapture, err := sealAutomationCaptureCapability()
-	if err != nil {
-		return Builtins{}, err
-	}
-	automationPlayback, err := sealAutomationPlaybackCapability()
-	if err != nil {
-		return Builtins{}, err
-	}
 	configValidators, err := sealBuiltinConfigValidators()
 	if err != nil {
 		return Builtins{}, err
@@ -272,24 +232,24 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
-	activateWindowDefinition, activateWindowContract, err := defineActivateWindowNode(automationWindow)
+	activateWindowDefinition, activateWindowContract, err := defineActivateWindowNode()
 	if err != nil {
 		return Builtins{}, err
 	}
 	_ = activateWindowContract
-	stopTargetAppDefinition, _, err := defineStopTargetAppNode(automationAppLifecycle)
+	stopTargetAppDefinition, _, err := defineStopTargetAppNode()
 	if err != nil {
 		return Builtins{}, err
 	}
-	captureWindowDefinition, captureWindowContract, err := defineCaptureWindowNode(imageType.TypeRef(), automationCapture, blobWrite)
+	captureWindowDefinition, captureWindowContract, err := defineCaptureWindowNode(imageType.TypeRef(), blobWrite)
 	if err != nil {
 		return Builtins{}, err
 	}
-	playInputClipDefinition, playInputClipContract, err := definePlayInputClipNode(inputClipType.TypeRef(), automationPlayback, blobRead)
+	playInputClipDefinition, playInputClipContract, err := definePlayInputClipNode(inputClipType.TypeRef(), blobRead)
 	if err != nil {
 		return Builtins{}, err
 	}
-	playMacroDefinition, playMacroContract, err := definePlayMacroNode(macroType.TypeRef(), automationPlayback, blobRead)
+	playMacroDefinition, playMacroContract, err := definePlayMacroNode(macroType.TypeRef(), blobRead)
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -394,43 +354,43 @@ func Build() (Builtins, error) {
 	}
 	httpGetDefinition, httpGetContract, err := defineHTTPGetNode(extendedTypes{
 		stringRef: stringType.TypeRef(), jsonRef: jsonType.TypeRef(),
-	}, integerType.TypeRef(), httpGetCapability)
+	}, integerType.TypeRef())
 	if err != nil {
 		return Builtins{}, err
 	}
-	applicationDefinitions, applicationContracts, err := defineApplicationNodes(integerType.TypeRef(), applicationLifecycle)
+	applicationDefinitions, applicationContracts, err := defineApplicationNodes(integerType.TypeRef())
 	if err != nil {
 		return Builtins{}, err
 	}
 	automationInputDefinitions, automationInputContracts, err := defineAutomationInputNodes(automationInputTypes{
 		stringRef: stringType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef(), pointRef: pointType.TypeRef(),
 		durationRef: durationMillisecondsType.TypeRef(), buttonRef: pointerButtonType.TypeRef(), keyCodeRef: keyCodeType.TypeRef(),
-	}, automationInput, automationDesktopInput, automationKeyInput)
+	})
 	if err != nil {
 		return Builtins{}, err
 	}
 	automationHeldInputDefinitions, automationHeldInputContracts, err := defineAutomationHeldInputNodes(automationInputTypes{
 		stringRef: stringType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef(), pointRef: pointType.TypeRef(),
 		durationRef: durationMillisecondsType.TypeRef(), buttonRef: pointerButtonType.TypeRef(), keyCodeRef: keyCodeType.TypeRef(),
-	}, heldInputType.TypeRef(), automationHeldInput)
+	}, heldInputType.TypeRef())
 	if err != nil {
 		return Builtins{}, err
 	}
-	automationWindowDefinitions, automationWindowContracts, err := defineDesktopWindowOperationNodes(stringType.TypeRef(), integerType.TypeRef(), booleanType.TypeRef(), durationMillisecondsType.TypeRef(), automationWindow)
+	automationWindowDefinitions, automationWindowContracts, err := defineDesktopWindowOperationNodes(stringType.TypeRef(), integerType.TypeRef(), booleanType.TypeRef(), durationMillisecondsType.TypeRef())
 	if err != nil {
 		return Builtins{}, err
 	}
 	automationTemplateDefinitions, automationTemplateContracts, err := defineAutomationTemplateNodes(automationTemplateTypes{
 		imageRef: imageType.TypeRef(), numberRef: numberType.TypeRef(), booleanRef: booleanType.TypeRef(), pointRef: pointType.TypeRef(),
 		regionRef: regionType.TypeRef(), durationRef: durationMillisecondsType.TypeRef(), buttonRef: pointerButtonType.TypeRef(),
-	}, automationCapture, automationInput, blobRead)
+	}, blobRead)
 	if err != nil {
 		return Builtins{}, err
 	}
 	automationObservationDefinitions, err := defineAutomationObservationNodes(automationTemplateTypes{
 		imageRef: imageType.TypeRef(), numberRef: numberType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef(), pointRef: pointType.TypeRef(),
 		regionRef: regionType.TypeRef(), durationRef: durationMillisecondsType.TypeRef(), buttonRef: pointerButtonType.TypeRef(),
-	}, automationCapture)
+	})
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -489,7 +449,7 @@ func Build() (Builtins, error) {
 	if _, err := validateTypeCapabilityClosure(types, contracts); err != nil {
 		return Builtins{}, fmt.Errorf("validate built-in type capability closure: %w", err)
 	}
-	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration, filesystem, httpGetCapability, applicationLifecycle, automationInput, automationDesktopInput, automationKeyInput, automationHeldInput, automationWindow, automationAppLifecycle, automationCapture, automationPlayback}
+	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration, filesystem}
 	catalog, err := nodecatalog.Seal(types, capabilities, bindings, "v1")
 	if err != nil {
 		return Builtins{}, err

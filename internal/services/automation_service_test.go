@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog"
-	"github.com/yottaapp/yotta/internal/appcontrol"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 )
 
@@ -40,13 +39,9 @@ func TestConfiguredAutomationTargetIsImmediatelyUsableAndEditable(t *testing.T) 
 	if err := os.WriteFile(path, []byte("editor-v1"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	inspection, err := appcontrol.InspectExecutable(path)
-	if err != nil {
-		t.Fatal(err)
-	}
 	app := newTestApp(t, filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
 	application := InstalledApplicationSettings{
-		Slot: "editor", Label: "Editor", Executable: inspection.Executable, ExecutableDigest: inspection.Digest,
+		Slot: "editor", Label: "Editor", Executable: path,
 		Arguments: []string{"--fixed-launch-argument"},
 	}
 	target := InstalledAutomationTargetSettings{
@@ -97,16 +92,15 @@ func TestAutomationTargetTypesExposeSemanticKindAndNativeAdapter(t *testing.T) {
 	types := NewAutomationService(nil).ListTargetTypes()
 	if len(types) != 3 || types[0].TargetKind != automationinstalled.TargetKindDesktopWindow ||
 		types[0].AdapterKind != automationinstalled.AdapterKindWin32 || len(types[0].Operations) == 0 ||
-		types[0].ProfileVersion == "" || len(types[0].Capabilities) == 0 || len(types[0].Fields) == 0 ||
-		len(types[0].ApplicationIdentityKinds) != 1 || types[0].ApplicationIdentityKinds[0] != automationinstalled.IdentityKindWindowsExecutable {
+		types[0].ProfileVersion == "" || len(types[0].Resources) == 0 || len(types[0].Fields) == 0 {
 		t.Fatalf("target types = %#v", types)
 	}
 	if types[1].TargetKind != automationinstalled.TargetKindAndroidDevice || types[1].AdapterKind != automationinstalled.AdapterKindAndroidADB ||
-		len(types[1].Operations) == 0 || types[1].ApplicationIdentityKinds[0] != automationinstalled.IdentityKindADBDevice {
+		len(types[1].Operations) == 0 {
 		t.Fatalf("Android target type = %#v", types[1])
 	}
 	if types[2].TargetKind != automationinstalled.TargetKindBrowserCDP || types[2].AdapterKind != automationinstalled.AdapterKindBrowserCDP ||
-		len(types[2].Operations) == 0 || types[2].ApplicationIdentityKinds[0] != automationinstalled.IdentityKindBrowserPage {
+		len(types[2].Operations) == 0 {
 		t.Fatalf("browser target type = %#v", types[2])
 	}
 }
@@ -185,12 +179,8 @@ func TestSettingsRejectAutomationTargetWithUnknownApplicationOrSharedSlot(t *tes
 	if err := os.WriteFile(path, []byte("editor"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	inspection, err := appcontrol.InspectExecutable(path)
-	if err != nil {
-		t.Fatal(err)
-	}
 	settings.Applications.Profiles = []InstalledApplicationSettings{{
-		Slot: "editor", Label: "Editor", Executable: inspection.Executable, ExecutableDigest: inspection.Digest, Arguments: []string{},
+		Slot: "editor", Label: "Editor", Executable: path, Arguments: []string{},
 	}}
 	settings.Automation.Targets[0].Profile = automationTargetProfile(DesktopAutomationTargetSettings{
 		ApplicationSlot: "editor", WindowTitle: "Editor", WindowTitleMatch: "exact", WindowSelection: "unique",

@@ -173,7 +173,6 @@ func Open(ctx context.Context, config Config) (_ *Runtime, resultErr error) {
 		NodePackageStore:         packages,
 		WasmRunnerExecutable:     filepath.Join(filepath.Dir(config.Executable), wasmrunner.WorkerExecutableName),
 		LogEmitter:               config.WorkflowLog,
-		GrantTTL:                 5 * time.Minute,
 		OwnerCloseTimeout:        10 * time.Second,
 		Now:                      config.Now,
 		OnRunEvent:               config.OnRunEvent,

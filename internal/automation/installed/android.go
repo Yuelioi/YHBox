@@ -16,8 +16,7 @@ import (
 	"github.com/yottaapp/yotta/internal/automation/target"
 )
 
-// AndroidDeviceDescriptor is an exact ADB transport identity. Serial alone is
-// insufficient because an emulator or USB transport can be reused later.
+// AndroidDeviceDescriptor is discovery metadata used to fill target settings.
 type AndroidDeviceDescriptor struct {
 	Serial      string `json:"serial"`
 	State       string `json:"state"`
@@ -117,7 +116,7 @@ func DiscoverAndroidApps(ctx context.Context, serial string) ([]AndroidAppDescri
 
 func discoverAndroidApps(ctx context.Context, serial string, runner controller.ADBRunner) ([]AndroidAppDescriptor, error) {
 	serial = strings.TrimSpace(serial)
-	if !adbIdentityPattern.MatchString(serial) {
+	if !adbValuePattern.MatchString(serial) {
 		return nil, errors.New("ADB application discovery requires an exact device serial")
 	}
 	foregroundOutput, _ := runner.Run(ctx, serial, "shell", "dumpsys", "window")
@@ -292,8 +291,7 @@ type androidPlaybackState struct {
 	current target.Point
 }
 
-// AndroidHealthProbe exposes only resolution/identity verification to the
-// trusted Settings diagnostics surface, never input execution.
+// AndroidHealthProbe resolves a configured target for Settings diagnostics.
 type AndroidHealthProbe struct{ driver *androidDriver }
 
 func NewAndroidHealthProbe(profile Profile) (AndroidHealthProbe, error) {
@@ -352,17 +350,14 @@ func (d *androidDriver) resolveLocked(ctx context.Context) (target.Target, error
 	if found.State != "device" {
 		return target.Target{}, failure(CodeTargetNotFound, fmt.Errorf("ADB device %q is %s; unlock it and accept USB debugging authorization", machine.ADBSerial, found.State))
 	}
-	if found.Product != machine.ADBProduct || found.Model != machine.ADBModel || found.Device != machine.ADBDevice {
-		return target.Target{}, failure(CodeIdentityChanged, fmt.Errorf("ADB device %q identity changed: expected %s/%s/%s, got %s/%s/%s", machine.ADBSerial, machine.ADBProduct, machine.ADBModel, machine.ADBDevice, found.Product, found.Model, found.Device))
-	}
 	size, err := androidDeviceSize(resolveCtx, machine.ADBSerial, d.adbRunner())
 	if err != nil {
 		return target.Target{}, failure(CodeTargetNotFound, err)
 	}
 	return target.Target{
-		ID: "android:" + machine.ADBSerial, Kind: target.KindAndroidADB, DisplayName: machine.ADBModel,
+		ID: "android:" + machine.ADBSerial, Kind: target.KindAndroidADB, DisplayName: found.Model,
 		Ref: target.TargetRef{ADBSerial: machine.ADBSerial}, Resolution: size,
-		Metadata: map[string]any{"product": machine.ADBProduct, "device": machine.ADBDevice, "package": machine.AndroidPackage},
+		Metadata: map[string]any{"product": found.Product, "device": found.Device, "package": machine.AndroidPackage},
 	}, nil
 }
 

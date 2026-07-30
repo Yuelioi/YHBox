@@ -59,8 +59,13 @@ Workflow 用来表达目标用途的逻辑名称，不包含某个用户的应�
 _Avoid_: Installation ID
 
 **Target Binding**:
-当前设备把 Target Slot 连接到一个具体 Target 的设置。
+当前设备把 Target Slot 连接到一个 Configured Target 的设置。
 _Avoid_: Workflow-local path、release configuration
+
+**Configured Target**:
+当前设备保存的一项 Network、Application 或 Automation Target 配置。Run 从配置快照按 slot 直接打开并
+调用对应 provider；它不是 Capability，不产生 Run Grant、Consent、Credential Binding 或 TTL。
+_Avoid_: Installed Capability、authorized profile、pinned identity、target grant
 
 **Credential Binding**:
 当前设备把 Workflow 的逻辑凭据需求连接到本机凭据的设置。Credential Binding 不包含在 Workflow 或

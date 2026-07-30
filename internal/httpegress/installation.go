@@ -84,7 +84,7 @@ func (i Installations) CloseIdleConnections() {
 		}
 	}
 }
-func TargetID(slot string) string { return "http-origin/" + slot }
+func TargetID(slot string) string { return "http-target/" + slot }
 func ValidateInstallationSlot(slot string) error {
 	if !slotPattern.MatchString(slot) {
 		return errors.New("invalid HTTP installation slot")

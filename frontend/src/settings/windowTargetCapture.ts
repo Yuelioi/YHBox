@@ -1,16 +1,15 @@
-export interface InstalledApplicationIdentity {
+export interface ConfiguredApplication {
   slot: string
   executable: string
 }
 
-export interface ExecutableIdentity {
+export interface CapturedApplication {
   executable: string
-  digest: string
 }
 
-export function matchingInstalledApplications<T extends InstalledApplicationIdentity>(
+export function matchingInstalledApplications<T extends ConfiguredApplication>(
   applications: readonly T[],
-  captured: ExecutableIdentity,
+  captured: CapturedApplication,
 ): T[] {
   const executable = normalizeWindowsPath(captured.executable)
   return applications.filter(

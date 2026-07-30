@@ -1,15 +1,5 @@
 <template>
   <div class="settings-page">
-    <div class="flex items-start gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
-      <UIcon name="i-tabler-shield-lock" class="mt-0.5 size-5 shrink-0 text-primary" />
-      <div class="min-w-0">
-        <p class="text-sm font-medium text-default">{{ t('settingsNetwork.security.title') }}</p>
-        <p class="mt-1 text-xs leading-relaxed text-dimmed">
-          {{ t('settingsNetwork.security.hint') }}
-        </p>
-      </div>
-    </div>
-
     <SettingsSection
       :title="t('settingsNetwork.origins.title')"
       :description="t('settingsNetwork.origins.hint')"
@@ -25,7 +15,7 @@
       </template>
 
       <div v-if="draft.length" class="space-y-3">
-        <article v-for="(origin, index) in draft" :key="origin.slot" class="ai-profile">
+        <article v-for="origin in draft" :key="origin.slot" class="ai-profile">
           <button
             type="button"
             class="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
@@ -42,15 +32,6 @@
                 <span class="truncate text-sm font-medium text-default">
                   {{ origin.label || t('settingsNetwork.origins.unnamed') }}
                 </span>
-                <UBadge
-                  v-if="origin.allowPrivateNetwork"
-                  size="xs"
-                  color="error"
-                  variant="subtle"
-                  icon="i-tabler-network"
-                >
-                  {{ t('settingsNetwork.origins.private_enabled') }}
-                </UBadge>
               </span>
               <span class="mt-1 block truncate text-xs text-dimmed">
                 {{ origin.origin || t('settingsNetwork.origins.origin_missing') }} ·
@@ -105,7 +86,6 @@
                 <UInputNumber
                   v-model="origin.responseByteLimit"
                   :min="1"
-                  :max="262144"
                   :step="1024"
                   size="sm"
                   class="w-full"
@@ -118,48 +98,13 @@
               >
                 <UInputNumber
                   v-model="origin.timeoutMilliseconds"
-                  :min="100"
-                  :max="60000"
+                  :min="1"
                   :step="100"
                   size="sm"
                   class="w-full"
                   @change="commit"
                 />
               </UFormField>
-            </div>
-
-            <div
-              class="rounded-lg border p-3"
-              :class="
-                origin.allowPrivateNetwork
-                  ? 'border-error/35 bg-error/5'
-                  : 'border-default/70 bg-elevated/35'
-              "
-            >
-              <label class="flex cursor-pointer items-start justify-between gap-4">
-                <span class="min-w-0">
-                  <span class="flex items-center gap-2 text-xs font-medium text-default">
-                    <UIcon name="i-tabler-network" class="size-4" />
-                    {{ t('settingsNetwork.private.title') }}
-                  </span>
-                  <span class="mt-1 block text-xs leading-relaxed text-dimmed">
-                    {{ t('settingsNetwork.private.hint') }}
-                  </span>
-                </span>
-                <USwitch
-                  :model-value="origin.allowPrivateNetwork"
-                  size="sm"
-                  @update:model-value="(value: boolean) => setPrivateNetwork(index, value)"
-                />
-              </label>
-              <p
-                v-if="origin.allowPrivateNetwork"
-                class="mt-3 flex items-start gap-2 text-xs leading-relaxed text-error"
-                role="status"
-              >
-                <UIcon name="i-tabler-alert-triangle" class="mt-0.5 size-4 shrink-0" />
-                {{ t('settingsNetwork.private.warning') }}
-              </p>
             </div>
 
             <div class="flex items-center border-t border-default/60 pt-4">
@@ -179,7 +124,7 @@
       </div>
 
       <div v-else class="settings-empty-state">
-        <UIcon name="i-tabler-shield-lock" class="size-6 text-dimmed" />
+        <UIcon name="i-tabler-world-www" class="size-6 text-dimmed" />
         <p class="text-sm font-medium text-default">{{ t('settingsNetwork.origins.empty') }}</p>
         <p class="max-w-md text-center text-xs leading-relaxed text-dimmed">
           {{ t('settingsNetwork.origins.empty_hint') }}
@@ -249,7 +194,6 @@ function addOrigin() {
     slot,
     label: uniqueLabel(t('settingsNetwork.origins.new_label')),
     origin: '',
-    allowPrivateNetwork: false,
     responseByteLimit: 262144,
     timeoutMilliseconds: 10000,
     persisted: false,
@@ -261,7 +205,6 @@ function metadata(origin: HTTPOriginDraft): HTTPOriginProfile {
     slot: origin.slot,
     label: origin.label.trim(),
     origin: origin.origin.trim(),
-    allowPrivateNetwork: origin.allowPrivateNetwork,
     responseByteLimit: origin.responseByteLimit,
     timeoutMilliseconds: origin.timeoutMilliseconds,
   }
@@ -279,10 +222,6 @@ async function commit(): Promise<boolean> {
   const ok = await store.patchHTTPOrigins(savable.map(metadata))
   if (ok) for (const origin of savable) origin.persisted = true
   return ok
-}
-async function setPrivateNetwork(index: number, value: boolean) {
-  draft.value[index]!.allowPrivateNetwork = value
-  await commit()
 }
 async function removeOrigin(origin: HTTPOriginDraft) {
   if (!origin.persisted) {

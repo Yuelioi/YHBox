@@ -16,13 +16,12 @@ import (
 const (
 	ProviderABI        = "https://schemas.yotta.dev/provider-abi/resource/v1"
 	KindApplication    = "application/lifecycle"
-	TargetKind         = "installed-application"
+	TargetKind         = "configured-application"
 	OperationLaunch    = "launch"
 	OperationTerminate = "terminate"
-	providerImpl       = "installed-application-lifecycle/v2"
+	providerImpl       = "configured-application-lifecycle/v3"
 
 	CodeInvalidRequest    = "application.invalid_request"
-	CodeIdentityChanged   = "application.identity_changed"
 	CodeLaunchFailed      = "application.launch_failed"
 	CodeTerminateFailed   = "application.terminate_failed"
 	CodeUnsupportedHost   = "application.unsupported_host"
@@ -50,9 +49,6 @@ func (e *Failure) Unwrap() error {
 	return e.Cause
 }
 
-type CapabilityScope struct {
-	Operation string `json:"operation"`
-}
 type LaunchResponse struct {
 	ProcessID uint32 `json:"processId"`
 }
@@ -83,18 +79,14 @@ func NewProvider(profile Profile) (resource.Provider, error) {
 }
 
 func (p *provider) Open(_ context.Context, request resource.ProviderOpenRequest) (any, error) {
-	if request.Kind != KindApplication || request.CredentialBindingID != "" || len(request.Operations) != 1 || !validOperation(request.Operations[0]) {
+	if request.Kind != KindApplication || len(request.Operations) != 1 || !validOperation(request.Operations[0]) {
 		return nil, failure(CodeContractViolation, errors.New("invalid application lifecycle session request"))
 	}
 	var config map[string]any
 	if err := decodeExact(request.Config, &config, 1024); err != nil || len(config) != 0 {
 		return nil, failure(CodeContractViolation, errors.New("application lifecycle session config must be empty"))
 	}
-	var scope CapabilityScope
-	if err := decodeExact(request.CapabilityScope, &scope, 1024); err != nil || scope.Operation != request.Operations[0] {
-		return nil, failure(CodeContractViolation, errors.New("application lifecycle capability scope is invalid"))
-	}
-	return &session{operation: scope.Operation}, nil
+	return &session{operation: request.Operations[0]}, nil
 }
 
 func (p *provider) Invoke(ctx context.Context, object any, operation string, payload []byte) ([]byte, error) {
@@ -110,9 +102,6 @@ func (p *provider) Invoke(ctx context.Context, object any, operation string, pay
 	var request map[string]any
 	if err := decodeExact(payload, &request, 1024); err != nil || len(request) != 0 {
 		return nil, failure(CodeInvalidRequest, errors.New("application lifecycle request must be empty"))
-	}
-	if err := VerifyProfile(p.profile); err != nil {
-		return nil, failure(CodeIdentityChanged, err)
 	}
 	switch operation {
 	case OperationLaunch:

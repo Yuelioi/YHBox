@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
@@ -23,7 +22,6 @@ func (allowBlobProvider) AuthorizeCall(context.Context, resource.AuthorizationCa
 }
 
 func TestBlobProviderStreamsWriterAndReaderThroughBroker(t *testing.T) {
-	now := time.Date(2026, 7, 15, 2, 0, 0, 0, time.UTC)
 	store, err := blob.Open(t.TempDir(), blob.Limits{MaxBlobBytes: 1024, MaxTotalBytes: 4096})
 	if err != nil {
 		t.Fatal(err)
@@ -32,9 +30,7 @@ func TestBlobProviderStreamsWriterAndReaderThroughBroker(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	broker, err := resource.New(allowBlobProvider{}, map[string]resource.Provider{blob.ProviderID: provider}, resource.Options{
-		Now: func() time.Time { return now }, MaxPayloadBytes: 1024,
-	})
+	broker, err := resource.New(allowBlobProvider{}, map[string]resource.Provider{blob.ProviderID: provider}, resource.Options{MaxPayloadBytes: 1024})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +39,7 @@ func TestBlobProviderStreamsWriterAndReaderThroughBroker(t *testing.T) {
 	writer, err := broker.Open(context.Background(), resource.OpenRequest{
 		Scope: scope, ProviderID: blob.ProviderID, TargetID: "workspace", Kind: blob.KindWriter,
 		Operations: []string{blob.OperationAppend, blob.OperationCancel, blob.OperationCommit},
-		ExpiresAt:  now.Add(time.Minute), Config: writeConfig,
+		Config:     writeConfig,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -67,7 +63,7 @@ func TestBlobProviderStreamsWriterAndReaderThroughBroker(t *testing.T) {
 	readConfig, _ := json.Marshal(blob.ReadConfig{Blob: ref})
 	reader, err := broker.Open(context.Background(), resource.OpenRequest{
 		Scope: scope, ProviderID: blob.ProviderID, TargetID: "workspace", Kind: blob.KindReader,
-		Operations: []string{blob.OperationReadRange}, ExpiresAt: now.Add(time.Minute), Config: readConfig,
+		Operations: []string{blob.OperationReadRange}, Config: readConfig,
 	})
 	if err != nil {
 		t.Fatal(err)

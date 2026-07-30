@@ -56,7 +56,6 @@ type GrantRequest struct {
 	Principal        string
 	PolicyGeneration string
 	IssuedAt         time.Time
-	ExpiresAt        time.Time
 	Bindings         []Binding
 	ConsentLineage   []artifact.Digest
 }
@@ -71,7 +70,7 @@ type runGrantDocument struct {
 	Principal          string            `json:"principal"`
 	PolicyGeneration   string            `json:"policyGeneration"`
 	IssuedAt           time.Time         `json:"issuedAt"`
-	ExpiresAt          time.Time         `json:"expiresAt"`
+	LegacyEndAt        *time.Time        `json:"expiresAt,omitempty"`
 	Entries            []GrantEntry      `json:"entries"`
 	ConsentLineage     []artifact.Digest `json:"consentLineage"`
 }
@@ -91,14 +90,19 @@ type GrantMetadata struct {
 	Principal          string
 	PolicyGeneration   string
 	IssuedAt           time.Time
-	ExpiresAt          time.Time
 }
 
 func SealRunGrant(request GrantRequest, catalog DefinitionCatalog) (RunGrant, error) {
+	return sealRunGrant(request, catalog, nil)
+}
+
+func sealRunGrant(request GrantRequest, catalog DefinitionCatalog, legacyEndAt *time.Time) (RunGrant, error) {
 	if !request.ProgramHash.Valid() || !request.Plan.Valid() || runid.Validate(request.RunID) != nil || !authorityIDPattern.MatchString(request.Principal) ||
-		!authorityIDPattern.MatchString(request.PolicyGeneration) || request.IssuedAt.Location() != time.UTC || request.ExpiresAt.Location() != time.UTC ||
-		!request.ExpiresAt.After(request.IssuedAt) || catalog == nil {
-		return RunGrant{}, errors.New("invalid run grant identity or lifetime")
+		!authorityIDPattern.MatchString(request.PolicyGeneration) || request.IssuedAt.Location() != time.UTC || catalog == nil {
+		return RunGrant{}, errors.New("invalid run grant identity")
+	}
+	if legacyEndAt != nil && (legacyEndAt.Location() != time.UTC || !legacyEndAt.After(request.IssuedAt)) {
+		return RunGrant{}, errors.New("invalid legacy run grant expiration")
 	}
 	planEntries := request.Plan.Entries()
 	if len(request.Bindings) != len(planEntries) {
@@ -170,7 +174,7 @@ func SealRunGrant(request GrantRequest, catalog DefinitionCatalog) (RunGrant, er
 	document := runGrantDocument{
 		Format: RunGrantFormat, Version: RunGrantVersion, ProgramHash: request.ProgramHash,
 		CapabilityPlanHash: request.Plan.Digest(), RunID: request.RunID, Principal: request.Principal,
-		PolicyGeneration: request.PolicyGeneration, IssuedAt: request.IssuedAt, ExpiresAt: request.ExpiresAt,
+		PolicyGeneration: request.PolicyGeneration, IssuedAt: request.IssuedAt, LegacyEndAt: legacyEndAt,
 		Entries: entries, ConsentLineage: lineage,
 	}
 	return sealRunGrantDocument(document)
@@ -191,11 +195,11 @@ func OpenRunGrant(raw []byte, plan Plan, catalog DefinitionCatalog) (RunGrant, e
 	for _, entry := range document.Entries {
 		bindings = append(bindings, entry.Binding)
 	}
-	sealed, err := SealRunGrant(GrantRequest{
+	sealed, err := sealRunGrant(GrantRequest{
 		ProgramHash: document.ProgramHash, Plan: plan, RunID: document.RunID, Principal: document.Principal,
-		PolicyGeneration: document.PolicyGeneration, IssuedAt: document.IssuedAt, ExpiresAt: document.ExpiresAt,
+		PolicyGeneration: document.PolicyGeneration, IssuedAt: document.IssuedAt,
 		Bindings: bindings, ConsentLineage: document.ConsentLineage,
-	}, catalog)
+	}, catalog, document.LegacyEndAt)
 	if err != nil {
 		return RunGrant{}, err
 	}
@@ -236,9 +240,11 @@ func inspectRunGrant(raw []byte) (runGrantDocument, GrantMetadata, error) {
 	}
 	if document.Format != RunGrantFormat || document.Version != RunGrantVersion || !document.GrantDigest.Valid() || !document.ProgramHash.Valid() ||
 		!document.CapabilityPlanHash.Valid() || runid.Validate(document.RunID) != nil || !authorityIDPattern.MatchString(document.Principal) ||
-		!authorityIDPattern.MatchString(document.PolicyGeneration) || document.IssuedAt.Location() != time.UTC || document.ExpiresAt.Location() != time.UTC ||
-		!document.ExpiresAt.After(document.IssuedAt) || len(document.Entries) > 16384 {
-		return runGrantDocument{}, GrantMetadata{}, errors.New("invalid run grant identity or lifetime")
+		!authorityIDPattern.MatchString(document.PolicyGeneration) || document.IssuedAt.Location() != time.UTC || len(document.Entries) > 16384 {
+		return runGrantDocument{}, GrantMetadata{}, errors.New("invalid run grant identity")
+	}
+	if document.LegacyEndAt != nil && (document.LegacyEndAt.Location() != time.UTC || !document.LegacyEndAt.After(document.IssuedAt)) {
+		return runGrantDocument{}, GrantMetadata{}, errors.New("invalid legacy run grant expiration")
 	}
 	previous := ""
 	for _, entry := range document.Entries {
@@ -271,7 +277,7 @@ func inspectRunGrant(raw []byte) (runGrantDocument, GrantMetadata, error) {
 	metadata := GrantMetadata{
 		Digest: document.GrantDigest, ProgramHash: document.ProgramHash, CapabilityPlanHash: document.CapabilityPlanHash,
 		RunID: document.RunID, Principal: document.Principal, PolicyGeneration: document.PolicyGeneration,
-		IssuedAt: document.IssuedAt, ExpiresAt: document.ExpiresAt,
+		IssuedAt: document.IssuedAt,
 	}
 	return document, metadata, nil
 }
@@ -366,12 +372,6 @@ func (g RunGrant) PolicyGeneration() string {
 		return ""
 	}
 	return g.state.document.PolicyGeneration
-}
-func (g RunGrant) ExpiresAt() time.Time {
-	if !g.Valid() {
-		return time.Time{}
-	}
-	return g.state.document.ExpiresAt
 }
 func (g RunGrant) Bytes() []byte {
 	if !g.Valid() {

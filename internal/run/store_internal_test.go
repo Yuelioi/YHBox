@@ -121,7 +121,7 @@ func queuedRecordInternal(t *testing.T, queuedAt time.Time) Record {
 	}
 	grant, err := capability.SealRunGrant(capability.GrantRequest{
 		ProgramHash: testDigest(t, "program"), Plan: plan, RunID: "0190c7d4-1e40-7cc5-a783-57b16d5c8e3a",
-		Principal: "user-1", PolicyGeneration: "policy-1", IssuedAt: queuedAt, ExpiresAt: queuedAt.Add(time.Hour),
+		Principal: "user-1", PolicyGeneration: "policy-1", IssuedAt: queuedAt,
 		Bindings: []capability.Binding{{
 			GraphID: "main", NodeID: "node-1", RequirementID: "stream", ProviderID: stream.ProviderID,
 			ProviderArtifactDigest: testDigest(t, "provider"), ProviderABI: stream.ProviderABI,

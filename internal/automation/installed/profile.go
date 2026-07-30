@@ -20,9 +20,8 @@ import (
 )
 
 const (
-	MaxResolveTimeoutMilliseconds = int64(10_000)
-	profileDigestDomain           = "yotta/installed-automation-target-profile/v2"
-	maxProfilePayloadBytes        = 512 << 10
+	profileDigestDomain    = "yotta/installed-automation-target-profile/v2"
+	maxProfilePayloadBytes = 512 << 10
 )
 
 // ProfileDraft is a versioned discriminated envelope. Adapter-native fields
@@ -220,7 +219,7 @@ func sealDesktopProfile(draft ProfileDraft) (Profile, error) {
 	}
 	application, err := appcontrol.SealProfile(payload.Application)
 	if err != nil {
-		return Profile{}, fmt.Errorf("seal automation target application identity: %w", err)
+		return Profile{}, fmt.Errorf("seal automation target application configuration: %w", err)
 	}
 	if !validSelector(payload.WindowTitle) || !validSelector(payload.WindowClass) {
 		return Profile{}, errors.New("automation target window selector is invalid")
@@ -252,7 +251,7 @@ func sealDesktopProfile(draft ProfileDraft) (Profile, error) {
 	return sealProfileDocument(draft, payload, application, payload.ResolveTimeoutMilliseconds)
 }
 
-var adbIdentityPattern = regexp.MustCompile(`^[A-Za-z0-9._:-]{1,128}$`)
+var adbValuePattern = regexp.MustCompile(`^[A-Za-z0-9._:-]{1,128}$`)
 var androidPackagePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$`)
 
 func sealAndroidProfile(draft ProfileDraft) (Profile, error) {
@@ -260,10 +259,12 @@ func sealAndroidProfile(draft ProfileDraft) (Profile, error) {
 	if err := decodeProfilePayload(draft.Payload, &payload); err != nil {
 		return Profile{}, fmt.Errorf("decode Android ADB profile v%s: %w", draft.ProfileVersion, err)
 	}
-	if !adbIdentityPattern.MatchString(payload.ADBSerial) || !adbIdentityPattern.MatchString(payload.ADBProduct) ||
-		!adbIdentityPattern.MatchString(payload.ADBModel) || !adbIdentityPattern.MatchString(payload.ADBDevice) ||
+	if !adbValuePattern.MatchString(payload.ADBSerial) ||
+		payload.ADBProduct != "" && !adbValuePattern.MatchString(payload.ADBProduct) ||
+		payload.ADBModel != "" && !adbValuePattern.MatchString(payload.ADBModel) ||
+		payload.ADBDevice != "" && !adbValuePattern.MatchString(payload.ADBDevice) ||
 		!androidPackagePattern.MatchString(payload.AndroidPackage) {
-		return Profile{}, errors.New("android ADB identity or package is invalid")
+		return Profile{}, errors.New("android ADB configuration is invalid")
 	}
 	if !validResolveTimeout(payload.ResolveTimeoutMilliseconds) {
 		return Profile{}, errors.New("automation target resolve timeout is invalid")
@@ -432,30 +433,7 @@ func BrowserProfile(profile Profile) (BrowserProfilePayload, bool) {
 	return payload, ok
 }
 
-func VerifyProfile(profile Profile) error {
-	return verifyProfileWithRegistry(profile, defaultAdapterRegistry())
-}
-
-func verifyProfileWithRegistry(profile Profile, registry adapterRegistry) error {
-	if !profile.Valid() {
-		return errors.New("automation target profile is invalid")
-	}
-	registered, err := registry.registration(profile)
-	if err != nil {
-		return err
-	}
-	return registered.verify(profile)
-}
-
-func verifyDesktopProfile(profile Profile) error {
-	return appcontrol.VerifyProfile(profile.Application())
-}
-
-func verifyPortableProfile(Profile) error { return nil }
-
-func validResolveTimeout(value int64) bool {
-	return value >= 100 && value <= MaxResolveTimeoutMilliseconds
-}
+func validResolveTimeout(value int64) bool { return value > 0 }
 
 func validSelector(value string) bool {
 	if len(value) > 512 || !utf8.ValidString(value) || strings.ContainsRune(value, 0) || value != "" && strings.TrimSpace(value) == "" {

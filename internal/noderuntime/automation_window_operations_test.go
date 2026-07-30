@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yottaapp/yotta/internal/admission"
 	"github.com/yottaapp/yotta/internal/artifact"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/noderuntime"
@@ -28,7 +27,7 @@ func (provider *windowOperationsProvider) Open(_ context.Context, request resour
 		return nil, fmt.Errorf("unexpected window operation open request: %#v", request)
 	}
 	operation := request.Operations[0]
-	if string(request.CapabilityScope) != fmt.Sprintf(`{"operation":%q}`, operation) {
+	if len(request.CapabilityScope) != 0 {
 		return nil, fmt.Errorf("unexpected window operation scope: %s", request.CapabilityScope)
 	}
 	return operation, nil
@@ -60,39 +59,19 @@ func TestDesktopWindowOperationFamilyUsesTypedRequestsOutputsAndRoutes(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	providerDigest, err := artifact.Sum("yotta/test/window-operations-provider/v1", []byte("typed-window-operation-family"))
-	if err != nil {
-		t.Fatal(err)
-	}
 	provider := &windowOperationsProvider{requests: map[string]json.RawMessage{}}
-	const providerID, targetID, slot = "window-operations-test", "automation-target/window-operations", "window-operations"
-	capabilityDefinition, ok := builtins.Catalog.LookupCapability(nodes.AutomationWindowCapabilityID)
-	if !ok {
-		t.Fatal("automation window capability is missing")
-	}
-	profileDraft := executionProfile(t, builtins)
-	profileDraft.Providers = append(profileDraft.Providers, admission.ProviderDescriptor{
-		ID: providerID, ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, PluginInstanceID: "builtin",
-		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"},
-		Capabilities: []admission.ProviderCapability{{Capability: capabilityDefinition.Ref(), ResourceKind: automationinstalled.KindWindow}},
-	})
-	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKindDesktopWindow, ProviderID: providerID})
-	profileDraft.TargetSlots = append(profileDraft.TargetSlots, admission.TargetSlotBinding{Slot: slot, TargetID: targetID})
+	const targetID, slot = "automation-target/window-operations", "window-operations"
 	program := compilePrimitiveProgram(t, builtins, desktopWindowOperationsSource(builtins, slot))
 	now := time.Date(2026, 7, 18, 23, 0, 0, 0, time.UTC)
-	consent, err := artifact.Sum("yotta/test/window-operations-consent/v1", []byte(slot))
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, owner, journal := admittedExecutionWithConsent(t, builtins, program, map[string]run.InstalledProvider{
-		providerID: {ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, Provider: provider},
-	}, now, profileDraft, []artifact.Digest{consent})
+	_, owner, journal := admittedExecution(t, builtins, program, map[string]run.InstalledProvider{}, now)
 	t.Cleanup(func() { _ = owner.Close(context.Background()) })
+	targets := configuredTargetRun(t, slot, targetID, provider)
 	adapters, err := noderuntime.Installed(builtins, testDependencies())
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).Run(context.Background(), program, owner, journal)
+	result, err := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).
+		RunWithTargets(context.Background(), program, owner, targets, journal)
 	if err != nil {
 		t.Fatal(err)
 	}

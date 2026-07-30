@@ -1,5 +1,5 @@
 import type {
-  CapabilityProjection,
+  ConfiguredTargetProjection,
   FieldProjection,
   NodeProjection,
   PortProjection,
@@ -81,9 +81,10 @@ export function projectAuthoringSurface(
     inlineInputs: [],
   }
   const targetFields = new Set(
-    projection.capabilities
-      .map((capability) => capability.targetSlotConfigKey)
-      .filter((field): field is string => Boolean(field)),
+    [
+      ...(projection.configuredTargets ?? []).map((target) => target.slotConfigKey),
+      ...projection.capabilities.map((capability) => capability.targetSlotConfigKey),
+    ].filter((field): field is string => Boolean(field)),
   )
 
   projection.configFields.forEach((field, index) => {
@@ -171,19 +172,19 @@ export function effectiveTargetSlot(
   node: Node,
   defaults: readonly { target: string; slot: string }[],
 ): string {
-  const capability = automationTargetCapability(projection.capabilities)
-  if (!capability) return defaults.find((candidate) => candidate.target === 'target')?.slot ?? ''
-  const fieldID = capability.targetSlotConfigKey
+  const target = automationConfiguredTarget(projection.configuredTargets ?? [])
+  if (!target) return defaults.find((candidate) => candidate.target === 'target')?.slot ?? ''
+  const fieldID = target.slotConfigKey
   const override = fieldID ? node.config[fieldID] : undefined
   if (typeof override === 'string' && override) return override
-  return defaults.find((candidate) => candidate.target === capability.targetSlot)?.slot ?? ''
+  return defaults.find((candidate) => candidate.target === target.targetSlot)?.slot ?? ''
 }
 
-function automationTargetCapability(
-  capabilities: CapabilityProjection[],
-): CapabilityProjection | undefined {
-  return capabilities.find((capability) =>
-    capability.targetKinds.some((kind) =>
+function automationConfiguredTarget(
+  targets: ConfiguredTargetProjection[],
+): ConfiguredTargetProjection | undefined {
+  return targets.find((target) =>
+    target.targetKinds.some((kind) =>
       ['desktop-window', 'win32-window', 'android-device', 'browser-cdp'].includes(kind),
     ),
   )

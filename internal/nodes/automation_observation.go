@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/yottaapp/yotta/internal/automation/installed"
-	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 )
@@ -19,7 +18,7 @@ const (
 	ObservationFailedCode = "automation.observation_failed"
 )
 
-func defineAutomationObservationNodes(types automationTemplateTypes, capture capability.Definition) ([]BuiltinDefinition, error) {
+func defineAutomationObservationNodes(types automationTemplateTypes) ([]BuiltinDefinition, error) {
 	numberType := datatype.RefExpression(types.numberRef)
 	integerType := datatype.RefExpression(types.durationRef)
 	gridType := datatype.RefExpression(types.integerRef)
@@ -73,12 +72,9 @@ func defineAutomationObservationNodes(types automationTemplateTypes, capture cap
 				Evaluation: nodecontract.EvaluationPush, Cache: nodecontract.CacheNone, Retry: nodecontract.RetryNever,
 				Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutRequired,
 			},
-			Instruction: nodecontract.Invoke(),
-			CapabilityRequirements: []capability.Requirement{{
-				ID: "capture-target", Capability: capture.Ref(), Operations: installed.CaptureOperations(), TargetSlot: "target", Scope: json.RawMessage(`{"operation":"capture"}`),
-			}},
-			RequirementBindings: []nodecontract.RequirementBindingSpec{{RequirementID: "capture-target", TargetSlotConfigKey: "slot"}},
-			Errors:              automationObservationErrors(), StatusEvents: []nodecontract.StatusEventSpec{},
+			Instruction:       nodecontract.Invoke(),
+			ConfiguredTargets: automationTargetSpec("capture-target", installed.TargetKindDesktopWindow, installed.TargetKindAndroidDevice, installed.TargetKindBrowserCDP),
+			Errors:            automationObservationErrors(), StatusEvents: []nodecontract.StatusEventSpec{},
 			ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 			Authoring: nodecontract.Authoring{
 				TitleKey: item.key + ".title", DescriptionKey: item.key + ".description", Category: "automation",
@@ -89,7 +85,7 @@ func defineAutomationObservationNodes(types automationTemplateTypes, capture cap
 		if err != nil {
 			return nil, fmt.Errorf("seal built-in %s: %w", item.id, err)
 		}
-		definition, err := defineBuiltin(contract, item.entrypoint, "v1", "exact-target/cancellable-frame-observation/v1", nil)
+		definition, err := defineBuiltin(contract, item.entrypoint, "v1", "configured-target/cancellable-frame-observation/v1", nil)
 		if err != nil {
 			return nil, err
 		}
@@ -100,7 +96,7 @@ func defineAutomationObservationNodes(types automationTemplateTypes, capture cap
 
 func automationObservationErrors() []nodecontract.ErrorSpec {
 	codes := []string{
-		installed.CodeInvalidRequest, installed.CodeIdentityChanged, installed.CodeTargetNotFound, installed.CodeTargetAmbiguous,
+		installed.CodeInvalidRequest, installed.CodeTargetNotFound, installed.CodeTargetAmbiguous,
 		installed.CodeCaptureFailed, installed.CodeUnsupportedHost, installed.CodeContractViolation,
 		VisionImageInvalidCode, VisionRegionInvalidCode, ObservationFailedCode,
 	}

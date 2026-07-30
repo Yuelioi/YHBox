@@ -41,7 +41,7 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 		WorkflowRepository: stores.foundation.Workflows(),
 		RunRepository:      stores.foundation.Runs(),
 		BlobStore:          stores.blobs,
-		Limits:             testLimits(), AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t), ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t), ScriptRuntime: bootstrapScriptRuntime(t), GrantTTL: 5 * time.Minute,
+		Limits:             testLimits(), AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t), ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t), ScriptRuntime: bootstrapScriptRuntime(t),
 		LogEmitter:        discardWorkflowLog{},
 		OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
 		OnRunEvent: func(event appcore.RunEvent) { events <- event },
@@ -143,7 +143,7 @@ func TestBuildStartsWithOneCorruptWorkflowSourceIsolatedAndRepairable(t *testing
 			AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t),
 			ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t),
 			ScriptRuntime: bootstrapScriptRuntime(t), LogEmitter: discardWorkflowLog{},
-			GrantTTL: 5 * time.Minute, OwnerCloseTimeout: time.Second, Now: time.Now,
+			OwnerCloseTimeout: time.Second, Now: time.Now,
 		})
 		if err != nil {
 			t.Fatalf("Build = %v", err)
@@ -219,7 +219,7 @@ func TestRuntimeHotReplacesApplicationAutomationAndAuthoringGeneration(t *testin
 		BlobStore:          stores.blobs, Limits: testLimits(),
 		AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t),
 		ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t),
-		ScriptRuntime: bootstrapScriptRuntime(t), GrantTTL: 5 * time.Minute, LogEmitter: discardWorkflowLog{},
+		ScriptRuntime: bootstrapScriptRuntime(t), LogEmitter: discardWorkflowLog{},
 		OwnerCloseTimeout: time.Second, Now: time.Now,
 	})
 	if err != nil {
@@ -239,11 +239,7 @@ func TestRuntimeHotReplacesApplicationAutomationAndAuthoringGeneration(t *testin
 	if err := os.WriteFile(path, []byte("live-automation-target"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	inspection, err := appcontrol.InspectExecutable(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	applicationDraft := appcontrol.ProfileDraft{Executable: inspection.Executable, Arguments: []string{}}
+	applicationDraft := appcontrol.ProfileDraft{Executable: path, Arguments: []string{}}
 	automationProfile := automationinstalled.NewDesktopProfileDraft(automationinstalled.DesktopProfilePayload{
 		Application: applicationDraft, WindowTitle: "Editor.*", WindowTitleMatch: "regex", WindowSelection: "topmost",
 		WindowClass: "EditorWindow", InputBackend: "postmessage", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
@@ -330,7 +326,7 @@ func TestRuntimeHotInstallsAIModelForNewRuns(t *testing.T) {
 		BlobStore:          stores.blobs, Limits: testLimits(),
 		AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t),
 		ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t),
-		ScriptRuntime: bootstrapScriptRuntime(t), GrantTTL: 5 * time.Minute, LogEmitter: discardWorkflowLog{},
+		ScriptRuntime: bootstrapScriptRuntime(t), LogEmitter: discardWorkflowLog{},
 		OwnerCloseTimeout: time.Second, Now: time.Now,
 	})
 	if err != nil {
@@ -388,8 +384,8 @@ func TestRuntimeHotInstallsAIModelForNewRuns(t *testing.T) {
 	}
 }
 
-func TestCompositionRootDoesNotReinferAutomationCapabilities(t *testing.T) {
-	source, err := os.ReadFile("bootstrap.go")
+func TestCompositionRootProjectsAutomationAsConfiguredTargets(t *testing.T) {
+	source, err := os.ReadFile("execution_environment.go")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -404,14 +400,13 @@ func TestCompositionRootDoesNotReinferAutomationCapabilities(t *testing.T) {
 			t.Fatalf("composition root contains a second automation capability fact source: %s", forbidden)
 		}
 	}
-	if !strings.Contains(text, "manifest.Capabilities") {
-		t.Fatal("composition root does not project the sealed automation manifest")
+	if strings.Contains(text, "manifest.Capabilities") || !strings.Contains(text, "targetruntime.Installation") {
+		t.Fatal("composition root did not project automation as plain configured targets")
 	}
 }
 
 func TestBuiltinPolicyRejectsUninstalledProviderIdentity(t *testing.T) {
-	now := time.Date(2026, 7, 15, 12, 30, 0, 0, time.UTC)
-	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, emptyAIInstallations(t), emptyHTTPInstallations(t), emptyApplicationInstallations(t), emptyAutomationInstallations(t))
+	policy, err := appbootstrap.NewBuiltinPolicy(emptyAIInstallations(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -425,8 +420,7 @@ func TestBuiltinPolicyRejectsUninstalledProviderIdentity(t *testing.T) {
 }
 
 func TestBuiltinPolicyPinsWorkspaceFilesystemProvider(t *testing.T) {
-	now := time.Date(2026, 7, 16, 11, 0, 0, 0, time.UTC)
-	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, emptyAIInstallations(t), emptyHTTPInstallations(t), emptyApplicationInstallations(t), emptyAutomationInstallations(t))
+	policy, err := appbootstrap.NewBuiltinPolicy(emptyAIInstallations(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -451,7 +445,6 @@ func TestBuiltinPolicyPinsWorkspaceFilesystemProvider(t *testing.T) {
 }
 
 func TestBuiltinPolicyApprovesExactConfiguredAIInstallation(t *testing.T) {
-	now := time.Date(2026, 7, 15, 13, 0, 0, 0, time.UTC)
 	profileDraft := ai.ModelProfileDraft{
 		Provider: ai.ProviderOpenAIResponses, Model: "gpt-test", MaxOutputTokens: 4096,
 		Capabilities: ai.ProfileCapabilities{StructuredOutput: true},
@@ -467,7 +460,7 @@ func TestBuiltinPolicyApprovesExactConfiguredAIInstallation(t *testing.T) {
 		TargetID: entry.TargetID, TargetKind: "ai-model", ResourceKind: ai.KindModelSession,
 		PluginInstanceID: "builtin", CredentialBindingID: entry.CredentialBindingID,
 	}
-	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, installed, emptyHTTPInstallations(t), emptyApplicationInstallations(t), emptyAutomationInstallations(t))
+	policy, err := appbootstrap.NewBuiltinPolicy(installed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -483,7 +476,6 @@ func TestBuiltinPolicyApprovesExactConfiguredAIInstallation(t *testing.T) {
 }
 
 func TestBuiltinPolicyLimitsUnverifiedAIToOrdinaryGeneration(t *testing.T) {
-	now := time.Date(2026, 7, 15, 13, 15, 0, 0, time.UTC)
 	installed, err := ai.Install([]ai.InstallationDraft{{Slot: "model", Profile: ai.ModelProfileDraft{
 		Provider: ai.ProviderOpenAIResponses, Model: "gpt-test", MaxOutputTokens: 4096,
 		Evaluation: ai.EvaluationUnverified,
@@ -498,14 +490,7 @@ func TestBuiltinPolicyLimitsUnverifiedAIToOrdinaryGeneration(t *testing.T) {
 		TargetID: entry.TargetID, TargetKind: "ai-model", ResourceKind: ai.KindModelSession,
 		PluginInstanceID: "builtin", CredentialBindingID: entry.CredentialBindingID,
 	}
-	policy, err := appbootstrap.NewBuiltinPolicy(
-		func() time.Time { return now },
-		time.Minute,
-		installed,
-		emptyHTTPInstallations(t),
-		emptyApplicationInstallations(t),
-		emptyAutomationInstallations(t),
-	)
+	policy, err := appbootstrap.NewBuiltinPolicy(installed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -524,116 +509,6 @@ func TestBuiltinPolicyLimitsUnverifiedAIToOrdinaryGeneration(t *testing.T) {
 	decision, err = policy.Authorize(context.Background(), request)
 	if err != nil || decision.Outcome != admission.PolicyDenied {
 		t.Fatalf("unverified agent decision = %#v, %v", decision, err)
-	}
-}
-
-func TestBuiltinPolicyApprovesExactConfiguredHTTPInstallation(t *testing.T) {
-	now := time.Date(2026, 7, 16, 17, 0, 0, 0, time.UTC)
-	profileDraft := httpegress.ProfileDraft{Origin: "https://example.com", ResponseByteLimit: 4096, TimeoutMilliseconds: 5000}
-	installed, err := httpegress.Install([]httpegress.InstallationDraft{{Slot: "http", Profile: profileDraft}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	entry := installed.Entries()[0]
-	binding := capability.Binding{ProviderID: entry.ProviderID, ProviderArtifactDigest: entry.ProviderArtifact, ProviderABI: httpegress.ProviderABI, TargetID: entry.TargetID, TargetKind: httpegress.TargetKind, ResourceKind: httpegress.KindHTTPSession, PluginInstanceID: "builtin"}
-	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, emptyAIInstallations(t), installed, emptyApplicationInstallations(t), emptyAutomationInstallations(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	decision, err := policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
-	if err != nil || decision.Outcome != admission.PolicyApproved || len(decision.ConsentLineage) != 0 {
-		t.Fatalf("configured HTTP decision = %#v, %v", decision, err)
-	}
-	binding.TargetID = "http-origin/forged"
-	decision, err = policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
-	if err != nil || decision.Outcome != admission.PolicyDenied {
-		t.Fatalf("forged HTTP decision = %#v, %v", decision, err)
-	}
-}
-
-func TestBuiltinPolicyApprovesExactConfiguredApplicationInstallation(t *testing.T) {
-	if !appcontrol.PlatformSupported() {
-		t.Skip("application lifecycle is intentionally unavailable")
-	}
-	path := filepath.Join(t.TempDir(), "tool.exe")
-	if err := os.WriteFile(path, []byte("installed-application"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	inspection, err := appcontrol.InspectExecutable(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	profileDraft := appcontrol.ProfileDraft{Executable: inspection.Executable, Arguments: []string{"--fixed"}}
-	installed, err := appcontrol.Install([]appcontrol.InstallationDraft{{Slot: "tool", Profile: profileDraft}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	entry := installed.Entries()[0]
-	binding := capability.Binding{ProviderID: entry.ProviderID, ProviderArtifactDigest: entry.ProviderArtifact, ProviderABI: appcontrol.ProviderABI, TargetID: entry.TargetID, TargetKind: appcontrol.TargetKind, ResourceKind: appcontrol.KindApplication, PluginInstanceID: "builtin"}
-	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return time.Now().UTC() }, time.Minute, emptyAIInstallations(t), emptyHTTPInstallations(t), installed, emptyAutomationInstallations(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	decision, err := policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
-	if err != nil || decision.Outcome != admission.PolicyApproved || len(decision.ConsentLineage) != 0 {
-		t.Fatalf("configured decision = %#v, %v", decision, err)
-	}
-	binding.ProviderArtifactDigest = testDigest(t, "forged-application-provider")
-	decision, err = policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
-	if err != nil || decision.Outcome != admission.PolicyDenied {
-		t.Fatalf("forged decision = %#v, %v", decision, err)
-	}
-}
-
-func TestBuiltinPolicyApprovesExactConfiguredAutomationTarget(t *testing.T) {
-	if !automationinstalled.PlatformSupported() {
-		t.Skip("installed automation targets are intentionally unavailable")
-	}
-	path := filepath.Join(t.TempDir(), "editor.exe")
-	if err := os.WriteFile(path, []byte("installed-automation-target"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	inspection, err := appcontrol.InspectExecutable(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	profileDraft := automationinstalled.NewDesktopProfileDraft(automationinstalled.DesktopProfilePayload{
-		Application: appcontrol.ProfileDraft{Executable: inspection.Executable, Arguments: []string{}},
-		WindowTitle: "Editor", WindowTitleMatch: "exact", WindowSelection: "unique", WindowClass: "EditorWindow",
-		InputBackend: "postmessage", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
-	})
-	installed, err := automationinstalled.Install([]automationinstalled.InstallationDraft{{Slot: "editor-input", Profile: profileDraft}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = installed.Close() })
-	entry := installed.Entries()[0]
-	binding := capability.Binding{
-		ProviderID: entry.ProviderID, ProviderArtifactDigest: entry.ProviderArtifact, ProviderABI: automationinstalled.ProviderABI,
-		TargetID: entry.TargetID, TargetKind: automationinstalled.TargetKindDesktopWindow, ResourceKind: automationinstalled.KindInput, PluginInstanceID: "builtin",
-	}
-	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return time.Now().UTC() }, time.Minute, emptyAIInstallations(t), emptyHTTPInstallations(t), emptyApplicationInstallations(t), installed)
-	if err != nil {
-		t.Fatal(err)
-	}
-	decision, err := policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
-	if err != nil || decision.Outcome != admission.PolicyApproved || len(decision.ConsentLineage) != 0 {
-		t.Fatalf("configured automation decision = %#v, %v", decision, err)
-	}
-	binding.ResourceKind = automationinstalled.KindWindow
-	decision, err = policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
-	if err != nil || decision.Outcome != admission.PolicyApproved || len(decision.ConsentLineage) != 0 {
-		t.Fatalf("configured window decision = %#v, %v", decision, err)
-	}
-	binding.ResourceKind = automationinstalled.KindCapture
-	decision, err = policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
-	if err != nil || decision.Outcome != admission.PolicyApproved || len(decision.ConsentLineage) != 0 {
-		t.Fatalf("configured capture decision = %#v, %v", decision, err)
-	}
-	binding.TargetKind = appcontrol.TargetKind
-	decision, err = policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
-	if err != nil || decision.Outcome != admission.PolicyDenied {
-		t.Fatalf("forged automation decision = %#v, %v", decision, err)
 	}
 }
 

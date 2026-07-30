@@ -3,10 +3,8 @@ package browsercdp
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
@@ -25,15 +23,11 @@ func DialWebSocketClient(ctx context.Context, wsURL string) (*WebSocketClient, e
 	if err != nil {
 		return nil, err
 	}
-	conn, _, err := websocket.Dial(ctx, validated, &websocket.DialOptions{HTTPClient: &http.Client{
-		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-			return fmt.Errorf("browser CDP websocket redirects are not allowed")
-		},
-	}})
+	conn, _, err := websocket.Dial(ctx, validated, nil)
 	if err != nil {
 		return nil, err
 	}
-	conn.SetReadLimit(16 << 20)
+	conn.SetReadLimit(-1)
 	return &WebSocketClient{conn: conn}, nil
 }
 
@@ -96,18 +90,13 @@ func (p *ClientProvider) ClientForTarget(tg target.Target) (controller.CDPClient
 	if service == nil {
 		service = NewService(endpoint)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
+	ctx := context.Background()
 	info, ok, err := service.TargetByID(ctx, endpoint, tg.Ref.BrowserID)
 	if err != nil {
 		return nil, err
 	}
 	if !ok {
 		return nil, fmt.Errorf("browser CDP page %q is offline or stale", tg.Ref.BrowserID)
-	}
-	expected := metadataString(tg.Metadata, "webSocketDebuggerUrl")
-	if expected != "" && expected != info.WebSocketDebuggerURL {
-		return nil, fmt.Errorf("browser CDP page %q websocket identity changed", tg.Ref.BrowserID)
 	}
 	return DialWebSocketClient(ctx, info.WebSocketDebuggerURL)
 }

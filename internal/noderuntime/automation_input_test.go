@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yottaapp/yotta/internal/admission"
-	"github.com/yottaapp/yotta/internal/artifact"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/nodes"
@@ -31,7 +29,7 @@ type heldInputProvider struct {
 
 func (provider *heldInputProvider) Open(_ context.Context, request resource.ProviderOpenRequest) (any, error) {
 	if request.Kind != automationinstalled.KindHeldInput || fmt.Sprint(request.Operations) != "[hold-button hold-keys release-held]" ||
-		string(request.Config) != `{}` || string(request.CapabilityScope) != `{"operation":"held-input"}` {
+		string(request.Config) != `{}` || len(request.CapabilityScope) != 0 {
 		return nil, fmt.Errorf("unexpected held input open request: %#v", request)
 	}
 	return &struct{}{}, nil
@@ -48,7 +46,7 @@ func (provider *heldInputProvider) Close(context.Context, any) error {
 }
 
 func (provider *automationInputProvider) Open(_ context.Context, request resource.ProviderOpenRequest) (any, error) {
-	if request.Kind != automationinstalled.KindInput || fmt.Sprint(request.Operations) != "[type-text]" || string(request.Config) != `{}` || string(request.CapabilityScope) != `{"operation":"type-text"}` {
+	if request.Kind != automationinstalled.KindInput || fmt.Sprint(request.Operations) != "[type-text]" || string(request.Config) != `{}` || len(request.CapabilityScope) != 0 {
 		return nil, fmt.Errorf("unexpected automation input open request: %#v", request)
 	}
 	return request.Operations[0], nil
@@ -76,39 +74,18 @@ func TestAutomationInputUsesInstalledTargetAndRedactsJournal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	providerDigest, err := artifact.Sum("yotta/test/automation-input-provider/v1", []byte("exact-installed-window"))
-	if err != nil {
-		t.Fatal(err)
-	}
 	provider := &automationInputProvider{}
-	const providerID, targetID, slot = "automation-input-test", "automation-target/test", "automation-test"
-	capabilityDefinition, ok := builtins.Catalog.LookupCapability(nodes.AutomationInputCapabilityID)
-	if !ok {
-		t.Fatal("automation input capability is missing")
-	}
-	profileDraft := executionProfile(t, builtins)
-	profileDraft.Providers = append(profileDraft.Providers, admission.ProviderDescriptor{
-		ID: providerID, ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, PluginInstanceID: "builtin",
-		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"},
-		Capabilities: []admission.ProviderCapability{{Capability: capabilityDefinition.Ref(), ResourceKind: automationinstalled.KindInput}},
-	})
-	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKindDesktopWindow, ProviderID: providerID})
-	profileDraft.TargetSlots = append(profileDraft.TargetSlots, admission.TargetSlotBinding{Slot: slot, TargetID: targetID})
+	const targetID, slot = "automation-target/test", "automation-test"
 	program := compilePrimitiveProgram(t, builtins, automationInputSource(t, builtins, slot))
 	now := time.Date(2026, 7, 16, 19, 0, 0, 0, time.UTC)
-	consent, err := artifact.Sum("yotta/test/automation-input-consent/v1", []byte(slot))
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, owner, journal := admittedExecutionWithConsent(t, builtins, program, map[string]run.InstalledProvider{
-		providerID: {ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, Provider: provider},
-	}, now, profileDraft, []artifact.Digest{consent})
+	_, owner, journal := admittedExecution(t, builtins, program, map[string]run.InstalledProvider{}, now)
 	t.Cleanup(func() { _ = owner.Close(context.Background()) })
 	adapters, err := noderuntime.Installed(builtins, testDependencies())
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).Run(context.Background(), program, owner, journal)
+	targets := configuredTargetRun(t, slot, targetID, provider)
+	result, err := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).RunWithTargets(context.Background(), program, owner, targets, journal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,39 +113,18 @@ func TestHeldInputLeaseCrossesNodesAndIsClosedByRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	providerDigest, err := artifact.Sum("yotta/test/held-input-provider/v1", []byte("run-owned-held-input"))
-	if err != nil {
-		t.Fatal(err)
-	}
 	provider := &heldInputProvider{}
-	const providerID, targetID, slot = "automation-held-test", "automation-target/held", "automation-held"
-	capabilityDefinition, ok := builtins.Catalog.LookupCapability(nodes.AutomationHeldInputCapabilityID)
-	if !ok {
-		t.Fatal("held input capability is missing")
-	}
-	profileDraft := executionProfile(t, builtins)
-	profileDraft.Providers = append(profileDraft.Providers, admission.ProviderDescriptor{
-		ID: providerID, ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, PluginInstanceID: "builtin",
-		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"},
-		Capabilities: []admission.ProviderCapability{{Capability: capabilityDefinition.Ref(), ResourceKind: automationinstalled.KindHeldInput}},
-	})
-	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKindDesktopWindow, ProviderID: providerID})
-	profileDraft.TargetSlots = append(profileDraft.TargetSlots, admission.TargetSlotBinding{Slot: slot, TargetID: targetID})
+	const targetID, slot = "automation-target/held", "automation-held"
 	program := compilePrimitiveProgram(t, builtins, heldInputSource(t, builtins, slot))
 	now := time.Date(2026, 7, 18, 22, 0, 0, 0, time.UTC)
-	consent, err := artifact.Sum("yotta/test/held-input-consent/v1", []byte(slot))
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, owner, journal := admittedExecutionWithConsent(t, builtins, program, map[string]run.InstalledProvider{
-		providerID: {ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, Provider: provider},
-	}, now, profileDraft, []artifact.Digest{consent})
+	_, owner, journal := admittedExecution(t, builtins, program, map[string]run.InstalledProvider{}, now)
 	t.Cleanup(func() { _ = owner.Close(context.Background()) })
 	adapters, err := noderuntime.Installed(builtins, testDependencies())
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).Run(context.Background(), program, owner, journal)
+	targets := configuredTargetRun(t, slot, targetID, provider)
+	result, err := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).RunWithTargets(context.Background(), program, owner, targets, journal)
 	if err != nil {
 		t.Fatal(err)
 	}

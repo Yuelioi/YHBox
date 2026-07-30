@@ -245,7 +245,7 @@ func TestSettingsServiceRemovingApplicationAlsoRemovesDependentTargets(t *testin
 	_, _, err := app.MutateSettings(func(settings *Settings) error {
 		settings.Applications.Profiles = []InstalledApplicationSettings{{
 			Slot: "htgame", Label: "HTGame", Executable: `C:\Apps\HTGame.exe`,
-			ExecutableDigest: artifact.Digest("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), Arguments: []string{},
+			Arguments: []string{},
 		}}
 		settings.Automation.Targets = []InstalledAutomationTargetSettings{{
 			Slot: "window-target", Label: "异环",
@@ -354,8 +354,7 @@ func TestLoadSettingsAcceptsLegacyWorkflowConsentWithoutDiscardingConfiguration(
 	}}
 	settings.Applications.Profiles = []InstalledApplicationSettings{{
 		Slot: "game", Label: "Game", Executable: `C:\Apps\Game.exe`,
-		ExecutableDigest: artifact.Digest("sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
-		Arguments:        []string{},
+		Arguments: []string{},
 	}}
 	settings.Automation.Targets = []InstalledAutomationTargetSettings{{
 		Slot: "game-window", Label: "Game Window",

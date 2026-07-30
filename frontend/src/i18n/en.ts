@@ -790,26 +790,23 @@ export default {
     network: {
       httpGet: {
         title: 'HTTP GET',
-        description:
-          'Read UTF-8 text from one explicitly installed origin using a relative path. Redirects, cookies, credentials, proxies, and arbitrary hosts are unavailable.',
+        description: 'Read UTF-8 text from a configured HTTP base URL using a relative path.',
         config: {
           slot: {
-            title: 'HTTP origin slot',
-            description: 'Select the exact configured HTTP origin for this request.',
+            title: 'HTTP target slot',
+            description: 'Select the configured HTTP target for this request.',
           },
         },
       },
     },
     application: {
       launch: {
-        title: 'Launch installed application',
-        description:
-          'Launch the configured executable and fixed arguments from Settings. Workflows cannot supply a path, arguments, or command line.',
+        title: 'Launch application',
+        description: 'Launch the program path and arguments configured in the application slot.',
       },
       terminate: {
-        title: 'Terminate installed application',
-        description:
-          'Terminate only processes that belong to the configured installation path, and return the count.',
+        title: 'Terminate application',
+        description: 'Terminate processes that belong to the configured path and return the count.',
       },
       config: {
         slot: {
@@ -828,24 +825,23 @@ export default {
       },
       clickPointer: {
         title: 'Click pointer',
-        description: 'Perform one atomic click inside the exact installed window.',
+        description: 'Perform one click inside the configured target.',
       },
       movePointer: {
         title: 'Move pointer',
-        description: 'Move the pointer to a coordinate inside the exact installed window.',
+        description: 'Move the pointer to a coordinate inside the configured target.',
       },
       scrollPointer: {
         title: 'Scroll pointer',
-        description: 'Perform a bounded scroll inside the exact installed window.',
+        description: 'Scroll inside the configured target.',
       },
       dragPointer: {
         title: 'Drag pointer',
-        description:
-          'Perform a cancellable press, move, and release inside the exact installed window.',
+        description: 'Press, move, and release inside the configured target.',
       },
       movePointerRelative: {
         title: 'Move pointer relatively',
-        description: 'Send a bounded relative pointer movement to the exact installed window.',
+        description: 'Send a relative pointer movement to the configured target.',
       },
       pressKeys: {
         title: 'Press key chord',
@@ -868,40 +864,37 @@ export default {
       },
       typeText: {
         title: 'Type text',
-        description:
-          'Inject bounded Unicode text into the exact installed window without using the clipboard.',
+        description: 'Enter Unicode text into the configured target.',
       },
       activateWindow: {
         title: 'Activate target',
         description:
-          'Reverify the installed target, then foreground the exact desktop window or start the installed Android package. Failure routes through Failed.',
+          'Resolve the configured target, then foreground its window or start its Android package.',
       },
       closeWindow: {
         title: 'Close window',
-        description:
-          'Resolve the exact installed target again and send a close request to that window.',
+        description: 'Resolve the configured target and send a close request to its window.',
       },
       moveResizeWindow: {
         title: 'Move and resize window',
-        description:
-          'Resolve the exact installed target again and set its screen-pixel position and size.',
+        description: 'Resolve the configured target and set its screen-pixel position and size.',
       },
       maximizeWindow: {
         title: 'Maximize window',
-        description: 'Resolve the exact installed target again and maximize its window.',
+        description: 'Resolve the configured target and maximize its window.',
       },
       minimizeWindow: {
         title: 'Minimize window',
-        description: 'Resolve the exact installed target again and minimize its window.',
+        description: 'Resolve the configured target and minimize its window.',
       },
       restoreWindow: {
         title: 'Restore window',
-        description: 'Resolve the exact installed target again and restore its window.',
+        description: 'Resolve the configured target and restore its window.',
       },
       getWindowState: {
         title: 'Read window state',
         description:
-          'Read the exact installed target window state, foreground flag, screen position, and size.',
+          'Read the configured target window state, foreground flag, position, and size.',
       },
       waitWindow: {
         title: 'Wait for window',
@@ -911,17 +904,16 @@ export default {
       waitWindowGone: {
         title: 'Wait for window to disappear',
         description:
-          'Wait up to the supplied timeout for every matching installed-target window to disappear.',
+          'Wait up to the supplied timeout for every matching target window to disappear.',
       },
       stopTargetApp: {
         title: 'Stop target app',
-        description:
-          'Reverify the installed target and force-stop its exact Android package. Unsupported desktop adapters fail admission.',
+        description: 'Stop the configured Android package. Unsupported targets return a failure.',
       },
       captureWindow: {
         title: 'Capture window',
         description:
-          'Reverify the exact installed window, capture it as PNG through the configured backend, and commit a durable Image BlobRef.',
+          'Capture the configured target through its selected backend and commit a durable Image BlobRef.',
       },
       waitTemplate: {
         title: 'Wait for template',
@@ -1787,7 +1779,6 @@ export default {
     },
     application: {
       invalid_request: 'The application-control request is invalid',
-      identity_changed: 'The installed application is currently unavailable',
       launch_failed: 'The application failed to launch',
       terminate_failed: 'The application failed to terminate',
       unsupported_host: 'Application control is unsupported on this host',
@@ -1795,7 +1786,6 @@ export default {
     },
     automation: {
       invalid_request: 'The automation request is invalid',
-      identity_changed: 'The automation target identity changed',
       target_not_found: 'The automation target was not found',
       target_ambiguous: 'The automation target match is ambiguous',
       input_failed: 'The input operation failed',
@@ -1803,12 +1793,11 @@ export default {
       capture_failed: 'Capture failed',
       playback_failed: 'Input playback failed',
       playback_busy: 'Input playback is busy',
-      unsupported_host: 'This automation capability is unsupported on the host',
+      unsupported_host: 'This automation operation is unsupported on the host',
       contract_violation: 'The automation provider violated its contract',
     },
     network: {
       invalid_request: 'The network request is invalid',
-      resolution_denied: 'The destination was denied by network policy',
       request_failed: 'The network request failed',
       response_too_large: 'The network response exceeds the size limit',
       invalid_response: 'The network response is invalid',
@@ -2694,6 +2683,7 @@ export default {
       record_key_chord_hint:
         'Click, then press the key or chord to send. Yotta presses the keys in order and releases them in reverse.',
       capabilities: 'Capabilities',
+      configured_targets: 'Configured targets',
       observed_status: 'Observed status',
       status_hint:
         'Status events appear in the Run timeline. They are not connectable graph ports.',
@@ -3317,8 +3307,8 @@ export default {
     input_calibration: 'Input & calibration',
     launcher: 'Floating launcher',
     ai: 'AI connections',
-    network: 'Network capabilities',
-    applications: 'Application capabilities',
+    network: 'Network targets',
+    applications: 'Application configurations',
     automation: 'Automation targets',
   },
   settingsCenter: {
@@ -3540,105 +3530,83 @@ export default {
     picker_add_selected: 'Add {n}',
   },
   settingsNetwork: {
-    security: {
-      title: 'Workflows never receive arbitrary network access',
-      hint: 'Each installation pins one exact scheme, host, and port. Nodes can supply only a relative path and query; redirects, proxies, cookies, credentials, and request headers are disabled.',
-    },
     origins: {
-      title: 'Installed HTTP origins',
-      hint: 'Use a stable slot to bind workflows to an exact origin and bounded response budget.',
-      add: 'Install origin',
-      unnamed: 'Unnamed origin',
-      private_enabled: 'Private network enabled',
-      origin_missing: 'Origin not specified',
+      title: 'HTTP targets',
+      hint: 'Configure a base URL, response size, and timeout. Workflows use the slot directly.',
+      add: 'Add HTTP target',
+      unnamed: 'Unnamed HTTP target',
+      origin_missing: 'URL not specified',
       name_label: 'Display name',
       name_placeholder: 'For example: Production status API',
-      slot_label: 'Installation slot',
+      slot_label: 'Configuration slot',
       slot_hint: 'Workflows reference this identifier. It cannot change after saving.',
-      origin_label: 'Exact origin',
+      origin_label: 'Base URL',
       origin_hint:
-        'Scheme, host, and optional port only. Public origins require HTTPS. Paths, query strings, fragments, and user information are rejected.',
+        'Supports HTTP, HTTPS, paths, queries, user information, loopback, and private-network addresses.',
       byte_limit_label: 'Maximum response bytes',
       byte_limit_hint: 'Responses larger than this limit fail before entering workflow data.',
       timeout_label: 'Timeout (milliseconds)',
-      timeout_hint: 'Hard limit covering connection, response headers, and body reading.',
-      delete: 'Delete origin',
-      empty: 'No HTTP origins installed',
-      empty_hint: 'Add an exact origin and HTTP GET nodes can use it through a stable slot.',
-      new_label: 'New HTTP origin',
-    },
-    private: {
-      title: 'Allow private and loopback destinations',
-      hint: 'Keep disabled for public APIs. DNS results are checked again at connection time to prevent rebinding into local networks.',
-      warning:
-        'This origin may reach services on this computer or private network. Enable only for a target you control and trust.',
+      timeout_hint: 'This configured value controls how long each request waits.',
+      delete: 'Delete target',
+      empty: 'No HTTP targets configured',
+      empty_hint: 'Add a base URL and HTTP GET nodes can use it through the slot.',
+      new_label: 'New HTTP target',
     },
     confirm: {
       delete_title: 'Delete “{name}”?',
       delete_hint:
-        'The installation slot will be removed. Workflows that reference it will fail admission.',
+        'The configuration slot will be removed. Referencing workflows will not find it.',
     },
   },
   settingsApplications: {
-    security: {
-      title: 'Desktop applications inherit Yotta administrator privileges',
-      hint: 'This capability is not a process sandbox. Install only a GUI application you explicitly selected and trust. Workflows reference only its slot and cannot supply an executable, command line, environment, working directory, or PID.',
-    },
     profiles: {
-      title: 'Installed desktop applications',
-      hint: 'Each profile fixes one .exe installation path and argument list. Once saved, workflows can use its slot immediately. Launch never uses a shell.',
-      add: 'Select and install application',
+      title: 'Application configurations',
+      hint: 'Configure a program path and arguments. Workflows launch or terminate it through the slot.',
+      add: 'Add application',
       name_label: 'Display name',
-      slot_label: 'Installation slot',
+      slot_label: 'Configuration slot',
       slot_hint: 'Workflows persist this identifier. It cannot be changed after saving.',
-      executable_label: 'Exact executable',
-      executable_hint: 'Regular .exe files only. Shell, PowerShell, and script hosts are rejected.',
+      executable_label: 'Program path',
+      executable_hint: 'Select an absolute path. No hash or identity check is performed.',
       replace: 'Choose another',
-      arguments_label: 'Fixed arguments',
-      arguments_hint:
-        'One argument per line, sealed as a distinct argv element. Workflows cannot modify them at run time.',
+      arguments_label: 'Launch arguments',
+      arguments_hint: 'One argument per line, passed directly from this configuration.',
       arguments_placeholder: '--project\nD:\\Projects\\fixed.aep',
       delete: 'Delete application',
-      empty: 'No desktop applications installed',
+      empty: 'No applications configured',
       empty_hint:
-        'Select the .exe you want to automate. Once saved, workflows can launch or terminate it through the slot.',
+        'Select a program path and workflows can launch or terminate it through the slot.',
       cancelled: 'No desktop application selected',
       cancelled_hint:
         'The file picker was cancelled. No installation was created or changed; you can choose again when ready.',
     },
     picker: {
-      title: 'Choose a Windows application to install',
-      inspect_failed: 'Could not read the executable identity of the selected application.',
+      title: 'Choose a program',
     },
     confirm: {
       delete_title: 'Delete “{name}”?',
-      delete_hint: 'The slot will be removed. Workflows that reference it will fail admission.',
+      delete_hint: 'The slot will be removed. Referencing workflows will not find the application.',
     },
   },
   settingsAutomation: {
-    security: {
-      title: 'Automation controls real desktops, devices, or browser pages',
-      hint: 'Every target is pinned to an adapter-verified exact identity. Workflows reference only a slot and cannot supply native handles, paths, device serials, debugger addresses, or backends. Identity drift, offline targets, and operation failures fail the node.',
-    },
     targets: {
-      title: 'Installed automation targets',
-      hint: 'Install exact Windows window, Android ADB device, or Browser CDP page identities behind stable workflow slots. Each adapter exposes only the operations it supports.',
-      add: 'Install window target',
+      title: 'Automation targets',
+      hint: 'Configure a Windows window, Android ADB, or Browser CDP target. Workflows call it through the slot.',
+      add: 'Add window target',
       add_windows: 'Windows target',
       add_android: 'Android target',
       add_browser: 'Browser target',
       name_label: 'Display name',
-      slot_label: 'Installation slot',
+      slot_label: 'Configuration slot',
       slot_hint: 'Workflows persist this identifier. It cannot be changed after saving.',
-      application_label: 'Installed application',
+      application_label: 'Application configuration',
       application_hint:
         'Reuses the configured installation path from Applications. Launch arguments are not inherited.',
-      backend_label: 'Fixed input backend',
+      backend_label: 'Input backend',
       backend_hint:
-        'SendInput foregrounds the target. PostMessage posts only to the exact window queue. Runtime never switches automatically.',
-      capture_backend_label: 'Fixed capture backend',
-      capture_backend_hint:
-        'GDI and Windows Graphics Capture are explicit contracts. An unavailable backend fails installation; runtime never falls back.',
+        'SendInput foregrounds the target. PostMessage posts to the matching window queue.',
+      capture_backend_label: 'Capture backend',
+      capture_backend_hint: 'Choose GDI or Windows Graphics Capture.',
       mouse_counts_label: 'Mouse counts per 360°',
       mouse_counts_hint:
         'Precise recording follows the active Input & calibration profile. A target override takes priority and supplies relative-mouse playback scaling.',
@@ -3655,8 +3623,7 @@ export default {
       window_title_match_exact: 'Exact match',
       window_title_match_regex: 'Regex match',
       window_selection_label: 'When multiple windows match',
-      window_selection_hint:
-        'Require a unique fixed window for safety, or explicitly follow the current topmost match for dynamic multi-window apps.',
+      window_selection_hint: 'Require one match or use the current topmost matching window.',
       window_selection_unique: 'Require a unique match',
       window_selection_topmost: 'Use the current topmost match',
       preview_matches: 'Check current window matches',
@@ -3667,14 +3634,13 @@ export default {
       window_class_hint:
         'Full Win32 class-name match. When title and class are set, both must match.',
       timeout_label: 'Resolve timeout (milliseconds)',
-      timeout_hint: 'Hard limit for waiting on one unique matching window, from 100 to 10000.',
+      timeout_hint: 'This configured value controls how long matching waits.',
       delete: 'Delete target',
-      empty: 'No automation targets installed',
+      empty: 'No automation targets configured',
       empty_hint:
         'Add a Windows, Android, or browser target and automation nodes can use it through a stable slot.',
-      no_applications: 'Install a desktop application first',
-      no_applications_hint:
-        'A window target must reference a user-installed .exe from the Applications page.',
+      no_applications: 'Configure a desktop application first',
+      no_applications_hint: 'A window target references a program-path configuration.',
       new_label: '{name} window',
       new_blank_label: 'New window target',
       duplicate: 'Duplicate target',
@@ -3683,13 +3649,12 @@ export default {
     android: {
       new_blank_label: 'New Android target',
       discovery_hint:
-        'Yotta discovers devices through the configured or bundled ADB. Saving pins serial, product, model, and device identity; reconnecting a different device under the same serial fails closed.',
+        'Discover devices through the configured or bundled ADB and store the serial and package in target configuration.',
       refresh: 'Refresh devices',
       none_found:
         'No ADB devices found. Start an emulator or connect a device and authorize USB debugging.',
       device_label: 'ADB device',
-      device_hint:
-        'Only devices in the ready “device” state with a complete identity can be installed.',
+      device_hint: 'Select a device or use discovery to fill its serial.',
       package_label: 'Android package',
       package_hint:
         'Search launchable apps from the selected device, or enter an exact package manually.',
@@ -3700,7 +3665,6 @@ export default {
       app_unselected: 'Select an application',
       manual_package: 'Exact package, for example com.example.app',
       foreground_app: 'Foreground: {name} · {package}',
-      identity_label: 'Pinned device identity',
       state_label: 'Runtime health',
       not_checked: 'Not checked',
       check_health: 'Check',
@@ -3709,16 +3673,15 @@ export default {
     browser: {
       new_blank_label: 'New browser target',
       discovery_hint:
-        'Start Chrome or Edge with an explicit remote-debugging-port, then select one page from a loopback CDP endpoint. Yotta pins the endpoint, page ID, and WebSocket identity. A browser restart or identity change requires reinstalling the page.',
+        'Enter any HTTP or HTTPS CDP endpoint, then select a page to write into target configuration.',
       refresh: 'Discover pages',
       none_found:
-        'No installable pages found. Confirm the browser was started with an explicit debugging port and the endpoint uses 127.0.0.1 or ::1.',
-      endpoint_label: 'Loopback CDP endpoint',
-      endpoint_hint:
-        'Only an HTTP origin with a literal loopback IP is accepted, for example http://127.0.0.1:9222.',
-      page_label: 'Exact page',
+        'No pages found. Confirm the browser debugging endpoint is running and reachable.',
+      endpoint_label: 'CDP endpoint',
+      endpoint_hint: 'Supports local, private-network, or remote HTTP/HTTPS addresses.',
+      page_label: 'Page',
       page_hint:
-        'The page ID and WebSocket URL enter the installed identity. Titles and URLs are never fuzzy matched.',
+        'Select a page ID. Runtime rediscovers its current WebSocket URL from the endpoint.',
       url_label: 'URL at discovery',
       state_label: 'Runtime health',
       not_checked: 'Not checked',
@@ -3726,27 +3689,25 @@ export default {
       unselected: 'No page selected',
     },
     capture: {
-      hint: 'Temporarily enable the global capture key, switch to the target window, then press F9 (or the configured key). A successful capture saves and immediately enables that exact identity; the key is then released without reaching the target app.',
+      hint: 'Enable the capture key, switch to the target window, then press F9 (or the configured key). The result is written directly to target configuration.',
       start: 'Capture and enable window',
       start_failed: 'Could not start window capture. Try again.',
       cancel: 'Cancel capture',
       cancelled: 'Window capture cancelled. The target was not changed.',
       timeout: 'Window capture timed out. Try again.',
       incomplete: 'The capture result is missing the executable, window title, or window class.',
-      inspect_failed: 'Could not verify the captured window executable identity.',
-      application_missing:
-        'The captured window application is not installed. Select and install its .exe under Desktop applications first.',
+      application_missing: 'The captured window application is not configured.',
       install_title: 'Add “{name}” and bind this window?',
       install_hint:
         'Yotta will save this executable path and create the window target. Normal updates at the same path do not require reconfiguration: {path}',
       install_confirm: 'Add and bind',
-      install_cancelled: 'Installation cancelled. The captured identity was not saved.',
+      install_cancelled: 'Adding was cancelled. The capture result was not saved.',
       installed_and_completed:
-        'Installed the window application, bound “{name}” to the exact window, and enabled it immediately.',
+        'Added the window application and wrote the window configuration for “{name}”.',
       application_ambiguous:
-        'Multiple installation records match this executable. Remove the duplicate record and try again.',
+        'Multiple application configurations use this path. Remove the duplicate and try again.',
       save_failed: 'The capture result could not be saved as a complete window target.',
-      completed: 'Bound “{name}” to the exact window and enabled it immediately.',
+      completed: 'Wrote the window configuration for “{name}”.',
     },
     backend: {
       sendinput: 'SendInput · foreground system input',
@@ -3758,8 +3719,7 @@ export default {
     },
     confirm: {
       delete_title: 'Delete “{name}”?',
-      delete_hint:
-        'The target slot will be removed. Workflows that reference it will fail admission.',
+      delete_hint: 'The target slot will be removed. Referencing workflows will not find it.',
     },
   },
   settingsAI: {
@@ -3888,11 +3848,11 @@ export default {
       },
       program_run: {
         name: 'Program and Run',
-        desc: 'A checked Source becomes a content-addressed immutable Program. Every execution is independently admitted, cancellable, and recorded as an auditable Run.',
+        desc: 'A checked Source becomes a content-addressed immutable Program. Each execution is an independent, cancellable, auditable Run; only non-target capabilities enter admission when needed.',
       },
       installation: {
-        name: 'Installation and Target',
-        desc: 'Models, applications, automation targets, and plugins use stable configured slots. Workflows declare slots and capabilities without persisting native handles.',
+        name: 'Configuration and Target',
+        desc: 'Network, application, and automation targets use stable configured slots and are called directly. Models and plugins retain their own capability requirements. Workflows do not persist native handles.',
       },
     },
     section_author: 'Author · Links',

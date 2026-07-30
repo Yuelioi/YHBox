@@ -9,9 +9,8 @@ import (
 	"github.com/yottaapp/yotta/internal/automation/target"
 )
 
-// AuthoringTargets is the host-only projection used by trusted local tooling.
-// Workflow execution continues to use Resource Broker grants and never receives
-// this surface or a native window handle.
+// AuthoringTargets adds discovery and recording helpers around the same
+// configured target providers used by workflow execution.
 type AuthoringTargets struct {
 	state *authoringTargetState
 }

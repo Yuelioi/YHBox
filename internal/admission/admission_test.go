@@ -67,7 +67,7 @@ func TestAdmitterRejectsMissingHostFeatureBeforePolicyOrRunCreation(t *testing.T
 	})
 	runIDCalls := 0
 	admitter, err := admission.New(builtins.Catalog, profile, store, policy, admission.Options{
-		Now: time.Now, NewRunID: func() (string, error) { runIDCalls++; return admissionRunID, nil }, MaxGrantTTL: time.Minute,
+		Now: time.Now, NewRunID: func() (string, error) { runIDCalls++; return admissionRunID, nil },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -102,7 +102,7 @@ func TestAdmitterReplacementUsesOneNewEnvironmentGeneration(t *testing.T) {
 		return admission.PolicyDecision{Outcome: admission.PolicyDenied}, nil
 	})
 	admitter, err := admission.New(builtins.Catalog, oldProfile, store, deny, admission.Options{
-		Now: func() time.Time { return now }, NewRunID: func() (string, error) { return admissionRunID, nil }, MaxGrantTTL: time.Minute,
+		Now: func() time.Time { return now }, NewRunID: func() (string, error) { return admissionRunID, nil },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -116,7 +116,7 @@ func TestAdmitterReplacementUsesOneNewEnvironmentGeneration(t *testing.T) {
 		if request.HostProfile != newProfile.Digest() {
 			t.Fatalf("policy saw profile %q, want %q", request.HostProfile, newProfile.Digest())
 		}
-		return admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "live-generation", ExpiresAt: now.Add(time.Minute)}, nil
+		return admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "live-generation"}, nil
 	})
 	if err := admitter.ReplaceEnvironment(newProfile, approved); err != nil {
 		t.Fatal(err)
@@ -162,11 +162,11 @@ func TestAdmitterPlansPolicyAndPersistsQueuedRunBeforeReturning(t *testing.T) {
 			t.Fatalf("policy request = %#v", request)
 		}
 		return admission.PolicyDecision{
-			Outcome: admission.PolicyApproved, Generation: "policy-1", ExpiresAt: now.Add(time.Minute),
+			Outcome: admission.PolicyApproved, Generation: "policy-1",
 		}, nil
 	})
 	admitter, err := admission.New(builtins.Catalog, profile, store, policy, admission.Options{
-		Now: func() time.Time { return now }, NewRunID: func() (string, error) { return admissionRunID, nil }, MaxGrantTTL: 5 * time.Minute,
+		Now: func() time.Time { return now }, NewRunID: func() (string, error) { return admissionRunID, nil },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -215,10 +215,10 @@ func TestAdmitterReturnsPublishedRunWhenDurabilityCannotBeConfirmed(t *testing.T
 	wantErr := errors.New("sync Run Store directory")
 	store := &uncertainRecordCreator{err: wantErr}
 	policy := admission.PolicyFunc(func(context.Context, admission.PolicyRequest) (admission.PolicyDecision, error) {
-		return admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "policy-42", ExpiresAt: now.Add(time.Minute)}, nil
+		return admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "policy-42"}, nil
 	})
 	admitter, err := admission.New(builtins.Catalog, builtinProfile(t, builtins), store, policy, admission.Options{
-		Now: func() time.Time { return now }, NewRunID: func() (string, error) { return admissionRunID, nil }, MaxGrantTTL: time.Hour,
+		Now: func() time.Time { return now }, NewRunID: func() (string, error) { return admissionRunID, nil },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -264,10 +264,10 @@ func TestAdmitterRejectsAmbiguousTargetBeforePolicyOrRunCreation(t *testing.T) {
 	policyCalls := 0
 	policy := admission.PolicyFunc(func(context.Context, admission.PolicyRequest) (admission.PolicyDecision, error) {
 		policyCalls++
-		return admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "policy-1", ExpiresAt: now.Add(time.Minute)}, nil
+		return admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "policy-1"}, nil
 	})
 	admitter, err := admission.New(builtins.Catalog, profile, store, policy, admission.Options{
-		Now: func() time.Time { return now }, NewRunID: func() (string, error) { return admissionRunID, nil }, MaxGrantTTL: 5 * time.Minute,
+		Now: func() time.Time { return now }, NewRunID: func() (string, error) { return admissionRunID, nil },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -311,10 +311,10 @@ func TestAdmitterUsesTrustedHostProfileSlotBindings(t *testing.T) {
 		t.Fatal(err)
 	}
 	policy := admission.PolicyFunc(func(context.Context, admission.PolicyRequest) (admission.PolicyDecision, error) {
-		return admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "policy-1", ExpiresAt: now.Add(time.Minute)}, nil
+		return admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "policy-1"}, nil
 	})
 	admitter, err := admission.New(builtins.Catalog, profile, store, policy, admission.Options{
-		Now: func() time.Time { return now }, NewRunID: func() (string, error) { return admissionRunID, nil }, MaxGrantTTL: 5 * time.Minute,
+		Now: func() time.Time { return now }, NewRunID: func() (string, error) { return admissionRunID, nil },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -352,7 +352,7 @@ func TestAdmitterRejectsProviderABIMismatchAndPolicyDenialBeforeRunCreation(t *t
 				t.Fatal(err)
 			}
 			return profile
-		}(), decision: admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "policy-1", ExpiresAt: now.Add(time.Minute)}, wantCode: admission.CodeProviderIncompatible},
+		}(), decision: admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "policy-1"}, wantCode: admission.CodeProviderIncompatible},
 		{name: "unsupported host", profile: func() admission.HostProfile {
 			draft := builtinProfileDraft(t, builtins)
 			for index := range draft.Providers {
@@ -363,10 +363,9 @@ func TestAdmitterRejectsProviderABIMismatchAndPolicyDenialBeforeRunCreation(t *t
 				t.Fatal(err)
 			}
 			return profile
-		}(), decision: admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "policy-1", ExpiresAt: now.Add(time.Minute)}, wantCode: admission.CodeUnsupportedHost},
+		}(), decision: admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "policy-1"}, wantCode: admission.CodeUnsupportedHost},
 		{name: "policy denied", profile: builtinProfile(t, builtins), decision: admission.PolicyDecision{Outcome: admission.PolicyDenied}, wantCode: admission.CodePolicyDenied},
 		{name: "consent required", profile: builtinProfile(t, builtins), decision: admission.PolicyDecision{Outcome: admission.PolicyConsentRequired}, wantCode: admission.CodeConsentRequired},
-		{name: "unbounded policy grant", profile: builtinProfile(t, builtins), decision: admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "policy-1", ExpiresAt: now.Add(10 * time.Minute)}, wantCode: admission.CodePolicyInvalid},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -378,7 +377,7 @@ func TestAdmitterRejectsProviderABIMismatchAndPolicyDenialBeforeRunCreation(t *t
 				return test.decision, nil
 			})
 			admitter, err := admission.New(builtins.Catalog, test.profile, store, policy, admission.Options{
-				Now: func() time.Time { return now }, NewRunID: func() (string, error) { return admissionRunID, nil }, MaxGrantTTL: 5 * time.Minute,
+				Now: func() time.Time { return now }, NewRunID: func() (string, error) { return admissionRunID, nil },
 			})
 			if err != nil {
 				t.Fatal(err)

@@ -441,7 +441,6 @@ func Run(config Config) error {
 		application.NewService(macroSvc),
 		application.NewService(snippetSvc),
 		application.NewService(services.NewAIService(app, aiSecrets, aiAuthoring)),
-		application.NewService(services.NewApplicationService()),
 		application.NewService(services.NewAutomationService(app)),
 	)
 	for _, service := range wailsServices {

@@ -44,7 +44,7 @@ func NewOwner(parent context.Context, grant capability.RunGrant, providers map[s
 	if parent == nil {
 		return nil, errors.New("run parent context is required")
 	}
-	authorizer, err := NewGrantAuthorizer(grant, options.Now)
+	authorizer, err := NewGrantAuthorizer(grant)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +109,7 @@ func (s *Session) Open(ctx context.Context, operations []string, config []byte) 
 	binding := s.entry.Binding
 	return s.owner.broker.Open(callCtx, resource.OpenRequest{
 		Scope: s.scope, ProviderID: binding.ProviderID, TargetID: binding.TargetID, Kind: binding.ResourceKind,
-		Operations: append([]string(nil), operations...), ExpiresAt: s.owner.authorizer.grant.ExpiresAt(), Config: append([]byte(nil), config...),
+		Operations: append([]string(nil), operations...), Config: append([]byte(nil), config...),
 	})
 }
 
@@ -140,7 +140,7 @@ func (o *Owner) Borrow(ctx context.Context, lender *Session, handle resource.Han
 		return resource.Handle{}, err
 	}
 	defer cancel()
-	return o.broker.Borrow(callCtx, lender.scope, handle, borrower.scope, append([]string(nil), operations...), handle.ExpiresAt)
+	return o.broker.Borrow(callCtx, lender.scope, handle, borrower.scope, append([]string(nil), operations...))
 }
 
 func (o *Owner) Go(task func(context.Context) error) error {

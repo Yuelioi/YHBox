@@ -13,11 +13,7 @@ func TestAuthoringTargetsUseExactInstalledSlot(t *testing.T) {
 		capture: []byte("png"),
 		window:  target.WindowHandle{HWND: 42, Title: "Editor", ClientW: 1280, ClientH: 720},
 	}
-	verifyCalls := 0
-	provider := &provider{profile: profile, driver: driver, verify: func(Profile) error {
-		verifyCalls++
-		return nil
-	}}
+	provider := &provider{profile: profile, driver: driver}
 	generation := authoringTestGeneration(t, "editor", profile, provider)
 	targets, err := NewAuthoringTargets(generation)
 	if err != nil {
@@ -37,9 +33,6 @@ func TestAuthoringTargetsUseExactInstalledSlot(t *testing.T) {
 	}
 	if err := targets.Activate(context.Background(), "editor"); err != nil || driver.operation != OperationActivate {
 		t.Fatalf("Activate() operation = %q, error = %v", driver.operation, err)
-	}
-	if verifyCalls != 0 {
-		t.Fatalf("profile verification calls during authoring operations = %d, want 0", verifyCalls)
 	}
 	backend, err := targets.CaptureBackend("editor")
 	if err != nil || backend != desktopPayload(t, profile).CaptureBackend {

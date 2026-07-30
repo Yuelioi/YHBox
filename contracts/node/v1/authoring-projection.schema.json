@@ -71,6 +71,33 @@
       ],
       "type": "object"
     },
+    "ConfiguredTargetProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "slotConfigKey": {
+          "type": "string"
+        },
+        "targetKinds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "targetSlot": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "targetSlot",
+        "slotConfigKey",
+        "targetKinds"
+      ],
+      "type": "object"
+    },
     "ConversionSpec": {
       "additionalProperties": false,
       "properties": {
@@ -602,6 +629,12 @@
           },
           "type": "array"
         },
+        "configuredTargets": {
+          "items": {
+            "$ref": "#/$defs/ConfiguredTargetProjection"
+          },
+          "type": "array"
+        },
         "conversion": {
           "$ref": "#/$defs/ConversionSpec"
         },
@@ -844,10 +877,13 @@
         "requirementId": {
           "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
           "type": "string"
+        },
+        "targetId": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
         }
       },
       "required": [
-        "requirementId",
         "operations"
       ],
       "type": "object"

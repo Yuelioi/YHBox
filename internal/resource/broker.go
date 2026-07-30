@@ -14,7 +14,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 	"unicode"
 
 	"github.com/yottaapp/yotta/internal/artifact"
@@ -29,7 +28,6 @@ var (
 	ErrUnknownHandle = errors.New("unknown resource handle")
 	ErrScopeMismatch = errors.New("resource handle scope mismatch")
 	ErrOperation     = errors.New("resource operation is not granted")
-	ErrExpired       = errors.New("resource handle expired")
 	ErrBrokerClosed  = errors.New("resource broker closed")
 	ErrRunRevoked    = errors.New("resource run revoked")
 )
@@ -78,14 +76,13 @@ func validAttributionID(value string) bool {
 // Handle is the only resource value allowed to cross the workflow boundary.
 // Token is random authority, never a path, pointer, descriptor, or provider ID.
 type Handle struct {
-	Token     string    `json:"token"`
-	Kind      string    `json:"kind"`
-	ExpiresAt time.Time `json:"expiresAt"`
+	Token string `json:"token"`
+	Kind  string `json:"kind"`
 }
 
 func (h Handle) Validate() error {
 	decoded, err := base64.RawURLEncoding.DecodeString(h.Token)
-	if err != nil || len(decoded) != 32 || !identifierPattern.MatchString(h.Kind) || h.ExpiresAt.IsZero() || h.ExpiresAt.Location() != time.UTC {
+	if err != nil || len(decoded) != 32 || !identifierPattern.MatchString(h.Kind) {
 		return errors.New("invalid resource handle")
 	}
 	return nil
@@ -97,7 +94,6 @@ type OpenRequest struct {
 	TargetID   string
 	Kind       string
 	Operations []string
-	ExpiresAt  time.Time
 	Config     []byte
 }
 
@@ -128,7 +124,6 @@ type ProviderOpenRequest struct {
 	TargetID            string
 	Kind                string
 	Operations          []string
-	ExpiresAt           time.Time
 	Config              []byte
 	CapabilityScope     json.RawMessage
 	CredentialBindingID string
@@ -141,7 +136,6 @@ type BorrowRequest struct {
 	TargetID   string
 	Kind       string
 	Operations []string
-	ExpiresAt  time.Time
 }
 
 type AuthorizationCall struct {
@@ -161,7 +155,6 @@ type Provider interface {
 }
 
 type Options struct {
-	Now             func() time.Time
 	Random          io.Reader
 	MaxPayloadBytes int
 }
@@ -171,7 +164,6 @@ type Broker struct {
 	authorizer      Authorizer
 	providers       map[string]Provider
 	leases          map[string]*lease
-	now             func() time.Time
 	random          io.Reader
 	maxPayloadBytes int
 	closed          bool
@@ -232,9 +224,6 @@ func New(authorizer Authorizer, providers map[string]Provider, options Options) 
 		}
 		providerCopy[id] = provider
 	}
-	if options.Now == nil {
-		options.Now = time.Now
-	}
 	if options.Random == nil {
 		options.Random = rand.Reader
 	}
@@ -246,7 +235,7 @@ func New(authorizer Authorizer, providers map[string]Provider, options Options) 
 	}
 	return &Broker{
 		authorizer: authorizer, providers: providerCopy, leases: map[string]*lease{},
-		now: options.Now, random: options.Random, maxPayloadBytes: options.MaxPayloadBytes,
+		random: options.Random, maxPayloadBytes: options.MaxPayloadBytes,
 		closeDone: make(chan struct{}), opening: map[*openAttempt]struct{}{},
 		openingChanged: make(chan struct{}), revokedRuns: map[string]struct{}{}, revocations: map[string]*runRevocation{},
 		openCleanupErrs: map[string][]error{},
@@ -265,7 +254,7 @@ func (b *Broker) Open(ctx context.Context, request OpenRequest) (Handle, error) 
 	if !ok {
 		return Handle{}, fmt.Errorf("unknown resource provider %q", request.ProviderID)
 	}
-	operations, err := validateOpenRequest(request, b.now())
+	operations, err := validateOpenRequest(request)
 	if err != nil {
 		return Handle{}, err
 	}
@@ -316,7 +305,7 @@ func (b *Broker) Open(ctx context.Context, request OpenRequest) (Handle, error) 
 		cleanupErr := provider.Close(context.WithoutCancel(ctx), value)
 		return Handle{}, errors.Join(err, cleanupErr)
 	}
-	handle := Handle{Token: token, Kind: request.Kind, ExpiresAt: request.ExpiresAt.UTC()}
+	handle := Handle{Token: token, Kind: request.Kind}
 	b.leases[token] = &lease{handle: handle, scope: request.Scope, operations: operations, providerID: request.ProviderID, targetID: request.TargetID, object: object}
 	b.mu.Unlock()
 	return handle, nil
@@ -364,7 +353,7 @@ func (b *Broker) takeOpenCleanupErrors(runID string) error {
 	return errors.Join(errs...)
 }
 
-func (b *Broker) Borrow(ctx context.Context, owner Scope, handle Handle, borrower Scope, operations []string, expiresAt time.Time) (Handle, error) {
+func (b *Broker) Borrow(ctx context.Context, owner Scope, handle Handle, borrower Scope, operations []string) (Handle, error) {
 	if err := owner.Validate(); err != nil {
 		return Handle{}, err
 	}
@@ -383,7 +372,6 @@ func (b *Broker) Borrow(ctx context.Context, owner Scope, handle Handle, borrowe
 	if err != nil {
 		return Handle{}, err
 	}
-	now := b.now()
 	b.mu.Lock()
 	if terminal := b.terminalOpenErrorLocked(owner.RunID); terminal != nil {
 		b.mu.Unlock()
@@ -398,14 +386,6 @@ func (b *Broker) Borrow(ctx context.Context, owner Scope, handle Handle, borrowe
 		b.mu.Unlock()
 		return Handle{}, ErrScopeMismatch
 	}
-	if !now.Before(parent.handle.ExpiresAt) {
-		b.mu.Unlock()
-		return Handle{}, ErrExpired
-	}
-	if !expiresAt.After(now) || expiresAt.After(parent.handle.ExpiresAt) {
-		b.mu.Unlock()
-		return Handle{}, errors.New("borrow expiry must narrow the parent lease")
-	}
 	for operation := range requested {
 		if _, ok := parent.operations[operation]; !ok {
 			b.mu.Unlock()
@@ -414,7 +394,7 @@ func (b *Broker) Borrow(ctx context.Context, owner Scope, handle Handle, borrowe
 	}
 	borrowRequest := BorrowRequest{
 		Owner: owner, Borrower: borrower, ProviderID: parent.providerID, TargetID: parent.targetID,
-		Kind: handle.Kind, Operations: operationNames(requested), ExpiresAt: expiresAt.UTC(),
+		Kind: handle.Kind, Operations: operationNames(requested),
 	}
 	b.mu.Unlock()
 	if err := b.authorizer.AuthorizeBorrow(ctx, borrowRequest); err != nil {
@@ -426,7 +406,7 @@ func (b *Broker) Borrow(ctx context.Context, owner Scope, handle Handle, borrowe
 		return Handle{}, terminal
 	}
 	current, stillCurrent := b.leases[handle.Token]
-	if !stillCurrent || current != parent || current.handle != handle || current.scope != owner || !b.now().Before(current.handle.ExpiresAt) {
+	if !stillCurrent || current != parent || current.handle != handle || current.scope != owner {
 		b.mu.Unlock()
 		return Handle{}, ErrUnknownHandle
 	}
@@ -435,7 +415,7 @@ func (b *Broker) Borrow(ctx context.Context, owner Scope, handle Handle, borrowe
 		b.mu.Unlock()
 		return Handle{}, err
 	}
-	borrowed := Handle{Token: token, Kind: handle.Kind, ExpiresAt: expiresAt.UTC()}
+	borrowed := Handle{Token: token, Kind: handle.Kind}
 	parent.object.mu.Lock()
 	if parent.object.closing || parent.object.closed {
 		parent.object.mu.Unlock()
@@ -477,11 +457,6 @@ func (b *Broker) Invoke(ctx context.Context, call Call) ([]byte, error) {
 		b.mu.Unlock()
 		return nil, ErrScopeMismatch
 	}
-	if !b.now().Before(current.handle.ExpiresAt) {
-		b.mu.Unlock()
-		closeErr := b.release(ctx, call.Handle.Token, nil)
-		return nil, errors.Join(ErrExpired, closeErr)
-	}
 	if _, ok := current.operations[call.Operation]; !ok {
 		b.mu.Unlock()
 		return nil, ErrOperation
@@ -500,7 +475,7 @@ func (b *Broker) Invoke(ctx context.Context, call Call) ([]byte, error) {
 		return nil, terminal
 	}
 	latest, stillCurrent := b.leases[call.Handle.Token]
-	if !stillCurrent || latest != current || latest.handle != call.Handle || latest.scope != call.Scope || !b.now().Before(latest.handle.ExpiresAt) {
+	if !stillCurrent || latest != current || latest.handle != call.Handle || latest.scope != call.Scope {
 		b.mu.Unlock()
 		return nil, ErrUnknownHandle
 	}
@@ -757,38 +732,6 @@ func (b *Broker) release(ctx context.Context, token string, expected *Scope) err
 	return closeObject(ctx, object)
 }
 
-// SweepExpired revokes every expired lease and closes objects whose last
-// authority expired. It is the periodic cleanup path for idle resources.
-func (b *Broker) SweepExpired(ctx context.Context) (int, error) {
-	now := b.now()
-	b.mu.Lock()
-	objects := make(map[*objectState]struct{})
-	revoked := 0
-	for token, current := range b.leases {
-		if now.Before(current.handle.ExpiresAt) {
-			continue
-		}
-		delete(b.leases, token)
-		revoked++
-		current.object.mu.Lock()
-		current.object.leases--
-		if current.object.leases == 0 {
-			current.object.closing = true
-			objects[current.object] = struct{}{}
-		}
-		current.object.mu.Unlock()
-	}
-	b.mu.Unlock()
-	var closeErrors []error
-	for object := range objects {
-		object.cancel()
-		if err := closeObject(ctx, object); err != nil {
-			closeErrors = append(closeErrors, err)
-		}
-	}
-	return revoked, errors.Join(closeErrors...)
-}
-
 func closeObject(ctx context.Context, object *objectState) error {
 	object.closeOnce.Do(func() {
 		go func() {
@@ -826,15 +769,12 @@ func (b *Broker) newTokenLocked() (string, error) {
 	return "", errors.New("resource token collision budget exhausted")
 }
 
-func validateOpenRequest(request OpenRequest, now time.Time) (map[string]struct{}, error) {
+func validateOpenRequest(request OpenRequest) (map[string]struct{}, error) {
 	if err := request.Scope.Validate(); err != nil {
 		return nil, err
 	}
 	if !identifierPattern.MatchString(request.ProviderID) || !identifierPattern.MatchString(request.TargetID) || !identifierPattern.MatchString(request.Kind) {
 		return nil, errors.New("invalid resource provider or kind")
-	}
-	if !request.ExpiresAt.After(now) {
-		return nil, errors.New("resource expiry must be in the future")
 	}
 	return operationSet(request.Operations)
 }
@@ -848,8 +788,8 @@ func cloneOpenRequest(request OpenRequest) OpenRequest {
 func providerOpenRequest(request OpenRequest, authorization OpenAuthorization) ProviderOpenRequest {
 	return ProviderOpenRequest{
 		Scope: request.Scope, ProviderID: request.ProviderID, TargetID: request.TargetID, Kind: request.Kind,
-		Operations: append([]string(nil), request.Operations...), ExpiresAt: request.ExpiresAt,
-		Config: append([]byte(nil), request.Config...), CapabilityScope: append([]byte(nil), authorization.CapabilityScope...),
+		Operations: append([]string(nil), request.Operations...), Config: append([]byte(nil), request.Config...),
+		CapabilityScope:     append([]byte(nil), authorization.CapabilityScope...),
 		CredentialBindingID: authorization.CredentialBindingID,
 	}
 }

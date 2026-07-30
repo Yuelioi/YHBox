@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"time"
 
 	"github.com/yottaapp/yotta/internal/admission"
 	"github.com/yottaapp/yotta/internal/ai"
@@ -16,6 +15,7 @@ import (
 	"github.com/yottaapp/yotta/internal/resource"
 	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/scriptengine"
+	"github.com/yottaapp/yotta/internal/targetruntime"
 )
 
 type executionEnvironmentFactory struct {
@@ -25,8 +25,6 @@ type executionEnvironmentFactory struct {
 	workspaceFileDigest artifact.Digest
 	scriptRuntime       *scriptengine.Runtime
 	pluginFeatures      []string
-	now                 func() time.Time
-	grantTTL            time.Duration
 	ai                  ai.Installations
 	http                httpegress.Installations
 	baseProviders       map[string]run.InstalledProvider
@@ -40,12 +38,12 @@ type sealedExecutionEnvironment struct {
 	policy     admission.Policy
 	providers  map[string]run.InstalledProvider
 	generation automationinstalled.Generation
+	targets    targetruntime.Snapshot
 }
 
 func newExecutionEnvironmentFactory(config executionEnvironmentFactory) (executionEnvironmentFactory, error) {
 	if !config.blobDigest.Valid() || !config.streamDigest.Valid() ||
 		!config.workspaceFileDigest.Valid() || config.scriptRuntime == nil ||
-		config.now == nil || config.grantTTL <= 0 || config.grantTTL > 24*time.Hour ||
 		!config.ai.Valid() || !config.http.Valid() || config.baseProviders == nil {
 		return executionEnvironmentFactory{}, errors.New("execution environment factory requires trusted fixed installations")
 	}
@@ -53,12 +51,6 @@ func newExecutionEnvironmentFactory(config executionEnvironmentFactory) (executi
 	providers := maps.Clone(config.baseProviders)
 	if err := mergeEnvironmentInstallations(providers, config.ai.Entries(), ai.ProviderABI, "AI",
 		func(installed ai.Installation) (string, artifact.Digest, resource.Provider) {
-			return installed.ProviderID, installed.ProviderArtifact, installed.Provider
-		}); err != nil {
-		return executionEnvironmentFactory{}, err
-	}
-	if err := mergeEnvironmentInstallations(providers, config.http.Entries(), httpegress.ProviderABI, "HTTP",
-		func(installed httpegress.Installation) (string, artifact.Digest, resource.Provider) {
 			return installed.ProviderID, installed.ProviderArtifact, installed.Provider
 		}); err != nil {
 		return executionEnvironmentFactory{}, err
@@ -101,21 +93,11 @@ func (factory executionEnvironmentFactory) seal(
 		config.scriptRuntime,
 		config.pluginFeatures,
 		config.ai,
-		config.http,
-		applications,
-		automation,
 	)
 	if err != nil {
 		return nil, err
 	}
-	policy, err := NewBuiltinPolicy(
-		config.now,
-		config.grantTTL,
-		config.ai,
-		config.http,
-		applications,
-		automation,
-	)
+	policy, err := NewBuiltinPolicy(config.ai)
 	if err != nil {
 		return nil, err
 	}
@@ -126,26 +108,22 @@ func (factory executionEnvironmentFactory) seal(
 		}); err != nil {
 		return nil, err
 	}
-	if err := mergeEnvironmentInstallations(providers, config.http.Entries(), httpegress.ProviderABI, "HTTP",
-		func(installed httpegress.Installation) (string, artifact.Digest, resource.Provider) {
-			return installed.ProviderID, installed.ProviderArtifact, installed.Provider
-		}); err != nil {
-		return nil, err
+	targets := make([]targetruntime.Installation, 0, len(config.http.Entries())+len(applications.Entries())+len(automation.Entries()))
+	for _, installed := range config.http.Entries() {
+		targets = append(targets, targetruntime.Installation{Slot: installed.Slot, TargetID: installed.TargetID, Provider: installed.Provider})
 	}
-	if err := mergeEnvironmentInstallations(providers, applications.Entries(), appcontrol.ProviderABI, "application",
-		func(installed appcontrol.Installation) (string, artifact.Digest, resource.Provider) {
-			return installed.ProviderID, installed.ProviderArtifact, installed.Provider
-		}); err != nil {
-		return nil, err
+	for _, installed := range applications.Entries() {
+		targets = append(targets, targetruntime.Installation{Slot: installed.Slot, TargetID: installed.TargetID, Provider: installed.Provider})
 	}
-	if err := mergeEnvironmentInstallations(providers, automation.Entries(), automationinstalled.ProviderABI, "automation",
-		func(installed automationinstalled.Installation) (string, artifact.Digest, resource.Provider) {
-			return installed.ProviderID, installed.ProviderArtifact, installed.Provider
-		}); err != nil {
+	for _, installed := range automation.Entries() {
+		targets = append(targets, targetruntime.Installation{Slot: installed.Slot, TargetID: installed.TargetID, Provider: installed.Provider})
+	}
+	targetSnapshot, err := targetruntime.NewSnapshot(targets)
+	if err != nil {
 		return nil, err
 	}
 	return &sealedExecutionEnvironment{
-		profile: profile, policy: policy, providers: providers, generation: generation,
+		profile: profile, policy: policy, providers: providers, generation: generation, targets: targetSnapshot,
 	}, nil
 }
 
@@ -171,13 +149,13 @@ func mergeEnvironmentInstallations[T any](
 	return nil
 }
 
-func (environment *sealedExecutionEnvironment) acquire() (func(), error) {
+func (environment *sealedExecutionEnvironment) acquire() (targetruntime.Snapshot, func(), error) {
 	if environment == nil {
-		return nil, errors.New("execution environment is unavailable")
+		return targetruntime.Snapshot{}, nil, errors.New("execution environment is unavailable")
 	}
 	lease, err := environment.generation.Acquire()
 	if err != nil {
-		return nil, err
+		return targetruntime.Snapshot{}, nil, err
 	}
-	return lease.Release, nil
+	return environment.targets, lease.Release, nil
 }

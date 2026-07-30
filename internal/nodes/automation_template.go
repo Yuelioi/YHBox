@@ -40,7 +40,7 @@ type automationTemplateNode struct {
 	kind                                     string
 }
 
-func defineAutomationTemplateNodes(types automationTemplateTypes, capture, input, blobRead capability.Definition) ([]BuiltinDefinition, []nodecontract.Contract, error) {
+func defineAutomationTemplateNodes(types automationTemplateTypes, blobRead capability.Definition) ([]BuiltinDefinition, []nodecontract.Contract, error) {
 	specs := []automationTemplateNode{
 		{id: WaitTemplateNodeID, effectID: WaitTemplateEffectID, entrypoint: "automation.wait-template", titleKey: "node.automation.waitTemplate", icon: "clock-search", kind: "wait"},
 		{id: ClickTemplateNodeID, effectID: ClickTemplateEffectID, entrypoint: "automation.click-template", titleKey: "node.automation.clickTemplate", icon: "click", kind: "click"},
@@ -49,13 +49,13 @@ func defineAutomationTemplateNodes(types automationTemplateTypes, capture, input
 	definitions := make([]BuiltinDefinition, 0, len(specs))
 	contracts := make([]nodecontract.Contract, 0, len(specs))
 	for _, spec := range specs {
-		contract, err := sealAutomationTemplateNode(spec, types, capture, input, blobRead)
+		contract, err := sealAutomationTemplateNode(spec, types, blobRead)
 		if err != nil {
 			return nil, nil, err
 		}
-		implementationVersion, strategy := "v1", "exact-target/blob-template/cancellable-poll/v1"
+		implementationVersion, strategy := "v1", "configured-target/blob-template/cancellable-poll/v1"
 		if spec.kind == "click" {
-			implementationVersion, strategy = "v2", "exact-target/optional-source-image/blob-template/cancellable-poll/v2"
+			implementationVersion, strategy = "v2", "configured-target/optional-source-image/blob-template/cancellable-poll/v2"
 		}
 		definition, err := defineBuiltin(contract, spec.entrypoint, implementationVersion, strategy, nil)
 		if err != nil {
@@ -67,7 +67,7 @@ func defineAutomationTemplateNodes(types automationTemplateTypes, capture, input
 	return definitions, contracts, nil
 }
 
-func sealAutomationTemplateNode(spec automationTemplateNode, types automationTemplateTypes, capture, input, blobRead capability.Definition) (nodecontract.Contract, error) {
+func sealAutomationTemplateNode(spec automationTemplateNode, types automationTemplateTypes, blobRead capability.Definition) (nodecontract.Contract, error) {
 	schemaID := spec.id + "/config"
 	configSchema := json.RawMessage(fmt.Sprintf(`{
 		"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
@@ -97,16 +97,10 @@ func sealAutomationTemplateNode(spec automationTemplateNode, types automationTem
 		)
 		execOutputs = signalList("completed", "timeout")
 	}
-	requirements := []capability.Requirement{
-		{ID: "capture-target", Capability: capture.Ref(), Operations: installed.CaptureOperations(), TargetSlot: "target", Scope: json.RawMessage(`{"operation":"capture"}`)},
-		requirement(blobRead, "blob-read", []string{"read-range"}, "blob-store"),
-	}
-	bindings := []nodecontract.RequirementBindingSpec{{RequirementID: "capture-target", TargetSlotConfigKey: "slot"}}
+	requirements := []capability.Requirement{requirement(blobRead, "blob-read", []string{"read-range"}, "blob-store")}
+	targets := automationTargetSpec("capture-target", installed.TargetKindDesktopWindow, installed.TargetKindAndroidDevice, installed.TargetKindBrowserCDP)
 	if spec.kind == "click" {
-		requirements = append(requirements, capability.Requirement{
-			ID: "input-target", Capability: input.Ref(), Operations: []string{installed.OperationClick}, TargetSlot: "target", Scope: json.RawMessage(`{"operation":"click"}`),
-		})
-		bindings = append(bindings, nodecontract.RequirementBindingSpec{RequirementID: "input-target", TargetSlotConfigKey: "slot"})
+		targets = append(targets, automationTargetSpec("input-target", installed.TargetKindDesktopWindow, installed.TargetKindAndroidDevice, installed.TargetKindBrowserCDP)...)
 	}
 	return nodecontract.Seal(nodecontract.Draft{Version: BuiltinNodeVersion,
 		NodeTypeID: spec.id, ConfigSchemaRoot: schemaID, ConfigSchemaBundle: []datatype.SchemaResource{{ID: schemaID, Schema: configSchema}},
@@ -116,7 +110,7 @@ func sealAutomationTemplateNode(spec automationTemplateNode, types automationTem
 			Evaluation: nodecontract.EvaluationPush, Cache: nodecontract.CacheNone, Retry: nodecontract.RetryNever,
 			Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutRequired,
 		},
-		Instruction: nodecontract.Invoke(), CapabilityRequirements: requirements, RequirementBindings: bindings,
+		Instruction: nodecontract.Invoke(), CapabilityRequirements: requirements, ConfiguredTargets: targets,
 		Errors: automationTemplateErrors(spec.kind == "click"), StatusEvents: []nodecontract.StatusEventSpec{
 			{Code: AutomationTemplateWaitingStatus, Category: nodecontract.StatusWaiting},
 			{Code: AutomationTemplateMatchedStatus, Category: nodecontract.StatusProgress},
@@ -143,7 +137,7 @@ func automationTemplateInputs(types automationTemplateTypes) []nodecontract.Data
 
 func automationTemplateErrors(includeInput bool) []nodecontract.ErrorSpec {
 	codes := []string{
-		installed.CodeInvalidRequest, installed.CodeIdentityChanged, installed.CodeTargetNotFound, installed.CodeTargetAmbiguous,
+		installed.CodeInvalidRequest, installed.CodeTargetNotFound, installed.CodeTargetAmbiguous,
 		installed.CodeCaptureFailed, installed.CodeUnsupportedHost, installed.CodeContractViolation,
 		VisionImageInvalidCode, VisionTemplateInvalidCode, VisionRegionInvalidCode, VisionMatchFailedCode,
 	}

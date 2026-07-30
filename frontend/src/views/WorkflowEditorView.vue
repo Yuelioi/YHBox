@@ -1782,10 +1782,12 @@ function visibleForCreationTemplate(projection: NodeProjection): boolean {
       : template === 'browser'
         ? 'browser-cdp'
         : 'desktop-window'
-  const automationCapabilities = projection.capabilities.filter((capability) =>
-    capability.capability.capabilityId.includes('/capabilities/automation/'),
+  const automationTargets = (projection.configuredTargets ?? []).filter((target) =>
+    target.targetKinds.some((kind) =>
+      ['desktop-window', 'android-device', 'browser-cdp'].includes(kind),
+    ),
   )
-  return automationCapabilities.every((capability) => capability.targetKinds.includes(targetKind))
+  return automationTargets.every((target) => target.targetKinds.includes(targetKind))
 }
 
 const flowNodes = computed<FlowNode[]>(() => {
@@ -2137,6 +2139,11 @@ watch(
 
 onActivated(() => {
   editorViewActive.value = true
+  if (session.source && !session.dirty) {
+    void session
+      .refreshIfClean()
+      .catch((error) => showError(t('workflow.toast.refresh_failed'), error))
+  }
   void editorRecording.execute({
     kind: 'sync-pending',
     editorActive: true,

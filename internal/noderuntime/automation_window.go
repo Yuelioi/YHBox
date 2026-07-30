@@ -22,16 +22,12 @@ func getWindowState(builtins nodes.Builtins) nodeadapter.Adapter {
 		defer func() {
 			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, action, installed.CodeWindowFailed, runErr))
 		}()
-		session := invocation.Sessions["target"]
-		if session == nil {
-			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("automation window capability session is missing"))
-		}
-		handle, err := session.Open(ctx, []string{installed.OperationGetWindowState}, []byte(`{}`))
+		handle, err := openConfiguredTarget(ctx, invocation, installed.KindWindow, []string{installed.OperationGetWindowState})
 		if err != nil {
 			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}
-		defer func() { runErr = errors.Join(runErr, session.Drop(context.WithoutCancel(ctx), handle)) }()
-		raw, err := session.Invoke(ctx, handle, installed.OperationGetWindowState, []byte(`{}`))
+		defer func() { runErr = errors.Join(runErr, invocation.Targets.Drop(context.WithoutCancel(ctx), handle)) }()
+		raw, err := invocation.Targets.Invoke(ctx, handle, installed.OperationGetWindowState, []byte(`{}`))
 		if err != nil {
 			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}
@@ -77,15 +73,11 @@ func automationWindow(nodeID, operation, effectID, actionName string) nodeadapte
 			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, action, installed.CodeWindowFailed, runErr))
 		}()
 
-		session := invocation.Sessions["target"]
-		if session == nil {
-			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("automation window capability session is missing"))
-		}
-		handle, err := session.Open(ctx, []string{operation}, []byte(`{}`))
+		handle, err := openConfiguredTarget(ctx, invocation, installed.KindWindow, []string{operation})
 		if err != nil {
 			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}
-		defer func() { runErr = errors.Join(runErr, session.Drop(context.WithoutCancel(ctx), handle)) }()
+		defer func() { runErr = errors.Join(runErr, invocation.Targets.Drop(context.WithoutCancel(ctx), handle)) }()
 		request, err := automationWindowRequest(invocation, nodeID, operation)
 		if err != nil {
 			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeInvalidRequest, err)
@@ -97,7 +89,7 @@ func automationWindow(nodeID, operation, effectID, actionName string) nodeadapte
 		if err != nil {
 			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, err)
 		}
-		raw, err := session.Invoke(ctx, handle, operation, payload)
+		raw, err := invocation.Targets.Invoke(ctx, handle, operation, payload)
 		if err != nil {
 			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}

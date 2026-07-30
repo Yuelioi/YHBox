@@ -24,7 +24,7 @@ func TestRunGrantBindsExactPlanAndContainsNoBearerAuthority(t *testing.T) {
 	issued := time.Date(2026, 7, 15, 1, 0, 0, 0, time.UTC)
 	grant, err := capability.SealRunGrant(capability.GrantRequest{
 		ProgramHash: testArtifactDigest(t, "program"), Plan: plan, RunID: testRunID, Principal: "user-1",
-		PolicyGeneration: "policy-1", IssuedAt: issued, ExpiresAt: issued.Add(time.Minute),
+		PolicyGeneration: "policy-1", IssuedAt: issued,
 		Bindings: []capability.Binding{{
 			GraphID: "main", NodeID: "node-1", RequirementID: "source",
 			ProviderID: "blob", ProviderArtifactDigest: testArtifactDigest(t, "blob provider"), ProviderABI: "https://schemas.yotta.dev/provider-abi/resource/v1",
@@ -53,7 +53,7 @@ func TestRunGrantRejectsMissingOrWrongBindings(t *testing.T) {
 	now := time.Date(2026, 7, 15, 1, 0, 0, 0, time.UTC)
 	base := capability.GrantRequest{
 		ProgramHash: testArtifactDigest(t, "program"), Plan: plan, RunID: testRunID, Principal: "user-1",
-		PolicyGeneration: "policy-1", IssuedAt: now, ExpiresAt: now.Add(time.Minute),
+		PolicyGeneration: "policy-1", IssuedAt: now,
 	}
 	catalog := definitions{definition.Ref().CapabilityID: definition}
 	if _, err := capability.SealRunGrant(base, catalog); err == nil {
@@ -84,7 +84,7 @@ func TestRunGrantRequiresConsentEvidenceForConsentBearingCapabilities(t *testing
 			now := time.Date(2026, 7, 15, 1, 0, 0, 0, time.UTC)
 			request := capability.GrantRequest{
 				ProgramHash: testArtifactDigest(t, "program"), Plan: plan, RunID: testRunID, Principal: "user-1",
-				PolicyGeneration: "policy-1", IssuedAt: now, ExpiresAt: now.Add(time.Minute),
+				PolicyGeneration: "policy-1", IssuedAt: now,
 				Bindings: []capability.Binding{{
 					GraphID: "main", NodeID: "node-1", RequirementID: "source", ProviderID: "blob",
 					ProviderArtifactDigest: testArtifactDigest(t, "blob provider"), ProviderABI: base.ProviderABI,

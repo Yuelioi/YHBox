@@ -254,20 +254,16 @@ func captureAndMatch(ctx context.Context, invocation nodeadapter.Invocation, tem
 }
 
 func captureTemplateFrame(ctx context.Context, invocation nodeadapter.Invocation) (_ *image.RGBA, captureBytes int64, runErr error) {
-	session := invocation.Sessions["capture-target"]
-	if session == nil {
-		return nil, 0, templateFailure(installed.CodeContractViolation, errors.New("template capture capability session is missing"))
-	}
-	handle, err := session.Open(ctx, installed.CaptureOperations(), []byte(`{}`))
+	handle, err := openConfiguredTarget(ctx, invocation, installed.KindCapture, installed.CaptureOperations())
 	if err != nil {
 		return nil, 0, mapAutomationFailure(err)
 	}
-	defer func() { runErr = errors.Join(runErr, session.Drop(context.WithoutCancel(ctx), handle)) }()
+	defer func() { runErr = errors.Join(runErr, invocation.Targets.Drop(context.WithoutCancel(ctx), handle)) }()
 	request, err := artifact.Marshal(installed.CaptureRequest{Format: installed.CaptureFormatRGBA})
 	if err != nil {
 		return nil, 0, templateFailure(installed.CodeContractViolation, err)
 	}
-	rawResponse, err := session.Invoke(ctx, handle, installed.OperationCapture, request)
+	rawResponse, err := invocation.Targets.Invoke(ctx, handle, installed.OperationCapture, request)
 	if err != nil {
 		return nil, 0, mapAutomationFailure(err)
 	}
@@ -286,7 +282,7 @@ func captureTemplateFrame(ctx context.Context, invocation nodeadapter.Invocation
 		if err != nil {
 			return nil, 0, templateFailure(installed.CodeContractViolation, err)
 		}
-		chunk, err := session.Invoke(ctx, handle, installed.OperationReadCapture, payload)
+		chunk, err := invocation.Targets.Invoke(ctx, handle, installed.OperationReadCapture, payload)
 		if err != nil {
 			return nil, 0, mapAutomationFailure(err)
 		}
@@ -334,16 +330,12 @@ func clickTemplateMatch(ctx context.Context, invocation nodeadapter.Invocation, 
 	if err != nil {
 		return templateFailure(installed.CodeContractViolation, err)
 	}
-	session := invocation.Sessions["input-target"]
-	if session == nil {
-		return templateFailure(installed.CodeContractViolation, errors.New("template input capability session is missing"))
-	}
-	handle, err := session.Open(ctx, []string{installed.OperationClick}, []byte(`{}`))
+	handle, err := openConfiguredTarget(ctx, invocation, installed.KindInput, []string{installed.OperationClick})
 	if err != nil {
 		return mapAutomationFailure(err)
 	}
-	defer func() { runErr = errors.Join(runErr, session.Drop(context.WithoutCancel(ctx), handle)) }()
-	raw, err := session.Invoke(ctx, handle, installed.OperationClick, payload)
+	defer func() { runErr = errors.Join(runErr, invocation.Targets.Drop(context.WithoutCancel(ctx), handle)) }()
+	raw, err := invocation.Targets.Invoke(ctx, handle, installed.OperationClick, payload)
 	if err != nil {
 		return mapAutomationFailure(err)
 	}

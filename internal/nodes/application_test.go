@@ -4,21 +4,12 @@ import (
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/appcontrol"
-	"github.com/yottaapp/yotta/internal/capability"
 )
 
-func TestApplicationNodesUseExactDangerousLifecycleCapability(t *testing.T) {
+func TestApplicationNodesUseConfiguredTargetsWithoutCapabilities(t *testing.T) {
 	builtins, err := Build()
 	if err != nil {
 		t.Fatal(err)
-	}
-	definition, ok := builtins.Catalog.LookupCapability(ApplicationLifecycleCapabilityID)
-	if !ok {
-		t.Fatal("application lifecycle capability is missing")
-	}
-	machine := definition.Machine()
-	if machine.Risk != capability.RiskDangerous || machine.Consent != capability.ConsentNone || machine.TargetKinds[0] != appcontrol.TargetKind {
-		t.Fatalf("application lifecycle capability = %#v", machine)
 	}
 	launch := builtins.LaunchApplicationContract.Machine()
 	if len(launch.Ports.DataInputs) != 0 || len(launch.Ports.DataOutputs) != 0 || launch.Ports.ExecOutputs[0].ID != "completed" || launch.Ports.ErrorOutputs[0].ID != "failed" {
@@ -28,14 +19,15 @@ func TestApplicationNodesUseExactDangerousLifecycleCapability(t *testing.T) {
 	if len(terminate.Ports.DataOutputs) != 1 || terminate.Ports.DataOutputs[0].ID != "terminated-count" {
 		t.Fatalf("terminate ports = %#v", terminate.Ports)
 	}
-	for _, candidate := range []struct{ contractID, operation string }{{LaunchApplicationNodeID, appcontrol.OperationLaunch}, {TerminateApplicationNodeID, appcontrol.OperationTerminate}} {
-		entry, ok := builtins.Catalog.Lookup(candidate.contractID)
+	for _, candidate := range []string{LaunchApplicationNodeID, TerminateApplicationNodeID} {
+		entry, ok := builtins.Catalog.Lookup(candidate)
 		if !ok {
-			t.Fatalf("missing node %s", candidate.contractID)
+			t.Fatalf("missing node %s", candidate)
 		}
-		requirement := entry.Contract.Machine().CapabilityRequirements[0]
-		if len(requirement.Operations) != 1 || requirement.Operations[0] != candidate.operation || requirement.TargetSlot != "application" {
-			t.Fatalf("requirement for %s = %#v", candidate.contractID, requirement)
+		machine := entry.Contract.Machine()
+		if len(machine.CapabilityRequirements) != 0 || len(machine.ConfiguredTargets) != 1 ||
+			machine.ConfiguredTargets[0].TargetKinds[0] != appcontrol.TargetKind || machine.ConfiguredTargets[0].SlotConfigKey != "slot" {
+			t.Fatalf("configured target for %s = %#v", candidate, machine.ConfiguredTargets)
 		}
 	}
 }

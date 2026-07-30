@@ -2,25 +2,22 @@ package httpegress
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"net/netip"
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/resource"
 )
 
-func TestProviderGetsInstalledOriginWithoutFollowingRedirects(t *testing.T) {
+func TestProviderGetsConfiguredBaseURLAndFollowsRedirects(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		switch request.URL.Path {
 		case "/redirect":
 			http.Redirect(response, request, "/secret", http.StatusFound)
 		case "/secret":
-			t.Error("provider followed redirect")
-			http.Error(response, "unexpected redirect", http.StatusInternalServerError)
+			_, _ = response.Write([]byte(`{"redirected":true}`))
 		default:
 			response.Header().Set("Content-Type", "application/json")
 			response.Header().Set("Set-Cookie", "secret=value")
@@ -29,7 +26,7 @@ func TestProviderGetsInstalledOriginWithoutFollowingRedirects(t *testing.T) {
 	}))
 	defer server.Close()
 
-	provider, object := openTestProvider(t, server.URL, true, 1024)
+	provider, object := openTestProvider(t, server.URL, 1024)
 	raw, err := invokeGet(t, provider, object, GetRequest{Path: "/hello", Query: map[string][]string{"a": {"1"}}})
 	if err != nil {
 		t.Fatal(err)
@@ -43,26 +40,29 @@ func TestProviderGetsInstalledOriginWithoutFollowingRedirects(t *testing.T) {
 		t.Fatal(err)
 	}
 	redirectOutcome, err := OpenGetResponse(redirect, 1024)
-	if err != nil || redirectOutcome.StatusCode != http.StatusFound {
+	if err != nil || redirectOutcome.StatusCode != http.StatusOK || redirectOutcome.Body != `{"redirected":true}` {
 		t.Fatalf("redirect outcome = %+v, err = %v", redirectOutcome, err)
 	}
 }
 
-func TestProviderDeniesPrivateResolutionUnlessProfileAllowsIt(t *testing.T) {
-	server := httptest.NewTLSServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) { _, _ = response.Write([]byte("ok")) }))
+func TestProviderAllowsConfiguredPrivateNetwork(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) { _, _ = response.Write([]byte("ok")) }))
 	defer server.Close()
-	provider, object := openTestProvider(t, server.URL, false, 1024)
-	_, err := invokeGet(t, provider, object, GetRequest{Path: "/", Query: map[string][]string{}})
-	var failure *Failure
-	if !errors.As(err, &failure) || failure.Code != CodeResolutionDenied {
-		t.Fatalf("error = %v", err)
+	provider, object := openTestProvider(t, server.URL, 1024)
+	raw, err := invokeGet(t, provider, object, GetRequest{Path: "/", Query: map[string][]string{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	outcome, err := OpenGetResponse(raw, 1024)
+	if err != nil || outcome.StatusCode != http.StatusOK || outcome.Body != "ok" {
+		t.Fatalf("outcome = %+v, err = %v", outcome, err)
 	}
 }
 
 func TestProviderEnforcesResponseAndRequestShapeBudgets(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) { _, _ = response.Write([]byte("too large")) }))
 	defer server.Close()
-	provider, object := openTestProvider(t, server.URL, true, 3)
+	provider, object := openTestProvider(t, server.URL, 3)
 	_, err := invokeGet(t, provider, object, GetRequest{Path: "/", Query: map[string][]string{}})
 	var failure *Failure
 	if !errors.As(err, &failure) || failure.Code != CodeResponseTooLarge {
@@ -74,24 +74,9 @@ func TestProviderEnforcesResponseAndRequestShapeBudgets(t *testing.T) {
 	}
 }
 
-func TestAddressPolicyDeniesLocalAndSpecialNetworks(t *testing.T) {
-	denied := []string{"127.0.0.1", "10.0.0.1", "169.254.1.1", "100.64.0.1", "198.18.0.1", "::1", "fe80::1"}
-	for _, raw := range denied {
-		if allowedAddress(netip.MustParseAddr(raw), false) {
-			t.Fatalf("allowed %s", raw)
-		}
-	}
-	if !allowedAddress(netip.MustParseAddr("8.8.8.8"), false) {
-		t.Fatal("denied public address")
-	}
-	if !allowedAddress(netip.MustParseAddr("127.0.0.1"), true) {
-		t.Fatal("explicit private-network profile did not allow loopback")
-	}
-}
-
-func openTestProvider(t *testing.T, origin string, allowPrivate bool, limit int64) (resource.Provider, any) {
+func openTestProvider(t *testing.T, origin string, limit int64) (resource.Provider, any) {
 	t.Helper()
-	profile, err := SealProfile(ProfileDraft{Origin: origin, AllowPrivateNetwork: allowPrivate, ResponseByteLimit: limit, TimeoutMilliseconds: 5000})
+	profile, err := SealProfile(ProfileDraft{Origin: origin, ResponseByteLimit: limit, TimeoutMilliseconds: 5000})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +85,7 @@ func openTestProvider(t *testing.T, origin string, allowPrivate bool, limit int6
 		t.Fatal(err)
 	}
 	object, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
-		Kind: KindHTTPSession, Operations: []string{OperationGet}, Config: []byte(`{}`), CapabilityScope: json.RawMessage(`{"method":"GET"}`),
+		Kind: KindHTTPSession, Operations: []string{OperationGet}, Config: []byte(`{}`),
 	})
 	if err != nil {
 		t.Fatal(err)

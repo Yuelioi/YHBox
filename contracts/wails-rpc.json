@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "generator": "wails3",
   "summary": {
-    "services": 16,
-    "methods": 141,
-    "models": 227
+    "services": 15,
+    "methods": 140,
+    "models": 226
   },
   "services": [
     {
@@ -250,23 +250,6 @@
           "bindingId": "675657359",
           "parameters": [],
           "returns": "$CancellablePromise<$models.AppInfo>"
-        }
-      ]
-    },
-    {
-      "module": "internal/services/applicationservice",
-      "methods": [
-        {
-          "name": "InspectExecutable",
-          "bindingId": "1742248542",
-          "parameters": [
-            {
-              "name": "path",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<appcontrol$0.ExecutableInspection>"
         }
       ]
     },
@@ -2356,32 +2339,6 @@
       ]
     },
     {
-      "module": "internal/appcontrol/models",
-      "declarations": [
-        {
-          "kind": "class",
-          "name": "ExecutableInspection",
-          "fields": [
-            {
-              "name": "\"executable\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"digest\"",
-              "optional": false,
-              "type": "artifact$0.Digest"
-            },
-            {
-              "name": "\"size\"",
-              "optional": false,
-              "type": "number"
-            }
-          ]
-        }
-      ]
-    },
-    {
       "module": "internal/application/models",
       "declarations": [
         {
@@ -2520,27 +2477,6 @@
         },
         {
           "kind": "class",
-          "name": "CapabilityDescriptor",
-          "fields": [
-            {
-              "name": "\"capabilityId\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"resourceKind\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"operations\"",
-              "optional": false,
-              "type": "string[]"
-            }
-          ]
-        },
-        {
-          "kind": "class",
           "name": "ProfileFieldDescriptor",
           "fields": [
             {
@@ -2561,6 +2497,22 @@
             {
               "name": "\"options\"",
               "optional": true,
+              "type": "string[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "ResourceDescriptor",
+          "fields": [
+            {
+              "name": "\"resourceKind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"operations\"",
+              "optional": false,
               "type": "string[]"
             }
           ]
@@ -2595,9 +2547,9 @@
               "type": "boolean"
             },
             {
-              "name": "\"capabilities\"",
+              "name": "\"resources\"",
               "optional": false,
-              "type": "CapabilityDescriptor[]"
+              "type": "ResourceDescriptor[]"
             },
             {
               "name": "\"resourceKinds\"",
@@ -2621,11 +2573,6 @@
             },
             {
               "name": "\"captureBackends\"",
-              "optional": false,
-              "type": "string[]"
-            },
-            {
-              "name": "\"applicationIdentityKinds\"",
               "optional": false,
               "type": "string[]"
             }
@@ -4304,11 +4251,6 @@
               "type": "string"
             },
             {
-              "name": "\"allowPrivateNetwork\"",
-              "optional": false,
-              "type": "boolean"
-            },
-            {
               "name": "\"responseByteLimit\"",
               "optional": false,
               "type": "number"
@@ -4338,11 +4280,6 @@
               "name": "\"executable\"",
               "optional": false,
               "type": "string"
-            },
-            {
-              "name": "\"executableDigest\"",
-              "optional": false,
-              "type": "artifact$0.Digest"
             },
             {
               "name": "\"arguments\"",

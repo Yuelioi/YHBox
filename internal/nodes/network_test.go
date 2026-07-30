@@ -3,12 +3,11 @@ package nodes
 import (
 	"testing"
 
-	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 )
 
-func TestHTTPGetContractBindsOneInstalledOriginAndHasNoGenericOut(t *testing.T) {
+func TestHTTPGetContractUsesConfiguredTargetAndHasNoGenericOut(t *testing.T) {
 	builtins, err := Build()
 	if err != nil {
 		t.Fatal(err)
@@ -17,12 +16,9 @@ func TestHTTPGetContractBindsOneInstalledOriginAndHasNoGenericOut(t *testing.T) 
 	if machine.Execution.Class != nodecontract.ExecutionEffect || machine.Execution.Determinism != nodecontract.Recorded || machine.Execution.Timeout != nodecontract.TimeoutRequired {
 		t.Fatalf("execution = %#v", machine.Execution)
 	}
-	if len(machine.CapabilityRequirements) != 1 || machine.CapabilityRequirements[0].ID != "origin" || machine.CapabilityRequirements[0].Operations[0] != httpegress.OperationGet || len(machine.RequirementBindings) != 1 || machine.RequirementBindings[0].TargetSlotConfigKey != "slot" {
-		t.Fatalf("requirements = %#v, bindings = %#v", machine.CapabilityRequirements, machine.RequirementBindings)
-	}
-	definition, ok := builtins.Catalog.LookupCapability(HTTPGetCapabilityID)
-	if !ok || definition.Machine().Consent != capability.ConsentNone || definition.Machine().Risk != capability.RiskSensitive || definition.Machine().Credential != capability.CredentialNone {
-		t.Fatalf("capability = %#v", definition.Machine())
+	if len(machine.CapabilityRequirements) != 0 || len(machine.ConfiguredTargets) != 1 ||
+		machine.ConfiguredTargets[0].TargetKinds[0] != httpegress.TargetKind || machine.ConfiguredTargets[0].SlotConfigKey != "slot" {
+		t.Fatalf("configured targets = %#v", machine.ConfiguredTargets)
 	}
 	if !signalIDsEqual(machine.Ports.ExecInputs, []string{"in"}) || !signalIDsEqual(machine.Ports.ExecOutputs, []string{"completed"}) || !signalIDsEqual(machine.Ports.ErrorOutputs, []string{"failed"}) {
 		t.Fatalf("signals = %#v", machine.Ports)

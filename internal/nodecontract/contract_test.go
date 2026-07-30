@@ -267,10 +267,10 @@ func TestOpenRejectsUnknownAndOverdeepContracts(t *testing.T) {
 func TestSealEnforcesExecutionCapabilityInvariants(t *testing.T) {
 	draft := concatContractDraftForTest()
 	draft.CapabilityRequirements = []capability.Requirement{{
-		ID: "network", Capability: capability.Ref{
-			CapabilityID:   "https://schemas.yotta.dev/capabilities/network/v1",
+		ID: "test-read", Capability: capability.Ref{
+			CapabilityID:   "https://schemas.yotta.dev/capabilities/test/read/v1",
 			SemanticDigest: artifact.Digest("sha256:" + strings.Repeat("2", 64)),
-		}, Operations: []string{"read"}, TargetSlot: "network", Scope: json.RawMessage(`{}`),
+		}, Operations: []string{"read"}, TargetSlot: "test-resource", Scope: json.RawMessage(`{}`),
 	}}
 	if _, err := Seal(draft); err == nil {
 		t.Fatal("accepted pure-data contract with a capability requirement")

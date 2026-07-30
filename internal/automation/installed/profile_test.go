@@ -15,12 +15,8 @@ func testProfile(t *testing.T) (Profile, string) {
 	if err := os.WriteFile(path, []byte("installed-automation-target-v1"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	inspection, err := appcontrol.InspectExecutable(path)
-	if err != nil {
-		t.Fatal(err)
-	}
 	profile, err := SealProfile(NewDesktopProfileDraft(DesktopProfilePayload{
-		Application: appcontrol.ProfileDraft{Executable: inspection.Executable, Arguments: []string{}},
+		Application: appcontrol.ProfileDraft{Executable: path, Arguments: []string{}},
 		WindowTitle: "Editor", WindowTitleMatch: "exact", WindowSelection: "unique", WindowClass: "ExampleWindow",
 		InputBackend: "postmessage", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 250,
 	}))
@@ -93,7 +89,7 @@ func TestAdapterOwnsSettingsIntentDecodingAndApplicationResolution(t *testing.T)
 	}
 }
 
-func TestProfileRejectsAmbientOrBroadTargetConfiguration(t *testing.T) {
+func TestProfileRejectsInvalidTargetConfiguration(t *testing.T) {
 	profile, _ := testProfile(t)
 	base := desktopPayload(t, profile)
 	for _, mutate := range []func(*DesktopProfilePayload){
@@ -104,9 +100,6 @@ func TestProfileRejectsAmbientOrBroadTargetConfiguration(t *testing.T) {
 		func(payload *DesktopProfilePayload) { payload.CaptureBackend = "auto" },
 		func(payload *DesktopProfilePayload) { payload.MouseCounts360 = 10_000_001 },
 		func(payload *DesktopProfilePayload) { payload.WindowTitle = "   " },
-		func(payload *DesktopProfilePayload) {
-			payload.ResolveTimeoutMilliseconds = MaxResolveTimeoutMilliseconds + 1
-		},
 	} {
 		payload := base
 		mutate(&payload)
@@ -171,18 +164,5 @@ func TestProfileRequiresExplicitSupportedWindowSelectionPolicy(t *testing.T) {
 	payload.WindowSelection = "random"
 	if _, err := SealProfile(NewDesktopProfileDraft(payload)); err == nil {
 		t.Fatal("unsupported window selection policy was accepted")
-	}
-}
-
-func TestVerifyProfileAcceptsAuthorizedExecutableUpdate(t *testing.T) {
-	profile, path := testProfile(t)
-	if err := VerifyProfile(profile); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte("installed-automation-target-v2"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := VerifyProfile(profile); err != nil {
-		t.Fatalf("normal application update invalidated the automation target: %v", err)
 	}
 }

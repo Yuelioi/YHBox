@@ -307,6 +307,61 @@ describe('EditorSession', () => {
     expect(session.dirty).toBe(false)
   })
 
+  it('refreshes a clean kept-alive session when the durable revision changes', async () => {
+    const source = emptySource()
+    const latest = structuredClone(source)
+    latest.workflow.name = 'renamed elsewhere'
+    latest.revision = 1
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    transport.getSource = vi
+      .fn()
+      .mockResolvedValueOnce(sourceView(source))
+      .mockResolvedValueOnce(sourceView(latest))
+    const session = new EditorSession(transport)
+
+    await session.load(source.workflow.id)
+    await expect(session.refreshIfClean()).resolves.toBe(true)
+
+    expect(session.baseRevision).toBe(1)
+    expect(session.source?.workflow.name).toBe('renamed elsewhere')
+    expect(session.dirty).toBe(false)
+  })
+
+  it('rebases pending commands once when another writer advanced the revision', async () => {
+    const source = emptySource()
+    const latest = structuredClone(source)
+    latest.revision = 1
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    transport.getSource = vi
+      .fn()
+      .mockResolvedValueOnce(sourceView(source))
+      .mockResolvedValueOnce(sourceView(latest))
+    transport.applyPatch = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('workflow source revision conflict'))
+      .mockImplementationOnce(async (_workflowId, baseRevision) => {
+        const persisted = structuredClone(latest)
+        persisted.workflow.name = 'local edit'
+        persisted.revision = baseRevision + 1
+        return { source: sourceView(persisted), generatedNodes: [] }
+      })
+    const session = new EditorSession(transport)
+    await session.load(source.workflow.id)
+    session.apply({ kind: 'rename-workflow', name: 'local edit' })
+
+    await expect(session.save()).resolves.toMatchObject({ revision: 2 })
+
+    expect(transport.applyPatch).toHaveBeenNthCalledWith(1, source.workflow.id, 0, [
+      expect.objectContaining({ kind: 'rename-workflow' }),
+    ])
+    expect(transport.applyPatch).toHaveBeenNthCalledWith(2, source.workflow.id, 1, [
+      expect.objectContaining({ kind: 'rename-workflow' }),
+    ])
+    expect(session.baseRevision).toBe(2)
+    expect(session.dirty).toBe(false)
+    expect(session.saveErrorKind).toBe('')
+  })
+
   it('keeps the draft and explains a backend validation failure in the save banner', async () => {
     const source = emptySource()
     const transport = mockTransport(sourceView(source), runView('QUEUED'))

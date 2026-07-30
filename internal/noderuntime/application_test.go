@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yottaapp/yotta/internal/admission"
 	"github.com/yottaapp/yotta/internal/appcontrol"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/noderuntime"
@@ -44,39 +43,18 @@ func TestApplicationLifecycleUsesInstalledTargetAndRedactsJournal(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	providerDigest, err := artifact.Sum("yotta/test/application-provider/v1", []byte("exact-installed-app"))
-	if err != nil {
-		t.Fatal(err)
-	}
 	provider := &applicationProvider{}
-	const providerID, targetID, slot = "application-test", "installed-application/test", "application-test"
-	capabilityDefinition, ok := builtins.Catalog.LookupCapability(nodes.ApplicationLifecycleCapabilityID)
-	if !ok {
-		t.Fatal("application lifecycle capability is missing")
-	}
-	profileDraft := executionProfile(t, builtins)
-	profileDraft.Providers = append(profileDraft.Providers, admission.ProviderDescriptor{
-		ID: providerID, ArtifactDigest: providerDigest, ABI: appcontrol.ProviderABI, PluginInstanceID: "builtin",
-		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"},
-		Capabilities: []admission.ProviderCapability{{Capability: capabilityDefinition.Ref(), ResourceKind: appcontrol.KindApplication}},
-	})
-	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: appcontrol.TargetKind, ProviderID: providerID})
-	profileDraft.TargetSlots = append(profileDraft.TargetSlots, admission.TargetSlotBinding{Slot: slot, TargetID: targetID})
+	const targetID, slot = "configured-application/test", "application-test"
 	program := compilePrimitiveProgram(t, builtins, applicationSource(t, builtins, slot))
 	now := time.Date(2026, 7, 16, 18, 0, 0, 0, time.UTC)
-	consent, err := artifact.Sum("yotta/test/application-consent/v1", []byte(slot))
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, owner, journal := admittedExecutionWithConsent(t, builtins, program, map[string]run.InstalledProvider{
-		providerID: {ArtifactDigest: providerDigest, ABI: appcontrol.ProviderABI, Provider: provider},
-	}, now, profileDraft, []artifact.Digest{consent})
+	_, owner, journal := admittedExecution(t, builtins, program, map[string]run.InstalledProvider{}, now)
 	t.Cleanup(func() { _ = owner.Close(context.Background()) })
 	adapters, err := noderuntime.Installed(builtins, testDependencies())
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).Run(context.Background(), program, owner, journal)
+	targets := configuredTargetRun(t, slot, targetID, provider)
+	result, err := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).RunWithTargets(context.Background(), program, owner, targets, journal)
 	if err != nil {
 		t.Fatal(err)
 	}

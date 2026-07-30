@@ -795,6 +795,9 @@ func resourceLeaseAssignable(source, target *nodecontract.ResourceLeaseBinding) 
 	if source == nil || target == nil {
 		return source == nil && target == nil
 	}
+	if source.RequirementID != target.RequirementID || source.TargetID != target.TargetID {
+		return false
+	}
 	allowed := make(map[string]struct{}, len(source.Operations))
 	for _, operation := range source.Operations {
 		allowed[operation] = struct{}{}

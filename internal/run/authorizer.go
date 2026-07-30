@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"sync"
-	"time"
 
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/resource"
@@ -19,17 +18,13 @@ var ErrGrantDenied = errors.New("run grant denied resource authority")
 type GrantAuthorizer struct {
 	mu      sync.RWMutex
 	grant   capability.RunGrant
-	now     func() time.Time
 	revoked bool
 	entries map[string]capability.GrantEntry
 }
 
-func NewGrantAuthorizer(grant capability.RunGrant, now func() time.Time) (*GrantAuthorizer, error) {
+func NewGrantAuthorizer(grant capability.RunGrant) (*GrantAuthorizer, error) {
 	if !grant.Valid() {
 		return nil, errors.New("valid run grant is required")
-	}
-	if now == nil {
-		now = time.Now
 	}
 	entries := make(map[string]capability.GrantEntry)
 	for _, entry := range grant.Entries() {
@@ -39,7 +34,7 @@ func NewGrantAuthorizer(grant capability.RunGrant, now func() time.Time) (*Grant
 		}
 		entries[key] = entry
 	}
-	return &GrantAuthorizer{grant: grant, now: now, entries: entries}, nil
+	return &GrantAuthorizer{grant: grant, entries: entries}, nil
 }
 
 func (a *GrantAuthorizer) Revoke() {
@@ -57,7 +52,7 @@ func (a *GrantAuthorizer) session(graphID, nodeID, requirementID, invocationID s
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	entry, ok := a.entries[grantKey(graphID, nodeID, requirementID)]
-	if a.revoked || !a.now().Before(a.grant.ExpiresAt()) || !ok || invocationID == "" {
+	if a.revoked || !ok || invocationID == "" {
 		return resource.Scope{}, capability.GrantEntry{}, ErrGrantDenied
 	}
 	scope := resource.Scope{
@@ -80,7 +75,7 @@ func (a *GrantAuthorizer) AuthorizeOpen(_ context.Context, request resource.Open
 		return resource.OpenAuthorization{}, err
 	}
 	if request.ProviderID != entry.Binding.ProviderID || request.TargetID != entry.Binding.TargetID || request.Kind != entry.Binding.ResourceKind ||
-		request.ExpiresAt.After(a.grant.ExpiresAt()) || !operationSubset(request.Operations, entry.Operations) {
+		!operationSubset(request.Operations, entry.Operations) {
 		return resource.OpenAuthorization{}, ErrGrantDenied
 	}
 	return resource.OpenAuthorization{
@@ -101,8 +96,8 @@ func (a *GrantAuthorizer) AuthorizeBorrow(_ context.Context, request resource.Bo
 	}
 	if request.ProviderID != owner.Binding.ProviderID || request.TargetID != owner.Binding.TargetID || request.Kind != owner.Binding.ResourceKind ||
 		request.ProviderID != borrower.Binding.ProviderID || request.TargetID != borrower.Binding.TargetID || request.Kind != borrower.Binding.ResourceKind ||
-		!bytes.Equal(owner.Scope, borrower.Scope) || request.ExpiresAt.After(a.grant.ExpiresAt()) ||
-		!operationSubset(request.Operations, owner.Operations) || !operationSubset(request.Operations, borrower.Operations) {
+		!bytes.Equal(owner.Scope, borrower.Scope) || !operationSubset(request.Operations, owner.Operations) ||
+		!operationSubset(request.Operations, borrower.Operations) {
 		return ErrGrantDenied
 	}
 	return nil
@@ -123,7 +118,7 @@ func (a *GrantAuthorizer) AuthorizeCall(_ context.Context, request resource.Auth
 }
 
 func (a *GrantAuthorizer) authority(scope resource.Scope) (capability.GrantEntry, error) {
-	if a.revoked || !a.now().Before(a.grant.ExpiresAt()) || scope.ProgramHash != a.grant.ProgramHash() ||
+	if a.revoked || scope.ProgramHash != a.grant.ProgramHash() ||
 		scope.CapabilityPlanDigest != a.grant.PlanDigest() || scope.GrantDigest != a.grant.Digest() ||
 		scope.PolicyGeneration != a.grant.PolicyGeneration() || scope.RunID != a.grant.RunID() || scope.Principal != a.grant.Principal() {
 		return capability.GrantEntry{}, ErrGrantDenied

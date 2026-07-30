@@ -3,7 +3,6 @@ package nodes
 import (
 	"testing"
 
-	"github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecontract"
@@ -36,26 +35,10 @@ func TestPlayInputClipUsesNominalBlobAndExclusivePlaybackAuthority(t *testing.T)
 	for _, requirement := range machine.CapabilityRequirements {
 		requirements[requirement.ID] = requirement
 	}
-	if len(requirements) != 2 || requirements["target"].Capability.CapabilityID != AutomationPlaybackCapabilityID ||
-		requirements["blob-read"].Capability.CapabilityID != BlobReadCapabilityID {
+	if len(requirements) != 1 || requirements["blob-read"].Capability.CapabilityID != BlobReadCapabilityID {
 		t.Fatalf("requirements = %#v", machine.CapabilityRequirements)
 	}
-	if got := requirements["target"].Operations; len(got) != 2 || got[0] != installed.OperationPlayEvent || got[1] != installed.OperationReleaseHeld {
-		t.Fatalf("playback operations = %v", got)
-	}
-	playback, ok := builtins.Catalog.LookupCapability(AutomationPlaybackCapabilityID)
-	if !ok || playback.Machine().Risk != capability.RiskDangerous || playback.Machine().Consent != capability.ConsentNone {
-		t.Fatalf("playback capability = %#v", playback.Machine())
-	}
-	if got := playback.Machine().TargetKinds; len(got) != 2 || got[0] != installed.TargetKindAndroidDevice || got[1] != installed.TargetKindDesktopWindow {
-		t.Fatalf("playback target kinds = %v", got)
-	}
-	for _, capabilityID := range []string{AutomationInputCapabilityID, AutomationWindowCapabilityID, AutomationCaptureCapabilityID} {
-		other, _ := builtins.Catalog.LookupCapability(capabilityID)
-		for _, operation := range other.Machine().Operations {
-			if operation == installed.OperationPlayEvent || operation == installed.OperationReleaseHeld {
-				t.Fatalf("%s incorrectly grants playback operation %q", capabilityID, operation)
-			}
-		}
+	if len(machine.ConfiguredTargets) != 1 || machine.ConfiguredTargets[0].ID != "target" || len(machine.ConfiguredTargets[0].TargetKinds) != 2 {
+		t.Fatalf("configured targets = %#v", machine.ConfiguredTargets)
 	}
 }
