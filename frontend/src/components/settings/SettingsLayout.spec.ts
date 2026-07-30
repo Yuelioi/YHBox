@@ -6,7 +6,7 @@ const readSource = (path: string) => readFileSync(join(process.cwd(), path), 'ut
 
 describe('settings visual system', () => {
   it('keeps section and field descriptions subordinate to their titles', () => {
-    const styles = readSource('src/style.css')
+    const styles = readSource('src/views/SettingsView.css')
     const section = readSource('src/components/settings/SettingsSection.vue')
     const row = readSource('src/components/settings/SettingsRow.vue')
 
@@ -21,14 +21,16 @@ describe('settings visual system', () => {
   })
 
   it('uses one card surface with flat content across settings tabs', () => {
-    const styles = readSource('src/style.css')
+    const globalStyles = readSource('src/style.css')
+    const styles = readSource('src/views/SettingsView.css')
     const view = readSource('src/views/SettingsView.vue')
     const applications = readSource('src/views/SettingsApplications.vue')
     const network = readSource('src/views/SettingsNetwork.vue')
     const automation = readSource('src/views/SettingsAutomation.vue')
+    const launcher = readSource('src/views/SettingsLauncher.vue')
 
     expect(view).toContain(':data-settings-theme="activeKey"')
-    expect(styles).toContain('--ui-surface:')
+    expect(globalStyles).toContain('--ui-surface:')
     expect(styles).toContain('--settings-section-bg:')
     expect(styles).not.toContain('--settings-inset-bg:')
     expect(styles).not.toContain('--settings-item-bg:')
@@ -36,8 +38,8 @@ describe('settings visual system', () => {
     expect(styles).toContain('.settings-collection {')
     expect(styles).toContain('.settings-inset {')
     expect(styles).toMatch(/\.settings-collection\s*\{[\s\S]*?background:\s*transparent/)
-    expect(styles).toMatch(/\.launcher-health-card\s*\{[\s\S]*?background:\s*transparent/)
-    expect(styles).toMatch(/\.launcher-block\s*\{[\s\S]*?background:\s*transparent/)
+    expect(launcher).toMatch(/\.launcher-health-card\s*\{[\s\S]*?background:\s*transparent/)
+    expect(launcher).toMatch(/\.launcher-block\s*\{[\s\S]*?background:\s*transparent/)
     expect(applications).toContain('class="settings-collection"')
     expect(network).toContain('class="settings-collection"')
     expect(automation).toContain('class="settings-collection"')

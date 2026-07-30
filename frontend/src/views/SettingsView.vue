@@ -220,3 +220,5 @@ function onTabKeydown(event: KeyboardEvent, currentKey: SettingsThemeKey) {
   void nextTick(() => document.getElementById(`settings-tab-${key}`)?.focus())
 }
 </script>
+
+<style src="./SettingsView.css"></style>

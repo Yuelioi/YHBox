@@ -108,6 +108,7 @@ export interface AssetQuery {
   kind: string
   category: string
   tags: string[]
+  createdSince?: string
   sort: string
   page: number
   pageSize: number
@@ -615,7 +616,10 @@ export const backend = {
     // List 全局资产列表 (template + macro + clip), 无工作流级存储分支.
     list: () => invoke(AssetService.List),
     query: (query: AssetQuery) =>
-      invoke(AssetService.QueryAssets, query) as unknown as Promise<AssetPage>,
+      invoke(AssetService.QueryAssets, {
+        ...query,
+        createdSince: query.createdSince ?? '',
+      }) as unknown as Promise<AssetPage>,
     batchUpdateMeta: (requests: Array<{ guid: string; category: string; tags: string[] }>) =>
       invoke(AssetService.BatchUpdateMeta, requests) as Promise<AssetBatchResult[]>,
     batchDelete: (guids: string[]) =>

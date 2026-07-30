@@ -538,3 +538,143 @@ onMounted(async () => {
   dependenciesLoaded.value = true
 })
 </script>
+
+<style scoped>
+.launcher-block {
+  display: flex;
+  min-height: 60px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+
+.launcher-block:hover {
+  background: var(--settings-row-hover-bg);
+}
+
+.launcher-block--selected {
+  background: color-mix(in oklab, var(--ui-primary) 7%, var(--ui-bg));
+}
+
+.launcher-block-list {
+  overflow: hidden;
+  border-block: 1px solid var(--ui-border);
+}
+
+.launcher-block-list > * + * {
+  border-top: 1px solid color-mix(in oklab, var(--ui-border) 76%, transparent);
+}
+
+.launcher-library {
+  padding: 14px 16px;
+  border-block: 1px dashed var(--ui-border);
+  background: transparent;
+}
+
+.launcher-health-card {
+  overflow: hidden;
+  border-block: 1px solid var(--ui-border);
+  background: transparent;
+}
+
+.launcher-health-card--warning {
+  border-color: color-mix(in oklab, var(--ui-warning) 28%, var(--ui-border));
+}
+
+.launcher-health-loading {
+  display: flex;
+  gap: 1px;
+  overflow: hidden;
+  border-block: 1px solid var(--ui-border);
+}
+
+.launcher-health-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.launcher-health-stats > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px;
+}
+
+.launcher-health-stats > div + div {
+  border-left: 1px solid var(--ui-border);
+}
+
+.launcher-health-stats strong {
+  color: var(--ui-text-highlighted);
+  font-size: 20px;
+  font-weight: 650;
+  line-height: 24px;
+  font-variant-numeric: tabular-nums;
+}
+
+.launcher-health-stats span {
+  overflow: hidden;
+  color: var(--ui-text-dimmed);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.launcher-health-action {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.launcher-health-action__icon {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in oklab, var(--ui-warning) 30%, var(--ui-border));
+  border-radius: 8px;
+  color: var(--ui-warning);
+  background: color-mix(in oklab, var(--ui-warning) 8%, transparent);
+}
+
+.launcher-health-action--ready .launcher-health-action__icon {
+  color: var(--ui-success);
+  border-color: color-mix(in oklab, var(--ui-success) 28%, var(--ui-border));
+  background: color-mix(in oklab, var(--ui-success) 7%, transparent);
+}
+
+.launcher-stale-list {
+  display: flex;
+  max-height: 72px;
+  flex-wrap: wrap;
+  gap: 4px;
+  overflow: auto;
+  margin-top: 6px;
+  padding-right: 4px;
+  list-style: none;
+}
+
+.launcher-stale-list li {
+  max-width: 100%;
+  padding: 2px 6px;
+  border: 1px solid color-mix(in oklab, var(--ui-warning) 22%, var(--ui-border));
+  border-radius: 5px;
+  color: var(--ui-text-muted);
+  background: color-mix(in oklab, var(--ui-warning) 5%, transparent);
+  font-size: 10px;
+  line-height: 14px;
+  overflow-wrap: anywhere;
+}
+</style>

@@ -22,12 +22,17 @@ func TestScheduleStore_SaveLoad(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := NewStore(dir)
 	in := validSchedule("id-1")
+	in.Name = "  Example  "
+	in.Description = "  Daily automation  "
+	in.Category = "  Operations  "
+	in.Tags = []string{"Daily", " daily ", " "}
 	if err := s.Save(in); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 	s2, _ := NewStore(dir)
 	got, ok := s2.Get("id-1")
-	if !ok || got.Name != "n" {
+	if !ok || got.Name != "Example" || got.Description != "Daily automation" ||
+		got.Category != "Operations" || len(got.Tags) != 1 || got.Tags[0] != "Daily" {
 		t.Errorf("reload lost: %+v", got)
 	}
 }

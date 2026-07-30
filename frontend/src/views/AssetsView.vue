@@ -1,28 +1,31 @@
 <template>
-  <div data-testid="assets-view" class="workspace-page">
-    <header class="workspace-page__header">
+  <div
+    data-testid="assets-view"
+    class="workspace-page workspace-canvas flex h-full min-h-0 w-full flex-col overflow-hidden"
+  >
+    <header
+      class="workspace-page__header flex min-h-[72px] shrink-0 items-center justify-between gap-6 px-8 py-4 max-[900px]:flex-col max-[900px]:items-start max-[900px]:px-6"
+    >
       <div class="min-w-0">
         <div class="flex items-center gap-3">
-          <span class="workspace-page__mark">
+          <span
+            class="workspace-page__mark flex size-10 shrink-0 items-center justify-center rounded-[10px] border border-primary/25 bg-primary/10 text-primary"
+          >
             <UIcon name="i-tabler-library" class="size-5" />
           </span>
           <div class="min-w-0">
             <div class="flex min-w-0 items-center gap-2">
-              <h1 class="workspace-page__title truncate">{{ t('assets.title') }}</h1>
+              <h1
+                class="workspace-page__title truncate text-xl leading-tight font-semibold tracking-[-0.02em] text-highlighted"
+              >
+                {{ t('assets.title') }}
+              </h1>
               <UBadge color="neutral" variant="soft" size="sm">{{ total }}</UBadge>
             </div>
           </div>
         </div>
       </div>
       <div class="flex shrink-0 items-center justify-end gap-2">
-        <UButton
-          data-testid="asset-manage-button"
-          color="neutral"
-          :variant="managementMode ? 'soft' : 'ghost'"
-          :icon="managementMode ? 'i-tabler-check' : 'i-tabler-adjustments-horizontal'"
-          :label="t(managementMode ? 'assets.manage_done' : 'assets.manage')"
-          @click="toggleManagementMode"
-        />
         <UDropdownMenu :items="libraryMenuItems">
           <UButton
             icon="i-tabler-dots-vertical"
@@ -34,11 +37,7 @@
       </div>
     </header>
 
-    <div
-      class="flex min-h-0 flex-1"
-      data-testid="asset-library"
-      :data-mode="managementMode ? 'manage' : 'browse'"
-    >
+    <div class="flex min-h-0 flex-1" data-testid="asset-library" data-mode="manage">
       <aside class="workspace-surface flex w-52 shrink-0 flex-col border-r border-default p-2">
         <p class="px-2 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-wide text-dimmed">
           {{ t('assets.asset_types') }}
@@ -163,7 +162,7 @@
             />
           </form>
           <LibrarySelectionToolbar
-            v-if="managementMode && selectedRows.length"
+            v-if="selectedRows.length"
             :label="t('assets.selected_count', { n: selectedRows.length })"
             :hint="t('batchMetadata.selection_hint')"
             :clear-label="t('assets.clear_selection')"
@@ -192,7 +191,7 @@
               </UButton>
             </template>
           </LibrarySelectionToolbar>
-          <div v-else-if="managementMode" class="flex flex-wrap items-center gap-2 p-3">
+          <div v-else class="flex flex-wrap items-center gap-2 p-3">
             <AdaptiveSelect
               v-model="categoryFilter"
               :items="categoryFilterItems"
@@ -209,11 +208,26 @@
               @update:model-value="changeQuery"
             />
             <AdaptiveSelect
+              v-model="createdRange"
+              :items="createdRangeItems"
+              icon="i-tabler-calendar-plus"
+              @update:model-value="changeQuery"
+            />
+            <AdaptiveSelect
               v-model="sort"
               :items="sortItems"
               icon="i-tabler-arrows-sort"
               @update:model-value="changeQuery"
             />
+            <UDropdownMenu :items="columnMenuItems">
+              <UButton
+                color="neutral"
+                variant="soft"
+                icon="i-tabler-columns-3"
+                trailing-icon="i-tabler-chevron-down"
+                :label="t('assets.columns_action')"
+              />
+            </UDropdownMenu>
             <UButton
               v-if="hasLibraryFilters"
               color="neutral"
@@ -300,12 +314,12 @@
           <AssetLibraryList
             v-else-if="visibleItems.length"
             :items="visibleItems"
-            :selectable="managementMode"
+            :visible-columns="visibleColumns"
+            :grid-template-columns="assetGridTemplate"
             @preview-state="setPreviewState"
           >
             <template #select-all>
               <UCheckbox
-                v-if="managementMode"
                 :model-value="allCurrentPageSelected"
                 :aria-label="t('assets.select_page')"
                 @update:model-value="toggleCurrentPage(Boolean($event))"
@@ -313,7 +327,6 @@
             </template>
             <template #select="{ item }">
               <UCheckbox
-                v-if="managementMode"
                 :model-value="Boolean(selected[item.id])"
                 :aria-label="t('assets.select_named', { name: item.name })"
                 @update:model-value="toggleAsset(assetItem(item.id).source, Boolean($event))"
@@ -874,6 +887,8 @@ import LibrarySelectionToolbar from '@/components/library/LibrarySelectionToolba
 
 type AssetTab = 'macros' | 'clips' | 'templates'
 type ResourceAction = 'macro' | 'precise' | 'template' | 'blank-macro' | 'recapture'
+type AssetColumn = 'category' | 'tags' | 'details' | 'createdAt'
+type DateRange = 'all' | 'today' | '7d' | '30d' | '90d'
 type AssetItem = {
   id: string
   kind: AssetTab
@@ -889,6 +904,7 @@ type AssetItem = {
 }
 type AssetMetadataDraft = { category: string; tags: string[] }
 const allCategories = '__all__'
+const defaultColumns: AssetColumn[] = ['category', 'tags', 'details', 'createdAt']
 
 const { t } = useI18n()
 const toast = useToast()
@@ -899,17 +915,18 @@ const recording = useRecordingStore()
 const { starting: recordingStarting, start: beginRecording } = useRecordingStart()
 const { show: showRecordingStartError } = useRecordingStartFeedback()
 const activeTab = ref<AssetTab>('macros')
-const managementMode = ref(false)
 const queryInput = ref('')
 const query = ref('')
 const categoryFilter = ref(allCategories)
 const tagFilters = ref<string[]>([])
+const createdRange = ref<DateRange>('all')
 const categories = ref<Array<{ value: string; count: number }>>([])
 const tags = ref<Array<{ value: string; count: number }>>([])
 const sort = ref('recent_desc')
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
+const visibleColumns = ref<AssetColumn[]>(loadColumns())
 const assetPage = ref<AssetSummary[]>([])
 const loading = ref(false)
 const selected = ref<Record<string, AssetSummary>>({})
@@ -969,7 +986,12 @@ const createdTags = ref<string[]>([])
 const previewStates = reactive<Record<string, 'loading' | 'ready' | 'unavailable'>>({})
 const selectedRows = computed(() => Object.values(selected.value))
 const hasLibraryFilters = computed(() =>
-  Boolean(query.value || categoryFilter.value !== allCategories || tagFilters.value.length),
+  Boolean(
+    query.value ||
+    categoryFilter.value !== allCategories ||
+    tagFilters.value.length ||
+    createdRange.value !== 'all',
+  ),
 )
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 const resultStart = computed(() => (total.value ? (page.value - 1) * pageSize.value + 1 : 0))
@@ -982,6 +1004,13 @@ const sortItems = computed(() => [
   { label: t('assets.sort_name_asc'), value: 'name_asc' },
   { label: t('assets.sort_name_desc'), value: 'name_desc' },
   { label: t('assets.sort_created_desc'), value: 'created_desc' },
+])
+const createdRangeItems = computed(() => [
+  { label: t('assets.created_any'), value: 'all' },
+  { label: t('assets.created_today'), value: 'today' },
+  { label: t('assets.created_days', { n: 7 }), value: '7d' },
+  { label: t('assets.created_days', { n: 30 }), value: '30d' },
+  { label: t('assets.created_days', { n: 90 }), value: '90d' },
 ])
 const pageSizeItems = [
   { label: '20', value: 20 },
@@ -996,6 +1025,39 @@ const categoryFilterItems = computed(() => [
   })),
 ])
 const tagOptions = computed(() => tags.value.map((item) => item.value))
+const columnOptions = computed<Array<{ key: AssetColumn; label: string }>>(() => [
+  { key: 'category', label: t('common.category') },
+  { key: 'tags', label: t('common.tags') },
+  { key: 'details', label: t('assets.columns.details') },
+  { key: 'createdAt', label: t('assets.columns.created') },
+])
+const visibleColumnSet = computed(() => new Set(visibleColumns.value))
+const columnMenuItems = computed(() => [
+  columnOptions.value.map((column) => ({
+    label: column.label,
+    type: 'checkbox' as const,
+    checked: visibleColumnSet.value.has(column.key),
+    onUpdateChecked: (checked: boolean) => setColumnVisible(column.key, checked),
+  })),
+  [
+    {
+      label: t('assets.reset_columns'),
+      icon: 'i-tabler-restore',
+      onSelect: () => {
+        visibleColumns.value = [...defaultColumns]
+      },
+    },
+  ],
+])
+const assetGridTemplate = computed(() => {
+  const columns = ['2.25rem', 'minmax(18rem, 2fr)']
+  if (visibleColumnSet.value.has('category')) columns.push('10rem')
+  if (visibleColumnSet.value.has('tags')) columns.push('minmax(12rem, 1.2fr)')
+  if (visibleColumnSet.value.has('details')) columns.push('9rem')
+  if (visibleColumnSet.value.has('createdAt')) columns.push('9rem')
+  columns.push('2.5rem')
+  return columns.join(' ')
+})
 const metadataCategoryOptions = computed(() =>
   uniqueStrings([
     ...categories.value.map((item) => item.value),
@@ -1190,6 +1252,12 @@ onMounted(async () => {
   await Promise.all([refreshAssets(), recording.reconcile()])
 })
 
+watch(
+  visibleColumns,
+  (value) => localStorage.setItem('yotta.asset.columns', JSON.stringify(value)),
+  { deep: true },
+)
+
 watch(activeTab, async () => {
   clearSelection()
   page.value = 1
@@ -1227,6 +1295,7 @@ async function refreshAssets(): Promise<void> {
         activeTab.value === 'macros' ? 'macro' : activeTab.value === 'clips' ? 'clip' : 'template',
       category: categoryFilter.value === allCategories ? '' : categoryFilter.value.trim(),
       tags: tagFilters.value,
+      createdSince: rangeStart(createdRange.value),
       sort: sort.value,
       page: page.value,
       pageSize: pageSize.value,
@@ -1264,18 +1333,8 @@ async function resetLibraryFilters(): Promise<void> {
   query.value = ''
   categoryFilter.value = allCategories
   tagFilters.value = []
+  createdRange.value = 'all'
   await changeQuery()
-}
-
-async function toggleManagementMode(): Promise<void> {
-  managementMode.value = !managementMode.value
-  clearSelection()
-  if (managementMode.value) return
-  categoryFilter.value = allCategories
-  tagFilters.value = []
-  sort.value = 'recent_desc'
-  page.value = 1
-  await refreshAssets()
 }
 
 async function goToPage(next: number): Promise<void> {
@@ -1302,6 +1361,35 @@ function toggleCurrentPage(checked: boolean): void {
 
 function clearSelection(): void {
   selected.value = {}
+}
+
+function setColumnVisible(column: AssetColumn, visible: boolean): void {
+  const current = new Set(visibleColumns.value)
+  if (visible) current.add(column)
+  else current.delete(column)
+  visibleColumns.value = columnOptions.value
+    .map((item) => item.key)
+    .filter((key) => current.has(key))
+}
+
+function loadColumns(): AssetColumn[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem('yotta.asset.columns') ?? 'null')
+    if (!Array.isArray(raw)) return [...defaultColumns]
+    const allowed = new Set<AssetColumn>(['category', 'tags', 'details', 'createdAt'])
+    const values = raw.filter((value): value is AssetColumn => allowed.has(value))
+    return values.length ? values : [...defaultColumns]
+  } catch {
+    return [...defaultColumns]
+  }
+}
+
+function rangeStart(range: DateRange): string {
+  if (range === 'all') return ''
+  const start = new Date()
+  if (range === 'today') start.setHours(0, 0, 0, 0)
+  else start.setDate(start.getDate() - Number.parseInt(range, 10))
+  return start.toISOString()
 }
 
 function openBatchEdit(): void {

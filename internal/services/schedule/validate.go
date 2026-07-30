@@ -16,6 +16,15 @@ func (s *Schedule) Validate() error {
 	if strings.TrimSpace(s.Name) == "" {
 		return errors.New("schedule name 不能为空")
 	}
+	if len([]rune(s.Name)) > 160 || len([]rune(s.Description)) > 1_000 ||
+		len([]rune(s.Category)) > 128 || len(s.Tags) > 16 {
+		return errors.New("schedule metadata 超出长度限制")
+	}
+	for index, tag := range s.Tags {
+		if strings.TrimSpace(tag) == "" || len([]rune(tag)) > 128 {
+			return fmt.Errorf("tags[%d] 不合法", index)
+		}
+	}
 	if s.SchemaVersion != CurrentSchemaVersion {
 		return fmt.Errorf("schemaVersion %q 不支持", s.SchemaVersion)
 	}

@@ -51,14 +51,15 @@ type AssetRecord struct {
 }
 
 type AssetQuery struct {
-	Search      string
-	Kind        string
-	Category    string
-	Tags        []string
-	Sort        string
-	Page        int
-	PageSize    int
-	RecentGUIDs []string
+	Search       string
+	Kind         string
+	Category     string
+	Tags         []string
+	Sort         string
+	Page         int
+	PageSize     int
+	RecentGUIDs  []string
+	CreatedSince time.Time
 }
 
 type AssetFacet struct {
@@ -584,6 +585,10 @@ func buildAssetWhere(query AssetQuery) (string, []any) {
 		for range 5 {
 			args = append(args, pattern)
 		}
+	}
+	if !query.CreatedSince.IsZero() {
+		clauses = append(clauses, "a.created_at >= ?")
+		args = append(args, query.CreatedSince.UTC().Format(time.RFC3339Nano))
 	}
 	tags := normalizedCatalogTags(query.Tags)
 	for _, tag := range tags {

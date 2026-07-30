@@ -356,8 +356,6 @@ describe('library management views', () => {
   it('uses the same contextual batch toolbar for assets', async () => {
     const root = await mountView(AssetsView)
 
-    buttonByText(root, 'assets.manage').click()
-    await flushView()
     rowCheckbox(root).click()
     await flushView()
 
@@ -375,8 +373,6 @@ describe('library management views', () => {
     vi.useFakeTimers()
     const root = await mountView(AssetsView)
 
-    buttonByText(root, 'assets.manage').click()
-    await flushView()
     rowCheckbox(root).click()
     await flushView()
     buttonByText(root, 'assets.batch_delete').click()

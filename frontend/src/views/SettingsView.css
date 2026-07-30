@@ -1,0 +1,433 @@
+@layer components {
+  /* Settings is a routed surface. Its tint system and descendant Nuxt UI
+     adjustments belong here instead of the application-wide stylesheet. */
+  .settings-page {
+    display: flex;
+    width: 100%;
+    max-width: 1040px;
+    margin-inline: auto;
+    padding: 24px 32px 40px;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .settings-shell {
+    --settings-accent: var(--ui-primary);
+    --settings-section-bg: color-mix(in oklab, var(--settings-accent) 1.5%, var(--ui-surface));
+    --settings-section-border: color-mix(in oklab, var(--settings-accent) 15%, var(--ui-border));
+    --settings-row-hover-bg: color-mix(
+      in oklab,
+      var(--settings-accent) 2%,
+      var(--ui-surface-hover)
+    );
+    display: grid;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    grid-template-columns: 224px minmax(0, 1fr);
+    overflow: hidden;
+    background: var(--ui-bg);
+  }
+
+  .settings-shell[data-settings-theme='hotkeys'] {
+    --settings-accent: var(--ui-warning);
+  }
+
+  .settings-shell[data-settings-theme='input'] {
+    --settings-accent: var(--ui-info);
+  }
+
+  .settings-shell[data-settings-theme='launcher'] {
+    --settings-accent: var(--color-violet-400);
+  }
+
+  .settings-shell[data-settings-theme='ai'] {
+    --settings-accent: var(--color-fuchsia-400);
+  }
+
+  .settings-shell[data-settings-theme='network'] {
+    --settings-accent: var(--color-cyan-400);
+  }
+
+  .settings-shell[data-settings-theme='applications'] {
+    --settings-accent: var(--color-blue-400);
+  }
+
+  .settings-shell[data-settings-theme='automation'] {
+    --settings-accent: var(--ui-success);
+  }
+
+  .settings-sidebar {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+    overflow: hidden;
+    border-right: 1px solid var(--ui-border);
+    background: color-mix(in oklab, var(--ui-bg-muted) 28%, var(--ui-bg));
+  }
+
+  .settings-navigation {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+  }
+
+  .settings-nav-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .settings-nav-item {
+    width: 100%;
+    min-height: 52px;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 8px 10px;
+    color: var(--ui-text-muted);
+  }
+
+  .settings-nav-item:hover {
+    color: var(--ui-text);
+    background: var(--ui-bg-elevated);
+  }
+
+  .settings-nav-item--active {
+    color: var(--ui-text-highlighted);
+    background: color-mix(in oklab, var(--settings-accent) 10%, var(--ui-bg));
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--settings-accent) 24%, transparent);
+  }
+
+  .settings-nav-item--active .text-primary {
+    color: var(--settings-accent);
+  }
+
+  .settings-content {
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .settings-tabpanel {
+    background: color-mix(in oklab, var(--settings-accent) 1%, var(--ui-bg));
+  }
+
+  .settings-page-header {
+    flex: none;
+    border-bottom: 1px solid var(--settings-section-border);
+    background: color-mix(in oklab, var(--settings-accent) 2.5%, var(--ui-surface));
+  }
+
+  .settings-page-header__inner {
+    display: flex;
+    width: 100%;
+    max-width: 1040px;
+    margin-inline: auto;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 24px 32px 20px;
+  }
+
+  .settings-page-header__icon {
+    display: flex;
+    width: 40px;
+    height: 40px;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid color-mix(in oklab, var(--settings-accent) 28%, var(--ui-border));
+    border-radius: 10px;
+    color: var(--settings-accent);
+    background: color-mix(in oklab, var(--settings-accent) 9%, var(--ui-bg));
+  }
+
+  .settings-page-header__title {
+    color: var(--ui-text-highlighted);
+    font-size: 18px;
+    font-weight: 650;
+    line-height: 24px;
+  }
+
+  .settings-page-header__description {
+    max-width: 68ch;
+    margin-top: 4px;
+    color: color-mix(in oklab, var(--settings-accent) 10%, var(--ui-text-muted));
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  .settings-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(160px, auto);
+    align-items: center;
+    gap: 24px;
+    min-height: 44px;
+  }
+
+  .settings-row__label {
+    color: var(--ui-text);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 18px;
+  }
+
+  .settings-row__hint {
+    max-width: 68ch;
+    margin-top: 3px;
+    color: var(--ui-text-dimmed);
+    font-size: 11px;
+    line-height: 16px;
+  }
+
+  .settings-row__control {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 20px;
+    border: 1px solid var(--settings-section-border);
+    border-radius: 14px;
+    background: var(--settings-section-bg);
+  }
+
+  .settings-section__heading {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+  }
+
+  .settings-section__icon {
+    display: inline-flex;
+    width: 30px;
+    height: 30px;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    color: var(--settings-accent);
+    background: color-mix(in oklab, var(--settings-accent) 10%, transparent);
+  }
+
+  .settings-section__title {
+    color: var(--ui-text-highlighted);
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 20px;
+  }
+
+  .settings-section__description {
+    max-width: 68ch;
+    margin-top: 3px;
+    color: color-mix(in oklab, var(--settings-accent) 8%, var(--ui-text-dimmed));
+    font-size: 11px;
+    line-height: 16px;
+  }
+
+  /* Nuxt UI defaults label and hint to one horizontal line. Settings fields
+     use a compact vertical hierarchy, so this descendant adjustment remains CSS. */
+  .settings-section [data-slot='root'] > [data-slot='wrapper'] > [data-slot='labelWrapper'] {
+    flex-direction: column;
+    align-items: flex-start !important;
+    justify-content: flex-start;
+    gap: 2px;
+  }
+
+  .settings-section
+    [data-slot='root']
+    > [data-slot='wrapper']
+    > [data-slot='labelWrapper']
+    > [data-slot='label'] {
+    color: var(--ui-text);
+    font-size: 13px;
+    font-weight: 600 !important;
+    line-height: 18px;
+  }
+
+  .settings-section
+    [data-slot='root']
+    > [data-slot='wrapper']
+    > [data-slot='labelWrapper']
+    > [data-slot='hint'],
+  .settings-section [data-slot='root'] > [data-slot='wrapper'] > [data-slot='description'],
+  .settings-section [data-slot='root'] > [data-slot='help'] {
+    max-width: 68ch;
+    color: var(--ui-text-dimmed);
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 16px;
+  }
+
+  .settings-section [data-slot='root'] > [data-slot='wrapper'] > [data-slot='description'] {
+    margin-top: 2px;
+  }
+
+  .settings-collection {
+    overflow: hidden;
+    border-block: 1px solid color-mix(in oklab, var(--settings-accent) 8%, var(--ui-border));
+    background: transparent;
+  }
+
+  .settings-collection > * + * {
+    border-top: 1px solid color-mix(in oklab, var(--settings-accent) 8%, var(--ui-border));
+  }
+
+  .settings-inset {
+    padding: 12px 0;
+    border-block: 1px solid color-mix(in oklab, var(--settings-accent) 8%, var(--ui-border));
+    background: transparent;
+  }
+
+  .settings-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--settings-section-border);
+    border-radius: 12px;
+    background: var(--settings-section-bg);
+  }
+
+  .settings-notice__icon {
+    width: 20px;
+    height: 20px;
+    flex: none;
+    margin-top: 1px;
+    color: var(--settings-accent);
+  }
+
+  .settings-notice__title,
+  .settings-detail__label {
+    color: var(--ui-text);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 17px;
+  }
+
+  .settings-notice__description,
+  .settings-detail__hint {
+    max-width: 68ch;
+    margin-top: 3px;
+    color: var(--ui-text-dimmed);
+    font-size: 11px;
+    line-height: 16px;
+  }
+
+  .settings-empty-state {
+    display: flex;
+    min-height: 160px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    border-block: 1px dashed var(--ui-border);
+    text-align: center;
+  }
+
+  .ai-profile {
+    overflow: hidden;
+    padding: 14px 0;
+    background: transparent;
+  }
+
+  .settings-entity-summary {
+    display: flex;
+    width: 100%;
+    min-height: 48px;
+    min-width: 0;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .settings-entity-summary:hover {
+    background: var(--settings-row-hover-bg);
+  }
+
+  .ai-profile__details {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 14px;
+    padding-top: 16px;
+    border-top: 1px solid var(--ui-border);
+  }
+
+  @media (max-width: 860px) {
+    .settings-shell {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .settings-sidebar {
+      gap: 12px;
+      padding: 12px 16px;
+      border-right: 0;
+      border-bottom: 1px solid var(--ui-border);
+    }
+
+    .settings-navigation {
+      flex-direction: row;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+
+    .settings-nav-group {
+      flex-direction: row;
+      align-items: center;
+      padding-right: 8px;
+      border-right: 1px solid var(--ui-border);
+    }
+
+    .settings-nav-group:last-child {
+      padding-right: 0;
+      border-right: 0;
+    }
+
+    .settings-nav-group > h2 {
+      display: none;
+    }
+
+    .settings-nav-item {
+      width: auto;
+      min-width: max-content;
+      min-height: 36px;
+    }
+
+    .settings-nav-item span span:last-child,
+    .settings-nav-item > svg:last-child {
+      display: none;
+    }
+
+    .settings-page-header__inner,
+    .settings-page {
+      padding-inline: 20px;
+    }
+
+    .settings-section {
+      padding: 16px;
+    }
+
+    .settings-row {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 12px;
+    }
+
+    .settings-row__control {
+      justify-content: flex-start;
+    }
+  }
+}

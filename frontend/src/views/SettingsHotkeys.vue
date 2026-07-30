@@ -220,3 +220,32 @@ function showError(error: unknown): void {
   })
 }
 </script>
+
+<style scoped>
+.settings-toolbar {
+  position: sticky;
+  top: -28px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-block: 12px;
+  background: color-mix(in oklab, var(--ui-bg) 94%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.hotkey-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 0;
+}
+
+@media (max-width: 860px) {
+  .settings-toolbar,
+  .hotkey-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+</style>

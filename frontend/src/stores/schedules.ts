@@ -29,10 +29,26 @@ export const useSchedulesStore = defineStore('schedules', () => {
     await reload()
   }
 
+  async function updateMany(
+    updates: Array<{ id: string; patch: Partial<Schedule> }>,
+  ): Promise<void> {
+    for (const update of updates) {
+      await backend.schedules.update(update.id, JSON.stringify(update.patch))
+    }
+    await reload()
+  }
+
   async function remove(id: string): Promise<void> {
     await backend.schedules.delete_(id)
     await reload()
   }
 
-  return { list, reload, createDraft, fireNow, save, update, remove }
+  async function removeMany(ids: string[]): Promise<void> {
+    for (const id of ids) {
+      await backend.schedules.delete_(id)
+    }
+    await reload()
+  }
+
+  return { list, reload, createDraft, fireNow, save, update, updateMany, remove, removeMany }
 })

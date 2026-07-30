@@ -1,14 +1,22 @@
 <template>
-  <div class="workspace-page">
-    <header class="workspace-page__header">
+  <div class="workspace-page workspace-canvas flex h-full min-h-0 w-full flex-col overflow-hidden">
+    <header
+      class="workspace-page__header flex min-h-[72px] shrink-0 items-center justify-between gap-6 px-8 py-4 max-[900px]:flex-col max-[900px]:items-start max-[900px]:px-6"
+    >
       <div class="min-w-0">
         <div class="flex items-center gap-3">
-          <span class="workspace-page__mark">
+          <span
+            class="workspace-page__mark flex size-10 shrink-0 items-center justify-center rounded-[10px] border border-primary/25 bg-primary/10 text-primary"
+          >
             <UIcon name="i-tabler-route" class="size-5" />
           </span>
           <div class="min-w-0">
             <div class="flex min-w-0 items-center gap-2">
-              <h1 class="workspace-page__title truncate">{{ t('workflow.list.title') }}</h1>
+              <h1
+                class="workspace-page__title truncate text-xl leading-tight font-semibold tracking-[-0.02em] text-highlighted"
+              >
+                {{ t('workflow.list.title') }}
+              </h1>
               <UBadge color="neutral" variant="soft" size="sm">{{ total }}</UBadge>
             </div>
           </div>
@@ -290,7 +298,7 @@
           <article
             v-for="source in sources"
             :key="source.workflowId"
-            class="workspace-table-row grid min-h-16 items-center gap-3 border-b border-default/70 px-3 py-2"
+            class="workspace-table-row grid min-h-16 items-center gap-3 border-b border-default/70 px-3 py-2 transition-colors duration-150 hover:bg-[var(--ui-surface-hover)]"
             :style="{ gridTemplateColumns: workflowGridTemplate }"
             data-testid="workflow-library-row"
             @dblclick="openWorkflow(source.workflowId)"

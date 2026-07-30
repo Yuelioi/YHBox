@@ -1,24 +1,16 @@
 <template>
-  <div
-    v-if="items.length"
-    ref="listRoot"
-    :class="compact ? 'space-y-1.5' : selectable ? 'min-w-[1080px]' : 'min-w-[960px]'"
-  >
+  <div v-if="items.length" ref="listRoot" :class="compact ? 'space-y-1.5' : 'min-w-[960px]'">
     <div
       v-if="!compact"
       class="workspace-surface-strong grid h-9 items-center gap-3 border-b border-default px-3 text-[10px] font-semibold uppercase tracking-wide text-dimmed"
-      :class="
-        selectable
-          ? 'grid-cols-[2.25rem_minmax(18rem,2fr)_10rem_minmax(12rem,1.2fr)_9rem_9rem_2.5rem]'
-          : 'grid-cols-[minmax(18rem,2fr)_10rem_minmax(12rem,1.2fr)_9rem_9rem_2.5rem]'
-      "
+      :style="{ gridTemplateColumns: resolvedGridTemplate }"
     >
       <slot v-if="selectable" name="select-all" />
       <span>{{ t('assets.columns.asset') }}</span>
-      <span>{{ t('common.category') }}</span>
-      <span>{{ t('common.tags') }}</span>
-      <span>{{ t('assets.columns.details') }}</span>
-      <span>{{ t('assets.columns.created') }}</span>
+      <span v-if="isColumnVisible('category')">{{ t('common.category') }}</span>
+      <span v-if="isColumnVisible('tags')">{{ t('common.tags') }}</span>
+      <span v-if="isColumnVisible('details')">{{ t('assets.columns.details') }}</span>
+      <span v-if="isColumnVisible('createdAt')">{{ t('assets.columns.created') }}</span>
       <span />
     </div>
 
@@ -31,13 +23,12 @@
       :class="[
         compact
           ? 'group flex cursor-pointer items-center gap-2 rounded-lg border bg-elevated/20 p-2 transition-colors hover:border-primary/40 hover:bg-elevated/50'
-          : selectable
-            ? 'workspace-table-row grid min-h-16 grid-cols-[2.25rem_minmax(18rem,2fr)_10rem_minmax(12rem,1.2fr)_9rem_9rem_2.5rem] items-center gap-3 border-b px-3'
-            : 'workspace-table-row grid min-h-16 grid-cols-[minmax(18rem,2fr)_10rem_minmax(12rem,1.2fr)_9rem_9rem_2.5rem] items-center gap-3 border-b px-3',
+          : 'workspace-table-row grid min-h-16 items-center gap-3 border-b px-3 transition-colors duration-150 hover:bg-[var(--ui-surface-hover)]',
         focusedId === item.id
           ? 'border-primary/70 bg-primary/10 ring-1 ring-inset ring-primary/55'
           : 'border-default/70',
       ]"
+      :style="compact ? undefined : { gridTemplateColumns: resolvedGridTemplate }"
       tabindex="0"
       @dragstart="emit('dragstart', $event, item)"
       @dblclick="emit('use', item)"
@@ -80,13 +71,13 @@
         </span>
       </div>
       <template v-if="!compact">
-        <div class="min-w-0">
+        <div v-if="isColumnVisible('category')" class="min-w-0">
           <UBadge v-if="item.category" color="neutral" variant="soft" size="sm">{{
             item.category
           }}</UBadge>
           <span v-else class="text-[10px] text-dimmed">{{ t('assets.unclassified') }}</span>
         </div>
-        <div class="flex min-w-0 items-center gap-1 overflow-hidden">
+        <div v-if="isColumnVisible('tags')" class="flex min-w-0 items-center gap-1 overflow-hidden">
           <UBadge
             v-for="tag in item.tags.slice(0, 3)"
             :key="tag"
@@ -102,8 +93,12 @@
             >+{{ item.tags.length - 3 }}</span
           >
         </div>
-        <span class="truncate text-[10px] text-muted">{{ item.meta }}</span>
-        <span class="truncate text-[10px] text-dimmed">{{ item.createdAt }}</span>
+        <span v-if="isColumnVisible('details')" class="truncate text-[10px] text-muted">{{
+          item.meta
+        }}</span>
+        <span v-if="isColumnVisible('createdAt')" class="truncate text-[10px] text-dimmed">{{
+          item.createdAt
+        }}</span>
       </template>
       <slot name="actions" :item="item">
         <UButton
@@ -121,7 +116,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BlobPreview from '@/components/common/BlobPreview.vue'
 import type { BlobRef } from '../../../../contracts/workflow/current/workflow-source'
@@ -145,8 +140,17 @@ const props = withDefaults(
     draggable?: boolean
     focusedId?: string
     selectable?: boolean
+    visibleColumns?: string[]
+    gridTemplateColumns?: string
   }>(),
-  { compact: false, draggable: false, focusedId: '', selectable: true },
+  {
+    compact: false,
+    draggable: false,
+    focusedId: '',
+    selectable: true,
+    visibleColumns: () => ['category', 'tags', 'details', 'createdAt'],
+    gridTemplateColumns: '',
+  },
 )
 const emit = defineEmits<{
   use: [item: AssetLibraryListItem]
@@ -155,6 +159,20 @@ const emit = defineEmits<{
 }>()
 const { t } = useI18n()
 const listRoot = ref<HTMLElement | null>(null)
+const resolvedGridTemplate = computed(() => {
+  if (props.gridTemplateColumns) return props.gridTemplateColumns
+  const columns = props.selectable ? ['2.25rem', 'minmax(18rem, 2fr)'] : ['minmax(18rem, 2fr)']
+  if (isColumnVisible('category')) columns.push('10rem')
+  if (isColumnVisible('tags')) columns.push('minmax(12rem, 1.2fr)')
+  if (isColumnVisible('details')) columns.push('9rem')
+  if (isColumnVisible('createdAt')) columns.push('9rem')
+  columns.push('2.5rem')
+  return columns.join(' ')
+})
+
+function isColumnVisible(column: string): boolean {
+  return props.visibleColumns.includes(column)
+}
 
 watch(
   () => [props.focusedId, props.items.map((item) => item.id).join('\u0000')] as const,

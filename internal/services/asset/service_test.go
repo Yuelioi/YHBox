@@ -282,6 +282,11 @@ func TestServiceQueryAndBatchManagement(t *testing.T) {
 		len(page.Tags) != 2 || page.Tags[1].Value != "common" || page.Tags[1].Count != 2 {
 		t.Fatalf("QueryAssets facets = categories %#v, tags %#v", page.Categories, page.Tags)
 	}
+	if _, err := service.QueryAssets(AssetQuery{
+		CreatedSince: "not-a-date", Page: 1, PageSize: 20,
+	}); err == nil {
+		t.Fatal("QueryAssets accepted an invalid createdSince filter")
+	}
 	updated := service.BatchUpdateMeta([]BatchMetaRequest{
 		{GUID: alpha, Category: "Shared", Tags: []string{"updated", "Updated"}},
 		{GUID: beta, Category: "Shared", Tags: []string{"updated"}},
