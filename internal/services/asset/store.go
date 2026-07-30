@@ -311,7 +311,8 @@ func (s *Store) query(query AssetQuery) (AssetPage, error) {
 		Search: query.Search, Kind: query.Kind, Category: query.Category,
 		Tags: append([]string(nil), query.Tags...), Sort: query.Sort,
 		Page: query.Page, PageSize: query.PageSize,
-		RecentGUIDs: append([]string(nil), query.RecentGUIDs...),
+		RecentGUIDs:  append([]string(nil), query.RecentGUIDs...),
+		CreatedSince: parseAssetCreatedSince(query.CreatedSince),
 	})
 	if err != nil {
 		return AssetPage{}, err
@@ -332,6 +333,14 @@ func (s *Store) query(query AssetQuery) (AssetPage, error) {
 		Items: items, Total: page.Total, Page: page.Page, PageSize: page.PageSize,
 		Revision: page.Revision, Categories: categories, Tags: tags,
 	}, nil
+}
+
+func parseAssetCreatedSince(value string) time.Time {
+	if value == "" {
+		return time.Time{}
+	}
+	parsed, _ := time.Parse(time.RFC3339, value)
+	return parsed
 }
 
 func (s *Store) resolveBinding(ref blob.BlobRef) ([]AssetBinding, error) {

@@ -14,10 +14,10 @@ const assetList = readFileSync(
 describe('management page shell', () => {
   it('uses one shared shell while allowing task-specific secondary context', () => {
     for (const source of viewSources) {
-      expect(source).toContain('class="workspace-page"')
-      expect(source).toContain('class="workspace-page__header"')
-      expect(source).toContain('class="workspace-page__mark"')
-      expect(source).toContain('class="workspace-page__title')
+      expect(source).toContain('class="workspace-page workspace-canvas')
+      expect(source).toMatch(/class="[^"]*\bworkspace-page__header\b[^"]*"/)
+      expect(source).toMatch(/class="[^"]*\bworkspace-page__mark\b[^"]*"/)
+      expect(source).toMatch(/class="[^"]*\bworkspace-page__title\b[^"]*"/)
       expect(source).not.toContain('class="workspace-page__description"')
     }
   })
@@ -30,20 +30,27 @@ describe('management page shell', () => {
     expect(source).not.toContain('<template v-if="!editing">')
   })
 
-  it('keeps schedule metrics and policy behind an explicit management mode', () => {
+  it('keeps schedules and assets directly manageable without legacy mode switches', () => {
     const source = viewSources[2] ?? ''
-    expect(source).toContain('data-testid="schedule-manage-button"')
-    expect(source).toContain('data-testid="schedule-management"')
-    expect(source).toContain(":data-mode=\"manageMode ? 'manage' : 'browse'\"")
+    expect(source).not.toContain('data-testid="schedule-manage-button"')
+    expect(source).not.toContain('manageMode')
+    expect(source).toContain('data-mode="manage"')
+    expect(source).toContain('<UPagination')
+    expect(source).toContain('columnMenuItems')
+    expect(viewSources[1]).not.toContain('data-testid="asset-manage-button"')
+    expect(viewSources[1]).not.toContain('managementMode')
+    expect(viewSources[1]).toContain('data-mode="manage"')
   })
 
-  it('uses one brighter surface for workflow and asset management tables', () => {
+  it('uses one brighter surface for every management table', () => {
     expect(styles).toContain('--ui-surface:')
-    expect(styles).toContain('.workspace-surface {')
+    expect(styles).toContain('@utility workspace-surface {')
     expect(viewSources[0]).toContain('class="workspace-surface')
     expect(viewSources[0]).toContain('class="workspace-table-row')
     expect(viewSources[1]).toContain('class="workspace-surface')
     expect(assetList).toContain('workspace-surface-strong')
     expect(assetList).toContain('workspace-table-row')
+    expect(viewSources[2]).toContain('class="workspace-surface')
+    expect(viewSources[2]).toContain('<ScheduleListPanel')
   })
 })

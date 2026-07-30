@@ -298,3 +298,21 @@ async function openCalibratorFor(index: number) {
   }
 }
 </script>
+
+<style scoped>
+.calibration-profile {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+  background: transparent;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.calibration-profile--active {
+  background: color-mix(in oklab, var(--settings-accent) 6%, var(--ui-bg));
+  box-shadow: inset 1px 0 0 color-mix(in oklab, var(--settings-accent) 65%, transparent);
+}
+</style>

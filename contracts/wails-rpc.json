@@ -3098,6 +3098,11 @@
               "type": "string[]"
             },
             {
+              "name": "\"createdSince\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
               "name": "\"sort\"",
               "optional": false,
               "type": "string"
@@ -5463,6 +5468,21 @@
               "name": "\"name\"",
               "optional": false,
               "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": true,
+              "type": "string[]"
             },
             {
               "name": "\"enabled\"",

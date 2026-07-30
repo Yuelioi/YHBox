@@ -18,18 +18,23 @@ afterEach(() => {
 })
 
 describe('ScheduleEditorPanel', () => {
-  it('keeps the primary path to Workflow, trigger and save while preserving advanced fields', () => {
+  it('keeps identity visible while reserving advanced disclosure for runtime limits', () => {
     const source = readFileSync(
       join(process.cwd(), 'src/components/schedules/ScheduleEditorPanel.vue'),
       'utf8',
     )
+    const primary = source.slice(0, source.indexOf('<UCollapsible'))
     const advanced = source.slice(source.indexOf('<UCollapsible'), source.indexOf('<footer'))
 
     expect(source).toContain('data-testid="schedule-add-target"')
     expect(source).toContain('v-model="draft.trigger.kind"')
     expect(source).toContain('data-testid="schedule-save"')
-    expect(advanced).toContain('id="schedule-name"')
-    expect(advanced).toContain('v-model="draft.enabled"')
+    expect(primary).toContain('id="schedule-name"')
+    expect(primary).toContain('v-model="draft.description"')
+    expect(primary).toContain('v-model="draft.category"')
+    expect(primary).toContain('v-model="draft.tags"')
+    expect(primary).toContain('v-model="draft.enabled"')
+    expect(advanced).not.toContain('id="schedule-name"')
     expect(advanced).toContain(':model-value="draft.timeoutMinutes"')
     expect(advanced).toContain('v-model="draft.onError"')
   })

@@ -64,6 +64,12 @@ func TestAssetRepositoryPersistsQueriesAndReferences(t *testing.T) {
 		len(page.Tags) != 2 {
 		t.Fatalf("facets = %#v/%#v", page.Categories, page.Tags)
 	}
+	recent, err := repository.Query(ctx, AssetQuery{
+		CreatedSince: created.Add(30 * time.Second), Page: 1, PageSize: 10,
+	})
+	if err != nil || recent.Total != 1 || recent.Records[0].GUID != second.GUID {
+		t.Fatalf("created-since Query() = %#v, %v", recent, err)
+	}
 	matches, err := repository.ResolveBinding(ctx, first.Variants[0].Blob)
 	if err != nil {
 		t.Fatal(err)

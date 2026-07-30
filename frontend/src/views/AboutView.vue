@@ -1,6 +1,6 @@
 <template>
   <div class="h-full overflow-y-auto">
-    <div class="detail-form px-8 py-8">
+    <div class="mx-auto flex w-full max-w-[920px] flex-col gap-7 px-8 py-8">
       <!-- 产品介绍 -->
       <section class="flex items-start gap-4 border-b border-default pb-7">
         <div class="pt-0.5">
@@ -20,7 +20,7 @@
       </section>
 
       <!-- 核心概念 -->
-      <section class="detail-section">
+      <section class="flex flex-col gap-4 border-b border-default pb-7">
         <div class="flex items-center gap-2">
           <UIcon name="i-tabler-bulb" class="size-4 text-dimmed" />
           <h2 class="text-sm font-medium text-highlighted">{{ t('about.concepts.title') }}</h2>
@@ -41,7 +41,7 @@
       </section>
 
       <!-- 作者 / 链接 -->
-      <section class="detail-section">
+      <section class="flex flex-col gap-4 border-b border-default pb-7">
         <div class="flex items-center gap-2">
           <UIcon name="i-tabler-user" class="size-4 text-dimmed" />
           <h2 class="text-sm font-medium text-highlighted">{{ t('about.section_author') }}</h2>
@@ -84,7 +84,7 @@
       </section>
 
       <!-- 技术栈 -->
-      <section class="detail-section">
+      <section class="flex flex-col gap-4 border-b border-default pb-7">
         <div class="flex items-center gap-2">
           <UIcon name="i-tabler-stack-2" class="size-4 text-dimmed" />
           <h2 class="text-sm font-medium text-highlighted">{{ t('about.section_stack') }}</h2>

@@ -93,6 +93,7 @@ func (s *Store) load() error {
 		if sc.SchemaVersion == "3" {
 			sc.SchemaVersion = CurrentSchemaVersion
 		}
+		normalizeMetadata(&sc)
 		if err := sc.Validate(); err != nil {
 			return fmt.Errorf("validate %s: %w", path, err)
 		}
@@ -111,6 +112,9 @@ func (s *Store) Save(sc *Schedule) error {
 	}
 	// 本地副本，避免 mutation 通过指针泄漏 + 避免共享指针 race
 	local := *sc
+	local.Targets = append([]TargetRef(nil), sc.Targets...)
+	local.Tags = append([]string(nil), sc.Tags...)
+	normalizeMetadata(&local)
 	if err := local.Validate(); err != nil {
 		return err
 	}
@@ -138,6 +142,27 @@ func (s *Store) Save(sc *Schedule) error {
 	}
 	s.byID[local.ID] = local
 	return nil
+}
+
+func normalizeMetadata(sc *Schedule) {
+	sc.Name = strings.TrimSpace(sc.Name)
+	sc.Description = strings.TrimSpace(sc.Description)
+	sc.Category = strings.TrimSpace(sc.Category)
+	seen := make(map[string]struct{}, len(sc.Tags))
+	tags := make([]string, 0, len(sc.Tags))
+	for _, raw := range sc.Tags {
+		tag := strings.TrimSpace(raw)
+		key := strings.ToLower(tag)
+		if key == "" {
+			continue
+		}
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		tags = append(tags, tag)
+	}
+	sc.Tags = tags
 }
 
 func (s *Store) Get(id string) (Schedule, bool) {

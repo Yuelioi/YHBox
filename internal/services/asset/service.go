@@ -64,6 +64,7 @@ type AssetQuery struct {
 	Kind            string   `json:"kind"`
 	Category        string   `json:"category"`
 	Tags            []string `json:"tags"`
+	CreatedSince    string   `json:"createdSince"`
 	Sort            string   `json:"sort"`
 	Page            int      `json:"page"`
 	PageSize        int      `json:"pageSize"`
@@ -245,8 +246,14 @@ func (s *Service) QueryAssets(query AssetQuery) (AssetPage, error) {
 	if query.Kind != "" && query.Kind != KindTemplate && query.Kind != KindClip && query.Kind != KindMacro {
 		return AssetPage{}, apperr.New(apperr.CodeAssetQueryInvalid, map[string]any{"reason": "kind"})
 	}
-	if len([]rune(query.Search)) > 200 || len([]rune(query.Category)) > 100 || len(query.Tags) > 16 || len(query.RecentGUIDs) > 64 {
+	if len([]rune(query.Search)) > 200 || len([]rune(query.Category)) > 100 ||
+		len(query.Tags) > 16 || len(query.RecentGUIDs) > 64 || len(query.CreatedSince) > 64 {
 		return AssetPage{}, apperr.New(apperr.CodeAssetQueryInvalid, map[string]any{"reason": "filter budget"})
+	}
+	if query.CreatedSince != "" {
+		if _, err := time.Parse(time.RFC3339, query.CreatedSince); err != nil {
+			return AssetPage{}, apperr.New(apperr.CodeAssetQueryInvalid, map[string]any{"reason": "createdSince"})
+		}
 	}
 	switch query.Sort {
 	case "", "name_asc", "name_desc", "created_desc", "recent_desc":

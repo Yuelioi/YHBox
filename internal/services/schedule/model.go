@@ -82,6 +82,9 @@ type Schedule struct {
 	SchemaVersion  SchemaVersion `json:"schemaVersion"`
 	ID             string        `json:"id"`
 	Name           string        `json:"name"`
+	Description    string        `json:"description,omitempty"`
+	Category       string        `json:"category,omitempty"`
+	Tags           []string      `json:"tags,omitempty"`
 	Enabled        bool          `json:"enabled"`
 	Targets        []TargetRef   `json:"targets"`
 	Trigger        Trigger       `json:"trigger"`
