@@ -40,35 +40,45 @@ type rawCapture struct {
 	offsetX, offsetY int
 }
 
-func captureRaw(hwnd win.HWND) (*rawCapture, func(), error) {
-	var winRect win.RECT
-	if !win.GetWindowRect(hwnd, &winRect) {
-		return nil, nil, fmt.Errorf("GetWindowRect 失败")
-	}
-	winW, winH := int(winRect.Right-winRect.Left), int(winRect.Bottom-winRect.Top)
-	if winW <= 0 || winH <= 0 {
-		return nil, nil, fmt.Errorf("窗口尺寸无效 %dx%d", winW, winH)
-	}
+// gdiCaptureSurface owns the memory DC and DIB used by PrintWindow. A capture
+// backend is scoped to one Run, so keeping this surface alive avoids allocating
+// and destroying full-window GDI resources on every polling frame. The surface
+// is rebuilt only when the target window size changes.
+type gdiCaptureSurface struct {
+	hdcDst win.HDC
+	hbm    win.HBITMAP
+	old    win.HGDIOBJ
+	bits   unsafe.Pointer
+	winW   int
+	winH   int
+}
 
-	var clientRect win.RECT
-	if !win.GetClientRect(hwnd, &clientRect) {
-		return nil, nil, fmt.Errorf("GetClientRect 失败")
+func (s *gdiCaptureSurface) close() {
+	if s.hdcDst != 0 {
+		if s.old != 0 {
+			win.SelectObject(s.hdcDst, s.old)
+		}
+		if s.hbm != 0 {
+			win.DeleteObject(win.HGDIOBJ(s.hbm))
+		}
+		win.DeleteDC(s.hdcDst)
 	}
-	clientW, clientH := int(clientRect.Right-clientRect.Left), int(clientRect.Bottom-clientRect.Top)
+	*s = gdiCaptureSurface{}
+}
 
-	var clientOrigin point
-	procClientToScreen.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&clientOrigin)))
-	offsetX := int(clientOrigin.X) - int(winRect.Left)
-	offsetY := int(clientOrigin.Y) - int(winRect.Top)
+func (s *gdiCaptureSurface) ensure(hwnd win.HWND, winW, winH int) error {
+	if s.hdcDst != 0 && s.bits != nil && s.winW == winW && s.winH == winH {
+		return nil
+	}
 
 	hdcSrc := win.GetDC(hwnd)
 	if hdcSrc == 0 {
-		return nil, nil, fmt.Errorf("GetDC 失败")
+		return fmt.Errorf("GetDC 失败")
 	}
 	hdcDst := win.CreateCompatibleDC(hdcSrc)
 	if hdcDst == 0 {
 		win.ReleaseDC(hwnd, hdcSrc)
-		return nil, nil, fmt.Errorf("CreateCompatibleDC 失败")
+		return fmt.Errorf("CreateCompatibleDC 失败")
 	}
 
 	bmi := win.BITMAPINFO{
@@ -83,31 +93,56 @@ func captureRaw(hwnd win.HWND) (*rawCapture, func(), error) {
 	}
 	var bits unsafe.Pointer
 	hbm := win.CreateDIBSection(hdcDst, &bmi.BmiHeader, win.DIB_RGB_COLORS, &bits, 0, 0)
+	win.ReleaseDC(hwnd, hdcSrc)
 	if hbm == 0 || bits == nil {
 		win.DeleteDC(hdcDst)
-		win.ReleaseDC(hwnd, hdcSrc)
-		return nil, nil, fmt.Errorf("CreateDIBSection 失败")
+		return fmt.Errorf("CreateDIBSection 失败")
 	}
 	old := win.SelectObject(hdcDst, win.HGDIOBJ(hbm))
 
-	r, _, lastErr := procPrintWindow.Call(uintptr(hwnd), uintptr(hdcDst), uintptr(PW_RENDERFULLCONTENT))
-	if r == 0 {
-		win.SelectObject(hdcDst, old)
-		win.DeleteObject(win.HGDIOBJ(hbm))
-		win.DeleteDC(hdcDst)
-		win.ReleaseDC(hwnd, hdcSrc)
-		return nil, nil, fmt.Errorf("PrintWindow 返回 false (lastErr=%v)", lastErr)
+	// Only discard the previous, still-usable surface after its replacement has
+	// been created successfully.
+	s.close()
+	s.hdcDst = hdcDst
+	s.hbm = hbm
+	s.old = old
+	s.bits = bits
+	s.winW = winW
+	s.winH = winH
+	return nil
+}
+
+func (s *gdiCaptureSurface) captureRaw(hwnd win.HWND) (*rawCapture, error) {
+	var winRect win.RECT
+	if !win.GetWindowRect(hwnd, &winRect) {
+		return nil, fmt.Errorf("GetWindowRect 失败")
+	}
+	winW, winH := int(winRect.Right-winRect.Left), int(winRect.Bottom-winRect.Top)
+	if winW <= 0 || winH <= 0 {
+		return nil, fmt.Errorf("窗口尺寸无效 %dx%d", winW, winH)
 	}
 
-	cleanup := func() {
-		win.SelectObject(hdcDst, old)
-		win.DeleteObject(win.HGDIOBJ(hbm))
-		win.DeleteDC(hdcDst)
-		win.ReleaseDC(hwnd, hdcSrc)
+	var clientRect win.RECT
+	if !win.GetClientRect(hwnd, &clientRect) {
+		return nil, fmt.Errorf("GetClientRect 失败")
+	}
+	clientW, clientH := int(clientRect.Right-clientRect.Left), int(clientRect.Bottom-clientRect.Top)
+
+	var clientOrigin point
+	procClientToScreen.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&clientOrigin)))
+	offsetX := int(clientOrigin.X) - int(winRect.Left)
+	offsetY := int(clientOrigin.Y) - int(winRect.Top)
+
+	if err := s.ensure(hwnd, winW, winH); err != nil {
+		return nil, err
+	}
+	r, _, lastErr := procPrintWindow.Call(uintptr(hwnd), uintptr(s.hdcDst), uintptr(PW_RENDERFULLCONTENT))
+	if r == 0 {
+		return nil, fmt.Errorf("PrintWindow 返回 false (lastErr=%v)", lastErr)
 	}
 
 	rc := &rawCapture{
-		src:     unsafe.Slice((*byte)(bits), winW*winH*4),
+		src:     unsafe.Slice((*byte)(s.bits), winW*winH*4),
 		winW:    winW,
 		winH:    winH,
 		clientW: clientW,
@@ -115,16 +150,15 @@ func captureRaw(hwnd win.HWND) (*rawCapture, func(), error) {
 		offsetX: offsetX,
 		offsetY: offsetY,
 	}
-	return rc, cleanup, nil
+	return rc, nil
 }
 
 // gdiFrame 抓一帧，返回完整客户区 RGBA。
-func gdiFrame(hwnd win.HWND) (*image.RGBA, error) {
-	rc, cleanup, err := captureRaw(hwnd)
+func gdiFrame(surface *gdiCaptureSurface, hwnd win.HWND) (*image.RGBA, error) {
+	rc, err := surface.captureRaw(hwnd)
 	if err != nil {
 		return nil, err
 	}
-	defer cleanup()
 
 	img := image.NewRGBA(image.Rect(0, 0, rc.clientW, rc.clientH))
 	for y := range rc.clientH {
@@ -152,12 +186,11 @@ func gdiFrame(hwnd win.HWND) (*image.RGBA, error) {
 
 // gdiFrameROI 抓一帧，只转换客户区内指定矩形区域的 BGRA→RGBA。
 // 参数为客户区像素坐标。返回图的 (0,0) 对应 (roiX, roiY)。
-func gdiFrameROI(hwnd win.HWND, roiX, roiY, roiW, roiH int) (*image.RGBA, error) {
-	rc, cleanup, err := captureRaw(hwnd)
+func gdiFrameROI(surface *gdiCaptureSurface, hwnd win.HWND, roiX, roiY, roiW, roiH int) (*image.RGBA, error) {
+	rc, err := surface.captureRaw(hwnd)
 	if err != nil {
 		return nil, err
 	}
-	defer cleanup()
 
 	// 裁剪到客户区边界
 	if roiX < 0 {

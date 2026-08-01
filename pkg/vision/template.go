@@ -3,7 +3,7 @@
 // 实现要点：
 //   - 积分图把 patch 的 ∑I/∑I² 降到 O(1)
 //   - 行级 goroutine 并行（runtime.NumCPU）
-//   - MatchFast：2x 下采样粗找 + 原图 ±4 邻域精修，~8.9ms
+//   - MatchFast：按模板尺寸自适应下采样粗找 + 多候选原图精修
 //   - 灰度用 BT.601（与 OpenCV 默认一致）
 package vision
 
@@ -13,6 +13,8 @@ import (
 	"image/png"
 	"io"
 	"runtime"
+	"sort"
+	"sync"
 )
 
 // RGBAToGray 把 RGBA 灰度化成 [0,1] float32 数组（行主序）。
@@ -84,7 +86,11 @@ func CropROIRGBA(frame *image.RGBA, fx, fy, fw, fh float64) *image.RGBA {
 // 找不到（搜索空间为空 / 模板单色）返回 (-1, -1, -1)。
 // 与 MatchAll 共享 correlationMap (NCC 全图)；Match = 取全局 argmax。
 func Match(img []float32, iw, ih int, tpl *Template, parallel int) (int, int, float32) {
-	confMap, sw, sh := correlationMap(img, iw, ih, tpl, parallel)
+	return matchPrepared(img, iw, ih, prepareCorrelationTemplate(tpl), parallel)
+}
+
+func matchPrepared(img []float32, iw, ih int, tpl *correlationTemplate, parallel int) (int, int, float32) {
+	confMap, sw, sh := correlationMapPrepared(img, iw, ih, tpl, parallel)
 	if sw <= 0 || sh <= 0 {
 		return -1, -1, -1
 	}
@@ -103,38 +109,136 @@ func Match(img []float32, iw, ih int, tpl *Template, parallel int) (int, int, fl
 	return bestX, bestY, best
 }
 
-func downsample2x(img []float32, w, h int) ([]float32, int, int) {
-	nw, nh := w/2, h/2
+func matchCandidatesPrepared(img []float32, iw, ih int, tpl *correlationTemplate, parallel, limit int) []MatchHit {
+	confMap, searchWidth, searchHeight := correlationMapPrepared(img, iw, ih, tpl, parallel)
+	if searchWidth <= 0 || searchHeight <= 0 || limit <= 0 {
+		return nil
+	}
+	candidates := make([]MatchHit, 0, limit)
+	for y := 0; y < searchHeight; y++ {
+		for x := 0; x < searchWidth; x++ {
+			confidence := confMap[y*searchWidth+x]
+			if confidence <= corrSkip || !isLocalMax(confMap, searchWidth, searchHeight, x, y, confidence) {
+				continue
+			}
+			candidates = append(candidates, MatchHit{X: x, Y: y, Conf: confidence})
+		}
+	}
+	sort.Slice(candidates, func(left, right int) bool {
+		if candidates[left].Conf != candidates[right].Conf {
+			return candidates[left].Conf > candidates[right].Conf
+		}
+		if candidates[left].Y != candidates[right].Y {
+			return candidates[left].Y < candidates[right].Y
+		}
+		return candidates[left].X < candidates[right].X
+	})
+	if len(candidates) > limit {
+		candidates = candidates[:limit]
+	}
+	return candidates
+}
+
+func downsample(img []float32, w, h, factor int) ([]float32, int, int) {
+	if factor <= 1 {
+		out := append([]float32(nil), img...)
+		return out, w, h
+	}
+	nw, nh := w/factor, h/factor
 	out := make([]float32, nw*nh)
 	for y := 0; y < nh; y++ {
-		sy := y * 2
+		sy := y * factor
 		for x := 0; x < nw; x++ {
-			sx := x * 2
-			v := img[sy*w+sx] + img[sy*w+sx+1] + img[(sy+1)*w+sx] + img[(sy+1)*w+sx+1]
-			out[y*nw+x] = v * 0.25
+			sx := x * factor
+			var sum float32
+			for offsetY := 0; offsetY < factor; offsetY++ {
+				row := (sy + offsetY) * w
+				for offsetX := 0; offsetX < factor; offsetX++ {
+					sum += img[row+sx+offsetX]
+				}
+			}
+			out[y*nw+x] = sum / float32(factor*factor)
 		}
 	}
 	return out, nw, nh
 }
 
-// MatchFast 两阶段：2x 下采样粗找 + 原图 ±4 邻域精修。预期 ~8.9ms。
-// 搜索空间或模板太小时回退 Match。
-func MatchFast(img []float32, iw, ih int, tpl *Template, parallel int) (int, int, float32) {
-	tw, th := tpl.W, tpl.H
-	if iw-tw < 4 || ih-th < 4 || tw < 16 || th < 16 {
-		return Match(img, iw, ih, tpl, parallel)
-	}
-	img2, iw2, ih2 := downsample2x(img, iw, ih)
-	tpl2Gray, tw2, th2 := downsample2x(tpl.Gray, tw, th)
-	tpl2 := &Template{Gray: tpl2Gray, W: tw2, H: th2}
+// FastTemplate caches immutable template preprocessing shared by every fresh
+// frame observation in one automation-node invocation.
+type FastTemplate struct {
+	full    *correlationTemplate
+	coarse  *correlationTemplate
+	factor  int
+	scratch sync.Pool
+}
 
-	cx, cy, _ := Match(img2, iw2, ih2, tpl2, parallel)
-	if cx < 0 {
+const fastRefinementCandidateLimit = 4
+
+// PrepareFastTemplate builds the reusable normalized and coarse template
+// representations used by MatchFastPrepared.
+func PrepareFastTemplate(tpl *Template) *FastTemplate {
+	full := prepareCorrelationTemplate(tpl)
+	if full == nil {
+		return nil
+	}
+	factor := 1
+	if tpl.W >= 64 && tpl.H >= 24 {
+		factor = 4
+	} else if tpl.W >= 16 && tpl.H >= 16 {
+		factor = 2
+	}
+	if factor == 1 {
+		return &FastTemplate{full: full, factor: 1}
+	}
+	gray, width, height := downsample(tpl.Gray, tpl.W, tpl.H, factor)
+	coarse := prepareCorrelationTemplate(&Template{Gray: gray, W: width, H: height})
+	if coarse == nil || width < 6 || height < 6 {
+		return &FastTemplate{full: full, factor: 1}
+	}
+	return &FastTemplate{full: full, coarse: coarse, factor: factor}
+}
+
+// MatchFast uses an adaptive coarse pass followed by a bounded
+// full-resolution refinement. Small search spaces fall back to Match.
+func MatchFast(img []float32, iw, ih int, tpl *Template, parallel int) (int, int, float32) {
+	return MatchFastPrepared(img, iw, ih, PrepareFastTemplate(tpl), parallel)
+}
+
+// MatchFastPrepared matches a fresh image against a reusable prepared
+// template. Large templates use a 4x coarse pass followed by a bounded
+// full-resolution refinement; smaller templates keep the existing 2x path.
+func MatchFastPrepared(img []float32, iw, ih int, prepared *FastTemplate, parallel int) (int, int, float32) {
+	if prepared == nil || prepared.full == nil {
 		return -1, -1, -1
 	}
-	fx, fy := cx*2, cy*2
+	tpl := prepared.full.template
+	tw, th := tpl.W, tpl.H
+	factor := prepared.factor
+	if factor <= 1 || iw-tw < factor*2 || ih-th < factor*2 {
+		return matchPrepared(img, iw, ih, prepared.full, parallel)
+	}
+	coarseImage, coarseWidth, coarseHeight := downsample(img, iw, ih, factor)
+	coarseCandidates := matchCandidatesPrepared(coarseImage, coarseWidth, coarseHeight, prepared.coarse, parallel, fastRefinementCandidateLimit)
+	if len(coarseCandidates) == 0 {
+		return -1, -1, -1
+	}
+	bestX, bestY, bestConfidence := -1, -1, float32(-1)
+	workspace, _ := prepared.scratch.Get().(*correlationWorkspace)
+	if workspace == nil {
+		workspace = &correlationWorkspace{}
+	}
+	defer prepared.scratch.Put(workspace)
+	for _, candidate := range coarseCandidates {
+		x, y, confidence := refineFastCandidate(img, iw, ih, prepared.full, candidate.X*factor, candidate.Y*factor, factor*2, parallel, workspace)
+		if confidence > bestConfidence || (confidence == bestConfidence && (y < bestY || (y == bestY && x < bestX))) {
+			bestX, bestY, bestConfidence = x, y, confidence
+		}
+	}
+	return bestX, bestY, bestConfidence
+}
 
-	const pad = 4
+func refineFastCandidate(img []float32, iw, ih int, template *correlationTemplate, fx, fy, pad, parallel int, workspace *correlationWorkspace) (int, int, float32) {
+	tw, th := template.template.W, template.template.H
 	x0 := fx - pad
 	if x0 < 0 {
 		x0 = 0
@@ -157,11 +261,12 @@ func MatchFast(img []float32, iw, ih int, tpl *Template, parallel int) (int, int
 		return fx, fy, -1
 	}
 
-	region := make([]float32, rw*rh)
+	workspace.region = resizeFloat32(workspace.region, rw*rh)
+	region := workspace.region
 	for ry := 0; ry < rh; ry++ {
 		copy(region[ry*rw:(ry+1)*rw], img[(y0+ry)*iw+x0:(y0+ry)*iw+x0+rw])
 	}
-	bx, by, bc := Match(region, rw, rh, tpl, parallel)
+	bx, by, bc := matchPreparedWithWorkspace(region, rw, rh, template, parallel, workspace)
 	if bx < 0 {
 		return -1, -1, -1
 	}

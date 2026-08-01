@@ -21,34 +21,99 @@ type MatchHit struct {
 	Conf float32
 }
 
+type correlationTemplate struct {
+	template *Template
+	prime    []float32
+	norm     float64
+}
+
+func prepareCorrelationTemplate(tpl *Template) *correlationTemplate {
+	if tpl == nil || tpl.W <= 0 || tpl.H <= 0 || len(tpl.Gray) != tpl.W*tpl.H {
+		return nil
+	}
+	var sum float64
+	for _, value := range tpl.Gray {
+		sum += float64(value)
+	}
+	mean := sum / float64(tpl.W*tpl.H)
+	prime := make([]float32, len(tpl.Gray))
+	var squareSum float64
+	for index, value := range tpl.Gray {
+		delta := float64(value) - mean
+		prime[index] = float32(delta)
+		squareSum += delta * delta
+	}
+	if squareSum < 1e-12 {
+		return nil
+	}
+	return &correlationTemplate{template: tpl, prime: prime, norm: math.Sqrt(squareSum)}
+}
+
 // correlationMap 计算 tpl 在 img 每个搜索位置的 CCOEFF_NORMED conf, 返回完整 conf 图
 // (行主序, sw×sh)。uniform patch 位置 = corrSkip。模板单色 / 搜索空间为空 → nil,0,0。
 // 积分图 O(1) 算 patch 均值/方差 + 行级并行 (同 Match 旧实现, 只是不丢弃非极大值)。
 func correlationMap(img []float32, iw, ih int, tpl *Template, parallel int) ([]float32, int, int) {
+	return correlationMapPrepared(img, iw, ih, prepareCorrelationTemplate(tpl), parallel)
+}
+
+func correlationMapPrepared(img []float32, iw, ih int, prepared *correlationTemplate, parallel int) ([]float32, int, int) {
+	return correlationMapPreparedWithWorkspace(img, iw, ih, prepared, parallel, nil)
+}
+
+type correlationWorkspace struct {
+	region     []float32
+	sumI       []float64
+	sumI2      []float64
+	confidence []float32
+}
+
+func resizeFloat32(buffer []float32, size int) []float32 {
+	if cap(buffer) < size {
+		return make([]float32, size)
+	}
+	return buffer[:size]
+}
+
+func resizeFloat64(buffer []float64, size int) []float64 {
+	if cap(buffer) < size {
+		return make([]float64, size)
+	}
+	return buffer[:size]
+}
+
+func correlationMapPreparedWithWorkspace(img []float32, iw, ih int, prepared *correlationTemplate, parallel int, workspace *correlationWorkspace) ([]float32, int, int) {
+	if prepared == nil {
+		return nil, 0, 0
+	}
+	tpl := prepared.template
 	tw, th := tpl.W, tpl.H
 	if iw < tw || ih < th {
 		return nil, 0, 0
 	}
-	var tplSum float64
-	for _, v := range tpl.Gray {
-		tplSum += float64(v)
-	}
-	tplMean := tplSum / float64(tw*th)
-	tplPrime := make([]float32, len(tpl.Gray))
-	var tplSqSum float64
-	for i, v := range tpl.Gray {
-		d := float64(v) - tplMean
-		tplPrime[i] = float32(d)
-		tplSqSum += d * d
-	}
-	if tplSqSum < 1e-12 {
+
+	searchW := iw - tw + 1
+	searchH := ih - th + 1
+	if searchW <= 0 || searchH <= 0 {
 		return nil, 0, 0
 	}
-	tplNorm := math.Sqrt(tplSqSum)
 
 	stride := iw + 1
-	sumI := make([]float64, stride*(ih+1))
-	sumI2 := make([]float64, stride*(ih+1))
+	integralSize := stride * (ih + 1)
+	var sumI, sumI2 []float64
+	if workspace == nil {
+		sumI = make([]float64, integralSize)
+		sumI2 = make([]float64, integralSize)
+	} else {
+		workspace.sumI = resizeFloat64(workspace.sumI, integralSize)
+		workspace.sumI2 = resizeFloat64(workspace.sumI2, integralSize)
+		sumI, sumI2 = workspace.sumI, workspace.sumI2
+		clear(sumI[:stride])
+		clear(sumI2[:stride])
+		for y := 1; y <= ih; y++ {
+			sumI[y*stride] = 0
+			sumI2[y*stride] = 0
+		}
+	}
 	for y := 0; y < ih; y++ {
 		for x := 0; x < iw; x++ {
 			v := float64(img[y*iw+x])
@@ -58,50 +123,72 @@ func correlationMap(img []float32, iw, ih int, tpl *Template, parallel int) ([]f
 		}
 	}
 
-	searchW := iw - tw + 1
-	searchH := ih - th + 1
-	if searchW <= 0 || searchH <= 0 {
-		return nil, 0, 0
+	var confMap []float32
+	if workspace == nil {
+		confMap = make([]float32, searchW*searchH)
+	} else {
+		workspace.confidence = resizeFloat32(workspace.confidence, searchW*searchH)
+		confMap = workspace.confidence
 	}
-	confMap := make([]float32, searchW*searchH)
 
-	var wg sync.WaitGroup
 	if parallel < 1 {
 		parallel = 1
 	}
-	sema := make(chan struct{}, parallel)
-	for sy := 0; sy < searchH; sy++ {
+	workers := min(parallel, searchH)
+	var wg sync.WaitGroup
+	for worker := 0; worker < workers; worker++ {
+		start, end := worker*searchH/workers, (worker+1)*searchH/workers
 		wg.Add(1)
-		sema <- struct{}{}
-		go func(sy int) {
+		go func() {
 			defer wg.Done()
-			defer func() { <-sema }()
-			for sx := 0; sx < searchW; sx++ {
-				topL := sy*stride + sx
-				topR := sy*stride + sx + tw
-				botL := (sy+th)*stride + sx
-				botR := (sy+th)*stride + sx + tw
-				pSum := sumI[botR] - sumI[topR] - sumI[botL] + sumI[topL]
-				pSum2 := sumI2[botR] - sumI2[topR] - sumI2[botL] + sumI2[topL]
-				patchSqDiff := pSum2 - pSum*pSum/float64(tw*th)
-				if patchSqDiff < 1e-9 {
-					confMap[sy*searchW+sx] = corrSkip
-					continue
-				}
-				var cross float64
-				for ty := 0; ty < th; ty++ {
-					iRow := (sy + ty) * iw
-					tRow := ty * tw
-					for tx := 0; tx < tw; tx++ {
-						cross += float64(tplPrime[tRow+tx]) * float64(img[iRow+sx+tx])
+			for sy := start; sy < end; sy++ {
+				for sx := 0; sx < searchW; sx++ {
+					topL := sy*stride + sx
+					topR := sy*stride + sx + tw
+					botL := (sy+th)*stride + sx
+					botR := (sy+th)*stride + sx + tw
+					pSum := sumI[botR] - sumI[topR] - sumI[botL] + sumI[topL]
+					pSum2 := sumI2[botR] - sumI2[topR] - sumI2[botL] + sumI2[topL]
+					patchSqDiff := pSum2 - pSum*pSum/float64(tw*th)
+					if patchSqDiff < 1e-9 {
+						confMap[sy*searchW+sx] = corrSkip
+						continue
 					}
+					var cross float64
+					for ty := 0; ty < th; ty++ {
+						iRow := (sy + ty) * iw
+						tRow := ty * tw
+						for tx := 0; tx < tw; tx++ {
+							cross += float64(prepared.prime[tRow+tx]) * float64(img[iRow+sx+tx])
+						}
+					}
+					confMap[sy*searchW+sx] = float32(cross / (math.Sqrt(patchSqDiff) * prepared.norm))
 				}
-				confMap[sy*searchW+sx] = float32(cross / (math.Sqrt(patchSqDiff) * tplNorm))
 			}
-		}(sy)
+		}()
 	}
 	wg.Wait()
 	return confMap, searchW, searchH
+}
+
+func matchPreparedWithWorkspace(img []float32, iw, ih int, tpl *correlationTemplate, parallel int, workspace *correlationWorkspace) (int, int, float32) {
+	confMap, sw, sh := correlationMapPreparedWithWorkspace(img, iw, ih, tpl, parallel, workspace)
+	if sw <= 0 || sh <= 0 {
+		return -1, -1, -1
+	}
+	bestX, bestY := -1, -1
+	best := corrSkip
+	for sy := 0; sy < sh; sy++ {
+		for sx := 0; sx < sw; sx++ {
+			if confidence := confMap[sy*sw+sx]; confidence > best {
+				best, bestX, bestY = confidence, sx, sy
+			}
+		}
+	}
+	if bestX < 0 || best <= corrSkip {
+		return -1, -1, -1
+	}
+	return bestX, bestY, best
 }
 
 // MatchAll: 收集 conf≥threshold 且为 3×3 局部极大的候选, 做 NMS (minDist 像素中心距;

@@ -22,9 +22,10 @@ import (
 // 的成熟实现. 本 struct 只加 state 跟踪 + interface 适配.
 type PostMessageBackend struct {
 	mu        sync.Mutex
+	clickMu   sync.Mutex                    // serializes the brief process-global cursor projection used by Click
 	heldKeys  map[uint32]win.HWND           // virtual key → exact target window
 	heldBtns  map[win.HWND]map[string]point // hwnd → button name → 按下时客户区坐标
-	activated map[win.HWND]bool             // hwnd → 是否已 FakeActivate 过
+	activated map[win.HWND]time.Time        // hwnd → 最近一次 FakeActivate 时间
 	cursor    map[win.HWND]point            // exact target client position; never moves the global cursor
 }
 
@@ -32,7 +33,7 @@ func newPostMessageBackend() *PostMessageBackend {
 	return &PostMessageBackend{
 		heldKeys:  map[uint32]win.HWND{},
 		heldBtns:  map[win.HWND]map[string]point{},
-		activated: map[win.HWND]bool{},
+		activated: map[win.HWND]time.Time{},
 		cursor:    map[win.HWND]point{},
 	}
 }
@@ -52,6 +53,11 @@ const (
 	defaultActivateDelay = 30 * time.Millisecond
 	defaultCursorSettle  = 30 * time.Millisecond
 	defaultClickHoldMs   = 50
+
+	// UE/Slate can flip IsActive after the first injected event. Refreshing at
+	// the same cadence as the 1.0 rhythm keepalive preserves background input
+	// without charging the 30 ms activation settle on every high-frequency key.
+	postMessageActivationKeepalive = 500 * time.Millisecond
 )
 
 // pickButton 字符串 → MouseButton 枚举 (MouseButton 在 input.go 已定义)
@@ -67,31 +73,67 @@ func pickButton(name string) MouseButton {
 }
 
 func (b *PostMessageBackend) ensureActivated(hwnd win.HWND) {
+	now := time.Now()
 	b.mu.Lock()
-	already := b.activated[hwnd]
-	if !already {
-		b.activated[hwnd] = true
+	last := b.activated[hwnd]
+	due := postMessageActivationDue(last, now)
+	if due {
+		b.activated[hwnd] = now
 	}
 	b.mu.Unlock()
-	if !already {
+	if due {
 		FakeActivate(hwnd) // input.go 现有函数
-		// 首次激活后等 Slate 在下一 UE tick 翻 IsActive=true 再放行后续 PostMessage —— 否则首个
+		// 激活后等 Slate 在下一 UE tick 翻 IsActive=true 再放行后续 PostMessage —— 否则首个
 		// keydown/down 在 IsActive 仍 false 时被部分游戏的 IMC 丢弃 (FakeActivate 是 SendMessage, 同步返回
-		// 不代表 Slate 已处理). 复原 #4 前 Tap/Click 自带的 activateDelay: #4 把 KeyPress/ClickAt 改
-		// 节点层 KeyDown/MouseDown 后, 这条 settle 只剩这里兜. 仅首次 per-hwnd → 分帧 MoveTo 不重复付.
+		// 不代表 Slate 已处理). keepalive 窗口内复用激活，避免高频输入每帧重复等待.
 		time.Sleep(defaultActivateDelay)
 	}
+}
+
+func postMessageActivationDue(last, now time.Time) bool {
+	return last.IsZero() || !now.Before(last.Add(postMessageActivationKeepalive))
 }
 
 func (b *PostMessageBackend) Click(hwnd win.HWND, xRatio, yRatio float64, button string, durMs int) error {
 	if durMs <= 0 {
 		durMs = defaultClickHoldMs
 	}
-	if err := b.MouseDown(hwnd, xRatio, yRatio, button); err != nil {
+	pt, err := checkedClientPoint(hwnd, xRatio, yRatio)
+	if err != nil {
 		return err
 	}
-	time.Sleep(time.Duration(durMs) * time.Millisecond)
-	return b.MouseUp(hwnd, button)
+	b.clickMu.Lock()
+	defer b.clickMu.Unlock()
+	originalX, originalY := getCursorPos()
+	targetX, targetY := clientToScreen(hwnd, pt.X, pt.Y)
+	setCursorPos(targetX, targetY)
+	defer setCursorPos(originalX, originalY)
+	return performPostMessageClick(
+		time.Duration(durMs)*time.Millisecond,
+		defaultCursorSettle,
+		func() error { return b.MouseDown(hwnd, xRatio, yRatio, button) },
+		func() error { return b.MouseUp(hwnd, button) },
+		time.Sleep,
+	)
+}
+
+// performPostMessageClick preserves the public click contract: hold is the time
+// between DOWN and UP. The short post-UP settle lets the target consume the
+// release before Click restores the temporarily projected system cursor.
+func performPostMessageClick(hold, settle time.Duration, down, up func() error, wait func(time.Duration)) error {
+	if err := down(); err != nil {
+		return err
+	}
+	if hold > 0 {
+		wait(hold)
+	}
+	if err := up(); err != nil {
+		return err
+	}
+	if settle > 0 {
+		wait(settle)
+	}
+	return nil
 }
 
 func (b *PostMessageBackend) KeyDown(hwnd win.HWND, vk string) error {
@@ -143,9 +185,9 @@ func (b *PostMessageBackend) MouseDown(hwnd win.HWND, xRatio, yRatio float64, bu
 	if err != nil {
 		return err
 	}
-	// 跟 ClickButton 同序: 先 hover (setCursorPos + WM_MOUSEMOVE) + settle 让 Slate 在它的
-	// tick 更新 hover 元素, 再 DOWN —— 否则按下可能落不到目标控件 (跟 ClickAt 旧路径同源).
-	// 不松开 / 不复位光标 (hold 语义: 光标留在按下点直到 MouseHoldStop).
+	// Click has already projected the real cursor to this point; standalone hold
+	// intentionally stays message-only. Always publish hover before DOWN so Slate
+	// updates the hovered widget on its next tick.
 	if err := postMessageChecked(hwnd, WM_MOUSEMOVE, 0, makeLParam(pt.X, pt.Y)); err != nil {
 		return err
 	}

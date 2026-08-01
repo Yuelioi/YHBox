@@ -22,16 +22,18 @@ func TestPollTemplateStateUsesFreshObservationsAndBoundedWaits(t *testing.T) {
 	}{
 		{name: "appears", states: []bool{false, false, true}, wantPresent: true, timeout: time.Second, wantWaits: []time.Duration{100 * time.Millisecond, 100 * time.Millisecond}, wantCaptures: 3, wantMatched: true},
 		{name: "disappears", states: []bool{true, false}, wantPresent: false, timeout: time.Second, wantWaits: []time.Duration{100 * time.Millisecond}, wantCaptures: 2, wantMatched: false},
-		{name: "bounded timeout", states: []bool{false, false, false, false}, wantPresent: true, timeout: 250 * time.Millisecond, wantWaits: []time.Duration{100 * time.Millisecond, 100 * time.Millisecond, 50 * time.Millisecond}, wantCaptures: 4, wantMatched: false},
+		{name: "bounded timeout", states: []bool{false, false, false}, wantPresent: true, timeout: 250 * time.Millisecond, wantWaits: []time.Duration{100 * time.Millisecond, 100 * time.Millisecond, 50 * time.Millisecond}, wantCaptures: 3, wantMatched: false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			index := 0
 			var waits []time.Duration
-			match, captures, err := pollTemplateState(context.Background(), func(_ context.Context, delay time.Duration) error {
+			now := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+			match, captures, err := pollTemplateStateWithClock(context.Background(), func(_ context.Context, delay time.Duration) error {
 				waits = append(waits, delay)
+				now = now.Add(delay)
 				return nil
-			}, test.timeout, 100*time.Millisecond, test.wantPresent, func(context.Context) (visionMatchResult, error) {
+			}, func() time.Time { return now }, test.timeout, 100*time.Millisecond, test.wantPresent, func(context.Context) (visionMatchResult, error) {
 				matched := test.states[index]
 				index++
 				return visionMatchResult{Matched: matched}, nil
@@ -53,6 +55,19 @@ func TestPollTemplateStatePropagatesCancellation(t *testing.T) {
 	})
 	if err != context.Canceled || captures != 1 {
 		t.Fatalf("captures=%d err=%v", captures, err)
+	}
+}
+
+func TestPollTemplateStateTimeoutIncludesObservationTime(t *testing.T) {
+	match, captures, err := pollTemplateState(context.Background(), func(_ context.Context, delay time.Duration) error {
+		time.Sleep(delay)
+		return nil
+	}, 10*time.Millisecond, 10*time.Millisecond, true, func(context.Context) (visionMatchResult, error) {
+		time.Sleep(20 * time.Millisecond)
+		return visionMatchResult{}, nil
+	})
+	if err != nil || captures != 1 || match.Matched {
+		t.Fatalf("match=%#v captures=%d err=%v, want one observation bounded by the wall-clock timeout", match, captures, err)
 	}
 }
 

@@ -5,9 +5,38 @@ package input
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/lxn/win"
 )
+
+func TestPostMessageClickHoldsBeforeUpAndSettlesAfter(t *testing.T) {
+	var events []string
+	err := performPostMessageClick(50*time.Millisecond, 30*time.Millisecond,
+		func() error { events = append(events, "down"); return nil },
+		func() error { events = append(events, "up"); return nil },
+		func(duration time.Duration) { events = append(events, "sleep:"+duration.String()) },
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(events, ","); got != "down,sleep:50ms,up,sleep:30ms" {
+		t.Fatalf("PostMessage click sequence = %q", got)
+	}
+}
+
+func TestPostMessageActivationRefreshUsesKeepaliveWindow(t *testing.T) {
+	now := time.Date(2026, 8, 1, 2, 0, 0, 0, time.UTC)
+	if !postMessageActivationDue(time.Time{}, now) {
+		t.Fatal("first input did not require activation")
+	}
+	if postMessageActivationDue(now.Add(-postMessageActivationKeepalive/2), now) {
+		t.Fatal("activation refreshed inside its keepalive window")
+	}
+	if !postMessageActivationDue(now.Add(-postMessageActivationKeepalive), now) {
+		t.Fatal("activation did not refresh after its keepalive window")
+	}
+}
 
 func TestPostMessageBackend_NameAndCapabilities(t *testing.T) {
 	b := newPostMessageBackend()

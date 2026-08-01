@@ -201,7 +201,11 @@ func (w *JournalWriter) Append(ctx context.Context, fact JournalFact) (Record, e
 	if err != nil {
 		return Record{}, err
 	}
-	return w.commitLocked(ctx, next)
+	err = w.store.appendJournal(ctx, w.current, next)
+	if err == nil || durablefs.Committed(err) {
+		w.current = next
+	}
+	return next, err
 }
 
 func (w *JournalWriter) Current() Record {

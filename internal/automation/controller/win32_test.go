@@ -112,7 +112,39 @@ func (f *fakeWin32Input) CursorRatio(uintptr) (float64, float64, error) {
 
 type fakeWin32Capture struct{}
 
-func (fakeWin32Capture) Frame(uintptr) (Frame, error) { return Frame{}, nil }
+func (fakeWin32Capture) Frame(uintptr) (Frame, error)                 { return Frame{}, nil }
+func (fakeWin32Capture) FrameROI(uintptr, target.Rect) (Frame, error) { return Frame{}, nil }
+
+type recordingWin32Capture struct {
+	full int
+	hwnd uintptr
+	roi  target.Rect
+}
+
+func (capture *recordingWin32Capture) Frame(uintptr) (Frame, error) {
+	capture.full++
+	return Frame{}, nil
+}
+
+func (capture *recordingWin32Capture) FrameROI(hwnd uintptr, roi target.Rect) (Frame, error) {
+	capture.hwnd, capture.roi = hwnd, roi
+	return Frame{}, nil
+}
+
+func TestWin32ControllerScreenshotDelegatesRegionAtCaptureSource(t *testing.T) {
+	capture := &recordingWin32Capture{}
+	ctrl, err := NewWin32Controller(target.NewWin32WindowTarget(target.WindowHandle{HWND: 42}), Win32Deps{Capture: capture})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := target.Rect{X: 100, Y: 20, W: 400, H: 16}
+	if _, err := ctrl.Screenshot(context.Background(), ScreenshotRequest{Space: target.SpaceWindowClient, ROI: want}); err != nil {
+		t.Fatal(err)
+	}
+	if capture.full != 0 || capture.hwnd != 42 || capture.roi != want {
+		t.Fatalf("capture delegation full=%d hwnd=%d roi=%#v", capture.full, capture.hwnd, capture.roi)
+	}
+}
 
 func TestWin32ControllerPointerPosition(t *testing.T) {
 	ctrl, err := NewWin32Controller(

@@ -11,6 +11,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodecontract"
 	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/storage"
 	storagecatalog "github.com/yottaapp/yotta/internal/storage/catalog"
@@ -47,6 +48,71 @@ func TestRunStorePersistsGenerationsAndRejectsStaleUpdates(t *testing.T) {
 	loaded, err := reopened.Load(testRunID)
 	if err != nil || loaded.Digest() != running.Digest() || loaded.Generation() != 2 {
 		t.Fatalf("loaded = %s generation %d, %v", loaded.Digest(), loaded.Generation(), err)
+	}
+}
+
+func TestJournalAppendKeepsPersistedHeadConsistentAcrossTimeline(t *testing.T) {
+	catalog, _ := stringValueCatalog(t)
+	store, err := openRunStore(t, t.TempDir(), catalog, run.StoreOptions{MaxRecords: 8})
+	if err != nil {
+		t.Fatal(err)
+	}
+	queuedAt := time.Date(2026, 8, 1, 1, 0, 0, 0, time.UTC)
+	queued := queuedRecord(t, queuedAt)
+	if _, err := store.Create(context.Background(), queued); err != nil {
+		t.Fatal(err)
+	}
+	running, err := queued.Start(queuedAt.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Update(context.Background(), queued.Digest(), running); err != nil {
+		t.Fatal(err)
+	}
+	journal, err := store.OpenJournal(testRunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	summary, err := run.NewRedactedSummary("node.execute", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	started, err := run.NewNodeAttemptFact(run.NodeAttemptInput{
+		GraphPath: []string{"main"}, NodeID: "latency-probe", Attempt: 1,
+		Outcome: run.AttemptStarted, OccurredAt: queuedAt.Add(2 * time.Second), Summary: summary,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := journal.Append(context.Background(), started); err != nil {
+		t.Fatal(err)
+	}
+
+	const samples = 160
+	for index := range samples {
+		fact, err := run.NewNodeStatusFact(run.NodeStatusInput{
+			GraphPath: []string{"main"}, NodeID: "latency-probe", Attempt: 1,
+			Code: "runtime.latency_probe", Category: nodecontract.StatusProgress,
+			OccurredAt: queuedAt.Add(time.Duration(index+3) * time.Second), Summary: summary,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := journal.Append(context.Background(), fact); err != nil {
+			t.Fatal(err)
+		}
+	}
+	current := journal.Current()
+	persisted, err := store.Load(testRunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if persisted.Generation() != current.Generation() || persisted.Digest() != current.Digest() {
+		t.Fatalf("persisted head = generation %d digest %s, current = generation %d digest %s",
+			persisted.Generation(), persisted.Digest(), current.Generation(), current.Digest())
+	}
+	if got, want := len(persisted.Journal()), samples+1; got != want {
+		t.Fatalf("persisted journal entries = %d, want %d", got, want)
 	}
 }
 

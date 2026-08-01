@@ -715,6 +715,84 @@ export default {
         title: '截取窗口',
         description: '通过配置的截图后端截取目标画面，并提交持久 Image BlobRef。',
       },
+      controlDualColorBar: {
+        title: '高频控制双色条',
+        description: '在单次节点调用内循环抓取指定区域、追踪双色条并按偏差发送左右按键。',
+        input: {
+          'inner-range': { title: '指针颜色', description: '窄指针的 RGB 或 HSV 范围。' },
+          'outer-range': { title: '目标条颜色', description: '宽目标条的 RGB 或 HSV 范围。' },
+          region: { title: '抓取区域', description: '从目标窗口源头抓取的比例或像素矩形。' },
+          'inner-minimum-width': {
+            title: '指针最小宽度',
+            description: '有效指针列簇的最小像素宽度。',
+          },
+          'inner-maximum-width': {
+            title: '指针最大宽度',
+            description: '有效指针列簇的最大像素宽度；0 表示自动。',
+          },
+          'outer-minimum-width': {
+            title: '目标条最小宽度',
+            description: '有效目标条列簇的最小像素宽度；0 表示自动。',
+          },
+          'band-height-ratio': {
+            title: '扫描带高度比例',
+            description: '目标条扫描带相对抓取区域高度的比例。',
+          },
+          'band-inner-height-ratio': {
+            title: '指针高度比例',
+            description: '扫描带相对指针高度的比例。',
+          },
+          'inner-confidence-weight': {
+            title: '指针置信权重',
+            description: '指针检测对总置信度的权重。',
+          },
+          'outer-confidence-weight': {
+            title: '目标条置信权重',
+            description: '目标条检测对总置信度的权重。',
+          },
+          'tolerance-ratio': {
+            title: '宽度容差比例',
+            description: '目标条宽度乘以该比例作为方向死区。',
+          },
+          'minimum-tolerance': { title: '最小容差', description: '方向死区的最小像素值。' },
+          'left-keys': { title: '左方向键', description: '指针位于目标右侧时发送的按键。' },
+          'right-keys': { title: '右方向键', description: '指针位于目标左侧时发送的按键。' },
+          'hold-duration': { title: '按键时长', description: '每次方向按键保持的毫秒数。' },
+          'neutral-duration': { title: '中性间隔', description: '指针位于死区内时等待的毫秒数。' },
+          'cycle-duration': {
+            title: '最小帧周期',
+            description: '每轮截图和控制从开始到下一轮开始的最短毫秒数；慢帧不会额外等待。',
+          },
+          'maximum-iterations': { title: '最大帧数', description: '本次控制最多处理的画面帧数。' },
+          'activation-keys': {
+            title: '启动按键',
+            description: '开始检测前发送，并在进度条尚未出现时重试的按键。',
+          },
+          'activation-hold-duration': {
+            title: '启动按键时长',
+            description: '每次启动按键保持的毫秒数。',
+          },
+          'appearance-poll-duration': {
+            title: '出现检查间隔',
+            description: '等待进度条出现时两次抓取之间的毫秒数。',
+          },
+          'activation-retry-duration': {
+            title: '启动重试间隔',
+            description: '进度条尚未出现时再次发送启动按键的间隔。',
+          },
+          'appearance-timeout': {
+            title: '出现超时',
+            description: '等待进度条出现的最长毫秒数；0 表示不等待。',
+          },
+        },
+        output: {
+          frames: { title: '处理帧数', description: '本次调用处理的画面帧数。' },
+          'left-actions': { title: '左按键次数', description: '本次调用发送左方向按键的次数。' },
+          'right-actions': { title: '右按键次数', description: '本次调用发送右方向按键的次数。' },
+          'neutral-actions': { title: '中性次数', description: '本次调用落在方向死区内的次数。' },
+          'activation-actions': { title: '启动次数', description: '本次调用发送启动按键的次数。' },
+        },
+      },
       waitTemplate: {
         title: '等待模板出现',
         description: '在精确窗口中持续获取新画面，直到指定模板出现或超时。',

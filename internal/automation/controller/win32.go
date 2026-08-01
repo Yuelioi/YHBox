@@ -25,6 +25,7 @@ type Win32Input interface {
 
 type Win32Capture interface {
 	Frame(hwnd uintptr) (Frame, error)
+	FrameROI(hwnd uintptr, roi target.Rect) (Frame, error)
 }
 
 type Win32WindowOps interface {
@@ -310,7 +311,13 @@ func (c *Win32Controller) Screenshot(ctx context.Context, req ScreenshotRequest)
 			return fmt.Errorf("win32 capture dependency is nil")
 		}
 		var err error
-		frame, err = c.deps.Capture.Frame(c.hwnd())
+		if req.ROI.W == 0 && req.ROI.H == 0 {
+			frame, err = c.deps.Capture.Frame(c.hwnd())
+		} else if req.ROI.X < 0 || req.ROI.Y < 0 || req.ROI.W <= 0 || req.ROI.H <= 0 {
+			err = fmt.Errorf("win32 screenshot ROI is invalid")
+		} else {
+			frame, err = c.deps.Capture.FrameROI(c.hwnd(), req.ROI)
+		}
 		return err
 	})
 	return frame, err

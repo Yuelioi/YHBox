@@ -9,6 +9,7 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
+	"image/png"
 	"testing"
 	"time"
 
@@ -23,11 +24,13 @@ import (
 )
 
 type templateAutomationProvider struct {
-	frame         []byte
+	frame         *image.RGBA
+	captureData   []byte
 	clicks        []automationinstalled.ClickRequest
 	closed        int
 	captures      int
 	captureFormat string
+	captureRegion *automationinstalled.CaptureRegion
 }
 
 func (provider *templateAutomationProvider) Open(_ context.Context, request resource.ProviderOpenRequest) (any, error) {
@@ -52,21 +55,52 @@ func (provider *templateAutomationProvider) Invoke(_ context.Context, object any
 	case automationinstalled.KindCapture:
 		switch operation {
 		case automationinstalled.OperationCapture:
-			var request struct {
-				Format string `json:"format,omitempty"`
-			}
+			var request automationinstalled.CaptureRequest
 			if err := json.Unmarshal(payload, &request); err != nil {
 				return nil, err
 			}
 			provider.captureFormat = request.Format
+			provider.captureRegion = request.Region
 			provider.captures++
-			return artifact.Marshal(automationinstalled.CaptureResponse{MediaType: "image/png", Size: int64(len(provider.frame))})
+			if request.Format == "" {
+				var encoded bytes.Buffer
+				if err := png.Encode(&encoded, provider.frame); err != nil {
+					return nil, err
+				}
+				provider.captureData = encoded.Bytes()
+				return artifact.Marshal(automationinstalled.CaptureResponse{MediaType: "image/png", Size: int64(len(provider.captureData))})
+			}
+			bounds := provider.frame.Bounds()
+			origin := image.Point{}
+			captured := provider.frame
+			if request.Region != nil {
+				if request.Region.Unit != "ratio" {
+					return nil, errors.New("test capture only accepts ratio regions")
+				}
+				x0 := int(request.Region.X * float64(bounds.Dx()))
+				y0 := int(request.Region.Y * float64(bounds.Dy()))
+				x1 := int((request.Region.X + request.Region.Width) * float64(bounds.Dx()))
+				y1 := int((request.Region.Y + request.Region.Height) * float64(bounds.Dy()))
+				roi := image.Rect(x0, y0, x1, y1)
+				origin = roi.Min
+				captured = image.NewRGBA(image.Rect(0, 0, roi.Dx(), roi.Dy()))
+				draw.Draw(captured, captured.Bounds(), provider.frame, roi.Min, draw.Src)
+			}
+			provider.captureData = make([]byte, captured.Bounds().Dx()*captured.Bounds().Dy()*4)
+			for y := 0; y < captured.Bounds().Dy(); y++ {
+				copy(provider.captureData[y*captured.Bounds().Dx()*4:(y+1)*captured.Bounds().Dx()*4], captured.Pix[y*captured.Stride:y*captured.Stride+captured.Bounds().Dx()*4])
+			}
+			return artifact.Marshal(automationinstalled.CaptureResponse{
+				MediaType: automationinstalled.CaptureMediaTypeRGBA,
+				Size:      int64(len(provider.captureData)), Width: int64(captured.Bounds().Dx()), Height: int64(captured.Bounds().Dy()),
+				OriginX: int64(origin.X), OriginY: int64(origin.Y), FrameWidth: int64(bounds.Dx()), FrameHeight: int64(bounds.Dy()),
+			})
 		case automationinstalled.OperationReadCapture:
 			var request automationinstalled.CaptureRangeRequest
-			if err := json.Unmarshal(payload, &request); err != nil || request.Offset < 0 || request.Length <= 0 || request.Offset+request.Length > int64(len(provider.frame)) {
+			if err := json.Unmarshal(payload, &request); err != nil || request.Offset < 0 || request.Length <= 0 || request.Offset+request.Length > int64(len(provider.captureData)) {
 				return nil, errors.New("unexpected template capture range")
 			}
-			return append([]byte(nil), provider.frame[request.Offset:request.Offset+request.Length]...), nil
+			return append([]byte(nil), provider.captureData[request.Offset:request.Offset+request.Length]...), nil
 		}
 	case automationinstalled.KindInput:
 		if operation != automationinstalled.OperationClick {
@@ -101,7 +135,7 @@ func TestClickTemplateCapturesMatchesAndClicksTheSameExactTarget(t *testing.T) {
 		}
 	}
 	draw.Draw(frame, image.Rect(24, 18, 36, 28), templateImage, image.Point{}, draw.Src)
-	framePNG, templatePNG := encodeVisionPNG(t, frame), encodeVisionPNG(t, templateImage)
+	templatePNG := encodeVisionPNG(t, templateImage)
 
 	store, err := blob.Open(t.TempDir(), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 2 << 20})
 	if err != nil {
@@ -115,7 +149,7 @@ func TestClickTemplateCapturesMatchesAndClicksTheSameExactTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	provider := &templateAutomationProvider{frame: framePNG}
+	provider := &templateAutomationProvider{frame: frame}
 	const targetID, slot = "automation-target/template", "template-target"
 	program := compilePrimitiveProgram(t, builtins, clickTemplateSource(builtins, slot, templateRef))
 	now := time.Date(2026, 7, 17, 15, 0, 0, 0, time.UTC)
@@ -147,6 +181,9 @@ func TestClickTemplateCapturesMatchesAndClicksTheSameExactTarget(t *testing.T) {
 	if provider.captureFormat != "rgba" {
 		t.Fatalf("template capture format = %q, want rgba fast path", provider.captureFormat)
 	}
+	if provider.captureRegion == nil || *provider.captureRegion != (automationinstalled.CaptureRegion{X: 0.2, Y: 0.2, Width: 0.5, Height: 0.5, Unit: "ratio"}) {
+		t.Fatalf("template capture region = %#v", provider.captureRegion)
+	}
 	var statuses []string
 	var matchedCounters map[string]int64
 	for _, entry := range journal.Current().Journal() {
@@ -159,6 +196,9 @@ func TestClickTemplateCapturesMatchesAndClicksTheSameExactTarget(t *testing.T) {
 	}
 	if fmt.Sprint(statuses) != "[automation.template.waiting automation.template.matched]" {
 		t.Fatalf("template statuses = %v", statuses)
+	}
+	if matchedCounters["capture_bytes"] != 40*30*4 {
+		t.Fatalf("template capture bytes = %d, want ROI-sized RGBA", matchedCounters["capture_bytes"])
 	}
 	for _, counter := range []string{"captures", "capture_bytes", "capture_ms", "match_ms"} {
 		if _, ok := matchedCounters[counter]; !ok {
@@ -181,7 +221,7 @@ func TestClickTemplateReusesOneCapturedImageAcrossNodes(t *testing.T) {
 		}
 	}
 	draw.Draw(frame, image.Rect(24, 18, 36, 28), templateImage, image.Point{}, draw.Src)
-	framePNG, templatePNG := encodeVisionPNG(t, frame), encodeVisionPNG(t, templateImage)
+	templatePNG := encodeVisionPNG(t, templateImage)
 
 	store, err := blob.Open(t.TempDir(), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 2 << 20})
 	if err != nil {
@@ -195,7 +235,7 @@ func TestClickTemplateReusesOneCapturedImageAcrossNodes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	provider := &templateAutomationProvider{frame: framePNG}
+	provider := &templateAutomationProvider{frame: frame}
 	const targetID, slot = "automation-target/template-reuse", "template-reuse-target"
 	program := compilePrimitiveProgram(t, builtins, clickTemplateReuseSource(builtins, slot, templateRef))
 	now := time.Date(2026, 7, 30, 1, 0, 0, 0, time.UTC)
@@ -238,7 +278,7 @@ func clickTemplateSource(builtins nodes.Builtins, slot string, template blob.Blo
 		"graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"click","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{"slot":%q},
-			 "bindings":{"template":{"kind":"blob","blob":{"mediaType":%q,"digest":%q,"size":%d}},"region":{"kind":"default"},"threshold":{"kind":"default"},"timeout":{"kind":"value","value":5000},"poll-interval":{"kind":"value","value":100},"settle-duration":{"kind":"value","value":0},"button":{"kind":"default"},"hold-duration":{"kind":"default"}}}
+			 "bindings":{"template":{"kind":"blob","blob":{"mediaType":%q,"digest":%q,"size":%d}},"region":{"kind":"value","value":{"x":0.2,"y":0.2,"width":0.5,"height":0.5,"unit":"ratio"}},"threshold":{"kind":"default"},"timeout":{"kind":"value","value":5000},"poll-interval":{"kind":"value","value":100},"settle-duration":{"kind":"value","value":0},"button":{"kind":"default"},"hold-duration":{"kind":"default"}}}
 		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"click","portId":"in"}}],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
 		click.Contract.NodeRef().NodeTypeID, click.Contract.NodeRef().SemanticDigest, slot,

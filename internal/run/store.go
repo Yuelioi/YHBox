@@ -170,6 +170,40 @@ func (s *Store) Update(ctx context.Context, previous artifact.Digest, next Recor
 	return mapRunRepositoryError(err)
 }
 
+// appendJournal commits the next locally sealed journal generation without
+// reconstructing the complete ledger from SQLite. JournalWriter is the single
+// owner of current; the repository CAS still rejects a stale generation or
+// digest, while validSuccessor protects the immutable in-memory prefix.
+//
+// The ordinary Update boundary deliberately re-opens untrusted Records. Doing
+// that for every runtime fact made each append scan and validate the entire
+// persisted timeline, so latency grew linearly during long-running workflows.
+func (s *Store) appendJournal(ctx context.Context, current, next Record) error {
+	if ctx == nil {
+		return errors.New("run journal append requires a context")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if !current.Valid() || !next.Valid() || current.Status() != StatusRunning || next.Status() != StatusRunning ||
+		!validSuccessor(current, next) {
+		return ErrRunTransition
+	}
+	entry := next.state.document.Journal[len(next.state.document.Journal)-1]
+	event, err := ledgerEvent(entry)
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	err = s.repository.AppendEvent(
+		ctx, next.Admission().RunID,
+		current.Generation(), current.Digest(),
+		next.Generation(), next.Digest(), event, entry.OccurredAt,
+	)
+	return mapRunRepositoryError(err)
+}
+
 func (s *Store) Load(runID string) (Record, error) {
 	if err := runid.Validate(runID); err != nil {
 		return Record{}, err

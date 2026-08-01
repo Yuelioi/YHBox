@@ -245,6 +245,13 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	controlDualColorBarDefinition, _, err := defineControlDualColorBarNode(extendedTypes{
+		stringRef: stringType.TypeRef(), numberRef: numberType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef(),
+		jsonRef: jsonType.TypeRef(), pointUnitRef: pointUnitType.TypeRef(), pointRef: pointType.TypeRef(), regionRef: regionType.TypeRef(),
+	}, visionTypes, durationMillisecondsType.TypeRef(), keyCodeType.TypeRef())
+	if err != nil {
+		return Builtins{}, err
+	}
 	playInputClipDefinition, playInputClipContract, err := definePlayInputClipNode(inputClipType.TypeRef(), blobRead)
 	if err != nil {
 		return Builtins{}, err
@@ -428,6 +435,7 @@ func Build() (Builtins, error) {
 	definitions = append(definitions, activateWindowDefinition)
 	definitions = append(definitions, stopTargetAppDefinition)
 	definitions = append(definitions, captureWindowDefinition)
+	definitions = append(definitions, controlDualColorBarDefinition)
 	definitions = append(definitions, playInputClipDefinition)
 	definitions = append(definitions, playMacroDefinition)
 	definitions = append(definitions, matchTemplateDefinition)

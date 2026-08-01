@@ -25,7 +25,7 @@ func TestWaitStableRunsThroughExactTargetCaptureAndRecordedJournal(t *testing.T)
 			frame.SetRGBA(x, y, color.RGBA{R: uint8(x * 8), G: uint8(y * 12), B: 40, A: 255})
 		}
 	}
-	provider := &templateAutomationProvider{frame: encodeVisionPNG(t, frame)}
+	provider := &templateAutomationProvider{frame: frame}
 	const targetID, slot = "automation-target/observation", "observation-target"
 	program := compilePrimitiveProgram(t, builtins, waitStableSource(builtins, slot))
 	now := time.Date(2026, 7, 18, 14, 0, 0, 0, time.UTC)

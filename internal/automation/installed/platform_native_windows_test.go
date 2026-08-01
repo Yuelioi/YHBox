@@ -36,6 +36,7 @@ type nativeFixtureWindows struct {
 type nativeFixtureEvent struct {
 	message uint32
 	wParam  uintptr
+	cursor  win.POINT
 }
 
 var nativeFixtureState struct {
@@ -52,8 +53,10 @@ func nativeFixtureWindowProc(hwnd win.HWND, message uint32, wParam, lParam uintp
 		// the test can inject a release while the fixture is still processing the
 		// corresponding button-down message.
 		result := win.DefWindowProc(hwnd, message, wParam, lParam)
+		var cursor win.POINT
+		win.GetCursorPos(&cursor)
 		nativeFixtureState.Lock()
-		nativeFixtureState.events = append(nativeFixtureState.events, nativeFixtureEvent{message: message, wParam: wParam})
+		nativeFixtureState.events = append(nativeFixtureState.events, nativeFixtureEvent{message: message, wParam: wParam, cursor: cursor})
 		nativeFixtureState.Unlock()
 		return result
 	case win.WM_CLOSE:
@@ -196,6 +199,15 @@ func hasNativeFixtureEvent(events []nativeFixtureEvent, message uint32, wParam u
 		}
 	}
 	return false
+}
+
+func nativeFixtureEventFor(events []nativeFixtureEvent, message uint32) (nativeFixtureEvent, bool) {
+	for _, event := range events {
+		if event.message == message {
+			return event, true
+		}
+	}
+	return nativeFixtureEvent{}, false
 }
 
 func nativeFixtureProfile(t *testing.T, executable, title, titleMatch, selection string) Profile {
@@ -440,5 +452,66 @@ func TestNativeWindowsDriverEndToEnd(t *testing.T) {
 	}
 	if matched, err := waiter.WaitWindow(ctx, false, time.Second); err != nil || !matched {
 		t.Fatalf("wait window gone matched=%v error=%v", matched, err)
+	}
+}
+
+func TestNativePostMessageClickUsesTargetCursorAndRestoresIt(t *testing.T) {
+	if os.Getenv("YOTTA_WINDOWS_NATIVE_SMOKE") != "1" {
+		t.Skip("set YOTTA_WINDOWS_NATIVE_SMOKE=1 to run desktop input smoke")
+	}
+	windows := startNativeFixture(t)
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile, err := SealProfile(NewDesktopProfileDraft(DesktopProfilePayload{
+		Application: appcontrol.ProfileDraft{Executable: executable, Arguments: []string{}},
+		WindowTitle: nativeFixtureTitle, WindowTitleMatch: "exact", WindowSelection: "unique", WindowClass: nativeFixtureClass,
+		InputBackend: "postmessage", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	driver, err := newPlatformDriver(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer driver.Close()
+
+	var original win.POINT
+	if !win.GetCursorPos(&original) {
+		t.Fatal("get original cursor position")
+	}
+	defer win.SetCursorPos(original.X, original.Y)
+	if !win.SetCursorPos(10, 10) {
+		t.Fatal("place cursor away from fixture")
+	}
+
+	var client win.RECT
+	if !win.GetClientRect(windows.primary, &client) {
+		t.Fatal("get fixture client rect")
+	}
+	expected := win.POINT{X: int32(float64(client.Right-client.Left-1) * 0.3), Y: int32(float64(client.Bottom-client.Top-1) * 0.3)}
+	if !win.ClientToScreen(windows.primary, &expected) {
+		t.Fatal("project fixture click to screen")
+	}
+	mark := nativeFixtureMark()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if err := driver.Execute(ctx, OperationClick, ClickRequest{Point: Point{X: 0.3, Y: 0.3, Unit: "ratio"}, Button: "left", DurationMilliseconds: 10}); err != nil {
+		t.Fatal(err)
+	}
+	var down nativeFixtureEvent
+	waitNativeFixtureEvents(t, mark, func(events []nativeFixtureEvent) bool {
+		var ok bool
+		down, ok = nativeFixtureEventFor(events, win.WM_LBUTTONDOWN)
+		return ok && hasNativeFixtureEvent(events, win.WM_LBUTTONUP, 0)
+	})
+	if down.cursor != expected {
+		t.Fatalf("cursor during PostMessage down = %+v, want target screen point %+v", down.cursor, expected)
+	}
+	var restored win.POINT
+	if !win.GetCursorPos(&restored) || restored != (win.POINT{X: 10, Y: 10}) {
+		t.Fatalf("cursor after PostMessage click = %+v, want restored position", restored)
 	}
 }

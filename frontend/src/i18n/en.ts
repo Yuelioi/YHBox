@@ -908,6 +908,128 @@ export default {
         description:
           'Capture the configured target through its selected backend and commit a durable Image BlobRef.',
       },
+      controlDualColorBar: {
+        title: 'Control dual color bar',
+        description:
+          'Capture a small region, track a dual color bar, and send left or right keys in one high-frequency node invocation.',
+        input: {
+          'inner-range': {
+            title: 'Pointer color',
+            description: 'RGB or HSV range for the narrow pointer.',
+          },
+          'outer-range': {
+            title: 'Target color',
+            description: 'RGB or HSV range for the wide target bar.',
+          },
+          region: {
+            title: 'Capture region',
+            description: 'Ratio or pixel rectangle captured at the target source.',
+          },
+          'inner-minimum-width': {
+            title: 'Minimum pointer width',
+            description: 'Minimum valid pointer cluster width in pixels.',
+          },
+          'inner-maximum-width': {
+            title: 'Maximum pointer width',
+            description: 'Maximum valid pointer cluster width; 0 selects automatically.',
+          },
+          'outer-minimum-width': {
+            title: 'Minimum target width',
+            description: 'Minimum valid target cluster width; 0 selects automatically.',
+          },
+          'band-height-ratio': {
+            title: 'Band height ratio',
+            description: 'Target scan band height relative to the capture region.',
+          },
+          'band-inner-height-ratio': {
+            title: 'Pointer height ratio',
+            description: 'Scan band height relative to the pointer height.',
+          },
+          'inner-confidence-weight': {
+            title: 'Pointer confidence weight',
+            description: 'Pointer detection contribution to total confidence.',
+          },
+          'outer-confidence-weight': {
+            title: 'Target confidence weight',
+            description: 'Target detection contribution to total confidence.',
+          },
+          'tolerance-ratio': {
+            title: 'Width tolerance ratio',
+            description: 'Target width multiplier used for the direction dead zone.',
+          },
+          'minimum-tolerance': {
+            title: 'Minimum tolerance',
+            description: 'Minimum direction dead zone in pixels.',
+          },
+          'left-keys': {
+            title: 'Left keys',
+            description: 'Keys sent when the pointer is to the right of the target.',
+          },
+          'right-keys': {
+            title: 'Right keys',
+            description: 'Keys sent when the pointer is to the left of the target.',
+          },
+          'hold-duration': {
+            title: 'Key duration',
+            description: 'Milliseconds to hold each directional key press.',
+          },
+          'neutral-duration': {
+            title: 'Neutral interval',
+            description: 'Milliseconds to wait while the pointer remains in the dead zone.',
+          },
+          'cycle-duration': {
+            title: 'Minimum frame period',
+            description:
+              'Minimum milliseconds from one capture-control cycle start to the next; slow frames receive no extra delay.',
+          },
+          'maximum-iterations': {
+            title: 'Maximum frames',
+            description: 'Maximum number of frames processed by this invocation.',
+          },
+          'activation-keys': {
+            title: 'Activation keys',
+            description: 'Keys sent before detection and retried while the bar has not appeared.',
+          },
+          'activation-hold-duration': {
+            title: 'Activation key duration',
+            description: 'Milliseconds to hold each activation key press.',
+          },
+          'appearance-poll-duration': {
+            title: 'Appearance poll interval',
+            description: 'Milliseconds between captures while waiting for the bar.',
+          },
+          'activation-retry-duration': {
+            title: 'Activation retry interval',
+            description: 'Milliseconds before retrying activation while the bar is absent.',
+          },
+          'appearance-timeout': {
+            title: 'Appearance timeout',
+            description: 'Maximum milliseconds to wait for the bar; 0 disables waiting.',
+          },
+        },
+        output: {
+          frames: {
+            title: 'Frames processed',
+            description: 'Frames processed by this invocation.',
+          },
+          'left-actions': {
+            title: 'Left actions',
+            description: 'Number of left key actions sent.',
+          },
+          'right-actions': {
+            title: 'Right actions',
+            description: 'Number of right key actions sent.',
+          },
+          'neutral-actions': {
+            title: 'Neutral actions',
+            description: 'Number of frames inside the direction dead zone.',
+          },
+          'activation-actions': {
+            title: 'Activation actions',
+            description: 'Number of activation key actions sent.',
+          },
+        },
+      },
       waitTemplate: {
         title: 'Wait for template',
         description:
