@@ -399,6 +399,48 @@ func TestProviderCaptureProjectsRawRGBAWithoutPNGEncoding(t *testing.T) {
 	}
 }
 
+func TestProviderCaptureProjectsOnlyRequestedRGBARegion(t *testing.T) {
+	profile, _ := testProfile(t)
+	frame := image.NewRGBA(image.Rect(0, 0, 4, 2))
+	for y := 0; y < 2; y++ {
+		for x := 0; x < 4; x++ {
+			frame.SetRGBA(x, y, color.RGBA{R: uint8(y*4 + x + 1), A: 255})
+		}
+	}
+	provider := &provider{profile: profile, driver: &fakeDriver{frame: frame}}
+	object := openCaptureSession(t, provider)
+
+	raw, err := provider.Invoke(context.Background(), object, OperationCapture, []byte(`{"format":"rgba","region":{"x":0.25,"y":0,"width":0.5,"height":1,"unit":"ratio"}}`))
+	response, decodeErr := OpenCaptureResponse(raw)
+	if err != nil || decodeErr != nil || response.Width != 2 || response.Height != 2 || response.Size != 16 {
+		t.Fatalf("capture response=%s decoded=%#v error=%v decode=%v", raw, response, err, decodeErr)
+	}
+	content, err := provider.Invoke(context.Background(), object, OperationReadCapture, []byte(`{"offset":0,"length":16}`))
+	if err != nil || len(content) != 16 || content[0] != 2 || content[4] != 3 || content[8] != 6 || content[12] != 7 {
+		t.Fatalf("cropped raw capture=%v error=%v", content, err)
+	}
+}
+
+func TestProviderCaptureAcceptsCanonicalWorkflowRegionRequest(t *testing.T) {
+	profile, _ := testProfile(t)
+	frame := image.NewRGBA(image.Rect(0, 0, 100, 100))
+	provider := &provider{profile: profile, driver: &fakeDriver{frame: frame}}
+	object := openCaptureSession(t, provider)
+	payload, err := artifact.Marshal(CaptureRequest{Format: CaptureFormatRGBA, Region: &CaptureRegion{
+		X: 0.3416666666666667, Y: 0.1527777777777778,
+		Width: 0.33125, Height: 0.1824074074074074, Unit: "ratio",
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(payload) <= 128 {
+		t.Fatalf("workflow capture request unexpectedly fits legacy decoder limit: %d bytes", len(payload))
+	}
+	if _, err := provider.Invoke(context.Background(), object, OperationCapture, payload); err != nil {
+		t.Fatalf("canonical workflow capture request (%d bytes) was rejected: %v", len(payload), err)
+	}
+}
+
 func TestProviderContinuesAfterConfiguredExecutableUpdate(t *testing.T) {
 	profile, path := testProfile(t)
 	driver := &fakeDriver{}

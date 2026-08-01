@@ -85,6 +85,15 @@ func (a controllerCaptureAdapter) Frame(hwnd uintptr) (controller.Frame, error) 
 	return controller.Frame{Image: frame, Space: target.SpaceWindowClient, Size: target.Size{W: bounds.Dx(), H: bounds.Dy()}}, nil
 }
 
+func (a controllerCaptureAdapter) FrameROI(hwnd uintptr, roi target.Rect) (controller.Frame, error) {
+	frame, err := a.backend.FrameROI(pkgcapture.Handle(hwnd), roi.X, roi.Y, roi.W, roi.H)
+	if err != nil {
+		return controller.Frame{}, err
+	}
+	bounds := frame.Bounds()
+	return controller.Frame{Image: frame, Space: target.SpaceWindowClient, Size: target.Size{W: bounds.Dx(), H: bounds.Dy()}}, nil
+}
+
 func PlatformSupported() bool { return true }
 
 func newPlatformDriver(profile Profile) (driver, error) {
@@ -169,6 +178,44 @@ func (d *windowsDriver) CaptureFrame(ctx context.Context) (*image.RGBA, error) {
 		return nil, err
 	}
 	return frame.Image, nil
+}
+
+func (d *windowsDriver) CaptureFrameRegion(ctx context.Context, region CaptureRegion) (capturedRegionFrame, error) {
+	select {
+	case <-ctx.Done():
+		return capturedRegionFrame{}, ctx.Err()
+	case <-d.gate:
+	}
+	defer func() { d.gate <- struct{}{} }()
+	if d.closed || d.capture == nil {
+		return capturedRegionFrame{}, failure(CodeContractViolation, errors.New("automation capture driver is closed"))
+	}
+	window, err := d.resolve(ctx)
+	if err != nil {
+		return capturedRegionFrame{}, err
+	}
+	width, height, err := d.capture.ClientSize(pkgcapture.Handle(window.HWND))
+	if err != nil {
+		return capturedRegionFrame{}, failure(CodeCaptureFailed, err)
+	}
+	roi, err := resolveCaptureRegion(image.Rect(0, 0, width, height), region)
+	if err != nil {
+		return capturedRegionFrame{}, failure(CodeInvalidRequest, err)
+	}
+	resolved, err := d.controller(window)
+	if err != nil {
+		return capturedRegionFrame{}, failure(CodeCaptureFailed, err)
+	}
+	frame, err := resolved.Screenshot(ctx, controller.ScreenshotRequest{
+		Space: target.SpaceWindowClient, ROI: target.Rect{X: roi.Min.X, Y: roi.Min.Y, W: roi.Dx(), H: roi.Dy()},
+	})
+	if err != nil {
+		return capturedRegionFrame{}, failure(CodeCaptureFailed, err)
+	}
+	if err := ctx.Err(); err != nil {
+		return capturedRegionFrame{}, err
+	}
+	return capturedRegionFrame{Image: frame.Image, Origin: roi.Min, FrameSize: image.Pt(width, height)}, nil
 }
 
 func (d *windowsDriver) controller(window winutil.WindowHandle) (*controller.Win32Controller, error) {

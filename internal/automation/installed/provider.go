@@ -198,13 +198,25 @@ type TypeTextRequest struct {
 	Text string `json:"text"`
 }
 type CaptureResponse struct {
-	MediaType string `json:"mediaType"`
-	Size      int64  `json:"size"`
-	Width     int64  `json:"width,omitempty"`
-	Height    int64  `json:"height,omitempty"`
+	MediaType   string `json:"mediaType"`
+	Size        int64  `json:"size"`
+	Width       int64  `json:"width,omitempty"`
+	Height      int64  `json:"height,omitempty"`
+	OriginX     int64  `json:"originX,omitempty"`
+	OriginY     int64  `json:"originY,omitempty"`
+	FrameWidth  int64  `json:"frameWidth,omitempty"`
+	FrameHeight int64  `json:"frameHeight,omitempty"`
+}
+type CaptureRegion struct {
+	X      float64 `json:"x"`
+	Y      float64 `json:"y"`
+	Width  float64 `json:"width"`
+	Height float64 `json:"height"`
+	Unit   string  `json:"unit"`
 }
 type CaptureRequest struct {
-	Format string `json:"format,omitempty"`
+	Format string         `json:"format,omitempty"`
+	Region *CaptureRegion `json:"region,omitempty"`
 }
 
 type CaptureRangeRequest struct {
@@ -243,6 +255,16 @@ type driver interface {
 }
 type captureFrameDriver interface {
 	CaptureFrame(context.Context) (*image.RGBA, error)
+}
+
+type captureRegionDriver interface {
+	CaptureFrameRegion(context.Context, CaptureRegion) (capturedRegionFrame, error)
+}
+
+type capturedRegionFrame struct {
+	Image     *image.RGBA
+	Origin    image.Point
+	FrameSize image.Point
 }
 
 type playbackSessionDriver interface {
@@ -608,21 +630,27 @@ func (p *provider) invokeCapture(ctx context.Context, opened *captureSession, op
 	switch operation {
 	case OperationCapture:
 		var request CaptureRequest
-		if err := decodeExact(payload, &request, 128); err != nil {
+		if err := decodeExact(payload, &request, 1024); err != nil {
 			return nil, failure(CodeInvalidRequest, err)
 		}
 		if request.Format != "" && request.Format != CaptureFormatRGBA {
 			return nil, failure(CodeInvalidRequest, errors.New("capture format is unsupported"))
 		}
+		if request.Region != nil {
+			if request.Format != CaptureFormatRGBA || validateCaptureRegion(*request.Region) != nil {
+				return nil, failure(CodeInvalidRequest, errors.New("capture region is invalid"))
+			}
+		}
 		var (
-			data      []byte
-			mediaType = "image/png"
-			width     int64
-			height    int64
-			err       error
+			data                    []byte
+			mediaType               = "image/png"
+			width, height           int64
+			originX, originY        int64
+			frameWidth, frameHeight int64
+			err                     error
 		)
 		if request.Format == CaptureFormatRGBA {
-			data, width, height, err = p.captureRGBA(ctx)
+			data, width, height, originX, originY, frameWidth, frameHeight, err = p.captureRGBA(ctx, request.Region)
 			mediaType = CaptureMediaTypeRGBA
 		} else {
 			data, err = p.driver.Capture(ctx)
@@ -636,6 +664,7 @@ func (p *provider) invokeCapture(ctx context.Context, opened *captureSession, op
 		opened.data = append(opened.data[:0], data...)
 		return artifact.Marshal(CaptureResponse{
 			MediaType: mediaType, Size: int64(len(opened.data)), Width: width, Height: height,
+			OriginX: originX, OriginY: originY, FrameWidth: frameWidth, FrameHeight: frameHeight,
 		})
 	case OperationReadCapture:
 		if opened.data == nil {
@@ -651,34 +680,60 @@ func (p *provider) invokeCapture(ctx context.Context, opened *captureSession, op
 	}
 }
 
-func (p *provider) captureRGBA(ctx context.Context) ([]byte, int64, int64, error) {
+func (p *provider) captureRGBA(ctx context.Context, region *CaptureRegion) ([]byte, int64, int64, int64, int64, int64, int64, error) {
 	var frame *image.RGBA
-	if direct, ok := p.driver.(captureFrameDriver); ok {
+	origin := image.Point{}
+	frameSize := image.Point{}
+	regionApplied := false
+	if direct, ok := p.driver.(captureRegionDriver); ok && region != nil {
+		captured, err := direct.CaptureFrameRegion(ctx, *region)
+		if err != nil {
+			return nil, 0, 0, 0, 0, 0, 0, err
+		}
+		frame, origin, frameSize = captured.Image, captured.Origin, captured.FrameSize
+		regionApplied = true
+	} else if direct, ok := p.driver.(captureFrameDriver); ok {
 		var err error
 		frame, err = direct.CaptureFrame(ctx)
 		if err != nil {
-			return nil, 0, 0, err
+			return nil, 0, 0, 0, 0, 0, 0, err
 		}
 	} else {
 		encoded, err := p.driver.Capture(ctx)
 		if err != nil {
-			return nil, 0, 0, err
+			return nil, 0, 0, 0, 0, 0, 0, err
 		}
 		decoded, err := png.Decode(bytes.NewReader(encoded))
 		if err != nil {
-			return nil, 0, 0, fmt.Errorf("decode capture PNG for RGBA projection: %w", err)
+			return nil, 0, 0, 0, 0, 0, 0, fmt.Errorf("decode capture PNG for RGBA projection: %w", err)
 		}
 		bounds := decoded.Bounds()
 		frame = image.NewRGBA(image.Rect(0, 0, bounds.Dx(), bounds.Dy()))
 		draw.Draw(frame, frame.Bounds(), decoded, bounds.Min, draw.Src)
 	}
 	if frame == nil {
-		return nil, 0, 0, errors.New("capture returned a nil RGBA frame")
+		return nil, 0, 0, 0, 0, 0, 0, errors.New("capture returned a nil RGBA frame")
+	}
+	if frameSize == (image.Point{}) {
+		frameSize = image.Pt(frame.Bounds().Dx(), frame.Bounds().Dy())
+	}
+	if region != nil && !regionApplied {
+		resolved, err := resolveCaptureRegion(frame.Bounds(), *region)
+		if err != nil {
+			return nil, 0, 0, 0, 0, 0, 0, err
+		}
+		origin = resolved.Min.Sub(frame.Bounds().Min)
+		cropped := image.NewRGBA(image.Rect(0, 0, resolved.Dx(), resolved.Dy()))
+		draw.Draw(cropped, cropped.Bounds(), frame, resolved.Min, draw.Src)
+		frame = cropped
 	}
 	bounds := frame.Bounds()
 	width, height := int64(bounds.Dx()), int64(bounds.Dy())
 	if width <= 0 || height <= 0 || height > MaxCaptureBytes/4 || width > MaxCaptureBytes/(height*4) {
-		return nil, 0, 0, errors.New("capture RGBA dimensions exceed byte budget")
+		return nil, 0, 0, 0, 0, 0, 0, errors.New("capture RGBA dimensions exceed byte budget")
+	}
+	if origin.X < 0 || origin.Y < 0 || frameSize.X < int(width) || frameSize.Y < int(height) || origin.X+int(width) > frameSize.X || origin.Y+int(height) > frameSize.Y {
+		return nil, 0, 0, 0, 0, 0, 0, errors.New("capture RGBA projection metadata is invalid")
 	}
 	rowBytes := int(width * 4)
 	data := make([]byte, int(width*height*4))
@@ -686,7 +741,51 @@ func (p *provider) captureRGBA(ctx context.Context) ([]byte, int64, int64, error
 		source := frame.PixOffset(bounds.Min.X, bounds.Min.Y+y)
 		copy(data[y*rowBytes:(y+1)*rowBytes], frame.Pix[source:source+rowBytes])
 	}
-	return data, width, height, nil
+	return data, width, height, int64(origin.X), int64(origin.Y), int64(frameSize.X), int64(frameSize.Y), nil
+}
+
+func validateCaptureRegion(region CaptureRegion) error {
+	values := []float64{region.X, region.Y, region.Width, region.Height}
+	for _, value := range values {
+		if math.IsNaN(value) || math.IsInf(value, 0) {
+			return errors.New("capture region contains a non-finite value")
+		}
+	}
+	if region.X < 0 || region.Y < 0 || region.Width <= 0 || region.Height <= 0 {
+		return errors.New("capture region must have a non-negative origin and positive size")
+	}
+	if region.Unit == "ratio" {
+		if region.X+region.Width > 1 || region.Y+region.Height > 1 {
+			return errors.New("ratio capture region must remain inside the frame")
+		}
+		return nil
+	}
+	if region.Unit != "px" {
+		return errors.New("capture region unit is unsupported")
+	}
+	return nil
+}
+
+func resolveCaptureRegion(bounds image.Rectangle, region CaptureRegion) (image.Rectangle, error) {
+	if err := validateCaptureRegion(region); err != nil {
+		return image.Rectangle{}, err
+	}
+	var x0, y0, x1, y1 float64
+	switch region.Unit {
+	case "ratio":
+		x0, y0 = region.X*float64(bounds.Dx()), region.Y*float64(bounds.Dy())
+		x1, y1 = (region.X+region.Width)*float64(bounds.Dx()), (region.Y+region.Height)*float64(bounds.Dy())
+	case "px":
+		x0, y0, x1, y1 = region.X, region.Y, region.X+region.Width, region.Y+region.Height
+		if x1 > float64(bounds.Dx()) || y1 > float64(bounds.Dy()) {
+			return image.Rectangle{}, errors.New("pixel capture region must remain inside the frame")
+		}
+	}
+	resolved := image.Rect(int(math.Floor(x0)), int(math.Floor(y0)), int(math.Ceil(x1)), int(math.Ceil(y1))).Add(bounds.Min)
+	if resolved.Empty() || !resolved.In(bounds) {
+		return image.Rectangle{}, errors.New("capture region resolves outside the frame")
+	}
+	return resolved, nil
 }
 
 func classifyCaptureFailure(err error) error {
@@ -820,10 +919,18 @@ func validCaptureResponse(response CaptureResponse) bool {
 	case "image/png":
 		return response.Width == 0 && response.Height == 0
 	case CaptureMediaTypeRGBA:
-		return response.Width > 0 && response.Height > 0 &&
+		if !(response.Width > 0 && response.Height > 0 &&
 			response.Height <= MaxCaptureBytes/4 &&
 			response.Width <= MaxCaptureBytes/(response.Height*4) &&
-			response.Size == response.Width*response.Height*4
+			response.Size == response.Width*response.Height*4) {
+			return false
+		}
+		if response.FrameWidth == 0 && response.FrameHeight == 0 && response.OriginX == 0 && response.OriginY == 0 {
+			return true
+		}
+		return response.OriginX >= 0 && response.OriginY >= 0 &&
+			response.FrameWidth >= response.Width && response.FrameHeight >= response.Height &&
+			response.OriginX+response.Width <= response.FrameWidth && response.OriginY+response.Height <= response.FrameHeight
 	default:
 		return false
 	}

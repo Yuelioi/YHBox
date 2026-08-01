@@ -6,11 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"sync"
 
 	"github.com/lxn/win"
 )
 
-type gdiBackend struct{}
+type gdiBackend struct {
+	mu      sync.Mutex
+	surface gdiCaptureSurface
+	closed  bool
+}
 
 func newGDIBackend() (*gdiBackend, error) {
 	return &gdiBackend{}, nil
@@ -27,7 +32,12 @@ func (b *gdiBackend) Frame(hwnd win.HWND) (img *image.RGBA, err error) {
 			img, err = nil, fmt.Errorf("gdi.Frame panicked: %v", r)
 		}
 	}()
-	return gdiFrame(hwnd)
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.closed {
+		return nil, errors.New("gdi.Frame: backend closed")
+	}
+	return gdiFrame(&b.surface, hwnd)
 }
 
 func (b *gdiBackend) FrameROI(hwnd win.HWND, x, y, w, h int) (img *image.RGBA, err error) {
@@ -39,7 +49,12 @@ func (b *gdiBackend) FrameROI(hwnd win.HWND, x, y, w, h int) (img *image.RGBA, e
 			img, err = nil, fmt.Errorf("gdi.FrameROI panicked: %v", r)
 		}
 	}()
-	return gdiFrameROI(hwnd, x, y, w, h)
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.closed {
+		return nil, errors.New("gdi.FrameROI: backend closed")
+	}
+	return gdiFrameROI(&b.surface, hwnd, x, y, w, h)
 }
 
 func (b *gdiBackend) ClientSize(hwnd win.HWND) (int, int, error) {
@@ -49,4 +64,13 @@ func (b *gdiBackend) ClientSize(hwnd win.HWND) (int, int, error) {
 	return winClientSize(hwnd)
 }
 
-func (b *gdiBackend) Close() error { return nil }
+func (b *gdiBackend) Close() error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.closed {
+		return nil
+	}
+	b.closed = true
+	b.surface.close()
+	return nil
+}

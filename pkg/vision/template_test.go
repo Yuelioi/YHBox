@@ -132,3 +132,35 @@ func patternedTemplate(width, height int) *Template {
 	}
 	return &Template{Gray: gray, W: width, H: height}
 }
+
+func TestMatchFastLargeTemplateRefinesMultipleCoarsePeaks(t *testing.T) {
+	template, imageGray, matchX, matchY := fishing1080MatchFixture()
+	x, y, confidence := MatchFast(imageGray, 1920, 1080, template, DefaultParallel())
+	if x != matchX || y != matchY || confidence < 0.99 {
+		t.Fatalf("match = (%d,%d %.4f), want (%d,%d)", x, y, confidence, matchX, matchY)
+	}
+}
+
+func BenchmarkMatchFastFishing1080p(b *testing.B) {
+	template, imageGray, matchX, matchY := fishing1080MatchFixture()
+	b.ResetTimer()
+	for range b.N {
+		x, y, confidence := MatchFast(imageGray, 1920, 1080, template, DefaultParallel())
+		if x != matchX || y != matchY || confidence < 0.99 {
+			b.Fatalf("match = (%d,%d %.4f)", x, y, confidence)
+		}
+	}
+}
+
+func fishing1080MatchFixture() (*Template, []float32, int, int) {
+	template := patternedTemplate(555, 31)
+	imageGray := make([]float32, 1920*1080)
+	for index := range imageGray {
+		imageGray[index] = float32((index*13+index/1920*7)%251) / 250
+	}
+	const matchX, matchY = 683, 91
+	for y := 0; y < template.H; y++ {
+		copy(imageGray[(matchY+y)*1920+matchX:(matchY+y)*1920+matchX+template.W], template.Gray[y*template.W:(y+1)*template.W])
+	}
+	return template, imageGray, matchX, matchY
+}

@@ -48,6 +48,11 @@ type visionMatchResult struct {
 	TemplatePixels          int64
 }
 
+type preparedVisionTemplate struct {
+	template *vision.Template
+	fast     *vision.FastTemplate
+}
+
 func matchTemplate(builtins nodes.Builtins) nodeadapter.Adapter {
 	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		counters := map[string]int64{}
@@ -103,40 +108,58 @@ func matchTemplateBytes(imageBytes, templateBytes []byte, region visionRegion, t
 }
 
 func matchTemplateFrame(frame *image.RGBA, templateBytes []byte, region visionRegion, threshold float64) (visionMatchResult, error) {
+	prepared, err := prepareVisionTemplate(templateBytes)
+	if err != nil {
+		return visionMatchResult{}, err
+	}
+	return matchPreparedTemplateFrame(frame, prepared, region, threshold)
+}
+
+func prepareVisionTemplate(templateBytes []byte) (*preparedVisionTemplate, error) {
 	templateImage, err := decodeVisionPNG(templateBytes)
 	if err != nil {
-		return visionMatchResult{}, visionFailure(nodes.VisionTemplateInvalidCode, err)
+		return nil, visionFailure(nodes.VisionTemplateInvalidCode, err)
+	}
+	templateGray, templateWidth, templateHeight := vision.RGBAToGray(templateImage)
+	if uniformVisionTemplate(templateGray) {
+		return nil, visionFailure(nodes.VisionTemplateInvalidCode, errors.New("template has no grayscale variance"))
+	}
+	template := &vision.Template{Gray: templateGray, W: templateWidth, H: templateHeight}
+	fast := vision.PrepareFastTemplate(template)
+	if fast == nil {
+		return nil, visionFailure(nodes.VisionTemplateInvalidCode, errors.New("template could not be prepared"))
+	}
+	return &preparedVisionTemplate{template: template, fast: fast}, nil
+}
+
+func matchPreparedTemplateFrame(frame *image.RGBA, prepared *preparedVisionTemplate, region visionRegion, threshold float64) (visionMatchResult, error) {
+	if prepared == nil || prepared.template == nil || prepared.fast == nil {
+		return visionMatchResult{}, visionFailure(nodes.VisionTemplateInvalidCode, errors.New("template is not prepared"))
 	}
 	searchRect, err := resolveVisionRegion(frame.Bounds(), region)
 	if err != nil {
 		return visionMatchResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
 	}
-	if templateImage.Bounds().Dx() > searchRect.Dx() || templateImage.Bounds().Dy() > searchRect.Dy() {
+	if prepared.template.W > searchRect.Dx() || prepared.template.H > searchRect.Dy() {
 		return visionMatchResult{}, visionFailure(nodes.VisionTemplateInvalidCode, fmt.Errorf(
 			"template dimensions %dx%d exceed search region %dx%d",
-			templateImage.Bounds().Dx(), templateImage.Bounds().Dy(), searchRect.Dx(), searchRect.Dy(),
+			prepared.template.W, prepared.template.H, searchRect.Dx(), searchRect.Dy(),
 		))
 	}
 	searchGray, searchWidth, searchHeight := vision.RGBAToGray(frame.SubImage(searchRect).(*image.RGBA))
-	templateGray, templateWidth, templateHeight := vision.RGBAToGray(templateImage)
-	if uniformVisionTemplate(templateGray) {
-		return visionMatchResult{}, visionFailure(nodes.VisionTemplateInvalidCode, errors.New("template has no grayscale variance"))
-	}
-	x, y, score := vision.MatchFast(searchGray, searchWidth, searchHeight, &vision.Template{
-		Gray: templateGray, W: templateWidth, H: templateHeight,
-	}, vision.DefaultParallel())
+	x, y, score := vision.MatchFastPrepared(searchGray, searchWidth, searchHeight, prepared.fast, vision.DefaultParallel())
 	result := visionMatchResult{
 		Matched: x >= 0 && y >= 0 && score >= float32(threshold), Score: boundedVisionScore(score),
 		Center: visionPoint{Unit: "px"}, Bounds: visionRegion{Unit: "px"},
 		FrameWidth: frame.Bounds().Dx(), FrameHeight: frame.Bounds().Dy(),
-		SearchPixels: int64(searchWidth * searchHeight), TemplatePixels: int64(templateWidth * templateHeight),
+		SearchPixels: int64(searchWidth * searchHeight), TemplatePixels: int64(prepared.template.W * prepared.template.H),
 	}
 	if x >= 0 && y >= 0 {
 		absoluteX, absoluteY := searchRect.Min.X+x, searchRect.Min.Y+y
-		result.Center.X = float64(absoluteX) + float64(templateWidth)/2
-		result.Center.Y = float64(absoluteY) + float64(templateHeight)/2
+		result.Center.X = float64(absoluteX) + float64(prepared.template.W)/2
+		result.Center.Y = float64(absoluteY) + float64(prepared.template.H)/2
 		result.Bounds.X, result.Bounds.Y = float64(absoluteX), float64(absoluteY)
-		result.Bounds.Width, result.Bounds.Height = float64(templateWidth), float64(templateHeight)
+		result.Bounds.Width, result.Bounds.Height = float64(prepared.template.W), float64(prepared.template.H)
 	} else {
 		result.Score = -1
 	}
