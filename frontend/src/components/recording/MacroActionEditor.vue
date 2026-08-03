@@ -50,6 +50,48 @@
     </header>
 
     <div
+      class="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-default bg-elevated/10 px-3 py-2.5"
+    >
+      <div class="flex min-w-64 flex-1 items-start gap-2">
+        <UIcon name="i-tabler-route-alt-left" class="mt-0.5 size-4 shrink-0 text-primary" />
+        <div>
+          <p class="text-xs font-medium text-highlighted">{{ t('macroEditor.auto_move_title') }}</p>
+          <p class="mt-0.5 text-[11px] leading-4 text-muted">
+            {{ t('macroEditor.auto_move_hint') }}
+          </p>
+        </div>
+      </div>
+      <USwitch
+        :model-value="modelValue.meta.autoMove.enabled"
+        :aria-label="t('macroEditor.auto_move_enabled')"
+        @update:model-value="updateAutoMoveEnabled(Boolean($event))"
+      />
+      <AdaptiveSelect
+        v-if="modelValue.meta.autoMove.enabled"
+        :model-value="modelValue.meta.autoMove.mode"
+        :items="motionItems"
+        class="w-36"
+        width-mode="fixed"
+        :aria-label="t('macroEditor.motion')"
+        @update:model-value="updateAutoMoveMode"
+      />
+      <template
+        v-if="modelValue.meta.autoMove.enabled && modelValue.meta.autoMove.mode !== 'instant'"
+      >
+        <UInputNumber
+          :model-value="modelValue.meta.autoMove.durationMs"
+          :min="1"
+          :max="60_000"
+          :step="10"
+          class="w-24"
+          :aria-label="t('macroEditor.auto_move_duration')"
+          @update:model-value="updateAutoMoveDuration"
+        />
+        <span class="text-xs text-muted">ms</span>
+      </template>
+    </div>
+
+    <div
       v-if="analysis.issues.length"
       class="flex shrink-0 items-start gap-2 border-b border-error/30 bg-error/10 px-3 py-2 text-xs text-error"
       role="alert"
@@ -60,7 +102,7 @@
 
     <div v-if="visibleRows.length" class="min-h-0 flex-1 overflow-auto">
       <div
-        class="sticky top-0 z-10 grid min-w-[940px] grid-cols-[2.25rem_3rem_8rem_minmax(18rem,1fr)_8rem_5rem] items-center gap-2 border-b border-default bg-elevated px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-dimmed"
+        class="sticky top-0 z-10 grid min-w-[1080px] grid-cols-[2.25rem_3rem_8rem_minmax(26rem,1fr)_8rem_5rem] items-center gap-2 border-b border-default bg-elevated px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-dimmed"
       >
         <UCheckbox
           :model-value="allVisibleSelected"
@@ -76,7 +118,7 @@
       <article
         v-for="entry in visibleRows"
         :key="entry.row.id"
-        class="grid min-h-12 min-w-[940px] grid-cols-[2.25rem_3rem_8rem_minmax(18rem,1fr)_8rem_5rem] items-center gap-2 border-b border-default/70 px-3 py-2 transition-colors hover:bg-elevated/35"
+        class="grid min-h-12 min-w-[1080px] grid-cols-[2.25rem_3rem_8rem_minmax(26rem,1fr)_8rem_5rem] items-center gap-2 border-b border-default/70 px-3 py-2 transition-colors hover:bg-elevated/35"
         :class="[
           selected.has(entry.row.id) ? 'bg-primary/5' : '',
           dragTarget?.rowId === entry.row.id ? 'ring-1 ring-inset ring-primary/70' : '',
@@ -106,7 +148,7 @@
           {{ actionLabel(entry.row.kind) }}
         </UBadge>
 
-        <div class="flex min-w-0 items-center gap-2">
+        <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
           <template v-if="isKeyRow(entry.row)">
             <UInput
               :model-value="entry.row.key ?? ''"
@@ -142,11 +184,12 @@
           </template>
           <template v-else>
             <AdaptiveSelect
-              v-if="entry.row.kind !== 'scroll'"
+              v-if="usesButton(entry.row)"
               :model-value="entry.row.button ?? 'left'"
               :items="buttonItems"
               class="w-28"
               width-mode="fixed"
+              :aria-label="t('macroEditor.button')"
               @update:model-value="updateButton(entry.row, $event)"
             />
             <UInputNumber
@@ -156,33 +199,89 @@
               :max="120"
               :step="1"
               class="w-24"
+              :aria-label="t('macroEditor.notches')"
               @update:model-value="updateNotches(entry.row, $event)"
             />
-            <span class="text-[10px] text-dimmed">X%</span>
+            <template v-if="entry.row.kind === 'drag'">
+              <span class="text-[10px] font-medium text-muted">{{ t('macroEditor.from_x') }}</span>
+              <UInputNumber
+                :model-value="ratioToPercent(entry.row.from?.x)"
+                :min="0"
+                :max="100"
+                :step="1"
+                class="w-24"
+                :aria-label="t('macroEditor.from_x')"
+                @update:model-value="updatePoint(entry.row, 'from', 'x', $event)"
+              />
+              <span class="text-[10px] font-medium text-muted">{{ t('macroEditor.from_y') }}</span>
+              <UInputNumber
+                :model-value="ratioToPercent(entry.row.from?.y)"
+                :min="0"
+                :max="100"
+                :step="1"
+                class="w-24"
+                :aria-label="t('macroEditor.from_y')"
+                @update:model-value="updatePoint(entry.row, 'from', 'y', $event)"
+              />
+            </template>
+            <span class="text-[10px] font-medium text-muted">
+              {{ t(entry.row.kind === 'drag' ? 'macroEditor.to_x' : 'macroEditor.point_x') }}
+            </span>
             <UInputNumber
               :model-value="ratioToPercent(entry.row.point?.x)"
               :min="0"
               :max="100"
               :step="1"
               class="w-24"
-              @update:model-value="updatePoint(entry.row, 'x', $event)"
+              :aria-label="
+                t(entry.row.kind === 'drag' ? 'macroEditor.to_x' : 'macroEditor.point_x')
+              "
+              @update:model-value="updatePoint(entry.row, 'point', 'x', $event)"
             />
-            <span class="text-[10px] text-dimmed">Y%</span>
+            <span class="text-[10px] font-medium text-muted">
+              {{ t(entry.row.kind === 'drag' ? 'macroEditor.to_y' : 'macroEditor.point_y') }}
+            </span>
             <UInputNumber
               :model-value="ratioToPercent(entry.row.point?.y)"
               :min="0"
               :max="100"
               :step="1"
               class="w-24"
-              @update:model-value="updatePoint(entry.row, 'y', $event)"
+              :aria-label="
+                t(entry.row.kind === 'drag' ? 'macroEditor.to_y' : 'macroEditor.point_y')
+              "
+              @update:model-value="updatePoint(entry.row, 'point', 'y', $event)"
             />
-            <template v-if="entry.row.kind === 'click'">
+            <template v-if="isMotionRow(entry.row)">
+              <AdaptiveSelect
+                :model-value="entry.row.motion ?? 'linear'"
+                :items="motionItems"
+                class="w-36"
+                width-mode="fixed"
+                :aria-label="t('macroEditor.motion')"
+                @update:model-value="updateMotion(entry.row, $event)"
+              />
+              <template v-if="entry.row.motion !== 'instant'">
+                <UInputNumber
+                  :model-value="microsecondsToMilliseconds(entry.row.durationUs)"
+                  :min="1"
+                  :max="60_000"
+                  :step="10"
+                  class="w-24"
+                  :aria-label="t('macroEditor.duration_ms')"
+                  @update:model-value="updateDuration(entry.row, $event)"
+                />
+                <span class="text-xs text-muted">ms</span>
+              </template>
+            </template>
+            <template v-else-if="entry.row.kind === 'click'">
               <UInputNumber
                 :model-value="microsecondsToMilliseconds(entry.row.durationUs)"
                 :min="1"
                 :max="5000"
                 :step="10"
                 class="w-28"
+                :aria-label="t('macroEditor.duration_ms')"
                 @update:model-value="updateDuration(entry.row, $event)"
               />
               <span class="text-xs text-muted">ms</span>
@@ -284,9 +383,10 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { MacroAction, MacroActionKind } from '@/stores/recording'
+import type { MacroDocument } from '@/lib/backend'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import {
-  analyzeMacroActions,
+  analyzeMacroDocument,
   canonicalBrowserKey,
   cloneMacroAction,
   duplicateMacroRows,
@@ -302,9 +402,9 @@ import {
 type ViewMode = 'simple' | 'atomic'
 type InsertKind = MacroActionKind | 'key-press'
 
-const props = defineProps<{ modelValue: MacroAction[] }>()
+const props = defineProps<{ modelValue: MacroDocument }>()
 const emit = defineEmits<{
-  'update:modelValue': [value: MacroAction[]]
+  'update:modelValue': [value: MacroDocument]
   validity: [valid: boolean]
 }>()
 const { t } = useI18n()
@@ -319,7 +419,13 @@ const buttonItems = computed(() => [
   { label: t('macroEditor.button_middle'), value: 'middle' },
   { label: t('macroEditor.button_right'), value: 'right' },
 ])
-const editorRows = computed(() => projectMacroRows(props.modelValue, viewMode.value === 'simple'))
+const motionItems = computed(() => [
+  { label: t('macroEditor.motion_instant'), value: 'instant' },
+  { label: t('macroEditor.motion_linear'), value: 'linear' },
+  { label: t('macroEditor.motion_bezier'), value: 'bezier' },
+])
+const actions = computed(() => props.modelValue.actions)
+const editorRows = computed(() => projectMacroRows(actions.value, viewMode.value === 'simple'))
 const selectedRows = computed(() => editorRows.value.filter((row) => selected.has(row.id)))
 const selectedRowPositions = computed(() =>
   editorRows.value
@@ -337,7 +443,7 @@ const canMoveSelectedDown = computed(
 const selectedEndIndex = computed(() =>
   selectedRows.value.length
     ? Math.max(...selectedRows.value.map((row) => row.endIndex))
-    : props.modelValue.length - 1,
+    : actions.value.length - 1,
 )
 const addMenuItems = computed(() => actionMenu(selectedEndIndex.value))
 const addButtonLabel = computed(() =>
@@ -349,7 +455,7 @@ const visibleRows = computed(() => {
     .map((row, position) => ({ row, position }))
     .filter(({ row }) =>
       needle
-        ? `${actionLabel(row.kind)} ${row.key ?? ''} ${row.button ?? ''}`
+        ? `${actionLabel(row.kind)} ${row.key ?? ''} ${row.button ?? ''} ${row.motion ?? ''}`
             .toLocaleLowerCase()
             .includes(needle)
         : true,
@@ -358,7 +464,7 @@ const visibleRows = computed(() => {
 const allVisibleSelected = computed(
   () => visibleRows.value.length > 0 && visibleRows.value.every(({ row }) => selected.has(row.id)),
 )
-const analysis = computed(() => analyzeMacroActions(props.modelValue))
+const analysis = computed(() => analyzeMacroDocument(props.modelValue))
 const issueMessage = computed(() =>
   analysis.value.issues[0] ? translateIssue(analysis.value.issues[0]) : '',
 )
@@ -367,11 +473,11 @@ const summaryLabel = computed(() =>
   viewMode.value === 'simple'
     ? t('macroEditor.summary_simple', {
         count: editorRows.value.length,
-        atomic: props.modelValue.length,
+        atomic: actions.value.length,
         duration: durationLabel.value,
       })
     : t('macroEditor.summary', {
-        count: props.modelValue.length,
+        count: actions.value.length,
         duration: durationLabel.value,
       }),
 )
@@ -399,6 +505,8 @@ function actionMenu(afterIndex: number) {
     [
       menuAction('key-press', 'i-tabler-keyboard', afterIndex),
       menuAction('click', 'i-tabler-pointer', afterIndex),
+      menuAction('move', 'i-tabler-location', afterIndex),
+      menuAction('drag', 'i-tabler-drag-drop', afterIndex),
       menuAction('scroll', 'i-tabler-mouse', afterIndex),
       menuAction('sleep', 'i-tabler-clock-pause', afterIndex),
     ],
@@ -446,15 +554,67 @@ function add(kind: InsertKind, afterIndex: number): void {
             ? { id, kind, point, notches: 1 }
             : kind === 'click'
               ? { id, kind, point, button: 'left', durationUs: 50_000 }
-              : { id, kind, point, button: 'left' }
+              : kind === 'move'
+                ? { id, kind, point, durationUs: 300_000, motion: 'linear' }
+                : kind === 'drag'
+                  ? {
+                      id,
+                      kind,
+                      from: { x: 0.25, y: 0.25, unit: 'ratio' },
+                      point: { x: 0.75, y: 0.75, unit: 'ratio' },
+                      button: 'left',
+                      durationUs: 300_000,
+                      motion: 'linear',
+                    }
+                  : { id, kind, point, button: 'left' }
     additions = [action]
   }
-  emit('update:modelValue', insertMacroActions(props.modelValue, afterIndex, additions))
+  emitActions(insertMacroActions(actions.value, afterIndex, additions))
   selected.clear()
 }
 
 function patchRow(row: MacroEditorRow, patch: Parameters<typeof patchMacroRow>[2]): void {
-  emit('update:modelValue', patchMacroRow(props.modelValue, row, patch))
+  emitActions(patchMacroRow(actions.value, row, patch))
+}
+
+function updateAutoMoveEnabled(enabled: boolean): void {
+  emitAutoMove({ enabled })
+}
+
+function updateAutoMoveMode(value: unknown): void {
+  if (value !== 'instant' && value !== 'linear' && value !== 'bezier') return
+  emitAutoMove({
+    mode: value,
+    durationMs:
+      value === 'instant'
+        ? 0
+        : props.modelValue.meta.autoMove.durationMs > 0
+          ? props.modelValue.meta.autoMove.durationMs
+          : 300,
+  })
+}
+
+function updateAutoMoveDuration(value: unknown): void {
+  emitAutoMove({ durationMs: Math.max(1, Math.min(60_000, Math.round(Number(value) || 1))) })
+}
+
+function emitAutoMove(patch: Partial<MacroDocument['meta']['autoMove']>): void {
+  emit('update:modelValue', {
+    ...props.modelValue,
+    meta: {
+      autoMove: {
+        ...props.modelValue.meta.autoMove,
+        ...patch,
+      },
+    },
+  })
+}
+
+function emitActions(next: MacroAction[]): void {
+  emit('update:modelValue', {
+    ...props.modelValue,
+    actions: next,
+  })
 }
 
 function captureKey(row: MacroEditorRow, event: KeyboardEvent): void {
@@ -476,10 +636,22 @@ function updateNotches(row: MacroEditorRow, value: unknown): void {
   patchRow(row, { notches })
 }
 
-function updatePoint(row: MacroEditorRow, axis: 'x' | 'y', value: unknown): void {
-  const point = row.point ?? { x: 0.5, y: 0.5, unit: 'ratio' as const }
+function updatePoint(
+  row: MacroEditorRow,
+  field: 'from' | 'point',
+  axis: 'x' | 'y',
+  value: unknown,
+): void {
+  const point = row[field] ?? { x: 0.5, y: 0.5, unit: 'ratio' as const }
+  const next = { ...point, [axis]: Math.max(0, Math.min(1, (Number(value) || 0) / 100)) }
+  patchRow(row, field === 'from' ? { from: next } : { point: next })
+}
+
+function updateMotion(row: MacroEditorRow, value: unknown): void {
+  if (value !== 'instant' && value !== 'linear' && value !== 'bezier') return
   patchRow(row, {
-    point: { ...point, [axis]: Math.max(0, Math.min(1, (Number(value) || 0) / 100)) },
+    motion: value,
+    durationUs: value === 'instant' ? 0 : Math.max(row.durationUs ?? 0, 300_000),
   })
 }
 
@@ -506,10 +678,7 @@ function rowMenuItems(row: MacroEditorRow) {
 }
 
 function duplicateRows(rows: MacroEditorRow[]): void {
-  emit(
-    'update:modelValue',
-    duplicateMacroRows(props.modelValue, rows, () => newActionID()),
-  )
+  emitActions(duplicateMacroRows(actions.value, rows, () => newActionID()))
   selected.clear()
 }
 
@@ -526,15 +695,12 @@ function moveSelected(direction: 'up' | 'down'): void {
   const neighbor = editorRows.value[edge]
   if (!neighbor) return
   const insertAt = direction === 'up' ? neighbor.startIndex : neighbor.endIndex + 1
-  emit('update:modelValue', moveMacroRows(props.modelValue, selectedRows.value, insertAt))
+  emitActions(moveMacroRows(actions.value, selectedRows.value, insertAt))
 }
 
 function removeRows(rows: MacroEditorRow[]): void {
   const removed = new Set(rows.flatMap((row) => row.actionIds))
-  emit(
-    'update:modelValue',
-    props.modelValue.filter((action) => !removed.has(action.id)).map(cloneMacroAction),
-  )
+  emitActions(actions.value.filter((action) => !removed.has(action.id)).map(cloneMacroAction))
   selected.clear()
 }
 
@@ -580,7 +746,7 @@ function dropRows(): void {
   const target = dragTarget.value
   if (!target) return endDrag()
   const moving = editorRows.value.filter((row) => draggedRowIDs.value.includes(row.id))
-  emit('update:modelValue', moveMacroRows(props.modelValue, moving, target.insertAt))
+  emitActions(moveMacroRows(actions.value, moving, target.insertAt))
   endDrag()
 }
 
@@ -599,11 +765,21 @@ function isKeyRow(row: MacroEditorRow): boolean {
   return row.kind === 'key-press' || row.kind === 'key-down' || row.kind === 'key-up'
 }
 
+function isMotionRow(row: MacroEditorRow): boolean {
+  return row.kind === 'move' || row.kind === 'drag'
+}
+
+function usesButton(row: MacroEditorRow): boolean {
+  return row.kind !== 'move' && row.kind !== 'scroll'
+}
+
 function newActionID(): string {
   return `action-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 }
 
 function translateIssue(issue: MacroEditorIssue): string {
+  if (issue.code === 'auto-move-mode') return t('macroEditor.error_auto_move_mode')
+  if (issue.code === 'auto-move-duration') return t('macroEditor.error_auto_move_duration')
   if (issue.code === 'key-already-down')
     return t('macroEditor.error_key_down', { n: issue.index + 1, key: issue.key })
   if (issue.code === 'key-not-down')
@@ -612,8 +788,8 @@ function translateIssue(issue: MacroEditorIssue): string {
     return t('macroEditor.error_button_down', { n: issue.index + 1 })
   if (issue.code === 'button-not-down')
     return t('macroEditor.error_button_up', { n: issue.index + 1 })
-  if (issue.code === 'click-button-held')
-    return t('macroEditor.error_click_held', {
+  if (issue.code === 'pointer-action-button-held')
+    return t('macroEditor.error_pointer_held', {
       n: issue.index + 1,
       button: issue.button,
     })

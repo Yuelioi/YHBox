@@ -25,7 +25,12 @@ const macroAsset: MacroAsset = {
   category: '',
   tags: [],
   createdAt: '2026-07-26T00:00:00Z',
-  document: { schemaVersion: 1, baseResolution: [1920, 1080], actions: [] },
+  document: {
+    schemaVersion: 2,
+    baseResolution: [1920, 1080],
+    meta: { autoMove: { enabled: true, mode: 'linear', durationMs: 300 } },
+    actions: [],
+  },
   blob: { mediaType: 'application/json', digest: 'sha256:global', size: 10 },
 }
 

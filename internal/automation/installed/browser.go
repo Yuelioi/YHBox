@@ -116,11 +116,14 @@ func (driver *browserDriver) Execute(ctx context.Context, operation string, raw 
 	case ClickRequest:
 		return resolved.Click(ctx, controller.ClickRequest{Point: browserPoint(request.Point), Button: request.Button, DurationMs: int(request.DurationMilliseconds)})
 	case MoveRequest:
-		return resolved.Move(ctx, controller.MoveRequest{Point: browserPoint(request.Point)})
+		return resolved.Move(ctx, controller.MoveRequest{Point: browserPoint(request.Point), DurationMs: int(request.DurationMilliseconds), Motion: request.Motion})
 	case ScrollRequest:
 		return resolved.Scroll(ctx, controller.ScrollRequest{Point: browserPoint(request.Point), Notches: int(request.Notches), Horizontal: request.Horizontal})
 	case DragRequest:
-		return resolved.Drag(ctx, controller.DragRequest{From: browserPoint(request.From), To: browserPoint(request.To), Button: request.Button, DurationMs: int(request.DurationMilliseconds)})
+		return resolved.Drag(ctx, controller.DragRequest{
+			From: browserPoint(request.From), To: browserPoint(request.To), Button: request.Button,
+			DurationMs: int(request.DurationMilliseconds), Motion: request.Motion,
+		})
 	case PressKeysRequest:
 		return resolved.KeyChord(ctx, controller.KeyChordRequest{Keys: request.Keys})
 	case TypeTextRequest:

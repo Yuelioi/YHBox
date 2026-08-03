@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/yottaapp/yotta/internal/automation/controller"
+	"github.com/yottaapp/yotta/internal/automation/pointermotion"
 	"github.com/yottaapp/yotta/internal/automation/target"
 	"github.com/yottaapp/yotta/internal/resource"
 )
@@ -266,8 +267,9 @@ func TestAndroidPlaybackTranslatesTouchKeyAndScrollEvents(t *testing.T) {
 	}
 	point := func(x, y float64) *Point { return &Point{X: x, Y: y, Unit: "ratio"} }
 	events := []PlaybackEvent{
+		{Kind: PlaybackClick, Point: point(0.5, 0.25), Button: "left", DurationMilliseconds: 25},
 		{Kind: PlaybackButtonDown, Point: point(0.25, 0.25), Button: "left"},
-		{Kind: PlaybackMove, Point: point(0.75, 0.75)},
+		{Kind: PlaybackMove, Point: point(0.75, 0.75), Motion: pointermotion.Instant},
 		{Kind: PlaybackButtonUp, Point: point(0.75, 0.75), Button: "left"},
 		{Kind: PlaybackKeyDown, KeyCode: 0x41},
 		{Kind: PlaybackKeyUp, KeyCode: 0x41},
@@ -278,14 +280,16 @@ func TestAndroidPlaybackTranslatesTouchKeyAndScrollEvents(t *testing.T) {
 			t.Fatalf("PlayEvent(%s) = %v", event.Kind, err)
 		}
 	}
-	if len(commands) != 5 {
+	if len(commands) != 7 {
 		t.Fatalf("ADB commands = %#v", commands)
 	}
 	if commands[0] != "emulator-5554 [shell dumpsys input]" ||
-		commands[1] != "emulator-5554 [shell input swipe 270 480 810 1440 100]" ||
-		commands[2] != "emulator-5554 [shell input keyevent 29]" ||
-		commands[3] != "emulator-5554 [shell dumpsys input]" ||
-		commands[4] != "emulator-5554 [shell input swipe 540 960 540 720 120]" {
+		commands[1] != "emulator-5554 [shell input tap 540 480]" ||
+		commands[2] != "emulator-5554 [shell dumpsys input]" ||
+		commands[3] != "emulator-5554 [shell input swipe 270 480 810 1440 100]" ||
+		commands[4] != "emulator-5554 [shell input keyevent 29]" ||
+		commands[5] != "emulator-5554 [shell dumpsys input]" ||
+		commands[6] != "emulator-5554 [shell input swipe 540 960 540 720 120]" {
 		t.Fatalf("ADB commands = %#v", commands)
 	}
 	if err := driver.ReleaseInput(); err != nil || driver.playback != nil {

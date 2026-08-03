@@ -40,15 +40,20 @@ const pending: RecordingStopPayload = {
     steps: [],
     tracks: [],
   },
-  actions: [
-    {
-      id: 'click-1',
-      kind: 'click',
-      durationUs: 1,
-      button: 'left',
-      point: { x: 0.5, y: 0.5, unit: 'ratio' },
-    },
-  ],
+  document: {
+    schemaVersion: 2,
+    baseResolution: [1920, 1080],
+    meta: { autoMove: { enabled: true, mode: 'linear', durationMs: 300 } },
+    actions: [
+      {
+        id: 'click-1',
+        kind: 'click',
+        durationUs: 1,
+        button: 'left',
+        point: { x: 0.5, y: 0.5, unit: 'ratio' },
+      },
+    ],
+  },
   environment: {
     baseResolution: [1920, 1080],
     mouseMode: 'absolute',
@@ -146,6 +151,7 @@ describe('EditorRecordingController', () => {
         destination: 'workflow-resource',
         label: 'Login steps',
         tags: ['Recorded', 'smoke'],
+        document: pending.document,
       }),
     )
     expect(imported).toEqual([resource])

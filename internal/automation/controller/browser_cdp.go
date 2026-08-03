@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"image/png"
 	"math"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/automation/pointermotion"
 	"github.com/yottaapp/yotta/internal/automation/target"
 	automationtrace "github.com/yottaapp/yotta/internal/automation/trace"
 )
@@ -125,6 +127,9 @@ func (c *BrowserCDPController) Move(ctx context.Context, req MoveRequest) error 
 		return err
 	}
 	return c.recordActionWithSteps("move", req, steps, func() (any, error) {
+		if req.Motion != pointermotion.Instant || req.DurationMs != 0 {
+			return nil, fmt.Errorf("browser cdp smooth move requires a known start point")
+		}
 		x, y, err := c.pointToViewport(req.Point)
 		if err != nil {
 			return nil, err
@@ -194,14 +199,24 @@ func (c *BrowserCDPController) Drag(ctx context.Context, req DragRequest) error 
 			return nil, err
 		}
 		button := browserMouseButton(req.Button)
+		plan, err := pointermotion.Build(
+			pointermotion.Point{X: float64(x1), Y: float64(y1)},
+			pointermotion.Point{X: float64(x2), Y: float64(y2)},
+			time.Duration(req.DurationMs)*time.Millisecond,
+			req.Motion,
+		)
+		if err != nil {
+			return nil, err
+		}
 		if _, err := c.dispatchMouse(ctx, "mousePressed", x1, y1, map[string]any{"button": button, "clickCount": 1}); err != nil {
 			return nil, err
 		}
-		if _, err := c.dispatchMouse(ctx, "mouseMoved", x2, y2, map[string]any{"button": button}); err != nil {
-			return nil, err
-		}
-		_, err = c.dispatchMouse(ctx, "mouseReleased", x2, y2, map[string]any{"button": button, "clickCount": 1})
-		return nil, err
+		moveErr := pointermotion.Play(ctx, plan, func(point pointermotion.Point) error {
+			_, moveErr := c.dispatchMouse(ctx, "mouseMoved", int(math.Round(point.X)), int(math.Round(point.Y)), map[string]any{"button": button})
+			return moveErr
+		})
+		_, releaseErr := c.dispatchMouse(ctx, "mouseReleased", x2, y2, map[string]any{"button": button, "clickCount": 1})
+		return nil, errors.Join(moveErr, releaseErr)
 	})
 }
 

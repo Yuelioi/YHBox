@@ -162,14 +162,9 @@ func cloneRecordingState(state RecordingState) RecordingState {
 			pending.Preview.Steps[index].Point = &copyOfPoint
 		}
 	}
-	if pending.Actions != nil {
-		pending.Actions = append([]macro.Action{}, pending.Actions...)
-	}
-	for index := range pending.Actions {
-		if point := pending.Actions[index].Point; point != nil {
-			copyOfPoint := *point
-			pending.Actions[index].Point = &copyOfPoint
-		}
+	if pending.Document != nil {
+		document := macro.CloneDocument(*pending.Document)
+		pending.Document = &document
 	}
 	state.Pending = &pending
 	return state
@@ -444,7 +439,7 @@ type StopResultPayload struct {
 	DurationUs  uint64                  `json:"durationUs"`
 	EventCount  int                     `json:"eventCount"`
 	Preview     RecordingPreview        `json:"preview"`
-	Actions     []macro.Action          `json:"actions,omitempty"`
+	Document    *macro.Document         `json:"document,omitempty"`
 	Environment RecordingEnvironment    `json:"environment"`
 }
 
@@ -457,6 +452,7 @@ type RecordingEnvironment struct {
 type pendingRecording struct {
 	result     *StopResult
 	targetSlot string
+	document   *macro.Document
 }
 
 // FinalizeArgs supplies user-owned metadata for a pending recording.
@@ -467,7 +463,7 @@ type FinalizeArgs struct {
 	Description string          `json:"description"`
 	Category    string          `json:"category"`
 	Tags        []string        `json:"tags"`
-	Actions     *[]macro.Action `json:"actions,omitempty"`
+	Document    *macro.Document `json:"document,omitempty"`
 	TrimStartUs *uint64         `json:"trimStartUs,omitempty"`
 	TrimEndUs   *uint64         `json:"trimEndUs,omitempty"`
 }
@@ -567,9 +563,14 @@ func (s *Service) Stop() (*StopResultPayload, error) {
 			s.setState(RecordingState{Phase: PhaseIdle})
 			return nil, fmt.Errorf("build macro recording: %w", documentErr)
 		}
-		payload.Actions = document.Actions
+		payload.DurationUs = macro.Analyze(document).DurationUs
+		payload.Preview.DurationUs = payload.DurationUs
+		payload.Document = &document
+		document = macro.CloneDocument(document)
+		s.pending = &pendingRecording{result: res, targetSlot: targetSlot, document: &document}
+	} else {
+		s.pending = &pendingRecording{result: res, targetSlot: targetSlot}
 	}
-	s.pending = &pendingRecording{result: res, targetSlot: targetSlot}
 	s.setState(RecordingState{
 		Phase: PhasePending, Mode: res.Meta.RecordingMode, TargetSlot: targetSlot,
 		TempID: res.TempID, StartedAtMs: cur.StartedAtMs, PausedMs: cur.PausedMs, Pending: payload,
@@ -636,7 +637,7 @@ func (s *Service) Finalize(args FinalizeArgs) (*FinalizeResult, error) {
 	finalizing := pendingState
 	finalizing.Phase = PhaseFinalizing
 	s.setState(finalizing)
-	result, err := s.finalizePending(pending, args.Destination, label, description, category, tags, args.Actions, args.TrimStartUs, args.TrimEndUs)
+	result, err := s.finalizePending(pending, args.Destination, label, description, category, tags, args.Document, args.TrimStartUs, args.TrimEndUs)
 	if err != nil {
 		s.setState(pendingState)
 		return nil, err
@@ -646,18 +647,18 @@ func (s *Service) Finalize(args FinalizeArgs) (*FinalizeResult, error) {
 	return result, nil
 }
 
-func (s *Service) finalizePending(pending pendingRecording, destination, label, description, category string, tags []string, editedActions *[]macro.Action, trimStartUs, trimEndUs *uint64) (*FinalizeResult, error) {
+func (s *Service) finalizePending(pending pendingRecording, destination, label, description, category string, tags []string, editedDocument *macro.Document, trimStartUs, trimEndUs *uint64) (*FinalizeResult, error) {
 	result := pending.result
 	if result.Meta.RecordingMode == inputclip.RecordingModeSimple {
 		if trimStartUs != nil || trimEndUs != nil {
 			return nil, errors.New("macros do not accept precise trim boundaries")
 		}
-		document, err := buildMacroDocument(result)
-		if err != nil {
-			return nil, fmt.Errorf("build macro: %w", err)
+		if pending.document == nil {
+			return nil, errors.New("pending macro document is missing")
 		}
-		if editedActions != nil {
-			document.Actions = cloneMacroActions(*editedActions)
+		document := macro.CloneDocument(*pending.document)
+		if editedDocument != nil {
+			document = macro.CloneDocument(*editedDocument)
 		}
 		if err := macro.Validate(document); err != nil {
 			return nil, fmt.Errorf("validate macro: %w", err)
@@ -694,8 +695,8 @@ func (s *Service) finalizePending(pending pendingRecording, destination, label, 
 			Asset: &FinalizedAsset{GUID: saved.ID, Kind: asset.KindMacro, Label: saved.Label, Blob: saved.Blob},
 		}, nil
 	}
-	if editedActions != nil {
-		return nil, errors.New("precise recordings do not accept macro actions")
+	if editedDocument != nil {
+		return nil, errors.New("precise recordings do not accept a macro document")
 	}
 	if trimStartUs != nil || trimEndUs != nil {
 		start := uint64(0)
@@ -744,17 +745,6 @@ func (s *Service) finalizePending(pending pendingRecording, destination, label, 
 		Destination: destination, TargetSlot: pending.targetSlot,
 		Asset: &FinalizedAsset{GUID: clip.ID, Kind: asset.KindClip, Label: clip.Label, Blob: clip.Blob},
 	}, nil
-}
-
-func cloneMacroActions(actions []macro.Action) []macro.Action {
-	cloned := append([]macro.Action(nil), actions...)
-	for index := range cloned {
-		if cloned[index].Point != nil {
-			point := *cloned[index].Point
-			cloned[index].Point = &point
-		}
-	}
-	return cloned
 }
 
 // Discard releases a pending recording without creating an asset.
@@ -839,7 +829,7 @@ func (s *Service) StopAsync() {
 			"pendingID": payload.PendingID, "targetSlot": payload.TargetSlot,
 			"mode":       payload.Mode,
 			"durationUs": payload.DurationUs, "eventCount": payload.EventCount,
-			"preview": payload.Preview, "actions": payload.Actions, "environment": payload.Environment,
+			"preview": payload.Preview, "document": payload.Document, "environment": payload.Environment,
 		})
 	}()
 }

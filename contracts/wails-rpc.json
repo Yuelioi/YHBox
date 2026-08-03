@@ -4,7 +4,7 @@
   "summary": {
     "services": 15,
     "methods": 140,
-    "models": 226
+    "models": 229
   },
   "services": [
     {
@@ -2581,6 +2581,33 @@
       ]
     },
     {
+      "module": "internal/automation/pointermotion/models",
+      "declarations": [
+        {
+          "kind": "enum",
+          "name": "Kind",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "Instant",
+              "value": "\"instant\""
+            },
+            {
+              "name": "Linear",
+              "value": "\"linear\""
+            },
+            {
+              "name": "Bezier",
+              "value": "\"bezier\""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "module": "internal/blob/models",
       "declarations": [
         {
@@ -3813,6 +3840,11 @@
               "type": "string"
             },
             {
+              "name": "\"from\"",
+              "optional": true,
+              "type": "Point | null"
+            },
+            {
               "name": "\"point\"",
               "optional": true,
               "type": "Point | null"
@@ -3826,6 +3858,11 @@
               "name": "\"durationUs\"",
               "optional": true,
               "type": "number"
+            },
+            {
+              "name": "\"motion\"",
+              "optional": true,
+              "type": "pointermotion$0.Kind"
             }
           ]
         },
@@ -3856,6 +3893,14 @@
             {
               "name": "ActionClick",
               "value": "\"click\""
+            },
+            {
+              "name": "ActionMove",
+              "value": "\"move\""
+            },
+            {
+              "name": "ActionDrag",
+              "value": "\"drag\""
             },
             {
               "name": "ActionScroll",
@@ -3890,6 +3935,27 @@
         },
         {
           "kind": "class",
+          "name": "AutoMove",
+          "fields": [
+            {
+              "name": "\"enabled\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"mode\"",
+              "optional": false,
+              "type": "pointermotion$0.Kind"
+            },
+            {
+              "name": "\"durationMs\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "Document",
           "fields": [
             {
@@ -3901,6 +3967,11 @@
               "name": "\"baseResolution\"",
               "optional": false,
               "type": "number[]"
+            },
+            {
+              "name": "\"meta\"",
+              "optional": false,
+              "type": "Meta"
             },
             {
               "name": "\"actions\"",
@@ -3989,6 +4060,17 @@
               "name": "\"blob\"",
               "optional": false,
               "type": "blob$0.BlobRef"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Meta",
+          "fields": [
+            {
+              "name": "\"autoMove\"",
+              "optional": false,
+              "type": "AutoMove"
             }
           ]
         },
@@ -4765,9 +4847,9 @@
               "type": "string[]"
             },
             {
-              "name": "\"actions\"",
+              "name": "\"document\"",
               "optional": true,
-              "type": "macro$0.Action[] | null"
+              "type": "macro$0.Document | null"
             },
             {
               "name": "\"trimStartUs\"",
@@ -5115,9 +5197,9 @@
               "type": "RecordingPreview"
             },
             {
-              "name": "\"actions\"",
+              "name": "\"document\"",
               "optional": true,
-              "type": "macro$0.Action[]"
+              "type": "macro$0.Document | null"
             },
             {
               "name": "\"environment\"",

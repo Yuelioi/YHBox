@@ -1,7 +1,7 @@
 import { reactive } from 'vue'
 import type { WorkflowResource } from '../../../../contracts/workflow/current/workflow-source'
+import type { MacroDocument } from '@/lib/backend'
 import type {
-  MacroAction,
   RecordingFinalizePayload,
   RecordingInvocation,
   RecordingMode,
@@ -23,7 +23,7 @@ export interface EditorRecordingPort {
     description: string
     category: string
     tags: string[]
-    actions?: MacroAction[]
+    document?: MacroDocument
     trimStartUs?: number
     trimEndUs?: number
   }): Promise<RecordingFinalizePayload>
@@ -60,7 +60,7 @@ export interface EditorRecordingState {
   controlBusy: boolean
   pending: RecordingStopPayload | null
   saveBusy: boolean
-  actions: MacroAction[]
+  document: MacroDocument | null
   actionsValid: boolean
   trimStartUs: number
   trimEndUs: number
@@ -100,7 +100,7 @@ export function createEditorRecordingController(
     controlBusy: false,
     pending: null,
     saveBusy: false,
-    actions: [],
+    document: null,
     actionsValid: true,
     trimStartUs: 0,
     trimEndUs: 0,
@@ -189,7 +189,7 @@ export function createEditorRecordingController(
   async function openPreview(payload: RecordingStopPayload): Promise<void> {
     if (state.pending?.pendingID === payload.pendingID) return
     state.pending = payload
-    state.actions = cloneActions(payload.actions ?? [])
+    state.document = payload.document ? cloneDocument(payload.document) : null
     state.actionsValid = true
     state.trimStartUs = 0
     state.trimEndUs = payload.durationUs
@@ -223,7 +223,7 @@ export function createEditorRecordingController(
         description: state.draft.description.trim(),
         category: state.draft.category.trim(),
         tags: uniqueStrings(state.draft.tags),
-        actions: pending.actions ? cloneActions(state.actions) : undefined,
+        document: pending.document && state.document ? cloneDocument(state.document) : undefined,
         trimStartUs: pending.mode === 'precise' ? state.trimStartUs : undefined,
         trimEndUs: pending.mode === 'precise' ? state.trimEndUs : undefined,
       })
@@ -286,11 +286,17 @@ export function formatRecordingDuration(durationUs: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 }
 
-function cloneActions(actions: MacroAction[]): MacroAction[] {
-  return actions.map((action) => ({
-    ...action,
-    point: action.point ? { ...action.point } : undefined,
-  }))
+function cloneDocument(document: MacroDocument): MacroDocument {
+  return {
+    ...document,
+    baseResolution: [...document.baseResolution],
+    meta: { autoMove: { ...document.meta.autoMove } },
+    actions: document.actions.map((action) => ({
+      ...action,
+      from: action.from ? { ...action.from } : undefined,
+      point: action.point ? { ...action.point } : undefined,
+    })),
+  }
 }
 
 function uniqueStrings(values: string[]): string[] {

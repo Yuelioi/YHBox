@@ -49,9 +49,6 @@ func (a controllerInputAdapter) MouseDown(hwnd uintptr, x, y float64, button str
 func (a controllerInputAdapter) MouseUp(hwnd uintptr, button string) error {
 	return a.backend.MouseUp(pkginput.Handle(hwnd), button)
 }
-func (a controllerInputAdapter) Drag(hwnd uintptr, x1, y1, x2, y2 float64, button string, duration int) error {
-	return a.backend.Drag(pkginput.Handle(hwnd), x1, y1, x2, y2, button, duration)
-}
 func (a controllerInputAdapter) MouseMoveRel(hwnd uintptr, dx, dy, duration int) error {
 	return a.backend.MouseMoveRel(pkginput.Handle(hwnd), dx, dy, duration)
 }
@@ -275,12 +272,52 @@ func (playback *windowsPlayback) PlayEvent(ctx context.Context, event PlaybackEv
 		return d.backend.KeyDownCode(handle, event.KeyCode)
 	case PlaybackKeyUp:
 		return d.backend.KeyUpCode(handle, event.KeyCode)
+	case PlaybackClick:
+		point, err := windowPoint(*event.Point, window.ClientW, window.ClientH)
+		if err != nil {
+			return err
+		}
+		return d.backend.Click(handle, point.X, point.Y, event.Button, int(event.DurationMilliseconds))
 	case PlaybackButtonDown:
 		return d.backend.MouseDown(handle, event.Point.X, event.Point.Y, event.Button)
 	case PlaybackButtonUp:
+		point, err := windowPoint(*event.Point, window.ClientW, window.ClientH)
+		if err != nil {
+			return err
+		}
+		if err := d.backend.MoveTo(handle, point.X, point.Y); err != nil {
+			return err
+		}
 		return d.backend.MouseUp(handle, event.Button)
 	case PlaybackMove:
-		return d.backend.MoveTo(handle, event.Point.X, event.Point.Y)
+		point, err := windowPoint(*event.Point, window.ClientW, window.ClientH)
+		if err != nil {
+			return err
+		}
+		resolved, err := d.controller(window)
+		if err != nil {
+			return failure(CodeContractViolation, err)
+		}
+		return resolved.Move(ctx, controller.MoveRequest{
+			Point: target.NewNormalizedPoint(point.X, point.Y), DurationMs: int(event.DurationMilliseconds), Motion: event.Motion,
+		})
+	case PlaybackDrag:
+		from, err := windowPoint(*event.From, window.ClientW, window.ClientH)
+		if err != nil {
+			return err
+		}
+		to, err := windowPoint(*event.Point, window.ClientW, window.ClientH)
+		if err != nil {
+			return err
+		}
+		resolved, err := d.controller(window)
+		if err != nil {
+			return failure(CodeContractViolation, err)
+		}
+		return resolved.Drag(ctx, controller.DragRequest{
+			From: target.NewNormalizedPoint(from.X, from.Y), To: target.NewNormalizedPoint(to.X, to.Y), Button: event.Button,
+			DurationMs: int(event.DurationMilliseconds), Motion: event.Motion,
+		})
 	case PlaybackMoveRelative:
 		return d.backend.MouseMoveRel(handle, int(event.DeltaX), int(event.DeltaY), 0)
 	case PlaybackScroll:
@@ -451,7 +488,9 @@ func (d *windowsDriver) Execute(ctx context.Context, operation string, raw any) 
 		if err != nil {
 			return err
 		}
-		return resolved.Move(ctx, controller.MoveRequest{Point: target.NewNormalizedPoint(point.X, point.Y)})
+		return resolved.Move(ctx, controller.MoveRequest{
+			Point: target.NewNormalizedPoint(point.X, point.Y), DurationMs: int(request.DurationMilliseconds), Motion: request.Motion,
+		})
 	case ScrollRequest:
 		resolved, err := d.controller(window)
 		if err != nil {
@@ -478,7 +517,8 @@ func (d *windowsDriver) Execute(ctx context.Context, operation string, raw any) 
 			return err
 		}
 		return resolved.Drag(ctx, controller.DragRequest{
-			From: target.NewNormalizedPoint(from.X, from.Y), To: target.NewNormalizedPoint(to.X, to.Y), Button: request.Button, DurationMs: int(request.DurationMilliseconds),
+			From: target.NewNormalizedPoint(from.X, from.Y), To: target.NewNormalizedPoint(to.X, to.Y), Button: request.Button,
+			DurationMs: int(request.DurationMilliseconds), Motion: request.Motion,
 		})
 	case RelativeMoveRequest:
 		resolved, err := d.controller(window)

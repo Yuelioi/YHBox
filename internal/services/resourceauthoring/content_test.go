@@ -15,6 +15,7 @@ func TestCreatorOpensAndRewritesMacroWithoutGlobalAsset(t *testing.T) {
 		Metadata: Metadata{Name: "Shared macro"},
 		Document: macro.Document{
 			SchemaVersion: macro.SchemaVersion, BaseResolution: [2]int{1280, 720},
+			Meta:    macro.DefaultMeta(),
 			Actions: []macro.Action{{ID: "wait", Kind: macro.ActionSleep, DurationUs: 10_000}},
 		},
 	})
@@ -111,6 +112,7 @@ func TestCreatorRejectsCarrierMetadataDriftAndMissingBlob(t *testing.T) {
 		Metadata: Metadata{Name: "Macro"},
 		Document: macro.Document{
 			SchemaVersion: macro.SchemaVersion, BaseResolution: [2]int{1280, 720},
+			Meta:    macro.DefaultMeta(),
 			Actions: []macro.Action{{ID: "wait", Kind: macro.ActionSleep, DurationUs: 10}},
 		},
 	})
@@ -147,6 +149,7 @@ func TestCreatorDuplicatesAllResourceKindsWithoutCopyingContent(t *testing.T) {
 		Metadata: Metadata{Name: "Macro"},
 		Document: macro.Document{
 			SchemaVersion: macro.SchemaVersion, BaseResolution: [2]int{1280, 720},
+			Meta:    macro.DefaultMeta(),
 			Actions: []macro.Action{{ID: "wait", Kind: macro.ActionSleep, DurationUs: 10}},
 		},
 	})

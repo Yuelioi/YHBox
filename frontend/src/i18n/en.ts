@@ -231,12 +231,18 @@ export default {
           'A versioned, editable atomic keyboard and pointer macro carried as a durable BlobRef.',
       },
       inputClip: {
-        title: 'Input clip',
-        description: 'A content-addressed recording carried only as a durable nominal BlobRef.',
+        title: 'Precise input trajectory',
+        description:
+          'A content-addressed recording of pointer motion, dragging, relative movement, keys, and original timing.',
       },
       pointer_button: {
         title: 'Pointer button',
         description: 'The left, right, or middle pointer button.',
+      },
+      pointer_motion: {
+        title: 'Pointer motion',
+        description:
+          'Arrive instantly, follow a constant-speed line, or use a smooth Bézier curve.',
       },
       key_code: {
         title: 'Single key code',
@@ -822,7 +828,8 @@ export default {
       },
       movePointer: {
         title: 'Move pointer',
-        description: 'Move the pointer to a coordinate inside the configured target.',
+        description:
+          'Move to a target coordinate instantly, along a constant-speed line, or on a Bézier curve.',
       },
       scrollPointer: {
         title: 'Scroll pointer',
@@ -830,7 +837,8 @@ export default {
       },
       dragPointer: {
         title: 'Drag pointer',
-        description: 'Press, move, and release inside the configured target.',
+        description:
+          'Press, move with the selected motion, and release inside the configured target.',
       },
       movePointerRelative: {
         title: 'Move pointer relatively',
@@ -1263,9 +1271,9 @@ export default {
         },
       },
       playInputClip: {
-        title: 'Play input clip',
+        title: 'Replay precise trajectory',
         description:
-          'Read a validated InputClip BlobRef and replay every event through one exclusive exact-target playback session.',
+          'Replay keys, clicks, continuous motion, dragging, scrolling, and relative pointer movement from an InputClip with original timing.',
       },
       playMacro: {
         title: 'Play keyboard macro',
@@ -2552,6 +2560,7 @@ export default {
         metadata: 'Metadata',
         minimum: 'Minimum',
         'modified-unix-millis': 'Modified time',
+        motion: 'Motion',
         name: 'Name',
         new: 'Replacement',
         notches: 'Scroll amount',
@@ -2708,7 +2717,7 @@ export default {
     recording: {
       start: 'Record',
       record_macro: 'Record macro',
-      record_precise: 'Precise recording',
+      record_precise: 'Record precise trajectory',
       pause: 'Pause recording',
       resume: 'Resume recording',
       finish: 'Finish recording',
@@ -2729,7 +2738,7 @@ export default {
       preview_title: 'Review recording',
       result_mode: 'Generated form',
       mode_simple: 'Editable keyboard macro',
-      mode_precise: 'Precise · full trajectory clip',
+      mode_precise: 'Precise trajectory · full input timing',
       action_summary: 'Keys {keys} · clicks {clicks} · moves {moves} · scrolls {scrolls}',
       trajectory_hint:
         'Precise recording is stored as one InputClip and is not expanded into canvas nodes.',
@@ -3105,7 +3114,7 @@ export default {
     created_days: 'Created in the last {n} days',
     tabs: {
       macros: 'Keyboard macros',
-      clips: 'Precise recordings',
+      clips: 'Precise trajectories',
       templates: 'Visual templates',
     },
     search_placeholder: 'Search names, categories, or tags',
@@ -3334,15 +3343,36 @@ export default {
     kind_mouse_down: 'Mouse down',
     kind_mouse_up: 'Mouse up',
     kind_click: 'Click',
+    kind_move: 'Move to',
+    kind_drag: 'Drag to',
     kind_scroll: 'Scroll',
     kind_sleep: 'Sleep',
     button_left: 'Left',
     button_middle: 'Middle',
     button_right: 'Right',
+    button: 'Mouse button',
+    notches: 'Scroll notches',
+    point_x: 'Target X%',
+    point_y: 'Target Y%',
+    from_x: 'Start X%',
+    from_y: 'Start Y%',
+    to_x: 'End X%',
+    to_y: 'End Y%',
+    motion: 'Motion',
+    motion_instant: 'Instant',
+    motion_linear: 'Constant-speed line',
+    motion_bezier: 'Bézier curve',
+    duration_ms: 'Duration in milliseconds',
+    auto_move_title: 'Move before click',
+    auto_move_hint:
+      'Move to each click target at runtime without adding Move rows to the action list.',
+    auto_move_enabled: 'Enable move before click',
+    auto_move_duration: 'Automatic move duration in milliseconds',
     duplicate: 'Duplicate action',
     state_none: 'None',
     empty: 'This macro has no actions',
-    empty_hint: 'Add a key press, click, scroll, or wait. Advanced events remain in Atomic view.',
+    empty_hint:
+      'Add a key press, click, move, drag, scroll, or wait. Advanced events remain in Atomic view.',
     empty_hint_atomic: 'Atomic down and up events must be maintained as valid pairs.',
     no_results: 'No matching actions',
     selected: '{count} actions selected',
@@ -3354,7 +3384,10 @@ export default {
     error_key_up: 'Row {n}: {key} is not held and cannot be released.',
     error_button_down: 'Row {n}: this mouse button is already held.',
     error_button_up: 'Row {n}: this mouse button is not held.',
-    error_click_held: 'Row {n}: the {button} mouse button is already held and cannot be clicked.',
+    error_pointer_held:
+      'Row {n}: the {button} mouse button is already held and cannot run an atomic click or drag.',
+    error_auto_move_mode: 'The automatic move motion is invalid.',
+    error_auto_move_duration: 'The automatic move duration is invalid.',
     error_held_end: 'A key or mouse button is still held when the macro ends.',
   },
   preciseWorkbench: {
@@ -3406,7 +3439,7 @@ export default {
     macro_type: 'Editable keyboard macro',
     clip_type: 'InputClip recording',
     mode_simple: 'Simple recording',
-    mode_precise: 'Precise recording',
+    mode_precise: 'Precise trajectory',
     summary: '{duration} · {count} input events',
     name: 'Recording name',
     name_hint: 'Use a name that explains what the recording is for.',

@@ -132,7 +132,7 @@ func TestPlayMacroPreservesOverlappingKeysAndReleasesSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	document := macro.Document{SchemaVersion: macro.SchemaVersion, BaseResolution: [2]int{1280, 720}, Actions: []macro.Action{
+	document := macro.Document{SchemaVersion: macro.SchemaVersion, BaseResolution: [2]int{1280, 720}, Meta: macro.DefaultMeta(), Actions: []macro.Action{
 		{ID: "w-down", Kind: macro.ActionKeyDown, Key: "W"},
 		{ID: "wait-1", Kind: macro.ActionSleep, DurationUs: 50_000},
 		{ID: "d-down", Kind: macro.ActionKeyDown, Key: "D"},

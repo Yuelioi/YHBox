@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/yottaapp/yotta/internal/automation/pointermotion"
 	"github.com/yottaapp/yotta/internal/automation/target"
 	automationtrace "github.com/yottaapp/yotta/internal/automation/trace"
 )
@@ -80,6 +81,7 @@ type fakeWin32Input struct {
 	moveHWND         uintptr
 	moveX            float64
 	moveY            float64
+	moves            []target.Point
 	scrollHWND       uintptr
 	scrollX          float64
 	scrollY          float64
@@ -91,13 +93,6 @@ type fakeWin32Input struct {
 	mouseDownButton  string
 	mouseUpHWND      uintptr
 	mouseUpButton    string
-	dragHWND         uintptr
-	dragX1           float64
-	dragY1           float64
-	dragX2           float64
-	dragY2           float64
-	dragButton       string
-	dragDurationMs   int
 	moveRelHWND      uintptr
 	moveRelDx        int
 	moveRelDy        int
@@ -189,6 +184,7 @@ func (f *fakeWin32Input) MoveTo(hwnd uintptr, xRatio, yRatio float64) error {
 	f.moveHWND = hwnd
 	f.moveX = xRatio
 	f.moveY = yRatio
+	f.moves = append(f.moves, target.NewNormalizedPoint(xRatio, yRatio))
 	return nil
 }
 
@@ -212,17 +208,6 @@ func (f *fakeWin32Input) MouseDown(hwnd uintptr, xRatio, yRatio float64, button 
 func (f *fakeWin32Input) MouseUp(hwnd uintptr, button string) error {
 	f.mouseUpHWND = hwnd
 	f.mouseUpButton = button
-	return nil
-}
-
-func (f *fakeWin32Input) Drag(hwnd uintptr, x1Ratio, y1Ratio, x2Ratio, y2Ratio float64, button string, durationMs int) error {
-	f.dragHWND = hwnd
-	f.dragX1 = x1Ratio
-	f.dragY1 = y1Ratio
-	f.dragX2 = x2Ratio
-	f.dragY2 = y2Ratio
-	f.dragButton = button
-	f.dragDurationMs = durationMs
 	return nil
 }
 
@@ -289,7 +274,7 @@ func TestWin32ControllerMoveRecordsCoordinateStep(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewWin32Controller() error = %v", err)
 	}
-	if err := ctrl.Move(context.Background(), MoveRequest{Point: target.NewNormalizedPoint(0.25, 0.75)}); err != nil {
+	if err := ctrl.Move(context.Background(), MoveRequest{Point: target.NewNormalizedPoint(0.25, 0.75), Motion: pointermotion.Instant}); err != nil {
 		t.Fatalf("Move() error = %v", err)
 	}
 	if in.moveHWND != 42 || in.moveX != 0.25 || in.moveY != 0.75 {
@@ -421,11 +406,15 @@ func TestWin32ControllerDragRecordsBeginEndCoordinateSteps(t *testing.T) {
 		To:         target.NewNormalizedPoint(0.8, 0.9),
 		Button:     "left",
 		DurationMs: 300,
+		Motion:     pointermotion.Linear,
 	}); err != nil {
 		t.Fatalf("Drag() error = %v", err)
 	}
-	if in.dragHWND != 42 || in.dragX1 != 0.1 || in.dragY1 != 0.2 || in.dragX2 != 0.8 || in.dragY2 != 0.9 || in.dragButton != "left" || in.dragDurationMs != 300 {
-		t.Fatalf("delegate drag = hwnd %d (%f,%f)->(%f,%f) %s %d", in.dragHWND, in.dragX1, in.dragY1, in.dragX2, in.dragY2, in.dragButton, in.dragDurationMs)
+	if in.mouseDownHWND != 42 || in.mouseDownX != 0.1 || in.mouseDownY != 0.2 || in.mouseDownButton != "left" || in.mouseUpHWND != 42 || in.mouseUpButton != "left" {
+		t.Fatalf("drag button delivery = down hwnd %d (%f,%f) %s, up hwnd %d %s", in.mouseDownHWND, in.mouseDownX, in.mouseDownY, in.mouseDownButton, in.mouseUpHWND, in.mouseUpButton)
+	}
+	if len(in.moves) < 2 || in.moves[len(in.moves)-1] != target.NewNormalizedPoint(0.8, 0.9) {
+		t.Fatalf("drag move samples = %#v", in.moves)
 	}
 	records := rec.Records()
 	if len(records) != 1 || records[0].Action != "drag" {

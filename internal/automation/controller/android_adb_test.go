@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/yottaapp/yotta/internal/automation/pointermotion"
 	"github.com/yottaapp/yotta/internal/automation/target"
 	automationtrace "github.com/yottaapp/yotta/internal/automation/trace"
 )
@@ -151,6 +152,7 @@ func TestAndroidADBControllerDragUsesSwipe(t *testing.T) {
 		From:       target.NewNormalizedPoint(0.1, 0.2),
 		To:         target.NewNormalizedPoint(0.8, 0.9),
 		DurationMs: 450,
+		Motion:     pointermotion.Linear,
 	})
 	if err != nil {
 		t.Fatalf("Drag() error = %v", err)

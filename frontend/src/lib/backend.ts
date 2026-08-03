@@ -163,6 +163,8 @@ export type MacroActionKind =
   | 'mouse-down'
   | 'mouse-up'
   | 'click'
+  | 'move'
+  | 'drag'
   | 'scroll'
   | 'sleep'
 
@@ -171,14 +173,27 @@ export interface MacroAction {
   kind: MacroActionKind
   key?: string
   button?: 'left' | 'middle' | 'right'
+  from?: { x: number; y: number; unit: 'ratio' }
   point?: { x: number; y: number; unit: 'ratio' }
   notches?: number
   durationUs?: number
+  motion?: 'instant' | 'linear' | 'bezier'
+}
+
+export type MacroMotion = 'instant' | 'linear' | 'bezier'
+
+export interface MacroAutoMove {
+  enabled: boolean
+  mode: MacroMotion
+  durationMs: number
 }
 
 export interface MacroDocument {
   schemaVersion: number
   baseResolution: [number, number]
+  meta: {
+    autoMove: MacroAutoMove
+  }
   actions: MacroAction[]
 }
 
@@ -729,15 +744,7 @@ export const backend = {
       tags: string[]
       trimStartUs?: number
       trimEndUs?: number
-      actions?: Array<{
-        id: string
-        kind: 'key-down' | 'key-up' | 'mouse-down' | 'mouse-up' | 'click' | 'scroll' | 'sleep'
-        key?: string
-        button?: 'left' | 'middle' | 'right'
-        point?: { x: number; y: number; unit: 'ratio' }
-        notches?: number
-        durationUs?: number
-      }>
+      document?: MacroDocument
     }) => invoke(RecordingService.Finalize, args as any),
     discard: (pendingID: string) => invoke(RecordingService.Discard, pendingID),
     pause: () => invoke(RecordingService.Pause),

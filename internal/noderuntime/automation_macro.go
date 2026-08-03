@@ -30,11 +30,16 @@ func playMacro() nodeadapter.Adapter {
 			return nodeadapter.AdapterResult{}, macroFailure(err)
 		}
 		analysis := macro.Analyze(document)
+		plan, err := macro.ExecutionPlan(document)
+		if err != nil {
+			return nodeadapter.AdapterResult{}, macroFailure(err)
+		}
 		counters["blob_bytes"] = ref.Size
 		counters["actions"] = int64(len(document.Actions))
+		counters["planned_actions"] = int64(len(plan))
 		counters["duration_ms"] = int64(analysis.DurationUs / 1000)
 		if err := runPlaybackSession(ctx, invocation, func(commands playbackCommands) error {
-			for _, action := range document.Actions {
+			for _, action := range plan {
 				if err := playMacroAction(action, commands); err != nil {
 					return err
 				}
@@ -47,9 +52,26 @@ func playMacro() nodeadapter.Adapter {
 	}
 }
 
+func macroClickEvent(point *macro.Point, button string, durationUs uint64) installed.PlaybackEvent {
+	durationMs := int64((durationUs + uint64(time.Millisecond/time.Microsecond) - 1) / uint64(time.Millisecond/time.Microsecond))
+	return installed.PlaybackEvent{
+		Kind:   installed.PlaybackClick,
+		Point:  &installed.Point{X: point.X, Y: point.Y, Unit: point.Unit},
+		Button: button, DurationMilliseconds: durationMs,
+	}
+}
+
+func macroPoint(point *macro.Point) *installed.Point {
+	return &installed.Point{X: point.X, Y: point.Y, Unit: point.Unit}
+}
+
+func macroDurationMilliseconds(durationUs uint64) int64 {
+	return int64((durationUs + uint64(time.Millisecond/time.Microsecond) - 1) / uint64(time.Millisecond/time.Microsecond))
+}
+
 func playMacroAction(action macro.Action, commands playbackCommands) error {
 	point := func() *installed.Point {
-		return &installed.Point{X: action.Point.X, Y: action.Point.Y, Unit: action.Point.Unit}
+		return macroPoint(action.Point)
 	}
 	keyCode := func() (uint32, error) {
 		_, code, ok := macro.CanonicalKey(action.Key)
@@ -78,13 +100,17 @@ func playMacroAction(action macro.Action, commands playbackCommands) error {
 		}
 		return commands.Play(installed.PlaybackEvent{Kind: kind, Point: point(), Button: action.Button})
 	case macro.ActionClick:
-		if err := commands.Play(installed.PlaybackEvent{Kind: installed.PlaybackButtonDown, Point: point(), Button: action.Button}); err != nil {
-			return err
-		}
-		if err := commands.Wait(time.Duration(action.DurationUs) * time.Microsecond); err != nil {
-			return err
-		}
-		return commands.Play(installed.PlaybackEvent{Kind: installed.PlaybackButtonUp, Point: point(), Button: action.Button})
+		return commands.Play(macroClickEvent(action.Point, action.Button, action.DurationUs))
+	case macro.ActionMove:
+		return commands.Play(installed.PlaybackEvent{
+			Kind: installed.PlaybackMove, Point: point(), Motion: action.Motion,
+			DurationMilliseconds: macroDurationMilliseconds(action.DurationUs),
+		})
+	case macro.ActionDrag:
+		return commands.Play(installed.PlaybackEvent{
+			Kind: installed.PlaybackDrag, From: macroPoint(action.From), Point: point(), Button: action.Button,
+			Motion: action.Motion, DurationMilliseconds: macroDurationMilliseconds(action.DurationUs),
+		})
 	case macro.ActionScroll:
 		return commands.Play(installed.PlaybackEvent{Kind: installed.PlaybackScroll, Point: point(), Notches: int64(action.Notches)})
 	default:

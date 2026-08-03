@@ -9,6 +9,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/automation/installed"
+	"github.com/yottaapp/yotta/internal/automation/pointermotion"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodes"
@@ -78,10 +79,19 @@ func automationInputRequest(invocation nodeadapter.Invocation, operation string)
 		return installed.ClickRequest{Point: point, Button: button, DurationMilliseconds: duration}, counters, nil
 	case installed.OperationMove:
 		var point installed.Point
+		var duration int64
+		var motion pointermotion.Kind
 		if err := decodeAutomationInput(invocation, "point", &point); err != nil {
 			return nil, nil, err
 		}
-		return installed.MoveRequest{Point: point}, counters, nil
+		if err := decodeAutomationInput(invocation, "duration", &duration); err != nil {
+			return nil, nil, err
+		}
+		if err := decodeAutomationInput(invocation, "motion", &motion); err != nil {
+			return nil, nil, err
+		}
+		counters["duration_ms"] = duration
+		return installed.MoveRequest{Point: point, DurationMilliseconds: duration, Motion: motion}, counters, nil
 	case installed.OperationScroll:
 		var point installed.Point
 		var notches int64
@@ -104,6 +114,7 @@ func automationInputRequest(invocation nodeadapter.Invocation, operation string)
 		var from, to installed.Point
 		var button string
 		var duration int64
+		var motion pointermotion.Kind
 		if err := decodeAutomationInput(invocation, "from", &from); err != nil {
 			return nil, nil, err
 		}
@@ -116,8 +127,11 @@ func automationInputRequest(invocation nodeadapter.Invocation, operation string)
 		if err := decodeAutomationInput(invocation, "duration", &duration); err != nil {
 			return nil, nil, err
 		}
+		if err := decodeAutomationInput(invocation, "motion", &motion); err != nil {
+			return nil, nil, err
+		}
 		counters["duration_ms"] = duration
-		return installed.DragRequest{From: from, To: to, Button: button, DurationMilliseconds: duration}, counters, nil
+		return installed.DragRequest{From: from, To: to, Button: button, DurationMilliseconds: duration, Motion: motion}, counters, nil
 	case installed.OperationMoveRelative:
 		var deltaX, deltaY, duration int64
 		if err := decodeAutomationInput(invocation, "delta-x", &deltaX); err != nil {

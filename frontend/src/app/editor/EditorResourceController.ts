@@ -237,8 +237,10 @@ function cloneMacroDocument(document: MacroDocument): MacroDocument {
   return {
     ...document,
     baseResolution: [...document.baseResolution] as [number, number],
+    meta: { autoMove: { ...document.meta.autoMove } },
     actions: document.actions.map((action) => ({
       ...action,
+      from: action.from ? { ...action.from } : undefined,
       point: action.point ? { ...action.point } : undefined,
     })),
   }

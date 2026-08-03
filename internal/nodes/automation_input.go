@@ -11,6 +11,7 @@ import (
 
 const (
 	PointerButtonTypeID = "https://schemas.yotta.dev/types/automation/pointer-button/v1"
+	PointerMotionTypeID = "https://schemas.yotta.dev/types/automation/pointer-motion/v1"
 	KeyCodeTypeID       = "https://schemas.yotta.dev/types/automation/key-code/v1"
 	HeldInputTypeID     = "https://schemas.yotta.dev/types/automation/held-input/v1"
 
@@ -44,6 +45,7 @@ type automationInputTypes struct {
 	pointRef    datatype.TypeRef
 	durationRef datatype.TypeRef
 	buttonRef   datatype.TypeRef
+	motionRef   datatype.TypeRef
 	keyCodeRef  datatype.TypeRef
 }
 
@@ -58,7 +60,7 @@ type automationInputNode struct {
 	conformance string
 }
 
-func sealAutomationInputTypes() (datatype.Definition, datatype.Definition, error) {
+func sealAutomationInputTypes() (datatype.Definition, datatype.Definition, datatype.Definition, error) {
 	buttonSchema := json.RawMessage(fmt.Sprintf(`{
 		"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"string",
 		"enum":["left","right","middle"]
@@ -67,7 +69,17 @@ func sealAutomationInputTypes() (datatype.Definition, datatype.Definition, error
 		TitleKey: "type.automation.pointer_button.title", DescriptionKey: "type.automation.pointer_button.description", Color: "#fb7185", Icon: "pointer",
 	})
 	if err != nil {
-		return datatype.Definition{}, datatype.Definition{}, err
+		return datatype.Definition{}, datatype.Definition{}, datatype.Definition{}, err
+	}
+	motionSchema := json.RawMessage(fmt.Sprintf(`{
+		"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"string",
+		"enum":["instant","linear","bezier"]
+	}`, PointerMotionTypeID+"/schema"))
+	motion, err := sealStructuredType(PointerMotionTypeID, motionSchema, datatype.Authoring{
+		TitleKey: "type.automation.pointer_motion.title", DescriptionKey: "type.automation.pointer_motion.description", Color: "#38bdf8", Icon: "route",
+	})
+	if err != nil {
+		return datatype.Definition{}, datatype.Definition{}, datatype.Definition{}, err
 	}
 	keySchema := json.RawMessage(fmt.Sprintf(`{
 		"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"string",
@@ -80,7 +92,7 @@ func sealAutomationInputTypes() (datatype.Definition, datatype.Definition, error
 	keyCode, err := sealStructuredType(KeyCodeTypeID, keySchema, datatype.Authoring{
 		TitleKey: "type.automation.key_code.title", DescriptionKey: "type.automation.key_code.description", Color: "#a78bfa", Icon: "keyboard",
 	})
-	return button, keyCode, err
+	return button, motion, keyCode, err
 }
 
 func sealHeldInputType() (datatype.Definition, error) {
@@ -182,6 +194,7 @@ func defineAutomationInputNodes(types automationInputTypes) ([]BuiltinDefinition
 	pointType := datatype.RefExpression(types.pointRef)
 	durationType := datatype.RefExpression(types.durationRef)
 	buttonType := datatype.RefExpression(types.buttonRef)
+	motionType := datatype.RefExpression(types.motionRef)
 	keyListType := datatype.ListExpression(datatype.RefExpression(types.keyCodeRef))
 	point := func(id string) nodecontract.DataInputPort {
 		return nodecontract.DataInputPort{ID: id, Type: pointType, Required: true, Default: rawDefault(`{"x":0.5,"y":0.5,"unit":"ratio"}`)}
@@ -190,6 +203,7 @@ func defineAutomationInputNodes(types automationInputTypes) ([]BuiltinDefinition
 		return nodecontract.DataInputPort{ID: id, Type: durationType, Required: true, Default: rawDefault(value)}
 	}
 	button := nodecontract.DataInputPort{ID: "button", Type: buttonType, Required: true, Default: rawDefault(`"left"`)}
+	motion := nodecontract.DataInputPort{ID: "motion", Type: motionType, Required: true, Default: rawDefault(`"linear"`)}
 	specs := []automationInputNode{
 		{
 			id: ClickPointerNodeID, entrypoint: "automation.click-pointer", titleKey: "node.automation.clickPointer", icon: "pointer", operation: installed.OperationClick, effectID: ClickPointerEffectID,
@@ -197,7 +211,7 @@ func defineAutomationInputNodes(types automationInputTypes) ([]BuiltinDefinition
 		},
 		{
 			id: MovePointerNodeID, entrypoint: "automation.move-pointer", titleKey: "node.automation.movePointer", icon: "location", operation: installed.OperationMove, effectID: MovePointerEffectID,
-			inputs: []nodecontract.DataInputPort{point("point")}, conformance: "exact-target/pointer-move/v1",
+			inputs: []nodecontract.DataInputPort{point("point"), duration("duration", "300"), motion}, conformance: "exact-target/pointer-move/v1",
 		},
 		{
 			id: ScrollPointerNodeID, entrypoint: "automation.scroll-pointer", titleKey: "node.automation.scrollPointer", icon: "mouse", operation: installed.OperationScroll, effectID: ScrollPointerEffectID,
@@ -205,7 +219,7 @@ func defineAutomationInputNodes(types automationInputTypes) ([]BuiltinDefinition
 		},
 		{
 			id: DragPointerNodeID, entrypoint: "automation.drag-pointer", titleKey: "node.automation.dragPointer", icon: "drag-drop", operation: installed.OperationDrag, effectID: DragPointerEffectID,
-			inputs: []nodecontract.DataInputPort{point("from"), point("to"), button, duration("duration", "300")}, conformance: "exact-target/cooperative-pointer-drag/v1",
+			inputs: []nodecontract.DataInputPort{point("from"), point("to"), button, duration("duration", "300"), motion}, conformance: "exact-target/cooperative-pointer-drag/v1",
 		},
 		{
 			id: MovePointerRelativeNodeID, entrypoint: "automation.move-pointer-relative", titleKey: "node.automation.movePointerRelative", icon: "arrows-move", operation: installed.OperationMoveRelative, effectID: MovePointerRelativeEffectID,

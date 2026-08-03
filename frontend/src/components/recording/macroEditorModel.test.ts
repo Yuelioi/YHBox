@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import type { MacroAction } from '@/lib/backend'
+import type { MacroAction, MacroDocument } from '@/lib/backend'
 import {
   analyzeMacroActions,
+  analyzeMacroDocument,
   canonicalBrowserKey,
   duplicateMacroRows,
   duplicateMacroAction,
@@ -14,6 +15,15 @@ import {
 
 function action(id: string, value: Omit<MacroAction, 'id'>): MacroAction {
   return { id, ...value }
+}
+
+function document(actions: MacroAction[]): MacroDocument {
+  return {
+    schemaVersion: 2,
+    baseResolution: [1000, 1000],
+    meta: { autoMove: { enabled: true, mode: 'bezier', durationMs: 250 } },
+    actions,
+  }
 }
 
 describe('macro editor model', () => {
@@ -60,7 +70,7 @@ describe('macro editor model', () => {
     expect(result.issues.map((issue) => issue.code)).toEqual([
       'key-not-down',
       'key-already-down',
-      'click-button-held',
+      'pointer-action-button-held',
       'held-at-end',
     ])
   })
@@ -135,6 +145,83 @@ describe('macro editor model', () => {
       'sleep',
       'mouse-up',
     ])
+  })
+
+  it('preserves semantic move and drag fields through projection, patching, and cloning', () => {
+    const source = [
+      action('move', {
+        kind: 'move',
+        point: { x: 0.4, y: 0.6, unit: 'ratio' },
+        durationUs: 300_000,
+        motion: 'linear',
+      }),
+      action('drag', {
+        kind: 'drag',
+        button: 'left',
+        from: { x: 0.2, y: 0.3, unit: 'ratio' },
+        point: { x: 0.8, y: 0.9, unit: 'ratio' },
+        durationUs: 500_000,
+        motion: 'bezier',
+      }),
+    ]
+
+    const rows = projectMacroRows(source, true)
+    const updated = patchMacroRow(source, rows[1]!, {
+      from: { x: 0.1, y: 0.15, unit: 'ratio' },
+      motion: 'instant',
+      durationUs: 0,
+    })
+
+    expect(rows.map((row) => row.kind)).toEqual(['move', 'drag'])
+    expect(rows[1]?.from).toEqual({ x: 0.2, y: 0.3, unit: 'ratio' })
+    expect(updated[1]).toMatchObject({
+      from: { x: 0.1, y: 0.15, unit: 'ratio' },
+      motion: 'instant',
+      durationUs: 0,
+    })
+    expect(analyzeMacroActions(source).durationUs).toBe(800_000)
+    expect(source[1]?.from).toEqual({ x: 0.2, y: 0.3, unit: 'ratio' })
+  })
+
+  it('includes implicit click travel in the document duration without adding action rows', () => {
+    const source = document([
+      action('click', {
+        kind: 'click',
+        button: 'left',
+        durationUs: 50_000,
+        point: { x: 0.8, y: 0.2, unit: 'ratio' },
+      }),
+    ])
+
+    expect(analyzeMacroDocument(source).durationUs).toBe(300_000)
+    expect(source.actions.map((item) => item.kind)).toEqual(['click'])
+  })
+
+  it('skips nearby automatic travel and never applies it to drag', () => {
+    const source = document([
+      action('move', {
+        kind: 'move',
+        point: { x: 0.5, y: 0.5, unit: 'ratio' },
+        durationUs: 100_000,
+        motion: 'linear',
+      }),
+      action('click', {
+        kind: 'click',
+        button: 'left',
+        durationUs: 50_000,
+        point: { x: 0.504, y: 0.5, unit: 'ratio' },
+      }),
+      action('drag', {
+        kind: 'drag',
+        button: 'left',
+        from: { x: 0.1, y: 0.1, unit: 'ratio' },
+        point: { x: 0.9, y: 0.9, unit: 'ratio' },
+        durationUs: 400_000,
+        motion: 'bezier',
+      }),
+    ])
+
+    expect(analyzeMacroDocument(source).durationUs).toBe(550_000)
   })
 
   it('edits a simple key press through its atomic source actions', () => {

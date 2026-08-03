@@ -9,7 +9,13 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { Events } from '@wailsio/runtime'
-import { backend, type BlobRef, type MacroAction, type MacroActionKind } from '@/lib/backend'
+import {
+  backend,
+  type BlobRef,
+  type MacroAction,
+  type MacroActionKind,
+  type MacroDocument,
+} from '@/lib/backend'
 import { i18n } from '@/i18n'
 import type { WorkflowResource } from '../../../contracts/workflow/current/workflow-source'
 
@@ -36,7 +42,7 @@ export interface RecordingStopPayload {
   durationUs: number
   eventCount: number
   preview: RecordingPreview
-  actions?: MacroAction[]
+  document?: MacroDocument
   environment: RecordingEnvironment
 }
 
@@ -95,7 +101,7 @@ export type RecordingFinalizePayload =
 export function isRecordingStopPayload(value: unknown): value is RecordingStopPayload {
   if (!isRecord(value) || !isRecord(value.preview) || !Array.isArray(value.preview.steps))
     return false
-  const actions = value.actions
+  const document = value.document
   return (
     typeof value.pendingID === 'string' &&
     value.pendingID.length > 0 &&
@@ -113,7 +119,7 @@ export function isRecordingStopPayload(value: unknown): value is RecordingStopPa
     nonnegativeNumber(value.preview.scrollActions) &&
     Array.isArray(value.preview.tracks) &&
     isRecordingEnvironment(value.environment) &&
-    (actions === undefined || (Array.isArray(actions) && actions.every(isMacroAction)))
+    (document === undefined || isMacroDocument(document))
   )
 }
 
@@ -147,22 +153,78 @@ function isRecordingEnvironment(value: unknown): value is RecordingEnvironment {
 function isMacroAction(value: unknown): value is MacroAction {
   if (!isRecord(value) || typeof value.id !== 'string' || !value.id) return false
   if (
-    !['key-down', 'key-up', 'mouse-down', 'mouse-up', 'click', 'scroll', 'sleep'].includes(
-      String(value.kind),
-    )
+    ![
+      'key-down',
+      'key-up',
+      'mouse-down',
+      'mouse-up',
+      'click',
+      'move',
+      'drag',
+      'scroll',
+      'sleep',
+    ].includes(String(value.kind))
   )
     return false
   if (value.kind === 'key-down' || value.kind === 'key-up')
     return typeof value.key === 'string' && value.key.length > 0
   if (value.kind === 'sleep') return positiveNumber(value.durationUs)
   if (!isRecord(value.point) || value.point.unit !== 'ratio') return false
-  if (!nonnegativeNumber(value.point.x) || !nonnegativeNumber(value.point.y)) return false
+  if (
+    !nonnegativeNumber(value.point.x) ||
+    !nonnegativeNumber(value.point.y) ||
+    value.point.x > 1 ||
+    value.point.y > 1
+  )
+    return false
+  if (value.kind === 'move' || value.kind === 'drag') {
+    if (!['instant', 'linear', 'bezier'].includes(String(value.motion))) return false
+    if (
+      value.motion === 'instant'
+        ? value.durationUs !== undefined && value.durationUs !== 0
+        : !positiveNumber(value.durationUs)
+    )
+      return false
+    if (value.kind === 'move') return true
+    if (!isRecord(value.from) || value.from.unit !== 'ratio') return false
+    if (
+      !nonnegativeNumber(value.from.x) ||
+      !nonnegativeNumber(value.from.y) ||
+      value.from.x > 1 ||
+      value.from.y > 1
+    )
+      return false
+  }
   if (value.kind === 'scroll')
     return (
       typeof value.notches === 'number' && Number.isInteger(value.notches) && value.notches !== 0
     )
   if (!['left', 'middle', 'right'].includes(String(value.button))) return false
   return value.kind !== 'click' || positiveNumber(value.durationUs)
+}
+
+function isMacroDocument(value: unknown): value is MacroDocument {
+  if (
+    !isRecord(value) ||
+    value.schemaVersion !== 2 ||
+    !Array.isArray(value.baseResolution) ||
+    value.baseResolution.length !== 2 ||
+    !value.baseResolution.every(positiveNumber) ||
+    !isRecord(value.meta) ||
+    !isRecord(value.meta.autoMove) ||
+    !Array.isArray(value.actions) ||
+    !value.actions.every(isMacroAction)
+  )
+    return false
+  const autoMove = value.meta.autoMove
+  if (
+    typeof autoMove.enabled !== 'boolean' ||
+    !['instant', 'linear', 'bezier'].includes(String(autoMove.mode)) ||
+    !nonnegativeNumber(autoMove.durationMs) ||
+    autoMove.durationMs > 60_000
+  )
+    return false
+  return autoMove.mode === 'instant' ? autoMove.durationMs === 0 : autoMove.durationMs > 0
 }
 
 function isRecordingFinalizePayload(value: unknown): value is RecordingFinalizePayload {
@@ -372,7 +434,7 @@ export const useRecordingStore = defineStore('recording', () => {
     description: string
     category: string
     tags: string[]
-    actions?: MacroAction[]
+    document?: MacroDocument
     trimStartUs?: number
     trimEndUs?: number
   }): Promise<RecordingFinalizePayload> {

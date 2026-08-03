@@ -238,6 +238,19 @@ func TestProviderPlaybackIsExclusiveScaledAndReleasesHeldState(t *testing.T) {
 	}
 }
 
+func TestProviderPlaybackAcceptsAtomicClick(t *testing.T) {
+	profile, _ := testProfile(t)
+	driver := &fakeDriver{}
+	provider := &provider{profile: profile, driver: driver}
+	playback := openPlaybackSession(t, provider)
+	payload := []byte(`{"kind":"click","point":{"x":0.25,"y":0.75,"unit":"ratio"},"button":"left","durationMilliseconds":94}`)
+	raw, err := provider.Invoke(context.Background(), playback, OperationPlayEvent, payload)
+	event, ok := driver.request.(PlaybackEvent)
+	if err != nil || OpenEffectResponse(raw) != nil || !ok || event.Kind != PlaybackClick || event.DurationMilliseconds != 94 {
+		t.Fatalf("playback click=%#v response=%s error=%v", driver.request, raw, err)
+	}
+}
+
 func TestProviderRelativePlaybackUsesSourceScaleWhenTargetFollowsActiveCalibration(t *testing.T) {
 	base, _ := testProfile(t)
 	desktopProfile := desktopPayload(t, base)

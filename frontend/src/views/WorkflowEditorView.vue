@@ -1029,8 +1029,8 @@
           @update:trim-end-us="recordingEditor.trimEndUs = $event"
         />
         <MacroActionEditor
-          v-if="recordingEditor.pending.mode === 'simple' && recordingEditor.pending.actions"
-          v-model="recordingEditor.actions"
+          v-if="recordingEditor.pending.mode === 'simple' && recordingEditor.document"
+          v-model="recordingEditor.document"
           @validity="recordingEditor.actionsValid = $event"
         />
         <p
@@ -1102,7 +1102,7 @@
           }}</span>
         </div>
         <MacroActionEditor
-          v-model="macroEditing.document.actions"
+          v-model="macroEditing.document"
           class="min-h-0 flex-1"
           @validity="macroEditValid = $event"
         />
@@ -1154,7 +1154,7 @@
           }}</span>
         </div>
         <MacroActionEditor
-          v-model="workflowMacroEditing.document.actions"
+          v-model="workflowMacroEditing.document"
           class="min-h-0 flex-1"
           @validity="workflowMacroEditValid = $event"
         />

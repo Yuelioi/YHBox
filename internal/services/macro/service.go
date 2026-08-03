@@ -154,13 +154,7 @@ func (s *Service) emitChangedSince(before uint64) {
 func cloneMacro(source *Macro) *Macro {
 	clone := *source
 	clone.Tags = append([]string(nil), source.Tags...)
-	clone.Document.Actions = append([]Action(nil), source.Document.Actions...)
-	for index := range clone.Document.Actions {
-		if clone.Document.Actions[index].Point != nil {
-			point := *clone.Document.Actions[index].Point
-			clone.Document.Actions[index].Point = &point
-		}
-	}
+	clone.Document = CloneDocument(source.Document)
 	return &clone
 }
 
