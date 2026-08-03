@@ -249,7 +249,12 @@ describe('recordStore — 后端状态机镜像', () => {
           steps: [],
           tracks: null,
         },
-        actions: [{ id: 'action-1', kind: 'key-down', key: 'W' }],
+        document: {
+          schemaVersion: 2,
+          baseResolution: [1280, 720],
+          meta: { autoMove: { enabled: true, mode: 'linear', durationMs: 300 } },
+          actions: [{ id: 'action-1', kind: 'key-down', key: 'W' }],
+        },
         environment: {
           baseResolution: [1280, 720],
           mouseMode: 'relative',

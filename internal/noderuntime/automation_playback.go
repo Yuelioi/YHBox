@@ -9,6 +9,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/automation/installed"
+	"github.com/yottaapp/yotta/internal/automation/pointermotion"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodes"
@@ -208,7 +209,7 @@ func playbackEvent(event inputclip.Event, meta inputclip.ClipMeta) installed.Pla
 	case inputclip.EventTypeMouseBtnUp:
 		return installed.PlaybackEvent{Kind: installed.PlaybackButtonUp, Point: point(), Button: button()}
 	case inputclip.EventTypeMouseMove:
-		return installed.PlaybackEvent{Kind: installed.PlaybackMove, Point: point()}
+		return installed.PlaybackEvent{Kind: installed.PlaybackMove, Point: point(), Motion: pointermotion.Instant}
 	case inputclip.EventTypeRawDelta:
 		return installed.PlaybackEvent{Kind: installed.PlaybackMoveRelative, DeltaX: int64(event.B), DeltaY: int64(event.C), SourceCounts360: int64(meta.MouseCounts360)}
 	case inputclip.EventTypeScroll:

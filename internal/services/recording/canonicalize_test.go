@@ -26,11 +26,11 @@ func TestCanonicalizeSimpleRecordingUsesExplicitPolicyAndBalancesInput(t *testin
 	if err := canonicalizeStopResult(result); err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Events) != 5 {
+	if len(result.Events) != 6 {
 		t.Fatalf("canonical events = %#v", result.Events)
 	}
 	wantTypes := []inputclip.EventType{
-		inputclip.EventTypeKeyDown, inputclip.EventTypeKeyUp, inputclip.EventTypeScroll,
+		inputclip.EventTypeMouseMove, inputclip.EventTypeKeyDown, inputclip.EventTypeKeyUp, inputclip.EventTypeScroll,
 		inputclip.EventTypeMouseBtnDown, inputclip.EventTypeMouseBtnUp,
 	}
 	for index, event := range result.Events {
@@ -38,7 +38,7 @@ func TestCanonicalizeSimpleRecordingUsesExplicitPolicyAndBalancesInput(t *testin
 			t.Fatalf("event %d = %#v", index, event)
 		}
 	}
-	if result.Events[0].TUs != 0 || result.Events[1].TUs != 20 || result.Events[2].TUs != 50 || result.Events[3].TUs != 100 || result.Events[4].TUs != 100 {
+	if result.Events[0].TUs != 0 || result.Events[1].TUs != 400 || result.Events[2].TUs != 420 || result.Events[3].TUs != 450 || result.Events[4].TUs != 500 || result.Events[5].TUs != 500 {
 		t.Fatalf("normalized times = %#v", result.Events)
 	}
 }

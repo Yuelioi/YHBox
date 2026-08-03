@@ -290,7 +290,7 @@ func (r *Recorder) drainLoop() {
 			clipEv.C = cy
 
 		case ev.IsMouseMove:
-			if r.meta.RecordingMode == inputclip.RecordingModeSimple || r.meta.MouseMode == "relative" {
+			if r.meta.MouseMode == "relative" {
 				continue
 			}
 			if r.meta.MouseMode == "absolute" && !IsPointInsideGameWindow(r.hwnd, ev.ScreenX, ev.ScreenY) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"image"
 
+	"github.com/yottaapp/yotta/internal/automation/pointermotion"
 	"github.com/yottaapp/yotta/internal/automation/target"
 )
 
@@ -70,8 +71,10 @@ type ClickRequest struct {
 }
 
 type MoveRequest struct {
-	Point  target.Point
-	Policy ActionPolicy
+	Point      target.Point
+	DurationMs int
+	Motion     pointermotion.Kind
+	Policy     ActionPolicy
 }
 
 type ScrollRequest struct {
@@ -92,6 +95,7 @@ type DragRequest struct {
 	To         target.Point
 	Button     string
 	DurationMs int
+	Motion     pointermotion.Kind
 	Policy     ActionPolicy
 }
 

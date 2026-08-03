@@ -24,7 +24,7 @@ type PostMessageBackend struct {
 	mu        sync.Mutex
 	clickMu   sync.Mutex                    // serializes the brief process-global cursor projection used by Click
 	heldKeys  map[uint32]win.HWND           // virtual key → exact target window
-	heldBtns  map[win.HWND]map[string]point // hwnd → button name → 按下时客户区坐标
+	heldBtns  map[win.HWND]map[string]point // hwnd → button name → 当前客户区坐标
 	activated map[win.HWND]time.Time        // hwnd → 最近一次 FakeActivate 时间
 	cursor    map[win.HWND]point            // exact target client position; never moves the global cursor
 }
@@ -252,31 +252,7 @@ func (b *PostMessageBackend) MouseMoveRel(hwnd win.HWND, dx, dy, durMs int) erro
 		return err
 	}
 	next := point{X: min(max(current.X+int32(dx), 0), int32(width-1)), Y: min(max(current.Y+int32(dy), 0), int32(height-1))}
-	if err := postMessageChecked(hwnd, WM_MOUSEMOVE, 0, makeLParam(next.X, next.Y)); err != nil {
-		return err
-	}
-	b.mu.Lock()
-	b.cursor[hwnd] = next
-	b.mu.Unlock()
-	return nil
-}
-
-func (b *PostMessageBackend) Drag(hwnd win.HWND, x1Ratio, y1Ratio, x2Ratio, y2Ratio float64, button string, durationMs int) error {
-	if durationMs <= 0 {
-		durationMs = 200
-	}
-	if err := b.MouseDown(hwnd, x1Ratio, y1Ratio, button); err != nil {
-		return err
-	}
-	steps := max(1, durationMs/16)
-	for step := 1; step <= steps; step++ {
-		progress := float64(step) / float64(steps)
-		if err := b.MoveTo(hwnd, x1Ratio+(x2Ratio-x1Ratio)*progress, y1Ratio+(y2Ratio-y1Ratio)*progress); err != nil {
-			return err
-		}
-		time.Sleep(time.Duration(durationMs/steps) * time.Millisecond)
-	}
-	return b.MouseUp(hwnd, button)
+	return b.moveCursor(hwnd, next)
 }
 
 func (b *PostMessageBackend) MoveTo(hwnd win.HWND, xRatio, yRatio float64) error {
@@ -285,11 +261,25 @@ func (b *PostMessageBackend) MoveTo(hwnd win.HWND, xRatio, yRatio float64) error
 	if err != nil {
 		return err
 	}
-	if err := postMessageChecked(hwnd, WM_MOUSEMOVE, 0, makeLParam(pt.X, pt.Y)); err != nil {
+	return b.moveCursor(hwnd, pt)
+}
+
+func (b *PostMessageBackend) moveCursor(hwnd win.HWND, pt point) error {
+	b.mu.Lock()
+	buttons := b.heldBtns[hwnd]
+	flags := uintptr(0)
+	for button := range buttons {
+		_, buttonFlag := postMessageButton(button, false)
+		flags |= buttonFlag
+	}
+	if err := postMessageChecked(hwnd, WM_MOUSEMOVE, flags, makeLParam(pt.X, pt.Y)); err != nil {
+		b.mu.Unlock()
 		return err
 	}
-	b.mu.Lock()
 	b.cursor[hwnd] = pt
+	for button := range buttons {
+		buttons[button] = pt
+	}
 	b.mu.Unlock()
 	return nil
 }
@@ -301,6 +291,12 @@ func (b *PostMessageBackend) CursorRatio(hwnd win.HWND) (float64, float64, error
 	h := float64(rect.Bottom - rect.Top)
 	if w <= 0 || h <= 0 {
 		return 0, 0, fmt.Errorf("CursorRatio: client rect 为空 (hwnd=%v)", hwnd)
+	}
+	b.mu.Lock()
+	tracked, ok := b.cursor[hwnd]
+	b.mu.Unlock()
+	if ok {
+		return float64(tracked.X) / w, float64(tracked.Y) / h, nil
 	}
 	sx, sy := getCursorPos()
 	cx, cy := screenToClient(hwnd, sx, sy)

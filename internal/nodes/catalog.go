@@ -82,6 +82,7 @@ type Builtins struct {
 	ColorRangeType               datatype.Definition
 	ColorBlobType                datatype.Definition
 	PointerButtonType            datatype.Definition
+	PointerMotionType            datatype.Definition
 	KeyCodeType                  datatype.Definition
 	HeldInputType                datatype.Definition
 	RandomDistributionType       datatype.Definition
@@ -180,7 +181,7 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
-	pointerButtonType, keyCodeType, err := sealAutomationInputTypes()
+	pointerButtonType, pointerMotionType, keyCodeType, err := sealAutomationInputTypes()
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -371,7 +372,7 @@ func Build() (Builtins, error) {
 	}
 	automationInputDefinitions, automationInputContracts, err := defineAutomationInputNodes(automationInputTypes{
 		stringRef: stringType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef(), pointRef: pointType.TypeRef(),
-		durationRef: durationMillisecondsType.TypeRef(), buttonRef: pointerButtonType.TypeRef(), keyCodeRef: keyCodeType.TypeRef(),
+		durationRef: durationMillisecondsType.TypeRef(), buttonRef: pointerButtonType.TypeRef(), motionRef: pointerMotionType.TypeRef(), keyCodeRef: keyCodeType.TypeRef(),
 	})
 	if err != nil {
 		return Builtins{}, err
@@ -408,7 +409,7 @@ func Build() (Builtins, error) {
 	types := []datatype.Definition{
 		stringType, binaryType, imageType, inputClipType, macroType, numberType, integerType, booleanType, jsonType, pointUnitType, pointType, regionType,
 		visionTypes.templateMatch, visionTypes.qrCode, visionTypes.colorRange, visionTypes.colorBlob,
-		pointerButtonType, keyCodeType, heldInputType, randomDistributionType, durationMillisecondsType, fileMetadataType, observabilityMessageType,
+		pointerButtonType, pointerMotionType, keyCodeType, heldInputType, randomDistributionType, durationMillisecondsType, fileMetadataType, observabilityMessageType,
 	}
 	structureDefinitions, err := defineStructureNodes(types)
 	if err != nil {
@@ -467,7 +468,7 @@ func Build() (Builtins, error) {
 		IntegerType: integerType, BooleanType: booleanType, JSONType: jsonType,
 		PointUnitType: pointUnitType, PointType: pointType, RegionType: regionType, ConcatContract: concat,
 		TemplateMatchType: visionTypes.templateMatch, QRCodeType: visionTypes.qrCode, ColorRangeType: visionTypes.colorRange, ColorBlobType: visionTypes.colorBlob,
-		PointerButtonType: pointerButtonType, KeyCodeType: keyCodeType,
+		PointerButtonType: pointerButtonType, PointerMotionType: pointerMotionType, KeyCodeType: keyCodeType,
 		HeldInputType:            heldInputType,
 		RandomDistributionType:   randomDistributionType,
 		DurationMillisecondsType: durationMillisecondsType,

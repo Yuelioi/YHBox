@@ -6,16 +6,19 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/yottaapp/yotta/internal/automation/pointermotion"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/services/inputclip"
 )
 
 const (
-	SchemaVersion      = 1
-	MaxActions         = 4096
-	MaxDurationUs      = inputclip.MaxInputClipDurationUs
-	MaxClickDurationUs = uint64(5_000_000)
+	SchemaVersion       = 2
+	MaxActions          = 4096
+	MaxDurationUs       = inputclip.MaxInputClipDurationUs
+	MaxClickDurationUs  = uint64(5_000_000)
+	MaxMotionDurationUs = uint64(pointermotion.MaxDuration / 1000)
 )
 
 type ActionKind string
@@ -26,6 +29,8 @@ const (
 	ActionMouseDown ActionKind = "mouse-down"
 	ActionMouseUp   ActionKind = "mouse-up"
 	ActionClick     ActionKind = "click"
+	ActionMove      ActionKind = "move"
+	ActionDrag      ActionKind = "drag"
 	ActionScroll    ActionKind = "scroll"
 	ActionSleep     ActionKind = "sleep"
 )
@@ -36,20 +41,37 @@ type Point struct {
 	Unit string  `json:"unit"`
 }
 
+type AutoMove struct {
+	Enabled              bool               `json:"enabled"`
+	Mode                 pointermotion.Kind `json:"mode"`
+	DurationMilliseconds int64              `json:"durationMs"`
+}
+
+type Meta struct {
+	AutoMove AutoMove `json:"autoMove"`
+}
+
 type Action struct {
-	ID         string     `json:"id"`
-	Kind       ActionKind `json:"kind"`
-	Key        string     `json:"key,omitempty"`
-	Button     string     `json:"button,omitempty"`
-	Point      *Point     `json:"point,omitempty"`
-	Notches    int32      `json:"notches,omitempty"`
-	DurationUs uint64     `json:"durationUs,omitempty"`
+	ID         string             `json:"id"`
+	Kind       ActionKind         `json:"kind"`
+	Key        string             `json:"key,omitempty"`
+	Button     string             `json:"button,omitempty"`
+	From       *Point             `json:"from,omitempty"`
+	Point      *Point             `json:"point,omitempty"`
+	Notches    int32              `json:"notches,omitempty"`
+	DurationUs uint64             `json:"durationUs,omitempty"`
+	Motion     pointermotion.Kind `json:"motion,omitempty"`
 }
 
 type Document struct {
 	SchemaVersion  int      `json:"schemaVersion"`
 	BaseResolution [2]int   `json:"baseResolution"`
+	Meta           Meta     `json:"meta"`
 	Actions        []Action `json:"actions"`
+}
+
+func DefaultMeta() Meta {
+	return Meta{AutoMove: AutoMove{Enabled: true, Mode: pointermotion.Linear, DurationMilliseconds: 300}}
 }
 
 type Macro struct {
@@ -105,6 +127,9 @@ func Analyze(document Document) Analysis {
 	if !validResolution(document.BaseResolution) {
 		analysis.Issues = append(analysis.Issues, Issue{Index: -1, Code: "macro.base-resolution", Message: "baseResolution must contain two positive dimensions"})
 	}
+	if !validAutoMove(document.Meta.AutoMove) {
+		analysis.Issues = append(analysis.Issues, Issue{Index: -1, Code: "macro.auto-move", Message: "meta.autoMove mode and duration are invalid"})
+	}
 	ids := make(map[string]struct{}, len(document.Actions))
 	heldKeys := map[string]struct{}{}
 	heldButtons := map[string]struct{}{}
@@ -151,19 +176,23 @@ func Analyze(document Document) Analysis {
 					delete(heldButtons, action.Button)
 				}
 			}
-		case ActionClick:
+		case ActionClick, ActionDrag:
 			if _, active := heldButtons[action.Button]; active {
-				analysis.Issues = append(analysis.Issues, Issue{Index: index, Code: "macro.click-button-held", Message: "click cannot use a mouse button that is already held"})
-			}
-		}
-		if action.Kind == ActionSleep || action.Kind == ActionClick {
-			if action.DurationUs > MaxDurationUs || analysis.DurationUs > MaxDurationUs-action.DurationUs {
-				analysis.Issues = append(analysis.Issues, Issue{Index: index, Code: "macro.duration-budget", Message: "macro exceeds the duration budget"})
-			} else {
-				analysis.DurationUs += action.DurationUs
+				analysis.Issues = append(analysis.Issues, Issue{Index: index, Code: "macro.pointer-action-button-held", Message: "atomic pointer action cannot use a mouse button that is already held"})
 			}
 		}
 		analysis.HeldAfter = append(analysis.HeldAfter, snapshotHeld(heldKeys, heldButtons))
+	}
+	for _, planned := range expandActions(document) {
+		action := planned.Action
+		if action.Kind != ActionSleep && action.Kind != ActionClick && action.Kind != ActionMove && action.Kind != ActionDrag {
+			continue
+		}
+		if action.DurationUs > MaxDurationUs || analysis.DurationUs > MaxDurationUs-action.DurationUs {
+			analysis.Issues = append(analysis.Issues, Issue{Index: planned.SourceIndex, Code: "macro.duration-budget", Message: "macro exceeds the duration budget"})
+			break
+		}
+		analysis.DurationUs += action.DurationUs
 	}
 	if len(heldKeys) != 0 || len(heldButtons) != 0 {
 		analysis.Issues = append(analysis.Issues, Issue{Index: len(document.Actions) - 1, Code: "macro.held-at-end", Message: "macro ends with held keyboard or mouse input"})
@@ -191,12 +220,17 @@ func validateAction(index int, action Action) []Issue {
 			add("macro.point", "point must be a ratio inside the target")
 		}
 	}
+	fromRequired := func() {
+		if action.From == nil || action.From.Unit != "ratio" || action.From.X < 0 || action.From.X > 1 || action.From.Y < 0 || action.From.Y > 1 {
+			add("macro.from", "from must be a ratio inside the target")
+		}
+	}
 	switch action.Kind {
 	case ActionKeyDown, ActionKeyUp:
 		if _, _, ok := CanonicalKey(action.Key); !ok {
 			add("macro.key", fmt.Sprintf("unsupported key %q", action.Key))
 		}
-		if action.Button != "" || action.Point != nil || action.Notches != 0 || action.DurationUs != 0 {
+		if action.Button != "" || action.From != nil || action.Point != nil || action.Notches != 0 || action.DurationUs != 0 || action.Motion != "" {
 			add("macro.action-shape", "key action contains unrelated fields")
 		}
 	case ActionMouseDown, ActionMouseUp:
@@ -204,7 +238,7 @@ func validateAction(index int, action Action) []Issue {
 			add("macro.button", "mouse button is invalid")
 		}
 		pointRequired()
-		if action.Key != "" || action.Notches != 0 || action.DurationUs != 0 {
+		if action.Key != "" || action.From != nil || action.Notches != 0 || action.DurationUs != 0 || action.Motion != "" {
 			add("macro.action-shape", "mouse action contains unrelated fields")
 		}
 	case ActionClick:
@@ -215,22 +249,42 @@ func validateAction(index int, action Action) []Issue {
 		if action.DurationUs == 0 || action.DurationUs > MaxClickDurationUs {
 			add("macro.click-duration", "click duration must be between 1 microsecond and 5 seconds")
 		}
-		if action.Key != "" || action.Notches != 0 {
+		if action.Key != "" || action.From != nil || action.Notches != 0 || action.Motion != "" {
 			add("macro.action-shape", "click contains unrelated fields")
+		}
+	case ActionMove:
+		pointRequired()
+		if !validMotion(action.Motion, action.DurationUs) {
+			add("macro.motion", "move motion and duration are invalid")
+		}
+		if action.Key != "" || action.Button != "" || action.From != nil || action.Notches != 0 {
+			add("macro.action-shape", "move contains unrelated fields")
+		}
+	case ActionDrag:
+		fromRequired()
+		pointRequired()
+		if !validButton(action.Button) {
+			add("macro.button", "drag button is invalid")
+		}
+		if !validMotion(action.Motion, action.DurationUs) {
+			add("macro.motion", "drag motion and duration are invalid")
+		}
+		if action.Key != "" || action.Notches != 0 {
+			add("macro.action-shape", "drag contains unrelated fields")
 		}
 	case ActionScroll:
 		pointRequired()
 		if action.Notches == 0 || action.Notches < -120 || action.Notches > 120 {
 			add("macro.scroll", "scroll notches must be between -120 and 120 and cannot be zero")
 		}
-		if action.Key != "" || action.Button != "" || action.DurationUs != 0 {
+		if action.Key != "" || action.Button != "" || action.From != nil || action.DurationUs != 0 || action.Motion != "" {
 			add("macro.action-shape", "scroll contains unrelated fields")
 		}
 	case ActionSleep:
 		if action.DurationUs == 0 || action.DurationUs > MaxDurationUs {
 			add("macro.sleep-duration", "sleep duration must be positive and inside the duration budget")
 		}
-		if action.Key != "" || action.Button != "" || action.Point != nil || action.Notches != 0 {
+		if action.Key != "" || action.Button != "" || action.From != nil || action.Point != nil || action.Notches != 0 || action.Motion != "" {
 			add("macro.action-shape", "sleep contains unrelated fields")
 		}
 	default:
@@ -258,6 +312,26 @@ func validResolution(resolution [2]int) bool {
 
 func validButton(button string) bool {
 	return button == "left" || button == "middle" || button == "right"
+}
+
+func validMotion(motion pointermotion.Kind, durationUs uint64) bool {
+	if !motion.Valid() || durationUs > MaxMotionDurationUs {
+		return false
+	}
+	if motion == pointermotion.Instant {
+		return durationUs == 0
+	}
+	return durationUs > 0
+}
+
+func validAutoMove(autoMove AutoMove) bool {
+	if !autoMove.Mode.Valid() || autoMove.DurationMilliseconds < 0 || autoMove.DurationMilliseconds > int64(pointermotion.MaxDuration/time.Millisecond) {
+		return false
+	}
+	if autoMove.Mode == pointermotion.Instant {
+		return autoMove.DurationMilliseconds == 0
+	}
+	return autoMove.DurationMilliseconds > 0
 }
 
 var namedKeys = map[string]uint32{
@@ -298,52 +372,7 @@ func KeyName(code uint32) string {
 }
 
 func FromInputEvents(events []inputclip.Event, resolution [2]int) (Document, error) {
-	document := Document{SchemaVersion: SchemaVersion, BaseResolution: resolution, Actions: []Action{}}
-	if !validResolution(resolution) {
-		return Document{}, errors.New("recording resolution is invalid")
-	}
-	var previousUs uint64
-	for index, event := range events {
-		if index != 0 && event.TUs > previousUs {
-			document.Actions = append(document.Actions, Action{ID: actionID(len(document.Actions)), Kind: ActionSleep, DurationUs: event.TUs - previousUs})
-		}
-		action := Action{ID: actionID(len(document.Actions))}
-		switch event.Type {
-		case inputclip.EventTypeKeyDown, inputclip.EventTypeKeyUp:
-			action.Key = KeyName(uint32(event.A))
-			if action.Key == "" {
-				return Document{}, fmt.Errorf("recording event %d uses unsupported key code %d", index, event.A)
-			}
-			if event.Type == inputclip.EventTypeKeyDown {
-				action.Kind = ActionKeyDown
-			} else {
-				action.Kind = ActionKeyUp
-			}
-		case inputclip.EventTypeMouseBtnDown, inputclip.EventTypeMouseBtnUp:
-			action.Button = buttonName(event.A)
-			if action.Button == "" {
-				return Document{}, fmt.Errorf("recording event %d uses unsupported mouse button %d", index, event.A)
-			}
-			action.Point = ratioPoint(event.B, event.C, resolution)
-			if event.Type == inputclip.EventTypeMouseBtnDown {
-				action.Kind = ActionMouseDown
-			} else {
-				action.Kind = ActionMouseUp
-			}
-		case inputclip.EventTypeScroll:
-			action.Kind = ActionScroll
-			action.Notches = event.A
-			action.Point = ratioPoint(event.B, event.C, resolution)
-		default:
-			return Document{}, fmt.Errorf("recording event %d is not a macro event", index)
-		}
-		document.Actions = append(document.Actions, action)
-		previousUs = event.TUs
-	}
-	if err := Validate(document); err != nil {
-		return Document{}, err
-	}
-	return document, nil
+	return fromInputEvents(events, resolution)
 }
 
 func actionID(index int) string {

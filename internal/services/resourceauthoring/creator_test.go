@@ -48,6 +48,7 @@ func TestCreatorCreatesMacroAndInputClipMetadataFromCarrier(t *testing.T) {
 	creator, blobs, _ := newTestCreator(t)
 	document := macro.Document{
 		SchemaVersion: macro.SchemaVersion, BaseResolution: [2]int{1280, 720},
+		Meta:    macro.DefaultMeta(),
 		Actions: []macro.Action{{ID: "wait", Kind: macro.ActionSleep, DurationUs: 25_000}},
 	}
 	macroResource, err := creator.CreateMacro(context.Background(), MacroDraft{
@@ -104,6 +105,7 @@ func TestCreatorPromotesIndependentGlobalAssetsWithoutCopyingBlobs(t *testing.T)
 		Metadata: Metadata{Name: "Macro"},
 		Document: macro.Document{
 			SchemaVersion: macro.SchemaVersion, BaseResolution: [2]int{1280, 720},
+			Meta:    macro.DefaultMeta(),
 			Actions: []macro.Action{{ID: "wait", Kind: macro.ActionSleep, DurationUs: 25_000}},
 		},
 	})

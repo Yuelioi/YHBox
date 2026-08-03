@@ -2,9 +2,11 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/automation/pointermotion"
 	"github.com/yottaapp/yotta/internal/automation/target"
 	automationtrace "github.com/yottaapp/yotta/internal/automation/trace"
 )
@@ -13,7 +15,6 @@ type Win32Input interface {
 	Click(hwnd uintptr, xRatio, yRatio float64, button string, durMs int) error
 	MouseDown(hwnd uintptr, xRatio, yRatio float64, button string) error
 	MouseUp(hwnd uintptr, button string) error
-	Drag(hwnd uintptr, x1Ratio, y1Ratio, x2Ratio, y2Ratio float64, button string, durationMs int) error
 	MouseMoveRel(hwnd uintptr, dx, dy, durationMs int) error
 	KeyDown(hwnd uintptr, key string) error
 	KeyUp(hwnd uintptr, key string) error
@@ -157,11 +158,26 @@ func (c *Win32Controller) Drag(ctx context.Context, req DragRequest) error {
 		if err := validateNormalizedPoint("drag to", req.To); err != nil {
 			return err
 		}
+		plan, err := pointermotion.Build(
+			pointermotion.Point{X: req.From.X, Y: req.From.Y},
+			pointermotion.Point{X: req.To.X, Y: req.To.Y},
+			time.Duration(req.DurationMs)*time.Millisecond,
+			req.Motion,
+		)
+		if err != nil {
+			return err
+		}
 		button := req.Button
 		if button == "" {
 			button = "left"
 		}
-		return c.deps.Input.Drag(c.hwnd(), req.From.X, req.From.Y, req.To.X, req.To.Y, button, req.DurationMs)
+		if err := c.deps.Input.MouseDown(c.hwnd(), req.From.X, req.From.Y, button); err != nil {
+			return err
+		}
+		moveErr := pointermotion.Play(ctx, plan, func(point pointermotion.Point) error {
+			return c.deps.Input.MoveTo(c.hwnd(), clampRatio(point.X), clampRatio(point.Y))
+		})
+		return errors.Join(moveErr, c.deps.Input.MouseUp(c.hwnd(), button))
 	})
 }
 
@@ -189,8 +205,33 @@ func (c *Win32Controller) Move(ctx context.Context, req MoveRequest) error {
 		if err := validateNormalizedPoint("move", req.Point); err != nil {
 			return err
 		}
-		return c.deps.Input.MoveTo(c.hwnd(), req.Point.X, req.Point.Y)
+		if req.Motion == pointermotion.Instant {
+			if req.DurationMs != 0 {
+				return errors.New("instant pointer movement cannot have a duration")
+			}
+			return c.deps.Input.MoveTo(c.hwnd(), req.Point.X, req.Point.Y)
+		}
+		startX, startY, err := c.deps.Input.CursorRatio(c.hwnd())
+		if err != nil {
+			return err
+		}
+		plan, err := pointermotion.Build(
+			pointermotion.Point{X: startX, Y: startY},
+			pointermotion.Point{X: req.Point.X, Y: req.Point.Y},
+			time.Duration(req.DurationMs)*time.Millisecond,
+			req.Motion,
+		)
+		if err != nil {
+			return err
+		}
+		return pointermotion.Play(ctx, plan, func(point pointermotion.Point) error {
+			return c.deps.Input.MoveTo(c.hwnd(), clampRatio(point.X), clampRatio(point.Y))
+		})
 	})
+}
+
+func clampRatio(value float64) float64 {
+	return min(1, max(0, value))
 }
 
 func (c *Win32Controller) PointerPosition(ctx context.Context) (target.Point, error) {

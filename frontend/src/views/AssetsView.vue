@@ -626,7 +626,7 @@
         <span>{{ t('assets.macros.trajectory_hint') }}</span>
       </div>
       <MacroActionEditor
-        v-model="macroEditing.document.actions"
+        v-model="macroEditing.document"
         class="min-h-0 flex-1"
         @validity="macroEditValid = $event"
       />
@@ -776,8 +776,8 @@
         </p>
       </div>
       <MacroActionEditor
-        v-if="pendingRecording.mode === 'simple' && pendingRecording.actions"
-        v-model="recordingActions"
+        v-if="pendingRecording.mode === 'simple' && recordingDocument"
+        v-model="recordingDocument"
         @validity="recordingActionsValid = $event"
       />
       <PreciseRecordingWorkbench
@@ -856,6 +856,7 @@ import {
   type BlobRef,
   type InputClipSummary,
   type MacroAsset,
+  type MacroDocument,
 } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
 import {
@@ -865,7 +866,6 @@ import {
 } from '@/lib/batchMetadata'
 import {
   useRecordingStore,
-  type MacroAction,
   type RecordingMode,
   type RecordingPreview,
   type RecordingStopPayload,
@@ -975,7 +975,7 @@ const preciseViewingPreview = computed<RecordingPreview | null>(() => {
 })
 const pendingRecording = ref<RecordingStopPayload | null>(null)
 const recordingSaveBusy = ref(false)
-const recordingActions = ref<MacroAction[]>([])
+const recordingDocument = ref<MacroDocument | null>(null)
 const recordingActionsValid = ref(true)
 const recordingTrimStartUs = ref(0)
 const recordingTrimEndUs = ref(0)
@@ -1537,7 +1537,7 @@ async function stopRecording(): Promise<void> {
 function openRecordingSave(payload: RecordingStopPayload): void {
   if (pendingRecording.value?.pendingID === payload.pendingID) return
   pendingRecording.value = payload
-  recordingActions.value = cloneRecordingActions(payload.actions ?? [])
+  recordingDocument.value = payload.document ? cloneMacroDocument(payload.document) : null
   recordingActionsValid.value = true
   recordingTrimStartUs.value = 0
   recordingTrimEndUs.value = payload.durationUs
@@ -1559,11 +1559,15 @@ async function saveRecording(): Promise<void> {
       description: recordingDraft.description.trim(),
       category: recordingDraft.category.trim(),
       tags: uniqueStrings(recordingDraft.tags),
-      actions: pending.actions ? cloneRecordingActions(recordingActions.value) : undefined,
+      document:
+        pending.document && recordingDocument.value
+          ? cloneMacroDocument(recordingDocument.value)
+          : undefined,
       trimStartUs: pending.mode === 'precise' ? recordingTrimStartUs.value : undefined,
       trimEndUs: pending.mode === 'precise' ? recordingTrimEndUs.value : undefined,
     })
     pendingRecording.value = null
+    recordingDocument.value = null
     await refreshAssets()
   } catch (error) {
     showError(t('recordingSave.save_failed'), error)
@@ -1586,6 +1590,7 @@ async function discardRecording(): Promise<void> {
   try {
     await recording.discard(pending.pendingID)
     pendingRecording.value = null
+    recordingDocument.value = null
   } catch (error) {
     showError(t('recordingSave.discard_failed'), error)
   } finally {
@@ -1593,11 +1598,17 @@ async function discardRecording(): Promise<void> {
   }
 }
 
-function cloneRecordingActions(actions: MacroAction[]): MacroAction[] {
-  return actions.map((action) => ({
-    ...action,
-    point: action.point ? { ...action.point } : undefined,
-  }))
+function cloneMacroDocument(document: MacroDocument): MacroDocument {
+  return {
+    ...document,
+    baseResolution: [...document.baseResolution] as [number, number],
+    meta: { autoMove: { ...document.meta.autoMove } },
+    actions: document.actions.map((action) => ({
+      ...action,
+      from: action.from ? { ...action.from } : undefined,
+      point: action.point ? { ...action.point } : undefined,
+    })),
+  }
 }
 
 async function captureTemplate(): Promise<void> {
@@ -1704,7 +1715,12 @@ async function createBlankMacro(): Promise<void> {
       description: macroCreateDraft.description.trim(),
       category: macroCreateDraft.category.trim(),
       tags: uniqueStrings(macroCreateDraft.tags),
-      document: { schemaVersion: 1, baseResolution: resolution, actions: [] },
+      document: {
+        schemaVersion: 2,
+        baseResolution: resolution,
+        meta: { autoMove: { enabled: true, mode: 'linear', durationMs: 300 } },
+        actions: [],
+      },
     })
     macroCreateOpen.value = false
     await refreshAssets()
@@ -1736,11 +1752,7 @@ async function openMacroEditor(asset: AssetSummary): Promise<void> {
       description: value.description ?? '',
       category: value.category ?? '',
       tags: [...(value.tags ?? [])],
-      document: {
-        ...value.document,
-        baseResolution: [...value.document.baseResolution] as [number, number],
-        actions: cloneRecordingActions(value.document.actions),
-      },
+      document: cloneMacroDocument(value.document),
       blob: { ...value.blob },
     }
     macroEditValid.value = true
@@ -1755,10 +1767,7 @@ async function saveMacro(): Promise<void> {
   try {
     await backend.macros.save({
       ...macroEditing.value,
-      document: {
-        ...macroEditing.value.document,
-        actions: cloneRecordingActions(macroEditing.value.document.actions),
-      },
+      document: cloneMacroDocument(macroEditing.value.document),
     })
     macroEditing.value = null
     await refreshAssets()

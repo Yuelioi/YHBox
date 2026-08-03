@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/yottaapp/yotta/internal/adbexec"
+	"github.com/yottaapp/yotta/internal/automation/pointermotion"
 	"github.com/yottaapp/yotta/internal/automation/target"
 	automationtrace "github.com/yottaapp/yotta/internal/automation/trace"
 )
@@ -117,6 +118,9 @@ func (c *AndroidADBController) Click(ctx context.Context, req ClickRequest) erro
 }
 
 func (c *AndroidADBController) Move(ctx context.Context, req MoveRequest) error {
+	if req.Motion != pointermotion.Instant || req.DurationMs != 0 {
+		return fmt.Errorf("android adb smooth pointer move is unsupported")
+	}
 	return c.recordInputAction(ctx, "move", req, []target.Point{req.Point}, func(x, y int) error {
 		_, err := c.runner().Run(ctx, c.serial(), "shell", "input", "swipe", fmt.Sprint(x), fmt.Sprint(y), fmt.Sprint(x), fmt.Sprint(y), "0")
 		return err
@@ -147,6 +151,12 @@ func (c *AndroidADBController) MouseUp(context.Context, MouseButtonRequest) erro
 }
 
 func (c *AndroidADBController) Drag(ctx context.Context, req DragRequest) error {
+	if req.Motion == pointermotion.Bezier {
+		return fmt.Errorf("android adb bezier drag is unsupported")
+	}
+	if !req.Motion.Valid() {
+		return fmt.Errorf("android adb drag motion is invalid")
+	}
 	size := c.inputResolutionForPoints(ctx, req.From, req.To)
 	steps, err := c.coordinateStepsWithSize(size, req.From, req.To)
 	if err != nil {
@@ -162,9 +172,6 @@ func (c *AndroidADBController) Drag(ctx context.Context, req DragRequest) error 
 			return nil, err
 		}
 		duration := req.DurationMs
-		if duration <= 0 {
-			duration = 300
-		}
 		_, err = c.runner().Run(ctx, c.serial(), "shell", "input", "swipe", fmt.Sprint(x1), fmt.Sprint(y1), fmt.Sprint(x2), fmt.Sprint(y2), fmt.Sprint(duration))
 		return nil, err
 	})

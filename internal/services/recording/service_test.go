@@ -138,12 +138,19 @@ func TestServiceStopCreatesPendingThenFinalizePersistsMetadata(t *testing.T) {
 	if pending == nil || pending.PendingID != "pending-session" || pending.DurationUs != 250_000 {
 		t.Fatalf("pending = %+v", pending)
 	}
+	if pending.Document == nil || !pending.Document.Meta.AutoMove.Enabled {
+		t.Fatalf("pending macro policy = %+v", pending.Document)
+	}
 	if macros.saved != nil {
 		t.Fatal("Stop persisted a macro before user confirmation")
 	}
+	edited := macro.CloneDocument(*pending.Document)
+	edited.Meta.AutoMove.Mode = "bezier"
+	edited.Meta.AutoMove.DurationMilliseconds = 250
 	result, err := s.Finalize(FinalizeArgs{
 		PendingID: pending.PendingID, Destination: DestinationGlobalAsset,
 		Label: "  Boss 战  ", Category: " 战斗 ", Tags: []string{"循环", "循环", " "},
+		Document: &edited,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -157,6 +164,36 @@ func TestServiceStopCreatesPendingThenFinalizePersistsMetadata(t *testing.T) {
 	}
 	if len(macros.saved.Document.Actions) != 3 || macros.saved.Document.Actions[0].Kind != macro.ActionKeyDown || macros.saved.Document.Actions[1].Kind != macro.ActionSleep || macros.saved.Document.Actions[2].Kind != macro.ActionKeyUp {
 		t.Fatalf("saved atomic macro = %+v", macros.saved.Document.Actions)
+	}
+	if macros.saved.Document.Meta.AutoMove.Mode != "bezier" || macros.saved.Document.Meta.AutoMove.DurationMilliseconds != 250 {
+		t.Fatalf("saved macro policy = %+v", macros.saved.Document.Meta.AutoMove)
+	}
+}
+
+func TestServiceStopReportsPlannedSimpleMacroDuration(t *testing.T) {
+	recorder := &resultRecorder{result: &StopResult{
+		TempID: "click-duration",
+		Meta: inputclip.ClipMeta{
+			RecordingMode:  inputclip.RecordingModeSimple,
+			MouseMode:      "absolute",
+			BaseResolution: [2]int{1280, 720},
+		},
+		Events: []inputclip.Event{
+			{TUs: 0, Type: inputclip.EventTypeMouseMove, B: 100, C: 100},
+			{TUs: 40_000, Type: inputclip.EventTypeMouseMove, B: 300, C: 180},
+			{TUs: 70_000, Type: inputclip.EventTypeMouseBtnDown, A: 0, B: 320, C: 180},
+			{TUs: 120_000, Type: inputclip.EventTypeMouseBtnUp, A: 0, B: 320, C: 180},
+		},
+	}}
+	service := NewService(recorder, nil, nil, nil, nil, nil)
+	service.setState(RecordingState{Phase: PhaseRecording, TargetSlot: "editor"})
+
+	pending, err := service.Stop()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pending == nil || pending.Document == nil || pending.DurationUs != 350_000 || pending.Preview.DurationUs != 350_000 {
+		t.Fatalf("pending = %+v", pending)
 	}
 }
 

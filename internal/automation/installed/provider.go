@@ -19,6 +19,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/automation/controller"
+	"github.com/yottaapp/yotta/internal/automation/pointermotion"
 	"github.com/yottaapp/yotta/internal/automation/target"
 	"github.com/yottaapp/yotta/internal/resource"
 )
@@ -142,7 +143,9 @@ type ClickRequest struct {
 	DurationMilliseconds int64  `json:"durationMilliseconds"`
 }
 type MoveRequest struct {
-	Point Point `json:"point"`
+	Point                Point              `json:"point"`
+	DurationMilliseconds int64              `json:"durationMilliseconds"`
+	Motion               pointermotion.Kind `json:"motion"`
 }
 type ScrollRequest struct {
 	Point      Point `json:"point"`
@@ -150,10 +153,11 @@ type ScrollRequest struct {
 	Horizontal bool  `json:"horizontal"`
 }
 type DragRequest struct {
-	From                 Point  `json:"from"`
-	To                   Point  `json:"to"`
-	Button               string `json:"button"`
-	DurationMilliseconds int64  `json:"durationMilliseconds"`
+	From                 Point              `json:"from"`
+	To                   Point              `json:"to"`
+	Button               string             `json:"button"`
+	DurationMilliseconds int64              `json:"durationMilliseconds"`
+	Motion               pointermotion.Kind `json:"motion"`
 }
 type RelativeMoveRequest struct {
 	DeltaX               int64 `json:"deltaX"`
@@ -227,22 +231,27 @@ type CaptureRangeRequest struct {
 const (
 	PlaybackKeyDown      = "key-down"
 	PlaybackKeyUp        = "key-up"
+	PlaybackClick        = "click"
 	PlaybackButtonDown   = "button-down"
 	PlaybackButtonUp     = "button-up"
 	PlaybackMove         = "move"
+	PlaybackDrag         = "drag"
 	PlaybackMoveRelative = "move-relative"
 	PlaybackScroll       = "scroll"
 )
 
 type PlaybackEvent struct {
-	Kind            string `json:"kind"`
-	KeyCode         uint32 `json:"keyCode,omitempty"`
-	Point           *Point `json:"point,omitempty"`
-	Button          string `json:"button,omitempty"`
-	DeltaX          int64  `json:"deltaX,omitempty"`
-	DeltaY          int64  `json:"deltaY,omitempty"`
-	SourceCounts360 int64  `json:"sourceCounts360,omitempty"`
-	Notches         int64  `json:"notches,omitempty"`
+	Kind                 string             `json:"kind"`
+	KeyCode              uint32             `json:"keyCode,omitempty"`
+	From                 *Point             `json:"from,omitempty"`
+	Point                *Point             `json:"point,omitempty"`
+	Button               string             `json:"button,omitempty"`
+	DeltaX               int64              `json:"deltaX,omitempty"`
+	DeltaY               int64              `json:"deltaY,omitempty"`
+	SourceCounts360      int64              `json:"sourceCounts360,omitempty"`
+	Notches              int64              `json:"notches,omitempty"`
+	DurationMilliseconds int64              `json:"durationMilliseconds,omitempty"`
+	Motion               pointermotion.Kind `json:"motion,omitempty"`
 }
 
 type driver interface {
@@ -1031,7 +1040,10 @@ func decodeOperationRequest(operation string, raw []byte) (any, error) {
 		if err := decode(&request); err != nil {
 			return nil, err
 		}
-		return request, validatePoint(request.Point)
+		if err := validatePoint(request.Point); err != nil || !validMotion(request.Motion, request.DurationMilliseconds) {
+			return nil, errors.New("automation move request is invalid")
+		}
+		return request, nil
 	case OperationScroll:
 		var request ScrollRequest
 		if err := decode(&request); err != nil {
@@ -1049,7 +1061,7 @@ func decodeOperationRequest(operation string, raw []byte) (any, error) {
 		if err := validatePoint(request.From); err != nil {
 			return nil, err
 		}
-		if err := validatePoint(request.To); err != nil || !validButton(request.Button) || !validDuration(request.DurationMilliseconds) {
+		if err := validatePoint(request.To); err != nil || !validButton(request.Button) || !validMotion(request.Motion, request.DurationMilliseconds) {
 			return nil, errors.New("automation drag request is invalid")
 		}
 		return request, nil
@@ -1126,31 +1138,53 @@ func validButton(button string) bool {
 }
 func validDuration(value int64) bool { return value >= 0 && value <= MaxInputDurationMs }
 
+func validMotion(kind pointermotion.Kind, durationMilliseconds int64) bool {
+	if !kind.Valid() || !validDuration(durationMilliseconds) {
+		return false
+	}
+	if kind == pointermotion.Instant {
+		return durationMilliseconds == 0
+	}
+	return durationMilliseconds > 0
+}
+
 func validatePlaybackEvent(event PlaybackEvent) error {
+	emptyFrom := event.From == nil
 	emptyPoint := event.Point == nil
 	unusedKey := event.KeyCode == 0
 	unusedButton := event.Button == ""
 	unusedDelta := event.DeltaX == 0 && event.DeltaY == 0 && event.SourceCounts360 == 0
 	unusedNotches := event.Notches == 0
+	unusedDuration := event.DurationMilliseconds == 0
+	unusedMotion := event.Motion == ""
 	switch event.Kind {
 	case PlaybackKeyDown, PlaybackKeyUp:
-		if !emptyPoint || !unusedButton || !unusedDelta || !unusedNotches || event.KeyCode == 0 || event.KeyCode > 255 {
+		if !emptyFrom || !emptyPoint || !unusedButton || !unusedDelta || !unusedNotches || !unusedDuration || !unusedMotion || event.KeyCode == 0 || event.KeyCode > 255 {
 			return errors.New("invalid playback key event")
 		}
+	case PlaybackClick:
+		if !emptyFrom || !unusedMotion || !unusedKey || !unusedDelta || !unusedNotches || emptyPoint || validatePoint(*event.Point) != nil ||
+			!validButton(event.Button) || event.DurationMilliseconds <= 0 || !validDuration(event.DurationMilliseconds) {
+			return errors.New("invalid playback click event")
+		}
 	case PlaybackButtonDown, PlaybackButtonUp:
-		if !unusedKey || !unusedDelta || !unusedNotches || emptyPoint || validatePoint(*event.Point) != nil || !validButton(event.Button) {
+		if !emptyFrom || !unusedMotion || !unusedKey || !unusedDelta || !unusedNotches || !unusedDuration || emptyPoint || validatePoint(*event.Point) != nil || !validButton(event.Button) {
 			return errors.New("invalid playback button event")
 		}
 	case PlaybackMove:
-		if !unusedKey || !unusedButton || !unusedDelta || !unusedNotches || emptyPoint || validatePoint(*event.Point) != nil {
+		if !emptyFrom || !unusedKey || !unusedButton || !unusedDelta || !unusedNotches || emptyPoint || validatePoint(*event.Point) != nil || !validMotion(event.Motion, event.DurationMilliseconds) {
 			return errors.New("invalid playback move event")
 		}
+	case PlaybackDrag:
+		if emptyFrom || emptyPoint || !unusedKey || !unusedDelta || !unusedNotches || validatePoint(*event.From) != nil || validatePoint(*event.Point) != nil || !validButton(event.Button) || !validMotion(event.Motion, event.DurationMilliseconds) {
+			return errors.New("invalid playback drag event")
+		}
 	case PlaybackMoveRelative:
-		if !unusedKey || !unusedButton || !emptyPoint || !unusedNotches || event.SourceCounts360 <= 0 || event.SourceCounts360 > 10_000_000 || event.DeltaX < -1<<31 || event.DeltaX > 1<<31-1 || event.DeltaY < -1<<31 || event.DeltaY > 1<<31-1 {
+		if !emptyFrom || !unusedMotion || !unusedKey || !unusedButton || !emptyPoint || !unusedNotches || !unusedDuration || event.SourceCounts360 <= 0 || event.SourceCounts360 > 10_000_000 || event.DeltaX < -1<<31 || event.DeltaX > 1<<31-1 || event.DeltaY < -1<<31 || event.DeltaY > 1<<31-1 {
 			return errors.New("invalid playback relative event")
 		}
 	case PlaybackScroll:
-		if !unusedKey || !unusedButton || !unusedDelta || emptyPoint || validatePoint(*event.Point) != nil || event.Notches == 0 || event.Notches < -100 || event.Notches > 100 {
+		if !emptyFrom || !unusedMotion || !unusedKey || !unusedButton || !unusedDelta || !unusedDuration || emptyPoint || validatePoint(*event.Point) != nil || event.Notches == 0 || event.Notches < -100 || event.Notches > 100 {
 			return errors.New("invalid playback scroll event")
 		}
 	default:

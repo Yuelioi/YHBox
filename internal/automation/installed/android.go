@@ -13,6 +13,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/adbexec"
 	"github.com/yottaapp/yotta/internal/automation/controller"
+	"github.com/yottaapp/yotta/internal/automation/pointermotion"
 	"github.com/yottaapp/yotta/internal/automation/target"
 )
 
@@ -410,14 +411,17 @@ func (d *androidDriver) Execute(ctx context.Context, operation string, raw any) 
 		}
 		return resolved.Click(ctx, controller.ClickRequest{Point: androidPoint(request.Point), Button: request.Button, DurationMs: int(request.DurationMilliseconds)})
 	case MoveRequest:
-		return resolved.Move(ctx, controller.MoveRequest{Point: androidPoint(request.Point)})
+		return resolved.Move(ctx, controller.MoveRequest{Point: androidPoint(request.Point), DurationMs: int(request.DurationMilliseconds), Motion: request.Motion})
 	case ScrollRequest:
 		return resolved.Scroll(ctx, controller.ScrollRequest{Point: androidPoint(request.Point), Notches: int(request.Notches), Horizontal: request.Horizontal})
 	case DragRequest:
 		if request.Button != "left" {
 			return failure(CodeInvalidRequest, errors.New("android ADB drag supports the primary button only"))
 		}
-		return resolved.Drag(ctx, controller.DragRequest{From: androidPoint(request.From), To: androidPoint(request.To), Button: request.Button, DurationMs: int(request.DurationMilliseconds)})
+		return resolved.Drag(ctx, controller.DragRequest{
+			From: androidPoint(request.From), To: androidPoint(request.To), Button: request.Button,
+			DurationMs: int(request.DurationMilliseconds), Motion: request.Motion,
+		})
 	case TypeTextRequest:
 		return resolved.Text(ctx, controller.TextRequest{Text: request.Text})
 	}
@@ -498,6 +502,13 @@ func (d *androidDriver) PlayEvent(ctx context.Context, event PlaybackEvent) erro
 			return failure(CodePlaybackFailed, err)
 		}
 		return nil
+	case PlaybackClick:
+		if state.button != "" {
+			return failure(CodePlaybackFailed, errors.New("android playback cannot click while a primary touch is held"))
+		}
+		err = control.Click(ctx, controller.ClickRequest{
+			Point: androidPoint(*event.Point), Button: event.Button, DurationMs: int(event.DurationMilliseconds),
+		})
 	case PlaybackButtonDown:
 		if event.Button != "left" || state.button != "" {
 			return failure(CodePlaybackFailed, errors.New("android ADB playback supports one primary touch at a time"))
@@ -511,6 +522,14 @@ func (d *androidDriver) PlayEvent(ctx context.Context, event PlaybackEvent) erro
 			state.current = androidPoint(*event.Point)
 		}
 		return nil
+	case PlaybackDrag:
+		if state.button != "" || event.Button != "left" {
+			return failure(CodePlaybackFailed, errors.New("android ADB playback supports one primary drag at a time"))
+		}
+		err = control.Drag(ctx, controller.DragRequest{
+			From: androidPoint(*event.From), To: androidPoint(*event.Point), Button: event.Button,
+			DurationMs: int(event.DurationMilliseconds), Motion: event.Motion,
+		})
 	case PlaybackButtonUp:
 		if state.button == "" || event.Button != state.button {
 			return failure(CodePlaybackFailed, errors.New("android playback button-up has no matching primary touch"))
@@ -522,7 +541,7 @@ func (d *androidDriver) PlayEvent(ctx context.Context, event PlaybackEvent) erro
 		if sameAndroidPoint(started, ended) {
 			err = control.Click(ctx, controller.ClickRequest{Point: ended, Button: "left", DurationMs: 10})
 		} else {
-			err = control.Drag(ctx, controller.DragRequest{From: started, To: ended, Button: "left", DurationMs: 100})
+			err = control.Drag(ctx, controller.DragRequest{From: started, To: ended, Button: "left", DurationMs: 100, Motion: pointermotion.Linear})
 		}
 	case PlaybackScroll:
 		err = control.Scroll(ctx, controller.ScrollRequest{Point: androidPoint(*event.Point), Notches: int(event.Notches)})

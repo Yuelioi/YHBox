@@ -16,6 +16,7 @@ import (
 
 	"github.com/lxn/win"
 	"github.com/yottaapp/yotta/internal/appcontrol"
+	"github.com/yottaapp/yotta/internal/automation/pointermotion"
 	"github.com/yottaapp/yotta/internal/services/inputclip"
 	"github.com/yottaapp/yotta/internal/services/recording"
 	"github.com/yottaapp/yotta/pkg/winutil"
@@ -30,12 +31,14 @@ const (
 type nativeFixtureWindows struct {
 	primary   win.HWND
 	secondary win.HWND
+	className string
 	done      <-chan struct{}
 }
 
 type nativeFixtureEvent struct {
 	message uint32
 	wParam  uintptr
+	lParam  uintptr
 	cursor  win.POINT
 }
 
@@ -56,7 +59,7 @@ func nativeFixtureWindowProc(hwnd win.HWND, message uint32, wParam, lParam uintp
 		var cursor win.POINT
 		win.GetCursorPos(&cursor)
 		nativeFixtureState.Lock()
-		nativeFixtureState.events = append(nativeFixtureState.events, nativeFixtureEvent{message: message, wParam: wParam, cursor: cursor})
+		nativeFixtureState.events = append(nativeFixtureState.events, nativeFixtureEvent{message: message, wParam: wParam, lParam: lParam, cursor: cursor})
 		nativeFixtureState.Unlock()
 		return result
 	case win.WM_CLOSE:
@@ -73,6 +76,7 @@ func nativeFixtureWindowProc(hwnd win.HWND, message uint32, wParam, lParam uintp
 
 func startNativeFixture(t *testing.T) nativeFixtureWindows {
 	t.Helper()
+	classNameText := nativeFixtureClass + "-" + t.Name()
 	type startResult struct {
 		windows nativeFixtureWindows
 		err     error
@@ -86,7 +90,7 @@ func startNativeFixture(t *testing.T) nativeFixtureWindows {
 		defer close(done)
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
-		className, err := syscall.UTF16PtrFromString(nativeFixtureClass)
+		className, err := syscall.UTF16PtrFromString(classNameText)
 		if err != nil {
 			ready <- startResult{err: err}
 			return
@@ -127,7 +131,7 @@ func startNativeFixture(t *testing.T) nativeFixtureWindows {
 			return
 		}
 		nativeFixtureState.remaining.Store(2)
-		ready <- startResult{windows: nativeFixtureWindows{primary: primary, secondary: secondary, done: done}}
+		ready <- startResult{windows: nativeFixtureWindows{primary: primary, secondary: secondary, className: classNameText, done: done}}
 		var message win.MSG
 		for win.GetMessage(&message, 0, 0, 0) > 0 {
 			win.TranslateMessage(&message)
@@ -210,11 +214,11 @@ func nativeFixtureEventFor(events []nativeFixtureEvent, message uint32) (nativeF
 	return nativeFixtureEvent{}, false
 }
 
-func nativeFixtureProfile(t *testing.T, executable, title, titleMatch, selection string) Profile {
+func nativeFixtureProfile(t *testing.T, executable, windowClass, title, titleMatch, selection string) Profile {
 	t.Helper()
 	profile, err := SealProfile(NewDesktopProfileDraft(DesktopProfilePayload{
 		Application: appcontrol.ProfileDraft{Executable: executable, Arguments: []string{}},
-		WindowTitle: title, WindowTitleMatch: titleMatch, WindowSelection: selection, WindowClass: nativeFixtureClass,
+		WindowTitle: title, WindowTitleMatch: titleMatch, WindowSelection: selection, WindowClass: windowClass,
 		InputBackend: "sendinput", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
 	}))
 	if err != nil {
@@ -250,7 +254,7 @@ func TestNativeWindowsDriverEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	profile := nativeFixtureProfile(t, executable, nativeFixtureTitle, "exact", "unique")
+	profile := nativeFixtureProfile(t, executable, windows.className, nativeFixtureTitle, "exact", "unique")
 	driver, err := newPlatformDriver(profile)
 	if err != nil {
 		t.Fatal(err)
@@ -264,12 +268,12 @@ func TestNativeWindowsDriverEndToEnd(t *testing.T) {
 		t.Fatalf("resolve exact trailing-space title: target=%#v error=%v", resolved, err)
 	}
 	metadata, err := winutil.WindowMetadata(uintptr(windows.primary))
-	if err != nil || metadata.Title != nativeFixtureTitle || metadata.Class != nativeFixtureClass {
+	if err != nil || metadata.Title != nativeFixtureTitle || metadata.Class != windows.className {
 		t.Fatalf("exact native metadata=%#v error=%v", metadata, err)
 	}
 
 	setNativeFixtureTitle(t, windows.primary, "Yotta Native Fixture Dynamic  ")
-	regexDriver, err := newPlatformDriver(nativeFixtureProfile(t, executable, `^Yotta Native Fixture Dynamic  $`, "regex", "unique"))
+	regexDriver, err := newPlatformDriver(nativeFixtureProfile(t, executable, windows.className, `^Yotta Native Fixture Dynamic  $`, "regex", "unique"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -306,7 +310,7 @@ func TestNativeWindowsDriverEndToEnd(t *testing.T) {
 		return hasNativeFixtureEvent(events, win.WM_CHAR, 'Y')
 	})
 	mark = nativeFixtureMark()
-	if err := driver.Execute(ctx, OperationMove, MoveRequest{Point: Point{X: 0.3, Y: 0.3, Unit: "ratio"}}); err != nil {
+	if err := driver.Execute(ctx, OperationMove, MoveRequest{Point: Point{X: 0.3, Y: 0.3, Unit: "ratio"}, Motion: pointermotion.Instant}); err != nil {
 		t.Fatalf("move pointer: %v", err)
 	}
 	if err := driver.Execute(ctx, OperationClick, ClickRequest{Point: Point{X: 0.3, Y: 0.3, Unit: "ratio"}, Button: "left", DurationMilliseconds: 10}); err != nil {
@@ -332,7 +336,7 @@ func TestNativeWindowsDriverEndToEnd(t *testing.T) {
 	}
 	if err := driver.Execute(ctx, OperationDrag, DragRequest{
 		From: Point{X: 0.2, Y: 0.2, Unit: "ratio"}, To: Point{X: 0.7, Y: 0.7, Unit: "ratio"},
-		Button: "left", DurationMilliseconds: 80,
+		Button: "left", DurationMilliseconds: 80, Motion: pointermotion.Linear,
 	}); err != nil {
 		recorder.Cancel()
 		t.Fatalf("drag: %v", err)
@@ -455,7 +459,7 @@ func TestNativeWindowsDriverEndToEnd(t *testing.T) {
 	}
 }
 
-func TestNativePostMessageClickUsesTargetCursorAndRestoresIt(t *testing.T) {
+func TestNativePostMessagePlaybackClickUsesTargetCursorAndRestoresIt(t *testing.T) {
 	if os.Getenv("YOTTA_WINDOWS_NATIVE_SMOKE") != "1" {
 		t.Skip("set YOTTA_WINDOWS_NATIVE_SMOKE=1 to run desktop input smoke")
 	}
@@ -466,7 +470,7 @@ func TestNativePostMessageClickUsesTargetCursorAndRestoresIt(t *testing.T) {
 	}
 	profile, err := SealProfile(NewDesktopProfileDraft(DesktopProfilePayload{
 		Application: appcontrol.ProfileDraft{Executable: executable, Arguments: []string{}},
-		WindowTitle: nativeFixtureTitle, WindowTitleMatch: "exact", WindowSelection: "unique", WindowClass: nativeFixtureClass,
+		WindowTitle: nativeFixtureTitle, WindowTitleMatch: "exact", WindowSelection: "unique", WindowClass: windows.className,
 		InputBackend: "postmessage", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
 	}))
 	if err != nil {
@@ -498,7 +502,7 @@ func TestNativePostMessageClickUsesTargetCursorAndRestoresIt(t *testing.T) {
 	mark := nativeFixtureMark()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	if err := driver.Execute(ctx, OperationClick, ClickRequest{Point: Point{X: 0.3, Y: 0.3, Unit: "ratio"}, Button: "left", DurationMilliseconds: 10}); err != nil {
+	if err := driver.PlayEvent(ctx, PlaybackEvent{Kind: PlaybackClick, Point: &Point{X: 0.3, Y: 0.3, Unit: "ratio"}, Button: "left", DurationMilliseconds: 10}); err != nil {
 		t.Fatal(err)
 	}
 	var down nativeFixtureEvent
@@ -513,5 +517,68 @@ func TestNativePostMessageClickUsesTargetCursorAndRestoresIt(t *testing.T) {
 	var restored win.POINT
 	if !win.GetCursorPos(&restored) || restored != (win.POINT{X: 10, Y: 10}) {
 		t.Fatalf("cursor after PostMessage click = %+v, want restored position", restored)
+	}
+}
+
+func TestNativePostMessagePlaybackTrajectoryKeepsHeldButtonAndReleasesAtLastPoint(t *testing.T) {
+	if os.Getenv("YOTTA_WINDOWS_NATIVE_SMOKE") != "1" {
+		t.Skip("set YOTTA_WINDOWS_NATIVE_SMOKE=1 to run desktop input smoke")
+	}
+	windows := startNativeFixture(t)
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile, err := SealProfile(NewDesktopProfileDraft(DesktopProfilePayload{
+		Application: appcontrol.ProfileDraft{Executable: executable, Arguments: []string{}},
+		WindowTitle: nativeFixtureTitle, WindowTitleMatch: "exact", WindowSelection: "unique", WindowClass: windows.className,
+		InputBackend: "postmessage", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	driver, err := newPlatformDriver(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer driver.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	start := &Point{X: 0.2, Y: 0.25, Unit: "ratio"}
+	end := &Point{X: 0.75, Y: 0.7, Unit: "ratio"}
+	mark := nativeFixtureMark()
+	if err := driver.PlayEvent(ctx, PlaybackEvent{
+		Kind: PlaybackDrag, From: start, Point: end, Button: "left",
+		DurationMilliseconds: 80, Motion: pointermotion.Bezier,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var moved, released nativeFixtureEvent
+	waitNativeFixtureEvents(t, mark, func(events []nativeFixtureEvent) bool {
+		heldMoves := 0
+		for _, event := range events {
+			if event.message == win.WM_MOUSEMOVE && event.wParam&win.MK_LBUTTON != 0 {
+				moved = event
+				heldMoves++
+			}
+			if event.message == win.WM_LBUTTONUP {
+				released = event
+			}
+		}
+		return heldMoves >= 3 && moved.message != 0 && released.message != 0
+	})
+	metadata, err := winutil.WindowMetadata(uintptr(windows.primary))
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedX := int32(end.X * float64(metadata.ClientW-1))
+	expectedY := int32(end.Y * float64(metadata.ClientH-1))
+	actual := Point{
+		X: float64(int16(uint16(released.lParam))),
+		Y: float64(int16(uint16(released.lParam >> 16))),
+	}
+	if actual.X != float64(expectedX) || actual.Y != float64(expectedY) {
+		t.Fatalf("PostMessage trajectory released at (%v,%v), want (%d,%d)", actual.X, actual.Y, expectedX, expectedY)
 	}
 }

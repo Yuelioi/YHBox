@@ -117,7 +117,6 @@ func TestPostMessageRejectsInvalidKeysAndDeadWindowOperations(t *testing.T) {
 		func() error { return b.MoveTo(0, 0.5, 0.5) },
 		func() error { return b.Scroll(0, 0.5, 0.5, 1, false) },
 		func() error { return b.Click(0, 0.5, 0.5, "left", 1) },
-		func() error { return b.Drag(0, 0, 0, 1, 1, "left", 1) },
 	} {
 		if err := invoke(); err == nil {
 			t.Fatal("dead window operation succeeded")

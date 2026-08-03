@@ -52,6 +52,7 @@ func recordingPreview(result *StopResult) RecordingPreview {
 		if err != nil {
 			return preview
 		}
+		preview.DurationUs = macro.Analyze(document).DurationUs
 		var cursor uint64
 		for _, action := range document.Actions {
 			step := RecordingPreviewStep{
@@ -66,6 +67,11 @@ func recordingPreview(result *StopResult) RecordingPreview {
 			case macro.ActionKeyDown, macro.ActionKeyUp:
 				preview.KeyActions++
 			case macro.ActionMouseDown, macro.ActionMouseUp, macro.ActionClick:
+				preview.ClickActions++
+			case macro.ActionMove:
+				preview.PointerMoves++
+			case macro.ActionDrag:
+				preview.PointerMoves++
 				preview.ClickActions++
 			case macro.ActionScroll:
 				preview.ScrollActions++

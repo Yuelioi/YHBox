@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/yottaapp/yotta/internal/automation/pointermotion"
 	"github.com/yottaapp/yotta/internal/automation/target"
 	automationtrace "github.com/yottaapp/yotta/internal/automation/trace"
 )
@@ -73,7 +74,7 @@ func TestBrowserCDPControllerNilClientActionRecordsTraceError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewBrowserCDPController() error = %v", err)
 	}
-	err = ctrl.Move(context.Background(), MoveRequest{Point: target.NewNormalizedPoint(0.5, 0.25)})
+	err = ctrl.Move(context.Background(), MoveRequest{Point: target.NewNormalizedPoint(0.5, 0.25), Motion: pointermotion.Instant})
 	if err == nil {
 		t.Fatalf("Move() error = nil, want nil-client error")
 	}
@@ -119,7 +120,7 @@ func TestBrowserCDPControllerTracesBackendErrors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewBrowserCDPController() error = %v", err)
 	}
-	err = ctrl.Move(context.Background(), MoveRequest{Point: target.NewNormalizedPoint(0.5, 0.25)})
+	err = ctrl.Move(context.Background(), MoveRequest{Point: target.NewNormalizedPoint(0.5, 0.25), Motion: pointermotion.Instant})
 	if err == nil {
 		t.Fatalf("Move() error = nil, want backend error")
 	}
@@ -142,9 +143,8 @@ func TestBrowserCDPControllerDragDispatchesMouseSequence(t *testing.T) {
 		t.Fatalf("NewBrowserCDPController() error = %v", err)
 	}
 	err = ctrl.Drag(context.Background(), DragRequest{
-		From:   target.NewNormalizedPoint(0.1, 0.2),
-		To:     target.NewNormalizedPoint(0.8, 0.9),
-		Button: "right",
+		From: target.NewNormalizedPoint(0.1, 0.2), To: target.NewNormalizedPoint(0.8, 0.9),
+		Button: "right", Motion: pointermotion.Instant,
 	})
 	if err != nil {
 		t.Fatalf("Drag() error = %v", err)

@@ -1,4 +1,4 @@
-import type { MacroAction, MacroActionKind } from '@/lib/backend'
+import type { MacroAction, MacroActionKind, MacroDocument } from '@/lib/backend'
 
 export type MacroEditorRowKind = MacroActionKind | 'key-press'
 
@@ -11,14 +11,16 @@ export interface MacroEditorRow {
   actionIds: string[]
   key?: string
   button?: MacroAction['button']
+  from?: MacroAction['from']
   point?: MacroAction['point']
   notches?: number
   durationUs?: number
+  motion?: MacroAction['motion']
 }
 
 export type MacroEditorRowPatch = Pick<
   MacroAction,
-  'key' | 'button' | 'point' | 'notches' | 'durationUs'
+  'key' | 'button' | 'from' | 'point' | 'notches' | 'durationUs' | 'motion'
 >
 
 export type MacroEditorIssue = {
@@ -27,7 +29,9 @@ export type MacroEditorIssue = {
     | 'key-not-down'
     | 'button-already-down'
     | 'button-not-down'
-    | 'click-button-held'
+    | 'pointer-action-button-held'
+    | 'auto-move-mode'
+    | 'auto-move-duration'
     | 'held-at-end'
   index: number
   key?: string
@@ -53,19 +57,65 @@ export function analyzeMacroActions(actions: MacroAction[]) {
       else heldButtons.add(action.button ?? '')
     } else if (action.kind === 'mouse-up') {
       if (!heldButtons.delete(action.button ?? '')) issues.push({ code: 'button-not-down', index })
-    } else if (action.kind === 'click' && heldButtons.has(action.button ?? '')) {
+    } else if (
+      (action.kind === 'click' || action.kind === 'drag') &&
+      heldButtons.has(action.button ?? '')
+    ) {
       issues.push({
-        code: 'click-button-held',
+        code: 'pointer-action-button-held',
         index,
         button: action.button,
       })
     }
-    if (action.kind === 'sleep' || action.kind === 'click') durationUs += action.durationUs ?? 0
+    if (
+      action.kind === 'sleep' ||
+      action.kind === 'click' ||
+      action.kind === 'move' ||
+      action.kind === 'drag'
+    )
+      durationUs += action.durationUs ?? 0
     heldAfter.push({ keys: [...heldKeys].sort(), buttons: [...heldButtons].sort() })
   }
   if (heldKeys.size || heldButtons.size)
     issues.push({ code: 'held-at-end', index: actions.length - 1 })
   return { issues, heldAfter, durationUs }
+}
+
+export function analyzeMacroDocument(document: MacroDocument) {
+  const analysis = analyzeMacroActions(document.actions)
+  const issues = [...analysis.issues]
+  const autoMove = document.meta.autoMove
+  if (!['instant', 'linear', 'bezier'].includes(autoMove.mode)) {
+    issues.unshift({ code: 'auto-move-mode', index: -1 })
+  } else if (
+    autoMove.durationMs < 0 ||
+    autoMove.durationMs > 60_000 ||
+    (autoMove.mode === 'instant' && autoMove.durationMs !== 0) ||
+    (autoMove.mode !== 'instant' && autoMove.durationMs <= 0)
+  ) {
+    issues.unshift({ code: 'auto-move-duration', index: -1 })
+  }
+
+  let durationUs = analysis.durationUs
+  let cursor: MacroAction['point']
+  if (!issues.some((issue) => issue.code.startsWith('auto-move')) && autoMove.enabled) {
+    for (const action of document.actions) {
+      if (
+        action.kind === 'click' &&
+        action.point &&
+        (!cursor || pointDistancePixels(cursor, action.point, document.baseResolution) >= 5)
+      ) {
+        durationUs += autoMove.durationMs * 1000
+      }
+      if (
+        action.point &&
+        ['move', 'click', 'mouse-down', 'mouse-up', 'scroll', 'drag'].includes(action.kind)
+      ) {
+        cursor = action.point
+      }
+    }
+  }
+  return { ...analysis, issues, durationUs }
 }
 
 export function canonicalBrowserKey(value: string): string {
@@ -167,9 +217,11 @@ export function projectMacroRows(actions: MacroAction[], simplified: boolean): M
       actionIds: [first.id],
       key: first.key,
       button: first.button,
+      from: first.from ? { ...first.from } : undefined,
       point: first.point ? { ...first.point } : undefined,
       notches: first.notches,
       durationUs: first.durationUs,
+      motion: first.motion,
     })
   }
   return rows
@@ -199,7 +251,12 @@ export function patchMacroRow(
         next.durationUs = patch.durationUs
       return next
     }
-    return { ...next, ...patch, point: patch.point ? { ...patch.point } : next.point }
+    return {
+      ...next,
+      ...patch,
+      from: patch.from ? { ...patch.from } : next.from,
+      point: patch.point ? { ...patch.point } : next.point,
+    }
   })
 }
 
@@ -264,7 +321,11 @@ export function duplicateMacroAction(
 }
 
 export function cloneMacroAction(action: MacroAction): MacroAction {
-  return { ...action, point: action.point ? { ...action.point } : undefined }
+  return {
+    ...action,
+    from: action.from ? { ...action.from } : undefined,
+    point: action.point ? { ...action.point } : undefined,
+  }
 }
 
 function samePoint(left: MacroAction['point'], right: MacroAction['point']): boolean {
@@ -276,4 +337,12 @@ function samePoint(left: MacroAction['point'], right: MacroAction['point']): boo
     Math.abs(left.x - right.x) <= clickJitterTolerance &&
     Math.abs(left.y - right.y) <= clickJitterTolerance
   )
+}
+
+function pointDistancePixels(
+  left: NonNullable<MacroAction['point']>,
+  right: NonNullable<MacroAction['point']>,
+  resolution: [number, number],
+): number {
+  return Math.hypot((left.x - right.x) * resolution[0], (left.y - right.y) * resolution[1])
 }
