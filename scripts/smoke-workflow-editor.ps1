@@ -4,6 +4,7 @@ param(
     [ValidateRange(1024, 65535)]
     [int]$VitePort = 9245,
     [switch]$SkipLauncher,
+    [switch]$ScheduleEditorOnly,
     [string]$RetentionSource = '',
     [string]$RetentionBlobs = '',
     [ValidateRange(1000, 60000)]
@@ -138,6 +139,9 @@ try {
     )
     if ($RetentionSource) {
         $smokeArgs += @('-retention-workflow-id', 'fishing-v2')
+    }
+    if ($ScheduleEditorOnly) {
+        $smokeArgs += '-schedule-editor-only'
     }
     if (-not $SkipLauncher) {
         $smokeArgs += @('-launcher-screenshot', $launcherScreenshot)

@@ -93,6 +93,10 @@ func (s *Store) load() error {
 		if sc.SchemaVersion == "3" {
 			sc.SchemaVersion = CurrentSchemaVersion
 		}
+		if sc.SchemaVersion == "4" {
+			sc.TargetIntervalSeconds = 0
+			sc.SchemaVersion = CurrentSchemaVersion
+		}
 		normalizeMetadata(&sc)
 		if err := sc.Validate(); err != nil {
 			return fmt.Errorf("validate %s: %w", path, err)

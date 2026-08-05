@@ -31,6 +31,7 @@ type Daemon struct {
 	store    *Store
 	runner   WorkflowRunner
 	hotkeys  HotkeyRegistrar
+	wait     func(context.Context, time.Duration) error
 	cron     *cron.Cron
 	mu       sync.Mutex
 	cronIDs  map[string]cron.EntryID // schedule.ID → cron entry ID
@@ -49,6 +50,7 @@ func NewDaemon(store *Store, runner WorkflowRunner, hotkeys HotkeyRegistrar) *Da
 		store:    store,
 		runner:   runner,
 		hotkeys:  hotkeys,
+		wait:     waitContext,
 		cron:     cron.New(),
 		cronIDs:  map[string]cron.EntryID{},
 		hotkeyKs: map[string]string{},
@@ -251,6 +253,12 @@ func (d *Daemon) fire(ctx context.Context, scheduleID string) (FireResult, error
 	started := 0
 	var lastReadiness *RunReadiness
 	for index, target := range s.Targets {
+		if index > 0 && s.TargetIntervalSeconds > 0 {
+			if err := d.wait(runCtx, time.Duration(s.TargetIntervalSeconds)*time.Second); err != nil {
+				runErr = errors.Join(runErr, fmt.Errorf("wait before Workflow %q: %w", target.ID, err))
+				break
+			}
+		}
 		if target.Kind != TargetWorkflow {
 			err := fmt.Errorf("schedule target %d has unsupported kind %q", index, target.Kind)
 			runErr = errors.Join(runErr, err)
@@ -300,6 +308,17 @@ func (d *Daemon) fire(ctx context.Context, scheduleID string) (FireResult, error
 		status = FireStatusQueued
 	}
 	return FireResult{Status: status, Readiness: lastReadiness}, runErr
+}
+
+func waitContext(ctx context.Context, duration time.Duration) error {
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // buildCronSpec subKind=daily + at="HH:MM" → "M H * * *"

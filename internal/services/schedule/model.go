@@ -6,7 +6,7 @@ import "time"
 
 type SchemaVersion string
 
-const CurrentSchemaVersion SchemaVersion = "4"
+const CurrentSchemaVersion SchemaVersion = "5"
 
 type TargetKind string
 
@@ -79,20 +79,21 @@ type Trigger struct {
 }
 
 type Schedule struct {
-	SchemaVersion  SchemaVersion `json:"schemaVersion"`
-	ID             string        `json:"id"`
-	Name           string        `json:"name"`
-	Description    string        `json:"description,omitempty"`
-	Category       string        `json:"category,omitempty"`
-	Tags           []string      `json:"tags,omitempty"`
-	Enabled        bool          `json:"enabled"`
-	Targets        []TargetRef   `json:"targets"`
-	Trigger        Trigger       `json:"trigger"`
-	TimeoutMinutes int           `json:"timeoutMinutes"`
-	OnError        OnErrorMode   `json:"onError"`
-	LastFiredAt    *time.Time    `json:"lastFiredAt,omitempty"`
-	LastStatus     FireStatus    `json:"lastStatus,omitempty"`
-	LastReadiness  *RunReadiness `json:"lastReadiness,omitempty"`
-	CreatedAt      time.Time     `json:"createdAt"`
-	UpdatedAt      time.Time     `json:"updatedAt"`
+	SchemaVersion         SchemaVersion `json:"schemaVersion"`
+	ID                    string        `json:"id"`
+	Name                  string        `json:"name"`
+	Description           string        `json:"description,omitempty"`
+	Category              string        `json:"category,omitempty"`
+	Tags                  []string      `json:"tags,omitempty"`
+	Enabled               bool          `json:"enabled"`
+	Targets               []TargetRef   `json:"targets"`
+	Trigger               Trigger       `json:"trigger"`
+	TargetIntervalSeconds int           `json:"targetIntervalSeconds"`
+	TimeoutMinutes        int           `json:"timeoutMinutes"`
+	OnError               OnErrorMode   `json:"onError"`
+	LastFiredAt           *time.Time    `json:"lastFiredAt,omitempty"`
+	LastStatus            FireStatus    `json:"lastStatus,omitempty"`
+	LastReadiness         *RunReadiness `json:"lastReadiness,omitempty"`
+	CreatedAt             time.Time     `json:"createdAt"`
+	UpdatedAt             time.Time     `json:"updatedAt"`
 }
