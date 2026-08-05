@@ -1325,6 +1325,7 @@ import { useAssetsStore, type AssetPickerSelection } from '@/stores/assets'
 import { backend, type AssetSummary, type WorkflowSnippet } from '@/lib/backend'
 import { useSnippetsStore } from '@/stores/snippets'
 import { shortcutFromKeyboardEvent } from '@/app/editor/snippetShortcut'
+import { resolveEditorKeyboardAction } from '@/app/editor/editorKeyboard'
 import type { WorkflowQuickAddItem } from '@/app/editor/workflowQuickAdd'
 import { errorMessage } from '@/lib/invoke'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
@@ -3075,29 +3076,6 @@ async function selectNodeSearchResult(result: WorkflowNodeSearchResult): Promise
 }
 
 function handleEditorKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape' && connectionMenu.value) {
-    event.preventDefault()
-    closeConnectionMenu()
-    return
-  }
-  const target = event.target instanceof Element ? event.target : null
-  if (
-    target?.matches('input, textarea, select, [contenteditable="true"]') ||
-    target?.closest('[role="dialog"]')
-  )
-    return
-  if (
-    event.key === 'Tab' &&
-    !event.ctrlKey &&
-    !event.metaKey &&
-    !event.altKey &&
-    !event.shiftKey &&
-    canvasPointerInside.value
-  ) {
-    event.preventDefault()
-    openQuickAdd()
-    return
-  }
   const snippetShortcut = shortcutFromKeyboardEvent(event)
   const snippet =
     canvasPointerInside.value && snippetShortcut
@@ -3105,52 +3083,55 @@ function handleEditorKeydown(event: KeyboardEvent): void {
           (item) => item.shortcut?.toLocaleLowerCase() === snippetShortcut.toLocaleLowerCase(),
         )
       : undefined
-  if (snippet) {
-    event.preventDefault()
-    void useSnippet(snippet.id, canvasInsertionPosition())
-    return
-  }
-  if (event.key === 'Escape') {
-    if (selectedNodeIds.value.size || selectedNodeId.value || selectedEdgeId.value) {
-      event.preventDefault()
+
+  const action = resolveEditorKeyboardAction(event, {
+    connectionMenuOpen: !!connectionMenu.value,
+    canvasPointerInside: canvasPointerInside.value,
+    hasNodeSelection: selectedNodeIds.value.size > 0,
+    hasSelection: !!(selectedNodeIds.value.size || selectedNodeId.value || selectedEdgeId.value),
+    matchedSnippetID: snippet?.id,
+  })
+  if (!action) return
+
+  event.preventDefault()
+  switch (action.kind) {
+    case 'close-connection-menu':
+      closeConnectionMenu()
+      return
+    case 'open-quick-add':
+      openQuickAdd()
+      return
+    case 'use-snippet':
+      void useSnippet(action.snippetID, canvasInsertionPosition())
+      return
+    case 'clear-selection':
       clearEditorSelection()
-    }
-    return
-  }
-  const modifier = event.ctrlKey || event.metaKey
-  if (modifier && !event.altKey) {
-    const key = event.key.toLocaleLowerCase()
-    if (key === 'f') {
-      event.preventDefault()
+      return
+    case 'find-node':
       openNodeSearch()
       return
-    }
-    if (key === 'c' && selectedNodeIds.value.size) {
-      event.preventDefault()
+    case 'copy-selection':
       void copySelection()
       return
-    }
-    if (key === 'x' && selectedNodeIds.value.size) {
-      event.preventDefault()
+    case 'cut-selection':
       void cutSelection()
       return
-    }
-    if (key === 'v') {
-      event.preventDefault()
+    case 'paste-selection':
       void pasteSelection()
       return
-    }
-    if (key === 'd' && selectedNodeIds.value.size) {
-      event.preventDefault()
+    case 'duplicate-selection':
       duplicateSelection()
       return
-    }
-    return
+    case 'undo':
+      session.undo()
+      return
+    case 'redo':
+      session.redo()
+      return
+    case 'remove-selection':
+      removeSelection()
+      return
   }
-  if (event.altKey || (event.key !== 'Delete' && event.key !== 'Backspace')) return
-  if (!selectedNodeIds.value.size && !selectedNodeId.value && !selectedEdgeId.value) return
-  event.preventDefault()
-  removeSelection()
 }
 
 function continueNodeDrag(event: DragEvent): void {
