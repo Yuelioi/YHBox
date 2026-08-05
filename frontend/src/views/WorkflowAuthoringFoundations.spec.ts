@@ -37,6 +37,7 @@ describe('workflow authoring foundations', () => {
 
   it('keeps node creation contextual without a permanent catalog sidebar', () => {
     const source = readSource('src/views/WorkflowEditorView.vue')
+    const keyboard = readSource('src/app/editor/editorKeyboard.ts')
     expect(source).not.toContain('v-model="catalogQuery"')
     expect(source).not.toContain('v-for="group in catalogGroups"')
     expect(source).not.toContain('data-testid="workflow-workspace-nodes"')
@@ -48,7 +49,7 @@ describe('workflow authoring foundations', () => {
     expect(source).toContain('getData(GRAPH_CALL_DRAG_FORMAT)')
     expect(source).toContain('addGraphCall(graphCallID, position)')
     expect(source).toContain('@click="openQuickAddFromButton"')
-    expect(source).toContain("event.key === 'Tab'")
+    expect(keyboard).toContain("event.key === 'Tab'")
     expect(source).toContain('data-testid="workflow-empty-canvas"')
     expect(source).toContain('addNode(RUN_STARTED_NODE_ID')
   })
@@ -56,9 +57,10 @@ describe('workflow authoring foundations', () => {
   it('routes ordinary Delete and Backspace through editor commands', () => {
     const source = readSource('src/views/WorkflowEditorView.vue')
     const selection = readSource('src/app/editor/EditorSelectionController.ts')
+    const keyboard = readSource('src/app/editor/editorKeyboard.ts')
     expect(source).toContain(':delete-key-code="null"')
-    expect(source).toContain("event.key !== 'Delete' && event.key !== 'Backspace'")
-    expect(source).toContain(
+    expect(keyboard).toContain("event.key === 'Delete' || event.key === 'Backspace'")
+    expect(keyboard).toContain(
       'target?.matches(\'input, textarea, select, [contenteditable="true"]\')',
     )
     expect(source).toContain('createEditorSelectionController({')
@@ -487,22 +489,24 @@ describe('workflow authoring foundations', () => {
 
   it('restores source-native node search and canvas focus', () => {
     const editor = readSource('src/views/WorkflowEditorView.vue')
+    const keyboard = readSource('src/app/editor/editorKeyboard.ts')
     const toolbarModel = readSource('src/app/editor/editorToolbarModel.ts')
     expect(toolbarModel).toContain("testId: 'workflow-find-node'")
-    expect(editor).toContain("if (key === 'f')")
+    expect(keyboard).toContain("if (key === 'f')")
     expect(editor).toContain('session.source?.graphs')
     expect(editor).toContain('await focusNode([result.graphId], result.nodeId)')
   })
 
   it('opens contextual quick add from Tab and inserts snippets through safe shortcuts', () => {
     const editor = readSource('src/views/WorkflowEditorView.vue')
+    const keyboard = readSource('src/app/editor/editorKeyboard.ts')
     const quickAdd = readSource('src/app/editor/WorkflowQuickAddMenu.vue')
     const snippetModal = readSource('src/app/editor/WorkflowSnippetModal.vue')
     expect(editor).toContain('<WorkflowQuickAddMenu')
-    expect(editor).toContain("event.key === 'Tab'")
+    expect(keyboard).toContain("event.key === 'Tab'")
     expect(editor).toContain('@pointermove.capture="trackCanvasPointer"')
     expect(editor).toContain('shortcutFromKeyboardEvent(event)')
-    expect(editor).toContain('useSnippet(snippet.id, canvasInsertionPosition())')
+    expect(editor).toContain('useSnippet(action.snippetID, canvasInsertionPosition())')
     expect(quickAdd).toContain('workflow-quick-add-search')
     expect(quickAdd).toContain('@keydown.down.prevent="move(1)"')
     expect(quickAdd).toContain('<Teleport to="body">')
