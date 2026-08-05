@@ -24,8 +24,25 @@ export function keyChordFromKeyboardEvent(event: KeyboardEventShape): string[] |
   return chord
 }
 
+export function modifierChordFromKeyboardEvent(event: KeyboardEventShape): string[] | null {
+  const released = contractModifierKeyCode(event.code)
+  if (!released) return null
+  const chord: string[] = []
+  if (event.ctrlKey || released === 'CTRL') chord.push('CTRL')
+  if (event.shiftKey || released === 'SHIFT') chord.push('SHIFT')
+  if (event.altKey || released === 'ALT') chord.push('ALT')
+  return chord
+}
+
 function isModifierCode(code: string): boolean {
   return /^(?:Control|Shift|Alt|Meta)(?:Left|Right)$/.test(code)
+}
+
+function contractModifierKeyCode(code: string): 'CTRL' | 'SHIFT' | 'ALT' | null {
+  if (/^Control(?:Left|Right)$/.test(code)) return 'CTRL'
+  if (/^Shift(?:Left|Right)$/.test(code)) return 'SHIFT'
+  if (/^Alt(?:Left|Right)$/.test(code)) return 'ALT'
+  return null
 }
 
 function contractKeyCode(code: string): string | null {

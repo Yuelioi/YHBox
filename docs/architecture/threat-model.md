@@ -1,29 +1,30 @@
 # Threat model
 
-## 信任边界
+## Trust boundaries
 
-- Workflow/Node Package、MCP 参数、HTTP 响应、文件和脚本内容都视为不可信输入。
-- 操作系统账号、已选择窗口/Android 设备和用户显式配置视为本地授权边界。
-- 第三方 Go/Node/Rust 依赖属于供应链边界。
+- Workflow、Node Package、MCP/AI patch、HTTP response、文件、脚本和进程输出都视为不可信输入。
+- 操作系统账号、用户选择的窗口/设备/浏览器与 Settings 中的 installation 是本地授权边界，不是内容本身。
+- 第三方 Go/Node/Rust dependency、worker 和 package 是供应链或进程隔离边界。
 
-## 运行边界
+## Current controls
 
-| Surface | Main risk | Current controls |
-|---|---|---|
-| Desktop process privilege | Windows production UI/runtime 以管理员运行会把前端、解析或 native adapter 缺陷放大成主机级权限 | 产品发布构建为桌面自动化选择 manifest `requireAdministrator`，不维护按需 runas/双权限 fallback；`task dev` 仅为让 Wails fork/exec 监督开发进程而使用独立 `asInvoker` manifest，不改变发布契约；Network、Application 与 Automation Target 使用当前进程权限直接调用配置，Script/Process/Wasm guest 仍使用独立隔离 |
-| MCP command surface | 未授权整图覆盖、越权 capability、schema 放大 | 旧 HTTP/runtime tools 已删除；当前只提供 bounded catalog、分页 inspect、revision-CAS typed patch、compile 与无副作用 run preview，全部调用同一 Application。MCP transport 默认不装配、不监听；未来显式 transport 也不得拥有旁路执行器 |
-| Script node | 任意代码、宿主逃逸和资源滥用 | Script node 只在一次性隔离 worker 中接收规范化 JSON；没有节点/service registry、文件、网络或进程绑定。宿主 admission 还要求精确隔离 feature，超时由宿主终止整个 worker |
-| Network Target | 配置可访问本机、私网或远程服务 | 用户配置 base URL、响应大小与超时；运行时直接使用标准 HTTP client、环境代理和 redirect，不做 capability、consent、grant、DNS/IP 分类或私网阻止 |
-| Application Target | 配置可以启动应用或终止匹配进程 | 用户配置绝对路径与 argv；启动继承完整环境，允许 host 支持的任意文件类型；运行时不做 executable hash/identity、capability、consent 或 grant |
-| File/package import | 路径穿越、zip bomb、namespace 劫持、签名或 trust rollback | Node Package archive 只接受 canonical manifest 的精确 regular-file payload set；entry/压缩与展开 bytes 有上限，路径/case/symlink/size/SHA-256/CRC 全部重验。Store 安装还要求 Ed25519 envelope、已知 publisher key 和该 key 对 manifest exact namespace 的显式 ownership；monotonic trust policy 与 signature evidence 和 generation pointers 在同一 canonical registry-last commit 中持久化。未知/撤销 key、撤销或 quarantine manifest、policy rollback、受阻 generation 的 enable/rollback/reopen 均 fail closed |
-| Automation Target | 配置可以操作窗口、Android 设备或远程浏览器 | 运行时按配置直接调用；不固定设备 product/model、WebSocket authority 或目标 identity；context cancel 和 held-input release 只负责正常生命周期清理 |
-| Logs/settings | 凭据或隐私泄漏 | 不记录 secret 值；用户数据写失败可观测；安全报告避免附真实数据 |
-| Dependencies/history | 已知漏洞、许可漂移、历史凭据泄漏 | Go/Node/Rust Dependabot、govulncheck、cargo-deny、固定 lockfile、第三方 license artifact、Gitleaks 全历史扫描 |
+| Surface | Main risk | Current boundary |
+| --- | --- | --- |
+| Desktop privilege | 自动化宿主权限放大解析、前端或 native adapter 缺陷 | Windows production manifest 使用 `requireAdministrator`；dev host 使用独立 `asInvoker` manifest。管理员权限不绕过 secure desktop 或受保护进程 |
+| Workflow/MCP/AI authoring | 越权整图覆盖、schema 放大、revision 丢失 | 只接受 strict Source/typed patch、bounded inspect/catalog、compile/preview 和 revision CAS；全部进入同一 Application |
+| Script/Process/Wasm | 任意代码、宿主逃逸、资源滥用 | 独立 worker、bounded protocol、明确 host feature/capability、超时与 owner 终止；没有等价 confinement 时 fail closed |
+| Node Package | 路径穿越、zip bomb、签名/trust rollback、namespace 劫持 | exact manifest file set、路径/size/digest/mode/signature 重验，registry-last authority，publisher ownership、revocation 与 quarantine |
+| Network/Application Target | 私网访问、任意进程启动或终止 | 只执行用户配置的 origin/path/argv 和 timeout/size；这是高权限本地 Target，不伪装成 capability consent 或 identity pinning |
+| Automation Target | 操作错误窗口/设备/浏览器、键鼠卡住 | Workflow 绑定配置 slot；adapter 做目标解析和 deadline；Run owner 在 cancel/failure/teardown 释放 target 与 held input |
+| Storage/import | 路径穿越、损坏覆盖、WAL 不一致 | profile identity/single writer、strict schema、durable publish、SQLite integrity/online backup、migration journal 与 quarantine |
+| Credentials/logs | secret 或隐私泄漏 | API key 在 OS secure store；settings/RPC/trace 不回传 secret；日志和 fixture 脱敏 |
+| Dependencies/history | 漏洞、许可漂移、历史凭据 | lockfile、Dependabot、govulncheck、cargo-deny、license gate、Gitleaks 与 pinned Actions |
 
-## 非目标
+## Non-goals and review triggers
 
-Yotta 的 capability/admission/provider 边界仍用于 AI、File、Blob、Stream 和隔离 guest 等非 Target 资源。Network、Application 与 Automation Target 明确不进入这条边界：它们是用户配置，由 Run 直接调用，没有 consent、grant、identity pinning 或 TTL。Script worker 是缩小 guest 权限和故障域的隔离层，不是对恶意本地管理员的安全边界。
+Configured Network、Application 和 Automation Target 使用当前进程权限直接执行，没有 consent/grant/TTL；
+用户配置本身就是授权。Script/Process/Wasm 隔离用于缩小 guest authority 和故障域，不对恶意本地管理员提供
+安全边界。
 
-## 复查触发
-
-引入远程分享/云同步、开放脚本宿主 API、增加 package importer 或处理凭据时，必须更新本模型。
+增加云同步/远程分享、网络监听、脚本宿主 API、新 package importer、凭据类型、低权限/双进程架构或新的
+外部执行 Target 时，必须先更新本模型和相应纵向测试。

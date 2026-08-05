@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { isKeyChordType, keyChordFromKeyboardEvent } from './keyChord'
+import {
+  isKeyChordType,
+  keyChordFromKeyboardEvent,
+  modifierChordFromKeyboardEvent,
+} from './keyChord'
 
 describe('workflow key chord authoring', () => {
   it('normalizes browser key events to the KeyCode contract', () => {
@@ -36,6 +40,33 @@ describe('workflow key chord authoring', () => {
     expect(
       keyChordFromKeyboardEvent({
         code: 'Numpad1',
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+      }),
+    ).toBeNull()
+  })
+
+  it('captures a modifier-only chord when the modifier is released', () => {
+    expect(
+      modifierChordFromKeyboardEvent({
+        code: 'AltLeft',
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+      }),
+    ).toEqual(['ALT'])
+    expect(
+      modifierChordFromKeyboardEvent({
+        code: 'AltRight',
+        ctrlKey: true,
+        shiftKey: false,
+        altKey: false,
+      }),
+    ).toEqual(['CTRL', 'ALT'])
+    expect(
+      modifierChordFromKeyboardEvent({
+        code: 'MetaLeft',
         ctrlKey: false,
         shiftKey: false,
         altKey: false,

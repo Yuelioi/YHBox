@@ -1,29 +1,16 @@
-# Open-source release readiness
+# Public-release readiness
 
-## 当前结论
+当前仓库具备公开协作所需的主要技术门禁，但 `LICENSE` 禁止商业使用、营利分发和 SaaS，因此准确称谓是
+**source-available**，不是 OSI 定义的 open source。
 
-工程结构已具备公开协作的主要技术门禁，但许可证尚未满足“开源项目”目标。
+维护者必须在公开定位前选择：
 
-当前 `LICENSE` 禁止商业使用、营利分发和 SaaS。此限制与 OSI 开源定义中的自由使用/再分发要求冲突，因此准确称谓是 **source-available**。
+1. 保留当前限制，并在 README、仓库描述和发布材料中持续使用 source-available；或
+2. 完成版权与贡献授权审查后，选择并替换为明确的 OSI 许可证。
 
-## 发布前维护者决策
+这项法律/权利决定不能由代码代理代替。依赖许可、漏洞和供应链由 Go/Node/Rust 门禁、固定 lockfile、
+pinned Actions、Dependabot、CodeQL/Gitleaks 等技术检查覆盖；它们不能改变项目自身许可。
 
-维护者必须选择一种路径：
-
-1. 保留当前限制，并在 GitHub 描述与 README 中始终使用 source-available；或
-2. 选择 OSI 许可证（例如 Apache-2.0/MIT，或希望网络服务修改也公开时评估 AGPL-3.0），完成版权与贡献授权审查后替换 `LICENSE`。
-
-这不是代码代理可以代替权利人完成的决定。第三方 Go 依赖由仓库内 `cmd/check-go-licenses` 以 Apache-2.0/BSD/ISC/MIT allowlist 阻断检查并生成 report artifact；Node/Rust 使用各自生态门禁。项目自身许可证仍由维护者决定。
-
-## 已闭合的技术项
-
-- canonical module/repository identity
-- PR/push test、vet、staticcheck、coverage、race 与跨平台 compile CI
-- Go/Node/Rust Dependabot；govulncheck、Go/Node/Rust license 与 Rust advisory gate
-- 架构、贡献、安全、平台、兼容和 threat-model 文档
-- 非可信 parser/graph/package/MCP fuzz seed corpus
-- Gitleaks 全历史扫描（1606 commits）通过；两个测试 UUID 使用精确值 allowlist，不豁免整个文件
-
-## 外部发布设置
-
-首次公开前必须在 GitHub 仓库设置中启用 private vulnerability reporting，并验证 `security/advisories/new` 可用。此项不能由本地源码提交完成。
+首次公开发布前还必须在 GitHub 启用并验证 private vulnerability reporting，并完成证书、canonical
+identity、维护者/owner、真实 Windows/Target smoke 与发布候选流程。当前安全报告入口见
+[SECURITY.md](../SECURITY.md)，平台边界见[平台支持](platform-support.md)。

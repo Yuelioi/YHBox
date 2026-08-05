@@ -696,20 +696,13 @@ func dispatchModifiedKeyPress(ctx context.Context, client *browsercdp.WebSocketC
 }
 
 func dispatchMarqueeGesture(ctx context.Context, client *browsercdp.WebSocketClient, gesture connectionGesture) error {
-	const shiftModifier = 8
-	if _, err := client.Call(ctx, "Input.dispatchKeyEvent", map[string]any{
-		"type": "rawKeyDown", "key": "Shift", "code": "ShiftLeft",
-		"windowsVirtualKeyCode": 16, "nativeVirtualKeyCode": 16, "modifiers": shiftModifier,
-	}); err != nil {
-		return err
-	}
 	var gestureErr error
 	if _, gestureErr = client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
-		"type": "mouseMoved", "x": gesture.Start.X, "y": gesture.Start.Y, "modifiers": shiftModifier,
+		"type": "mouseMoved", "x": gesture.Start.X, "y": gesture.Start.Y,
 	}); gestureErr == nil {
 		_, gestureErr = client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
 			"type": "mousePressed", "x": gesture.Start.X, "y": gesture.Start.Y,
-			"button": "left", "buttons": 1, "clickCount": 1, "modifiers": shiftModifier,
+			"button": "left", "buttons": 1, "clickCount": 1,
 		})
 	}
 	for step := 1; gestureErr == nil && step <= 8; step++ {
@@ -718,23 +711,16 @@ func dispatchMarqueeGesture(ctx context.Context, client *browsercdp.WebSocketCli
 			"type":   "mouseMoved",
 			"x":      gesture.Start.X + (gesture.End.X-gesture.Start.X)*ratio,
 			"y":      gesture.Start.Y + (gesture.End.Y-gesture.Start.Y)*ratio,
-			"button": "left", "buttons": 1, "modifiers": shiftModifier,
+			"button": "left", "buttons": 1,
 		})
 	}
 	if gestureErr == nil {
 		_, gestureErr = client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
 			"type": "mouseReleased", "x": gesture.End.X, "y": gesture.End.Y,
-			"button": "left", "buttons": 0, "clickCount": 1, "modifiers": shiftModifier,
+			"button": "left", "buttons": 0, "clickCount": 1,
 		})
 	}
-	_, releaseErr := client.Call(ctx, "Input.dispatchKeyEvent", map[string]any{
-		"type": "keyUp", "key": "Shift", "code": "ShiftLeft",
-		"windowsVirtualKeyCode": 16, "nativeVirtualKeyCode": 16,
-	})
-	if gestureErr != nil {
-		return gestureErr
-	}
-	return releaseErr
+	return gestureErr
 }
 
 func beginMarqueeTrace(ctx context.Context, client *browsercdp.WebSocketClient) error {

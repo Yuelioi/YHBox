@@ -37,4 +37,4 @@ Finished
 
 - [主流版本维护实践](references/versioning-mainstream-practices.md) — 产品版本、合同版本、协议协商和构建注入的一手资料。
 - [兼容性约定](../../../docs/compatibility.md) — 独立版本域与稳定发布后的 migration 规则。
-- [版本升级知识](../../knowledge/build/version-bump.md) — 产品版本自动维护入口。
+- [构建与版本知识](../../knowledge/build/build.md) — 产品版本自动维护入口。

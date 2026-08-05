@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { createApp, h, nextTick } from 'vue'
+import { VueFlow } from '@vue-flow/core'
 import {
   canvasOwnsWheelTarget,
   mergeMarqueeSelection,
@@ -7,11 +9,62 @@ import {
 } from './workflowCanvasInteraction'
 
 describe('workflow canvas interaction contract', () => {
-  it('uses Shift drag for marquee and keeps ordinary left, middle, or Space drag for panning', () => {
-    expect(WORKFLOW_CANVAS_INTERACTION.selectionKeyCode).toBe('Shift')
+  it('uses left drag for marquee and reserves Space, middle, or right drag for panning', () => {
+    expect(WORKFLOW_CANVAS_INTERACTION.selectionKeyCode).toBe(true)
     expect(WORKFLOW_CANVAS_INTERACTION.panActivationKeyCode).toBe('Space')
-    expect(WORKFLOW_CANVAS_INTERACTION.panOnDrag).toEqual([0, 1])
+    expect(WORKFLOW_CANVAS_INTERACTION.panOnDrag).toEqual([0, 1, 2])
     expect(WORKFLOW_CANVAS_INTERACTION.multiSelectionKeyCode).toBe('Control')
+  })
+
+  it('starts a Vue Flow marquee from an unmodified left drag', async () => {
+    const root = document.createElement('div')
+    document.body.append(root)
+    const app = createApp({
+      render: () =>
+        h(VueFlow, {
+          nodes: [],
+          edges: [],
+          selectionKeyCode: WORKFLOW_CANVAS_INTERACTION.selectionKeyCode,
+          panActivationKeyCode: WORKFLOW_CANVAS_INTERACTION.panActivationKeyCode,
+          panOnDrag: WORKFLOW_CANVAS_INTERACTION.panOnDrag,
+        }),
+    })
+
+    try {
+      app.mount(root)
+      await nextTick()
+      const pane = root.querySelector<HTMLElement>('.vue-flow__pane')
+      expect(pane).not.toBeNull()
+      if (!pane) return
+      pane.getBoundingClientRect = () =>
+        ({ left: 0, top: 0, right: 800, bottom: 600, width: 800, height: 600 }) as DOMRect
+
+      pane.dispatchEvent(
+        new PointerEvent('pointerdown', {
+          bubbles: true,
+          button: 0,
+          clientX: 20,
+          clientY: 20,
+          pointerId: 1,
+        }),
+      )
+      pane.dispatchEvent(
+        new PointerEvent('pointermove', {
+          bubbles: true,
+          button: 0,
+          buttons: 1,
+          clientX: 180,
+          clientY: 140,
+          pointerId: 1,
+        }),
+      )
+      await nextTick()
+
+      expect(root.querySelector('.vue-flow__selection')).not.toBeNull()
+    } finally {
+      app.unmount()
+      root.remove()
+    }
   })
 
   it('adds a shift marquee to the selection captured before Vue Flow clears it', () => {

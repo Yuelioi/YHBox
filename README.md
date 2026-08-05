@@ -35,7 +35,8 @@ task build
 
 ## 项目文档
 
-- [架构入口](docs/architecture/README.md)
+- [知识总入口](docs/README.md)与[架构/关键代码地图](docs/architecture/README.md)
+- [本地数据位置](docs/architecture/storage.md)与[任务型开发指南](flightdeck/knowledge/README.md)
 - [贡献指南](CONTRIBUTING.md)
 - [兼容与迁移策略](docs/compatibility.md)
 - [安全策略](SECURITY.md)与[威胁模型](docs/architecture/threat-model.md)
