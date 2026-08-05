@@ -165,6 +165,50 @@ func TestDaemonFireManual(t *testing.T) {
 	}
 }
 
+func TestDaemonFireManualWaitsBetweenTargets(t *testing.T) {
+	store, err := NewStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	runner := &fakeWorkflowRunner{}
+	daemon := NewDaemon(store, runner, newFakeRegistrar())
+	var waits []time.Duration
+	daemon.wait = func(_ context.Context, duration time.Duration) error {
+		waits = append(waits, duration)
+		return nil
+	}
+	schedule := validSchedule("paced")
+	schedule.Targets = []TargetRef{
+		{Kind: TargetWorkflow, ID: "first"},
+		{Kind: TargetWorkflow, ID: "second"},
+		{Kind: TargetWorkflow, ID: "third"},
+	}
+	schedule.TargetIntervalSeconds = 7
+	if err := store.Save(schedule); err != nil {
+		t.Fatal(err)
+	}
+	daemon.Start()
+	defer daemon.Stop()
+
+	if _, err := daemon.FireManual(schedule.ID); err != nil {
+		t.Fatal(err)
+	}
+	if started := runner.started(); len(started) != 3 || started[0] != "first" || started[1] != "second" || started[2] != "third" {
+		t.Fatalf("started workflows = %#v", started)
+	}
+	if len(waits) != 2 || waits[0] != 7*time.Second || waits[1] != 7*time.Second {
+		t.Fatalf("target waits = %#v", waits)
+	}
+}
+
+func TestWaitContextReturnsWhenCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := waitContext(ctx, time.Hour); !errors.Is(err, context.Canceled) {
+		t.Fatalf("waitContext error = %v, want context cancellation", err)
+	}
+}
+
 func TestDaemonFireManualPersistsBlockedReadiness(t *testing.T) {
 	store, err := NewStore(t.TempDir())
 	if err != nil {

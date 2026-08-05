@@ -5582,6 +5582,11 @@
               "type": "Trigger"
             },
             {
+              "name": "\"targetIntervalSeconds\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
               "name": "\"timeoutMinutes\"",
               "optional": false,
               "type": "number"
@@ -5628,7 +5633,7 @@
             },
             {
               "name": "CurrentSchemaVersion",
-              "value": "\"4\""
+              "value": "\"5\""
             }
           ]
         },

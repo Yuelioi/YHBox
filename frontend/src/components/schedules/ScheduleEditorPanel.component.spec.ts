@@ -18,14 +18,18 @@ afterEach(() => {
 })
 
 describe('ScheduleEditorPanel', () => {
-  it('keeps identity visible while reserving advanced disclosure for runtime limits', () => {
+  it('keeps advanced runtime settings visible without a disclosure', () => {
     const source = readFileSync(
       join(process.cwd(), 'src/components/schedules/ScheduleEditorPanel.vue'),
       'utf8',
     )
-    const primary = source.slice(0, source.indexOf('<UCollapsible'))
-    const advanced = source.slice(source.indexOf('<UCollapsible'), source.indexOf('<footer'))
+    const advancedStart = source.indexOf('data-testid="schedule-advanced"')
+    const primary = source.slice(0, advancedStart)
+    const advanced = source.slice(advancedStart, source.indexOf('<footer'))
 
+    expect(advancedStart).toBeGreaterThan(-1)
+    expect(source).not.toContain('<UCollapsible')
+    expect(source).not.toContain('data-testid="schedule-advanced-toggle"')
     expect(source).toContain('data-testid="schedule-add-target"')
     expect(source).toContain('v-model="draft.trigger.kind"')
     expect(source).toContain('data-testid="schedule-save"')
@@ -35,13 +39,14 @@ describe('ScheduleEditorPanel', () => {
     expect(primary).toContain('v-model="draft.tags"')
     expect(primary).toContain('v-model="draft.enabled"')
     expect(advanced).not.toContain('id="schedule-name"')
+    expect(advanced).toContain(':model-value="draft.targetIntervalSeconds"')
     expect(advanced).toContain(':model-value="draft.timeoutMinutes"')
     expect(advanced).toContain('v-model="draft.onError"')
   })
 
   it('opens from a reactive schedule returned by the management view', () => {
     const schedule = reactive({
-      schemaVersion: '4',
+      schemaVersion: '5',
       id: 'schedule-1',
       name: 'Morning run',
       enabled: true,
@@ -65,7 +70,7 @@ describe('ScheduleEditorPanel', () => {
 
   it('persists the visible interval default when the number field is untouched', async () => {
     const schedule = {
-      schemaVersion: '4',
+      schemaVersion: '5',
       id: 'schedule-2',
       name: 'Interval run',
       enabled: true,
@@ -111,5 +116,6 @@ describe('ScheduleEditorPanel', () => {
 
     expect(save).toHaveBeenCalledOnce()
     expect(save.mock.calls[0]?.[0].trigger.everyMinutes).toBe(30)
+    expect(save.mock.calls[0]?.[0].targetIntervalSeconds).toBe(0)
   })
 })

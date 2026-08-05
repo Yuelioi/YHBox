@@ -35,6 +35,9 @@ type pageState struct {
 	ScheduleManageButton  bool           `json:"scheduleManageButton"`
 	ScheduleManagement    bool           `json:"scheduleManagement"`
 	ScheduleEditor        bool           `json:"scheduleEditor"`
+	ScheduleAdvanced      bool           `json:"scheduleAdvanced"`
+	ScheduleAdvToggle     bool           `json:"scheduleAdvancedToggle"`
+	ScheduleInterval      bool           `json:"scheduleTargetInterval"`
 	ScheduleRows          int            `json:"scheduleRows"`
 	ScheduleRowTargets    []string       `json:"scheduleRowTargets"`
 	ScheduleRowStatuses   []string       `json:"scheduleRowStatuses"`

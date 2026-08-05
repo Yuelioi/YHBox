@@ -291,67 +291,73 @@
         </p>
       </section>
 
-      <UCollapsible v-model:open="advancedOpen" data-testid="schedule-advanced">
-        <UButton
-          :label="t('schedule.advanced_settings')"
-          icon="i-tabler-adjustments-horizontal"
-          :trailing-icon="advancedOpen ? 'i-tabler-chevron-up' : 'i-tabler-chevron-down'"
-          color="neutral"
-          variant="ghost"
-          class="w-full justify-start"
-          data-testid="schedule-advanced-toggle"
-        />
-        <template #content>
-          <div class="pt-3">
-            <section
-              class="schedule-editor__section flex flex-col gap-3.5 rounded-[10px] border border-default bg-[var(--ui-surface)] px-5 py-[18px] max-[620px]:p-4"
-            >
-              <div class="schedule-editor__section-heading flex items-center gap-2.5 pb-0.5">
-                <span
-                  class="flex size-[30px] shrink-0 items-center justify-center rounded-lg bg-elevated text-toned"
-                  ><UIcon name="i-tabler-shield-half" class="size-4"
-                /></span>
-                <h2 class="text-[13px] font-semibold text-highlighted">
-                  {{ t('schedule.limit_label') }}
-                </h2>
-              </div>
+      <section
+        class="schedule-editor__section flex flex-col gap-3.5 rounded-[10px] border border-default bg-[var(--ui-surface)] px-5 py-[18px] max-[620px]:p-4"
+        data-testid="schedule-advanced"
+      >
+        <div class="schedule-editor__section-heading flex items-center gap-2.5 pb-0.5">
+          <span
+            class="flex size-[30px] shrink-0 items-center justify-center rounded-lg bg-elevated text-toned"
+            ><UIcon name="i-tabler-adjustments-horizontal" class="size-4"
+          /></span>
+          <h2 class="text-[13px] font-semibold text-highlighted">
+            {{ t('schedule.advanced_settings') }}
+          </h2>
+        </div>
 
-              <div
-                class="schedule-editor__row grid min-w-0 grid-cols-[minmax(140px,1fr)_minmax(280px,380px)] items-center gap-6 border-t border-default/70 pt-3.5 max-[620px]:grid-cols-[minmax(0,1fr)] max-[620px]:gap-2"
-              >
-                <span class="schedule-editor__label min-w-0 text-xs font-medium text-toned">
-                  {{ t('schedule.timeout_label') }}
-                  <small class="mt-0.5 block text-[10px] font-normal text-dimmed">{{
-                    t('schedule.timeout_hint')
-                  }}</small>
-                </span>
-                <UInputNumber
-                  :model-value="draft.timeoutMinutes"
-                  :min="0"
-                  class="schedule-editor__control w-full min-w-0"
-                  :aria-label="t('schedule.timeout_label')"
-                  @update:model-value="draft.timeoutMinutes = Math.max(0, Number($event))"
-                />
-              </div>
+        <div
+          class="schedule-editor__row grid min-w-0 grid-cols-[minmax(140px,1fr)_minmax(280px,380px)] items-center gap-6 border-t border-default/70 pt-3.5 max-[620px]:grid-cols-[minmax(0,1fr)] max-[620px]:gap-2"
+        >
+          <span class="schedule-editor__label min-w-0 text-xs font-medium text-toned">
+            {{ t('schedule.target_interval_label') }}
+            <small class="mt-0.5 block text-[10px] font-normal text-dimmed">{{
+              t('schedule.target_interval_hint')
+            }}</small>
+          </span>
+          <UInputNumber
+            :model-value="draft.targetIntervalSeconds"
+            :min="0"
+            :step="1"
+            class="schedule-editor__control w-full min-w-0"
+            data-testid="schedule-target-interval"
+            :aria-label="t('schedule.target_interval_label')"
+            @update:model-value="draft.targetIntervalSeconds = nonNegativeInteger($event)"
+          />
+        </div>
 
-              <div
-                class="schedule-editor__row grid min-w-0 grid-cols-[minmax(140px,1fr)_minmax(280px,380px)] items-center gap-6 border-t border-default/70 pt-3.5 max-[620px]:grid-cols-[minmax(0,1fr)] max-[620px]:gap-2"
-              >
-                <span class="schedule-editor__label min-w-0 text-xs font-medium text-toned">{{
-                  t('schedule.on_error_label')
-                }}</span>
-                <AdaptiveSelect
-                  v-model="draft.onError"
-                  :items="onErrorOptions"
-                  class="schedule-editor__control w-full min-w-0"
-                  width-mode="fill"
-                  :aria-label="t('schedule.on_error_label')"
-                />
-              </div>
-            </section>
-          </div>
-        </template>
-      </UCollapsible>
+        <div
+          class="schedule-editor__row grid min-w-0 grid-cols-[minmax(140px,1fr)_minmax(280px,380px)] items-center gap-6 border-t border-default/70 pt-3.5 max-[620px]:grid-cols-[minmax(0,1fr)] max-[620px]:gap-2"
+        >
+          <span class="schedule-editor__label min-w-0 text-xs font-medium text-toned">
+            {{ t('schedule.timeout_label') }}
+            <small class="mt-0.5 block text-[10px] font-normal text-dimmed">{{
+              t('schedule.timeout_hint')
+            }}</small>
+          </span>
+          <UInputNumber
+            :model-value="draft.timeoutMinutes"
+            :min="0"
+            class="schedule-editor__control w-full min-w-0"
+            :aria-label="t('schedule.timeout_label')"
+            @update:model-value="draft.timeoutMinutes = nonNegativeInteger($event)"
+          />
+        </div>
+
+        <div
+          class="schedule-editor__row grid min-w-0 grid-cols-[minmax(140px,1fr)_minmax(280px,380px)] items-center gap-6 border-t border-default/70 pt-3.5 max-[620px]:grid-cols-[minmax(0,1fr)] max-[620px]:gap-2"
+        >
+          <span class="schedule-editor__label min-w-0 text-xs font-medium text-toned">{{
+            t('schedule.on_error_label')
+          }}</span>
+          <AdaptiveSelect
+            v-model="draft.onError"
+            :items="onErrorOptions"
+            class="schedule-editor__control w-full min-w-0"
+            width-mode="fill"
+            :aria-label="t('schedule.on_error_label')"
+          />
+        </div>
+      </section>
 
       <footer class="schedule-editor__actions flex justify-end gap-2 pt-1">
         <UButton variant="ghost" color="neutral" @click="emit('cancel')">
@@ -388,7 +394,6 @@ const { schedule, workflows, categoryOptions, tagOptions } = defineProps<{
 const emit = defineEmits<{ save: [schedule: Schedule]; cancel: [] }>()
 const draft = reactive<Schedule>(cloneSchedule(schedule))
 const showValidation = ref(false)
-const advancedOpen = ref(false)
 const createdCategories = ref<string[]>([])
 const createdTags = ref<string[]>([])
 
@@ -397,7 +402,6 @@ watch(
   (value) => {
     Object.assign(draft, cloneSchedule(value))
     showValidation.value = false
-    advancedOpen.value = false
   },
 )
 watch(
@@ -420,8 +424,14 @@ function normalizeSchedule(value: Schedule): void {
   value.trigger ??= { kind: TriggerKind.TriggerManual }
   if (!value.trigger.kind) value.trigger.kind = TriggerKind.TriggerManual
   if (!value.onError) value.onError = OnErrorMode.OnErrorStop
-  if (!Number.isFinite(value.timeoutMinutes) || value.timeoutMinutes < 0) value.timeoutMinutes = 0
+  value.targetIntervalSeconds = nonNegativeInteger(value.targetIntervalSeconds)
+  value.timeoutMinutes = nonNegativeInteger(value.timeoutMinutes)
   normalizeTrigger(value)
+}
+
+function nonNegativeInteger(value: unknown): number {
+  const number = Number(value)
+  return Number.isFinite(number) && number >= 0 ? Math.trunc(number) : 0
 }
 
 function normalizeTrigger(value: Schedule): void {

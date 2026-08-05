@@ -88,3 +88,16 @@ func TestValidate_BadOnError(t *testing.T) {
 		t.Error("bad onError should fail")
 	}
 }
+
+func TestValidate_NegativeTargetInterval(t *testing.T) {
+	s := &Schedule{
+		SchemaVersion: CurrentSchemaVersion, ID: "x", Name: "ok",
+		Targets:               []TargetRef{{Kind: TargetWorkflow, ID: "c1"}},
+		Trigger:               Trigger{Kind: TriggerManual},
+		TargetIntervalSeconds: -1,
+		OnError:               OnErrorStop,
+	}
+	if err := s.Validate(); err == nil || !strings.Contains(err.Error(), "targetIntervalSeconds") {
+		t.Fatalf("Validate error = %v, want target interval rejection", err)
+	}
+}

@@ -69,6 +69,9 @@ func (s *Schedule) Validate() error {
 	if s.TimeoutMinutes < 0 {
 		return errors.New("timeoutMinutes 不能为负")
 	}
+	if s.TargetIntervalSeconds < 0 {
+		return errors.New("targetIntervalSeconds 不能为负")
+	}
 	if s.LastStatus != "" && s.LastStatus != FireStatusQueued && s.LastStatus != FireStatusFailed {
 		return fmt.Errorf("lastStatus %q 不支持（必须 queued|failed）", s.LastStatus)
 	}

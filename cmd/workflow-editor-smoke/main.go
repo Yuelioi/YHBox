@@ -18,6 +18,7 @@ func main() {
 	schedulesScreenshot := flag.String("schedules-screenshot", ".task/schedules-smoke.png", "schedule editor PNG output path")
 	subgraphScreenshot := flag.String("subgraph-screenshot", ".task/subgraph-smoke.png", "subgraph authoring PNG output path")
 	captureOnly := flag.Bool("capture-only", false, "capture the current WebView page without running the product journey")
+	scheduleEditorOnly := flag.Bool("schedule-editor-only", false, "open and capture the schedule editor without running the full product journey")
 	urlContains := flag.String("url-contains", "wails.localhost", "substring used to select one WebView page target")
 	seedRoot := flag.String("seed-root", "", "seed the isolated storage root used by the product journey")
 	retentionSource := flag.String("retention-source", "", "read-only golden Workflow Source to validate and seed")
@@ -47,6 +48,13 @@ func main() {
 	}
 	if *captureOnly {
 		if err := captureCurrent(ctx, *endpoint, *urlContains, *screenshot); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+	if *scheduleEditorOnly {
+		if err := captureScheduleEditor(ctx, *endpoint, *schedulesScreenshot); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}

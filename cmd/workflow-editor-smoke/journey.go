@@ -63,6 +63,70 @@ func captureCurrent(ctx context.Context, endpoint, urlContains, screenshot strin
 	return nil
 }
 
+func captureScheduleEditor(ctx context.Context, endpoint, screenshot string) error {
+	if strings.TrimSpace(screenshot) == "" {
+		return errors.New("schedule editor screenshot output path is required")
+	}
+	targets, err := browsercdp.NewService(endpoint).ListTargets(ctx, endpoint)
+	if err != nil {
+		return fmt.Errorf("discover Wails WebView: %w", err)
+	}
+	if len(targets) != 1 {
+		return fmt.Errorf("expected one Wails page target, got %d", len(targets))
+	}
+	client, err := browsercdp.DialWebSocketClient(ctx, targets[0].WebSocketDebuggerURL)
+	if err != nil {
+		return fmt.Errorf("connect Wails WebView: %w", err)
+	}
+	defer client.Close()
+	for _, call := range []struct {
+		method string
+		params map[string]any
+	}{
+		{method: "Runtime.enable"},
+		{method: "Page.enable"},
+		{method: "Page.bringToFront"},
+		{method: "Emulation.setFocusEmulationEnabled", params: map[string]any{"enabled": true}},
+	} {
+		if _, err := client.Call(ctx, call.method, call.params); err != nil {
+			return err
+		}
+	}
+	if err := eval(ctx, client, `location.hash = '#/schedules'`); err != nil {
+		return err
+	}
+	if err := waitUntilFor(ctx, client, 15*time.Second, func(current pageState) bool {
+		return current.SchedulesView
+	}); err != nil {
+		return fmt.Errorf("open schedules view: %w", err)
+	}
+	if err := clickRequired(ctx, client, "schedule-create"); err != nil {
+		return fmt.Errorf("open schedule editor: %w", err)
+	}
+	if err := waitUntilFor(ctx, client, 15*time.Second, func(current pageState) bool {
+		return current.ScheduleEditor && current.ScheduleAdvanced && current.ScheduleInterval &&
+			!current.ScheduleAdvToggle
+	}); err != nil {
+		return fmt.Errorf("verify visible schedule advanced settings: %w", err)
+	}
+	if err := eval(ctx, client, `(() => {
+		const advanced = document.querySelector('[data-testid="schedule-advanced"]');
+		if (!advanced) throw new Error('schedule advanced settings not found');
+		advanced.scrollIntoView({ block: 'center' });
+		return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 300))));
+	})()`); err != nil {
+		return err
+	}
+	if err := capture(ctx, client, screenshot); err != nil {
+		return err
+	}
+	result, _ := json.MarshalIndent(map[string]any{
+		"status": "passed", "schedulesScreenshot": screenshot,
+	}, "", "  ")
+	fmt.Println(string(result))
+	return nil
+}
+
 func run(
 	ctx context.Context,
 	endpoint string,
@@ -747,7 +811,10 @@ func run(
 		})()`); err != nil {
 			return err
 		}
-		if err := waitUntil(ctx, client, func(current pageState) bool { return current.ScheduleEditor }); err != nil {
+		if err := waitUntil(ctx, client, func(current pageState) bool {
+			return current.ScheduleEditor && current.ScheduleAdvanced && current.ScheduleInterval &&
+				!current.ScheduleAdvToggle
+		}); err != nil {
 			return fmt.Errorf("open schedule editor: %w", err)
 		}
 		if err := clickRequired(ctx, client, "schedule-add-target"); err != nil {
@@ -786,11 +853,17 @@ func run(
 		}
 		if err := waitUntil(ctx, client, func(current pageState) bool {
 			return current.ScheduleEditor && len(current.ScheduleEditTargets) == 1 &&
-				current.ScheduleEditTargets[0] == workflowID
+				current.ScheduleEditTargets[0] == workflowID && current.ScheduleAdvanced &&
+				current.ScheduleInterval && !current.ScheduleAdvToggle
 		}); err != nil {
 			return fmt.Errorf("verify reopened schedule reference: %w", err)
 		}
-		if err := eval(ctx, client, `new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 300))))`); err != nil {
+		if err := eval(ctx, client, `(() => {
+			const advanced = document.querySelector('[data-testid="schedule-advanced"]');
+			if (!advanced) throw new Error('schedule advanced settings not found');
+			advanced.scrollIntoView({ block: 'center' });
+			return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 300))));
+		})()`); err != nil {
 			return err
 		}
 		if err := capture(ctx, client, schedulesScreenshot); err != nil {
