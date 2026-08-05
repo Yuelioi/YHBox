@@ -14,7 +14,8 @@
 - `internal/nodecontract/` 与 `internal/datatype/`：节点/数据契约；`internal/workflow/compiler/` 与 `internal/noderuntime/`：唯一工作流执行路径。
 - `internal/automation/`：平台中立 target/controller contract；平台能力通过 adapter 接入。
 - `internal/services/`：应用服务；`pkg/`：可复用 adapter/helper；`cmd/`：仓库工具。
-- `frontend/src/`：UI 与编辑器；`docs/architecture/README.md` 是架构文档入口。
+- `frontend/src/`：UI 与编辑器；当前系统事实从 `docs/README.md` 进入，具体修改方法从
+  `flightdeck/knowledge/README.md` 按任务选择。
 
 ## 验证入口
 

@@ -1,22 +1,77 @@
-# Yotta architecture
+# Yotta architecture and code map
 
-Yotta 把桌面壳、应用生命周期、节点引擎、Target contract 和平台 adapter 分开。核心原则是：
-Workflow 是唯一内容对象，Target 保存本机差异，GUI、CLI、MCP 与 Schedule 共用同一条运行路径。
+Yotta 是 Wails v3 桌面应用。Vue presentation、Go application command、Workflow compiler/runtime、
+configured target 和平台 adapter 分层；GUI、CLI、Schedule、MCP 与 AI authoring 最终共用同一个
+`internal/application.Application` 和同一条 Program 执行路径。
 
-- [Runtime and lifecycle](runtime.md)
-- [Node engine](node-engine.md)
-- [Automation targets and controllers](automation-targets.md)
-- [Network targets](network-targets.md)
-- [Application targets](application-targets.md)
-- [Storage consistency](storage.md)
-- [Threat model](threat-model.md)
+```text
+Vue / CLI / Schedule / MCP
+            │
+     services / transport
+            │
+       Application
+   ┌────────┼──────────┐
+Source → Compiler → Program → Run/Debug
+   │          │             │
+Catalog   Node Catalog   providers + configured targets
+   │                        │
+SQLite + CAS            platform adapters
+```
 
-源码导航：`main.go` 只保留进程入口与嵌入资源，`internal/desktopapp` 组合 Wails presentation，
-`internal/localruntime` 打开 desktop 与 CLI 共用的本地运行环境，`internal/appruntime` 管后台资源生命周期；
-`internal/workflow/*` 与 `internal/workflowstore` 保存和编译
-Workflow，`internal/application` 是 GUI、headless CLI、AI、MCP 与 Schedule 共用的
-`StartRun(workflowID)` command/worker seam。`internal/datatype`、`internal/nodecontract`、
-`internal/nodecatalog` 和 `internal/nodeauthoring` 拥有节点与编辑契约，`internal/nodeadapter` 定义节点
-host ABI，`internal/noderuntime` 安装具体 adapter；
-`internal/automation` 管 Target/controller，`internal/blob`、`internal/resource`、`internal/stream`
-管理数据载体，`internal/services/*` 提供用户动作，`pkg/*` 放可复用 adapter/helper。
+## Composition
+
+启动链只有一条：
+
+```text
+main.go
+  → internal/desktopapp
+  → storage migration/recovery
+  → internal/localruntime
+  → internal/appbootstrap
+  → internal/application
+```
+
+- `main.go` 只保留进程入口和嵌入资源。
+- `internal/desktopapp/` 组合 Wails 窗口、services、事件和 desktop 生命周期。
+- `internal/localruntime/` 打开 desktop 与 CLI 共用的 profile、Catalog、settings 和核心 runtime。
+- `internal/appbootstrap/` 从 Catalog、节点、provider 和 Target 配置构造执行环境。
+- `internal/appruntime/` 管理后台组件的启动、失败回滚和逆序关闭。
+
+presentation 不得自行重建 storage、compiler、executor、provider 或 target runtime。这个边界由
+`internal/architecture/platform_boundaries_test.go` 等架构测试约束。
+
+## 关键代码地图
+
+| 修改目标 | 权威位置 |
+| --- | --- |
+| 应用命令、队列、Run/Debug owner | `internal/application/` |
+| Workflow typed patch 与 revision CAS | `internal/workflow/authoring/` |
+| Workflow schema、编译、Program、scheduler | `internal/workflow/schema/`、`internal/workflow/compiler/` |
+| Workflow Source authority 与 Program cache | `internal/workflowstore/` |
+| Run Record、journal 与持久化接口 | `internal/run/`、`internal/storage/catalog/` |
+| Data Type 与 Node Contract | `internal/datatype/`、`internal/nodecontract/` |
+| 内建节点与 sealed Catalog | `internal/nodes/`、`internal/nodecatalog/` |
+| 创作投影与 runtime adapter | `internal/nodeauthoring/`、`internal/noderuntime/`、`internal/nodeadapter/` |
+| Capability/admission | `internal/capability/`、`internal/admission/` |
+| Automation Target/controller | `internal/automation/`、`internal/targetruntime/` |
+| AI、HTTP、应用与工作区 provider | `internal/ai/`、`internal/httpegress/`、`internal/appcontrol/`、`internal/workspacefs/` |
+| Profile、SQLite、durable files、Blob | `internal/storage/`、`internal/durablefs/`、`internal/blob/` |
+| Wails application services | `internal/services/` |
+| Vue presentation 与编辑器 | `frontend/src/views/`、`frontend/src/app/`、`frontend/src/lib/` |
+| 平台 adapter/helper | `pkg/`；平台中立 package 不应直接依赖它们的 Win32 实现 |
+| CLI、生成器与 smoke 工具 | `cmd/`、`scripts/`、`Taskfile.yml` |
+| tracked durable/RPC contracts | `contracts/`；`frontend/bindings/` 是本地生成物，不能手改 |
+
+## 核心不变量
+
+- Workflow Source 是唯一创作事实；所有修改通过 typed command 和 revision CAS。
+- Compiler 是图类型、端口、state、instruction 和 capability plan 的最终权威；前端不维护第二套规则。
+- Node adapter 执行 contract 已声明的 operation，不拥有调度，也不反向依赖 compiler。
+- Network、Application 和 Automation 是用户配置的 Target；AI、File、Blob、Stream 和隔离 guest 等资源走
+  capability/admission。两类边界不能互相伪装。
+- 平台中立核心不 import Win32 adapter；平台差异在带 build tag 的 adapter 或 `pkg/` 边界实现。
+- 启动 goroutine、hook、server、worker 或输入持有状态的组件必须有 owner、取消和等待/关闭路径。
+- 不可信的 Workflow、package、MCP、文件、网络和进程输入在各自边界 strict/fail closed。
+
+继续阅读：[运行链](runtime.md)、[本地存储](storage.md)、[威胁模型](threat-model.md)。具体修改步骤见
+[任务知识](../../flightdeck/knowledge/README.md)。

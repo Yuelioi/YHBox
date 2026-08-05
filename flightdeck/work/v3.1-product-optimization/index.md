@@ -257,6 +257,6 @@ None
 - [Workflow resource editing](references/15-workflow-resource-edit-and-safe-exit.md) — Macro 编辑与退出语义。
 - [Tab and Snippet flow](references/16-tab-menu-and-snippet-shortcuts.md) — 快速添加与快捷键实现边界。
 - [Schedule modal flow](references/17-schedule-modal-flow.md) — 计划 Modal 的验收记录。
-- [Canvas authoring boundary](../../knowledge/frontend/canvas-node-authoring-boundary.md) — 当前画布创作规则。
+- [Workflow editor](../../knowledge/frontend/workflow-editor.md) — 当前画布创作与交互规则。
 - [Build and acceptance](../../knowledge/build/build.md) — 完整门禁的触发条件。
 - [Subgraph management research](references/subgraph-management-research.md) — 定义/调用、接口编辑和生命周期的一手资料与本地方案。

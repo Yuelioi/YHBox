@@ -1,31 +1,54 @@
-# Runtime and lifecycle
+# Workflow runtime
 
-`internal/localruntime.Runtime` 是 storage-backed 本地运行环境的 composition seam。Desktop 与 CLI
-只向 `Open` 提交 profile 路径和 presentation adapter；它统一打开 storage/catalog/settings，
-安装 AI provider，并配置 HTTP、应用与 automation target provider，构造 Blob、Script、Node Package 和 Workflow runtime，
-并在 `Close` 中逆序释放全部所有权。presentation 不得重建其中任何一段安装或关闭路径。
+## Source → Program → Run
 
-`internal/appbootstrap` 的 concrete execution environment factory 从同一组配置事实一次性封存
-Host Profile、Policy、Capability Provider snapshot 和 Configured Target snapshot。首次启动与 settings
-热替换共用这条派生路径；新环境整体发布，旧 Run 持有旧对象的生命周期引用直至自然结束。Network、
-Application 与 Automation Target 不进入 capability/admission/policy；每个 Run 从 target snapshot
-创建直接调用 runtime，且没有 grant 或 TTL。
+1. Workflow Source 保存在 Content Catalog，由 `internal/workflowstore.SourceStore` 读取；
+   `internal/workflow/authoring.Engine` 只接受 typed commands，`internal/application` 以 base revision CAS 提交。
+2. `internal/workflow/compiler.Compiler` 使用同一份 sealed Node Catalog、Data Type 和 Authoring Projection
+   检查图并生成 immutable、content-addressed Program。
+3. `internal/workflowstore.ProgramStore` 把 Program 放进 `cache/programs`。它是有配额、可淘汰、可重建的
+   derived cache，不是 Workflow Source 或备份 authority。
+4. `internal/application.Application` 在执行前持久化 Run、完成 admission，并封存 provider 与 configured
+   target snapshot；同一个 `compiler.Executor` 和 scheduler 执行普通 Run 与 Debug Run。
+5. Run 状态、NodeAttempt、AdapterAction、values 和 events 写入 Run Ledger。进程重启会中断遗留 RUNNING、
+   取消未交付 QUEUED，不猜测或透明重放外部副作用。
 
-`internal/appruntime.Runtime` 管 desktop 后台资源的启动顺序。启动按依赖顺序执行；某一步失败时逆序
-回滚已启动组件。关闭先释放输入/daemon/server，再关闭 `localruntime`，由后者拒绝新任务、取消运行并
-flush settings/log transport；`Close` 幂等并聚合错误。
+GUI、headless CLI、Schedule、hotkey、MCP 和 AI authoring 只能调用 Application command；不得绕过它直接
+拼 Source Store、Compiler、Executor 或第二个 queue/debug runtime。
 
-`internal/application.Application` 仍是所有 presentation 的统一命令入口。其 concrete
-`sourceTransitions` 隐藏 Source patch、状态迁移检查、candidate prepare/commit 与 CAS；
-concrete `runAdmission` 保证 Program 先持久化，并把 admission、Capability Provider snapshot、
-Configured Target snapshot 与 generation 生命周期引用作为一个原子结果交给 concrete
-`runCoordinator`。后者唯一拥有 queue、worker、Run Owner、debug session、provider 生命周期释放
-和终态事件；调用方不能分别拼装这些步骤。
+## Node execution
 
-Workflow Wails adapter 只做 DTO 投影和单项命令转发。Library 搜索预算、筛选、facet、排序、分页，
-以及批量 metadata/export/delete 的 duplicate、reference 和逐项结果策略由 concrete
-`sourceLibrary` 统一拥有。
+- `internal/datatype/` 定义精确类型和表示；`internal/nodecontract/` 定义端口、执行、错误、状态、Target、
+  capability 和 implementation ABI。
+- `internal/nodes/` 显式组装内建定义，`internal/nodecatalog/` seal immutable snapshot，
+  `internal/nodeauthoring/` 从同一 Catalog 派生前端创作投影。
+- `internal/noderuntime/` 把 exact NodeRef/implementation lock 绑定到 adapter。adapter 只接收 typed input、
+  trigger、窄资源/Target session、action recorder 和 state binding，不拥有 graph scheduler。
+- data edge 使用精确 TypeExpression；exec 与 error 是独立 signal route；status event 只进入 Run/debug UI。
+- BlobRef 可持久化；Stream、Resource 和 held-input handle 只在所属 Run lease 内有效。
 
-旧 `internal/services/container/runtime` 已删除。其 container-global vars、listener 子流程、kind dispatch 和私有 queue 语义不允许重建为 fallback；当前系统只通过 Application 执行 content-addressed Program，外部 listener 每次触发独立 Run。
+当前节点清单不写进文档。运行 `task nodes`、`task nodes:catalog` 或 `task nodes:authoring` 从 sealed builtins
+生成当前视图；tracked schema 和内建投影由 `task contracts:check` 检查。
 
-取消通过 `context.Context` 传播。任何启动 goroutine 的组件都必须同时定义等待或关闭路径，不能依赖进程退出回收资源。
+## Provider 与 Target
+
+Settings 生成不可变 installation/environment snapshot，新 Run 使用新代，已经排队或运行的 Run 保持原代：
+
+- AI、Blob、Stream、workspace file 和隔离 Script/Process/Wasm 等资源由 capability、admission 和 provider
+  约束；credential 只作为 binding 在调用时解析。
+- HTTP origin、已安装应用和 Automation Target 是用户显式配置，由 `internal/targetruntime` 直接调用，
+  不进入 consent/grant/TTL 模型。
+- Automation 目前通过统一语义描述 Win32 desktop window、Android ADB 和 Browser CDP；Workflow 绑定稳定
+  slot，不持久化临时 HWND、设备连接或浏览器 session。
+
+配置热替换必须整体发布新 environment；不能只更新一半 provider/target 表。Target、resource、held input
+和 worker 的释放由 Run owner 负责，cancel/failure/teardown 都必须走同一清理路径。
+
+## Lifecycle
+
+`internal/localruntime.Runtime` 按顺序打开 profile writer lease、SQLite Foundation、settings、installations、
+Blob/Package/Script runtime 和 Workflow runtime；`Close` 逆序关闭 Application、settings/log delivery、SQLite
+和 writer lease。`internal/desktopapp` 只增加窗口、hook、recording 和 Wails presentation 的生命周期。
+
+取消通过 `context.Context` 传播。任何 goroutine、server、hook、worker 或 native input 状态都必须有明确
+owner，启动失败可回滚，关闭幂等并等待退出。

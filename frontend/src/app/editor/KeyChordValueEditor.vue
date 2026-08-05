@@ -21,6 +21,7 @@
         type="button"
         class="min-w-0 flex-1 rounded-md border border-primary bg-primary/10 px-3 py-2 text-left text-xs text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         @keydown="onKeydown"
+        @keyup="onKeyup"
         @blur="stopListening"
       >
         {{ t('workflow.inspector.record_key_chord_active') }}
@@ -56,7 +57,7 @@
 import { nextTick, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { backend } from '@/lib/backend'
-import { keyChordFromKeyboardEvent } from './keyChord'
+import { keyChordFromKeyboardEvent, modifierChordFromKeyboardEvent } from './keyChord'
 
 defineProps<{ modelValue: string[] }>()
 const emit = defineEmits<{ 'update:modelValue': [value: string[]] }>()
@@ -85,6 +86,15 @@ function onKeydown(event: KeyboardEvent): void {
   event.preventDefault()
   event.stopPropagation()
   const chord = keyChordFromKeyboardEvent(event)
+  if (!chord) return
+  emit('update:modelValue', chord)
+  void stopListening()
+}
+
+function onKeyup(event: KeyboardEvent): void {
+  event.preventDefault()
+  event.stopPropagation()
+  const chord = modifierChordFromKeyboardEvent(event)
   if (!chord) return
   emit('update:modelValue', chord)
   void stopListening()

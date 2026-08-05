@@ -46,4 +46,4 @@ Windows WebView 的跨阶段完整旅程统一在 N4 执行，避免每个子切
 ## References
 
 - [Subgraph management research](../references/subgraph-management-research.md)
-- [Architecture](../../../../docs/architecture/node-engine.md)
+- [Architecture](../../../../docs/architecture/runtime.md)

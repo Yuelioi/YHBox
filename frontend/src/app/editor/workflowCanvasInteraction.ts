@@ -1,8 +1,8 @@
 export const WORKFLOW_CANVAS_INTERACTION = {
-  selectionKeyCode: 'Shift',
+  selectionKeyCode: true,
   multiSelectionKeyCode: 'Control',
   panActivationKeyCode: 'Space',
-  panOnDrag: [0, 1] as number[],
+  panOnDrag: [0, 1, 2] as number[],
   selectNodesOnDrag: true,
 }
 
