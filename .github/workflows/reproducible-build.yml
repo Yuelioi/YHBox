@@ -55,7 +55,7 @@ jobs:
       - name: Install pinned build tools
         shell: pwsh
         run: |
-          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.6
           go install honnef.co/go/tools/cmd/staticcheck@v0.6.1
 
       - name: Build from clean checkout

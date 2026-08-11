@@ -83,17 +83,20 @@ func NewStore(
 }
 
 func (s *Store) Get(guid string) (AssetRecord, bool) {
-	record, found, err := s.repository.Get(context.Background(), guid)
+	record, found, err := s.Record(guid)
 	if err != nil {
 		return AssetRecord{}, false
 	}
-	return assetRecordFromCatalog(record), found
+	return record, found
 }
 
-func (s *Store) get(guid string) (AssetRecord, bool, error) {
+// Record is the error-preserving read interface for production services.
+func (s *Store) Record(guid string) (AssetRecord, bool, error) {
 	record, found, err := s.repository.Get(context.Background(), guid)
 	return assetRecordFromCatalog(record), found, err
 }
+
+func (s *Store) get(guid string) (AssetRecord, bool, error) { return s.Record(guid) }
 
 func (s *Store) ListWithRevision() ([]AssetRecord, uint64) {
 	records, revision, err := s.repository.List(context.Background())
@@ -109,8 +112,17 @@ func (s *Store) listWithRevision() ([]AssetRecord, uint64, error) {
 }
 
 func (s *Store) List() []AssetRecord {
-	records, _, _ := s.listWithRevision()
+	records, err := s.Records()
+	if err != nil {
+		return nil
+	}
 	return records
+}
+
+// Records is the error-preserving list interface for production services.
+func (s *Store) Records() ([]AssetRecord, error) {
+	records, _, err := s.listWithRevision()
+	return records, err
 }
 
 func (s *Store) Revision() uint64 {
@@ -188,6 +200,44 @@ func (s *Store) CommitRecordBlob(
 		return blob.BlobRef{}, err
 	}
 	if err := s.putRecord(build(ref)); err != nil {
+		return blob.BlobRef{}, err
+	}
+	return ref, nil
+}
+
+// ReplaceRecordBlob publishes new immutable bytes and then replaces a record's
+// BlobRef only when it still points at expected. The compare-and-swap prevents
+// a read-triggered migration from overwriting a concurrent user save.
+func (s *Store) ReplaceRecordBlob(
+	ctx context.Context,
+	mediaType string,
+	source io.Reader,
+	guid string,
+	expected blob.BlobRef,
+) (blob.BlobRef, error) {
+	if ctx == nil {
+		return blob.BlobRef{}, errors.New("replace asset blob context is required")
+	}
+	s.gcMu.RLock()
+	defer s.gcMu.RUnlock()
+	ref, err := s.blobs.Put(ctx, mediaType, source)
+	if err != nil {
+		return blob.BlobRef{}, err
+	}
+	s.recordMu.Lock()
+	defer s.recordMu.Unlock()
+	record, found, err := s.get(guid)
+	if err != nil {
+		return blob.BlobRef{}, err
+	}
+	if !found || record.Blob == nil {
+		return blob.BlobRef{}, fmt.Errorf("asset %q has no replaceable blob", guid)
+	}
+	if *record.Blob != expected {
+		return blob.BlobRef{}, fmt.Errorf("asset %q changed during blob replacement", guid)
+	}
+	record.Blob = &ref
+	if err := s.putRecordLocked(record); err != nil {
 		return blob.BlobRef{}, err
 	}
 	return ref, nil

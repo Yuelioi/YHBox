@@ -6,6 +6,10 @@ export interface RunReadinessLike {
   code?: string
   slot?: string
   nodeId?: string
+  fromNodeId?: string
+  fromPortId?: string
+  toNodeId?: string
+  toPortId?: string
   requirementId?: string
 }
 
@@ -22,6 +26,10 @@ export type RunStartOutcome =
       code?: string
       slot?: string
       nodeId?: string
+      fromNodeId?: string
+      fromPortId?: string
+      toNodeId?: string
+      toPortId?: string
       requirementId?: string
     }
 
@@ -36,7 +44,12 @@ export function runStartOutcome(started: WorkflowStartRunView): RunStartOutcome 
   }
   const diagnostic = started.diagnostics.find((item) => item.severity === 'error')
   if (diagnostic) {
-    return { state: 'workflow-invalid', code: diagnostic.code, nodeId: diagnostic.nodeId }
+    return {
+      state: 'workflow-invalid',
+      code: diagnostic.code,
+      nodeId: diagnostic.nodeId,
+      ...edgeLocation(diagnostic.params),
+    }
   }
   return { state: 'not-started' }
 }
@@ -51,6 +64,7 @@ export function readinessOutcome(
     slot: readiness.slot,
     nodeId: readiness.nodeId,
     requirementId: readiness.requirementId,
+    ...edgeLocation(readiness),
   }
 }
 
@@ -73,13 +87,45 @@ export function runReadinessMessage(
   ) {
     return t('workflow.run_readiness.ai_credential_unavailable', { slot: outcome.slot ?? '' })
   }
+  const edge = edgeLocation(outcome)
+  if (
+    outcome.code === 'UNKNOWN_PORT' &&
+    edge.fromNodeId &&
+    edge.fromPortId &&
+    edge.toNodeId &&
+    edge.toPortId
+  ) {
+    return t('workflow.run_readiness.unknown_port', edge)
+  }
   if (outcome.code && te(`error.${outcome.code}`)) {
     return t(`error.${outcome.code}`, {
       slot: outcome.slot ?? '',
       nodeId: outcome.nodeId ?? '',
+      ...edge,
     })
   }
   return t(`workflow.run_readiness.${outcome.state}`)
+}
+
+function edgeLocation(value: unknown): {
+  fromNodeId?: string
+  fromPortId?: string
+  toNodeId?: string
+  toPortId?: string
+} {
+  if (!value || typeof value !== 'object') return {}
+  const record = value as Record<string, unknown>
+  const result: {
+    fromNodeId?: string
+    fromPortId?: string
+    toNodeId?: string
+    toPortId?: string
+  } = {}
+  for (const key of ['fromNodeId', 'fromPortId', 'toNodeId', 'toPortId'] as const) {
+    const item = record[key]
+    if (typeof item === 'string' && item) result[key] = item
+  }
+  return result
 }
 
 function normalizeReadinessState(

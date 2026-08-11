@@ -31,19 +31,56 @@ describe('run readiness result', () => {
   })
 
   it('preserves compiler diagnostics for direct repair', () => {
-    expect(
-      runStartOutcome({
-        diagnostics: [{ severity: 'error', code: 'INVALID_CONFIG', nodeId: 'click' }],
-      } as never),
-    ).toEqual({ state: 'workflow-invalid', code: 'INVALID_CONFIG', nodeId: 'click' })
+    const outcome = runStartOutcome({
+      diagnostics: [
+        {
+          severity: 'error',
+          code: 'UNKNOWN_PORT',
+          nodeId: 'click',
+          params: {
+            fromNodeId: 'wait',
+            fromPortId: 'found',
+            toNodeId: 'click',
+            toPortId: 'in',
+          },
+        },
+      ],
+    } as never)
+
+    expect(outcome).toEqual({
+      state: 'workflow-invalid',
+      code: 'UNKNOWN_PORT',
+      nodeId: 'click',
+      fromNodeId: 'wait',
+      fromPortId: 'found',
+      toNodeId: 'click',
+      toPortId: 'in',
+    })
+    if (outcome.state === 'started') throw new Error('expected blocked run')
+    expect(runReadinessMessage(outcome)).toContain('wait / found')
+    expect(runReadinessMessage(outcome)).toContain('click / in')
+    expect(runReadinessMessage(outcome)).toContain('打开工作流')
   })
 
   it('reuses the same readiness interpretation for schedules', () => {
-    expect(readinessOutcome({ state: 'credential-required', slot: 'account' })).toEqual({
+    expect(
+      readinessOutcome({
+        state: 'credential-required',
+        slot: 'account',
+        fromNodeId: 'source',
+        fromPortId: 'done',
+        toNodeId: 'target',
+        toPortId: 'in',
+      }),
+    ).toEqual({
       state: 'credential-required',
       code: undefined,
       slot: 'account',
       nodeId: undefined,
+      fromNodeId: 'source',
+      fromPortId: 'done',
+      toNodeId: 'target',
+      toPortId: 'in',
     })
   })
 

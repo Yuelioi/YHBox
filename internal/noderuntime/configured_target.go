@@ -18,6 +18,6 @@ func openConfiguredTarget(ctx context.Context, invocation nodeadapter.Invocation
 		return resource.Handle{}, errors.New("configured target slot is missing")
 	}
 	return invocation.Targets.Open(ctx, targetruntime.OpenRequest{
-		Slot: slot, Kind: kind, Operations: append([]string(nil), operations...), Config: []byte(`{}`),
+		Slot: slot, Kind: kind, Operations: operations, Config: []byte(`{}`),
 	})
 }

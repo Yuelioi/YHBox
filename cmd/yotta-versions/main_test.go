@@ -59,6 +59,41 @@ func TestProjectionRejectsAmbiguousOwners(t *testing.T) {
 	}
 }
 
+func TestVersionInventoryTracksUserDataAndExcludesDerivedCaches(t *testing.T) {
+	version, err := parseProductVersion("4.0.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	domains, err := currentVersionDomains(version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byName := make(map[string]bool, len(domains))
+	for _, domain := range domains {
+		byName[domain.Name] = true
+		foundCurrent := false
+		for _, readable := range domain.ReadableVersions {
+			foundCurrent = foundCurrent || readable == domain.CurrentVersion
+		}
+		if !foundCurrent {
+			t.Fatalf("domain %q does not read its writer version", domain.Name)
+		}
+	}
+	for _, required := range []string{
+		"yotta.workflow", "yotta.workflow-bundle", "snippet-schema", "yotta.run-summary",
+		"yotta.node-package-registry", "automation-target-profile", "blob-store-layout",
+	} {
+		if !byName[required] {
+			t.Fatalf("release compatibility inventory is missing %q", required)
+		}
+	}
+	for _, derived := range []string{"yotta.program", "program-store-layout", "builtin-node-generator"} {
+		if byName[derived] {
+			t.Fatalf("derived domain %q must not become a durable compatibility promise", derived)
+		}
+	}
+}
+
 func TestCheckIgnoresArbitrarySourceText(t *testing.T) {
 	root := t.TempDir()
 	writeTestFile(t, root, "VERSION", "4.0.0\n")

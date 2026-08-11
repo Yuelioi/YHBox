@@ -48,6 +48,10 @@ type RunReadiness struct {
 	WorkflowID    string `json:"workflowId,omitempty"`
 	GraphID       string `json:"graphId,omitempty"`
 	NodeID        string `json:"nodeId,omitempty"`
+	FromNodeID    string `json:"fromNodeId,omitempty"`
+	FromPortID    string `json:"fromPortId,omitempty"`
+	ToNodeID      string `json:"toNodeId,omitempty"`
+	ToPortID      string `json:"toPortId,omitempty"`
 	RequirementID string `json:"requirementId,omitempty"`
 	Slot          string `json:"slot,omitempty"`
 }
@@ -68,8 +72,8 @@ type TargetRef struct {
 //	kind="cron"   + subKind="daily"     → at="HH:MM"
 //	kind="cron"   + subKind="interval"  → everyMinutes=N
 //	kind="hotkey" → hotkey="Ctrl+Shift+X"
-//	kind="once"   → 启动后一次，无额外字段
-//	kind="manual" → 只能 UI 手动按 ▶，无自动触发
+//	kind="once"   → 每次 daemon 注册时一次，无额外字段
+//	kind="manual" → 不注册自动触发，由 FireNow 显式触发
 type Trigger struct {
 	Kind         TriggerKind `json:"kind"`
 	SubKind      CronSubKind `json:"subKind,omitempty"`

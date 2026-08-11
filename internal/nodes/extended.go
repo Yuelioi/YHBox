@@ -112,7 +112,7 @@ func defineExtendedPureNodes(types extendedTypes) ([]BuiltinDefinition, error) {
 	pointUnitType := datatype.RefExpression(types.pointUnitRef)
 	pointType := datatype.RefExpression(types.pointRef)
 	regionType := datatype.RefExpression(types.regionRef)
-	valueType := datatype.VariableExpression("T")
+	valueType := datatype.VariableExpression("T", string(datatype.TraitObservable))
 	equatableType := datatype.VariableExpression("E", string(datatype.TraitEquatable))
 	port := func(id string, typeExpr datatype.TypeExpression, defaultValue string) extendedPort {
 		return extendedPort{id: id, typeExpr: typeExpr, defaultValue: defaultValue}
@@ -130,9 +130,9 @@ func defineExtendedPureNodes(types extendedTypes) ([]BuiltinDefinition, error) {
 	resultErrors := errorSpec(unrepresentableResultCode, "evaluation")
 	specs := []extendedNode{
 		mathBinary(DivideNodeID, "math.divide", "divide", number, result(numberType), append(errorSpec(divisionByZeroCode, "evaluation"), resultErrors...), divideNumbers),
-		mathBinary(ModuloNodeID, "math.modulo", "percentage", number, result(numberType), append(errorSpec(divisionByZeroCode, "evaluation"), resultErrors...), moduloNumbers),
-		mathUnary(NegateNodeID, "math.negate", "plus-minus", number, result(numberType), resultErrors, negateNumber),
-		mathUnary(AbsoluteNodeID, "math.absolute", "brackets-contain", number, result(numberType), resultErrors, absoluteNumber),
+		mathBinary(ModuloNodeID, "math.modulo", "percentage", number, result(numberType), errorSpec(divisionByZeroCode, "evaluation"), moduloNumbers),
+		mathUnary(NegateNodeID, "math.negate", "plus-minus", number, result(numberType), nil, negateNumber),
+		mathUnary(AbsoluteNodeID, "math.absolute", "brackets-contain", number, result(numberType), nil, absoluteNumber),
 		mathBinary(MinimumNodeID, "math.minimum", "math-min", number, result(numberType), nil, minimumNumber),
 		mathBinary(MaximumNodeID, "math.maximum", "math-max", number, result(numberType), nil, maximumNumber),
 		mathUnary(FloorNodeID, "math.floor", "math-function", number, result(numberType), nil, floorNumber),
@@ -152,13 +152,13 @@ func defineExtendedPureNodes(types extendedTypes) ([]BuiltinDefinition, error) {
 			inputs: []extendedPort{number("base", "0"), number("exponent", "1")}, output: result(numberType), errors: append(errorSpec(mathDomainErrorCode, "evaluation"), resultErrors...),
 			conformance: "finite-power/base+exponent/result", evaluate: powerNumber,
 		},
-		mathUnary(SquareRootNodeID, "math.square-root", "square-root", number, result(numberType), append(errorSpec(mathDomainErrorCode, "evaluation"), resultErrors...), squareRoot),
+		mathUnary(SquareRootNodeID, "math.square-root", "square-root", number, result(numberType), errorSpec(mathDomainErrorCode, "evaluation"), squareRoot),
 		integerMathBinary(IntegerAddNodeID, "math.integer-add", "plus", integer, result(integerType), resultErrors, addIntegers),
 		integerMathBinary(IntegerSubtractNodeID, "math.integer-subtract", "minus", integer, result(integerType), resultErrors, subtractIntegers),
 		integerMathBinary(IntegerMultiplyNodeID, "math.integer-multiply", "x", integer, result(integerType), resultErrors, multiplyIntegers),
 		integerMathBinary(IntegerModuloNodeID, "math.integer-modulo", "percentage", integer, result(integerType), errorSpec(divisionByZeroCode, "evaluation"), moduloIntegers),
-		integerMathUnary(IntegerNegateNodeID, "math.integer-negate", "plus-minus", integer, result(integerType), resultErrors, negateInteger),
-		integerMathUnary(IntegerAbsoluteNodeID, "math.integer-absolute", "brackets-contain", integer, result(integerType), resultErrors, absoluteInteger),
+		integerMathUnary(IntegerNegateNodeID, "math.integer-negate", "plus-minus", integer, result(integerType), nil, negateInteger),
+		integerMathUnary(IntegerAbsoluteNodeID, "math.integer-absolute", "brackets-contain", integer, result(integerType), nil, absoluteInteger),
 		integerMathBinary(IntegerMinimumNodeID, "math.integer-minimum", "math-min", integer, result(integerType), nil, minimumInteger),
 		integerMathBinary(IntegerMaximumNodeID, "math.integer-maximum", "math-max", integer, result(integerType), nil, maximumInteger),
 		{

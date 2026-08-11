@@ -12,23 +12,24 @@
 Linux/macOS 预览 host 使用 `os.UserConfigDir()` 下的 `Yotta/Yotta`。`task dev` 使用仓库内隔离 profile；
 exe 目录、当前工作目录、根目录的 `data/` 或 `settings.json` 都不是生产数据位置。
 
-profile 由 `root.json` 标识为 `yotta.storage-root` layout 3。进程持有 `runtime/writer.lock`，同一 profile
-同一时间只能有一个 writer。未知 identity/layout、非空未认领目录或未来 schema 都 fail closed。
+profile 由 `root.json` 标识为 `yotta.storage-root`。进程持有 `runtime/writer.lock`，同一 profile 同一时间只能
+有一个 writer。未知 identity/layout、非空未认领目录或未来 schema 都 fail closed。当前 root/database/store
+版本不在本页复制，使用 `task versions:inventory` 从所属 package 聚合读取。
 
 ## 当前数据地图
 
 | 路径（相对 profile） | 内容与 authority |
 | --- | --- |
 | `root.json` | profile identity 与 root layout；由 `internal/storage` 拥有 |
-| `config/settings.json` | `yotta.settings/1` generation envelope；同目录有 `.bak`、staging 和 `recovery/` |
-| `catalog/content.db` | Content Catalog schema 8；Workflow Source、quarantine/release/install、asset、Blob 引用与 GC metadata |
-| `state/runs.db` | Run Ledger schema 2；Run、event、value/attempt/action 等运行事实 |
+| `config/settings.json` | versioned settings generation envelope；同目录有 `.bak`、staging 和 `recovery/` |
+| `catalog/content.db` | Content Catalog；Workflow Source、quarantine/release/install、asset、Blob 引用与 GC metadata |
+| `state/runs.db` | Run Ledger；Run、event、value/attempt/action 等运行事实 |
 | `objects/sha256/` | immutable content-addressed Blob bytes；metadata 与引用在 Content Catalog |
-| `cache/programs/` | content-addressed Program cache layout 2；可删除并从 Source 重建，不进入备份 authority |
+| `cache/programs/` | versioned content-addressed Program cache；可删除并从 Source 重建，不进入备份 authority |
 | `data/workspace/files/` | Workflow file capability 的受限工作区 |
 | `data/schedules/`、`data/snippets/` | 小型文件 Store，由对应 service 管理 |
 | `packages/node/` | 已验证 Node Package generations 和 registry authority |
-| `documents/exports/` | 用户显式导出的可移植文档 |
+| `documents/exports/` | profile 投影保留的 export 目录；当前 Workflow/Run export service 使用用户显式选择的 destination |
 | `diagnostics/logs/`、`diagnostics/crashes/`、`diagnostics/captures/` | 可诊断输出，不是业务 authority |
 | `backups/migrations/` | storage migration 的一致备份、journal 与恢复材料 |
 | `runtime/`、`tmp/` | writer lease 与临时内容，不是持久业务数据 |

@@ -48,6 +48,10 @@ export interface RunReadinessView {
   code?: string
   graphId?: string
   nodeId?: string
+  fromNodeId?: string
+  fromPortId?: string
+  toNodeId?: string
+  toPortId?: string
   requirementId?: string
   slot?: string
 }

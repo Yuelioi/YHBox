@@ -242,6 +242,10 @@ type RunReadinessView struct {
 	Code          string `json:"code,omitempty"`
 	GraphID       string `json:"graphId,omitempty"`
 	NodeID        string `json:"nodeId,omitempty"`
+	FromNodeID    string `json:"fromNodeId,omitempty"`
+	FromPortID    string `json:"fromPortId,omitempty"`
+	ToNodeID      string `json:"toNodeId,omitempty"`
+	ToPortID      string `json:"toPortId,omitempty"`
 	RequirementID string `json:"requirementId,omitempty"`
 	Slot          string `json:"slot,omitempty"`
 }
@@ -452,7 +456,9 @@ func runReadinessView(result appcore.StartRunResult, startErr error) RunReadines
 	readiness := appcore.ClassifyRunStart(result, startErr)
 	return RunReadinessView{
 		State: string(readiness.State), Code: readiness.Code, GraphID: readiness.GraphID,
-		NodeID: readiness.NodeID, RequirementID: readiness.RequirementID, Slot: readiness.Slot,
+		NodeID: readiness.NodeID, FromNodeID: readiness.FromNodeID, FromPortID: readiness.FromPortID,
+		ToNodeID: readiness.ToNodeID, ToPortID: readiness.ToPortID,
+		RequirementID: readiness.RequirementID, Slot: readiness.Slot,
 	}
 }
 
@@ -507,7 +513,7 @@ func (s *Service) GetRunTimelinePage(runID string, page, pageSize int) (RunView,
 
 func (s *Service) ExportRunTimeline(runID, destination string) (RunTimelineExportResult, error) {
 	if strings.TrimSpace(destination) == "" {
-		return RunTimelineExportResult{}, errors.New("Run timeline export destination is required")
+		return RunTimelineExportResult{}, errors.New("run timeline export destination is required")
 	}
 	record, err := s.application.GetRun(runID)
 	if err != nil {

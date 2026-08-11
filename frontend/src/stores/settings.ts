@@ -26,7 +26,7 @@ export interface LauncherBlock {
   label?: string // workflow 自定义名 / label 标题文字
 }
 
-// 跟 Go services.Settings 对齐（v2：fish/cook/piano/battle 等 v1 游戏专属字段已删）
+// 跟 Go services.Settings 当前公开 DTO 对齐；retired 开发期字段不在前端保留兼容镜像。
 export interface Settings {
   ui: {
     logger: {

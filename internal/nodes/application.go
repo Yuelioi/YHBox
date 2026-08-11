@@ -38,6 +38,7 @@ func defineApplicationNodes(integerRef datatype.TypeRef) ([]BuiltinDefinition, [
 
 func sealApplicationNode(nodeID, entrypoint, titleKey, icon, operation, effectID string, integerRef datatype.TypeRef, countOutput bool) (nodecontract.Contract, error) {
 	schemaID := nodeID + "/config"
+	inputs := []nodecontract.DataInputPort{}
 	outputs := []nodecontract.DataOutputPort{}
 	if countOutput {
 		outputs = append(outputs, nodecontract.DataOutputPort{ID: "terminated-count", Type: datatype.RefExpression(integerRef)})
@@ -50,7 +51,7 @@ func sealApplicationNode(nodeID, entrypoint, titleKey, icon, operation, effectID
 				"x-yotta-title-key":"node.application.config.slot.title","x-yotta-description-key":"node.application.config.slot.description"}},
 			"required":["slot"],"additionalProperties":false
 		}`, schemaID))}},
-		Ports: nodecontract.PortSet{DataInputs: []nodecontract.DataInputPort{}, DataOutputs: outputs, ExecInputs: signalList("in"), ExecOutputs: signalList("completed"), ErrorOutputs: signalList("failed")},
+		Ports: nodecontract.PortSet{DataInputs: inputs, DataOutputs: outputs, ExecInputs: signalList("in"), ExecOutputs: signalList("completed"), ErrorOutputs: signalList("failed")},
 		Execution: nodecontract.ExecutionSpec{
 			Class: nodecontract.ExecutionEffect, Effects: []nodecontract.EffectID{nodecontract.EffectID(effectID)}, Determinism: nodecontract.Recorded,
 			Evaluation: nodecontract.EvaluationPush, Cache: nodecontract.CacheNone, Retry: nodecontract.RetryNever,
@@ -62,7 +63,11 @@ func sealApplicationNode(nodeID, entrypoint, titleKey, icon, operation, effectID
 		}},
 		Errors: applicationErrors(), StatusEvents: []nodecontract.StatusEventSpec{},
 		ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
-		Authoring:         nodecontract.Authoring{TitleKey: titleKey + ".title", DescriptionKey: titleKey + ".description", Category: "application", Tags: []string{"application", "process", operation}, Icon: icon},
+		Authoring: nodecontract.Authoring{
+			TitleKey: titleKey + ".title", DescriptionKey: titleKey + ".description", Category: "application",
+			Tags: []string{"application", "process", operation}, Icon: icon,
+			Ports: dataPortHints(titleKey, inputs, outputs, nil),
+		},
 	})
 }
 

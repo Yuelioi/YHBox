@@ -136,8 +136,8 @@ try {
     $health = $healthText | ConvertFrom-Json
     if (-not $health.supported -or $health.layoutVersion -ne "3" -or
         -not $health.databases.healthy -or
-        $health.databases.content.schemaVersion -ne 7 -or
-        $health.databases.runs.schemaVersion -ne 2) {
+        -not $health.databases.content.healthy -or
+        -not $health.databases.runs.healthy) {
         throw "migrated production health did not report layout 3 and two healthy databases"
     }
 

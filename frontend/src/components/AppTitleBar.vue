@@ -9,11 +9,7 @@
     <!-- LEFT: brand + primary nav -->
     <div class="shrink-0 flex items-stretch">
       <div class="flex items-center gap-2 px-4 border-r border-default">
-        <div
-          class="size-7 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0"
-        >
-          <UIcon name="i-tabler-device-gamepad-2" class="size-4 text-primary" aria-hidden="true" />
-        </div>
+        <YottaMark class="size-7 shrink-0" />
         <span class="text-sm font-semibold tracking-tight text-highlighted">Yotta</span>
         <span v-if="versionLabel" class="font-mono text-[11px] tabular-nums text-dimmed">
           {{ versionLabel }}
@@ -153,6 +149,7 @@ import { useWindowControls } from '@/composables/useWindowControls'
 import { backend } from '@/lib/backend'
 import { buildAppNavigation } from '@/app/navigation/appNavigation'
 import { requestMainWindowClose } from '@/app/window/requestMainWindowClose'
+import YottaMark from '@/components/common/YottaMark.vue'
 
 const { t } = useI18n()
 const route = useRoute()

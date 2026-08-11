@@ -24,7 +24,7 @@ import (
 
 const (
 	SnapshotFormat           = "yotta.storage-migration-snapshot"
-	snapshotVersion          = 1
+	SnapshotVersion          = 1
 	snapshotManifestFilename = "manifest.json"
 )
 
@@ -109,7 +109,7 @@ func createSnapshot(
 		return "", err
 	}
 	manifest := SnapshotManifest{
-		Format: SnapshotFormat, Version: snapshotVersion,
+		Format: SnapshotFormat, Version: SnapshotVersion,
 		CreatedAt: now.UTC().Format(time.RFC3339Nano),
 		Files:     make([]SnapshotFile, 0, len(candidates)),
 	}
@@ -278,7 +278,7 @@ func readSnapshotManifest(path string) (SnapshotManifest, error) {
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 		return SnapshotManifest{}, errors.New("migration snapshot manifest must contain one JSON value")
 	}
-	if manifest.Format != SnapshotFormat || manifest.Version != snapshotVersion {
+	if manifest.Format != SnapshotFormat || manifest.Version != SnapshotVersion {
 		return SnapshotManifest{}, errors.New("migration snapshot manifest is invalid")
 	}
 	return manifest, nil

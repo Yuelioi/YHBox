@@ -100,8 +100,17 @@ const severityText: Record<DiagnosticSeverity, string> = {
 }
 
 function diagnosticMessage(diagnostic: WorkflowDiagnostic): string {
+  const params = diagnostic.params ?? {}
+  if (
+    diagnostic.code === 'UNKNOWN_PORT' &&
+    ['fromNodeId', 'fromPortId', 'toNodeId', 'toPortId'].every(
+      (key) => typeof params[key] === 'string' && params[key],
+    )
+  ) {
+    return t('workflow.run_readiness.unknown_port', params)
+  }
   const key = `error.${diagnostic.code}`
-  if (te(key)) return t(key, diagnostic.params ?? {})
+  if (te(key)) return t(key, params)
   return diagnostic.message || diagnostic.code
 }
 </script>

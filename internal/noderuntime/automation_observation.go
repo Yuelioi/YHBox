@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"image"
 	"time"
 
 	"github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodes"
+	"github.com/yottaapp/yotta/internal/resource"
 	visionpkg "github.com/yottaapp/yotta/pkg/vision"
 )
 
@@ -55,46 +55,86 @@ func automationObservation(builtins nodes.Builtins, nodeTypeID string) nodeadapt
 		if err != nil {
 			return nodeadapter.AdapterResult{}, observationFailure(nodes.VisionRegionInvalidCode, err)
 		}
-		baseline, bytesRead, err := captureFrameSignature(ctx, invocation, region, int(gridSize))
-		counters["captures"], counters["capture_bytes"] = 1, bytesRead
+		if invocation.Wait == nil {
+			return nodeadapter.AdapterResult{}, observationFailure(installed.CodeContractViolation, errors.New("frame observation scheduler is missing"))
+		}
+		captureHandle, err := openConfiguredTarget(ctx, invocation, installed.KindCapture, installed.CaptureOperations())
 		if err != nil {
-			return nodeadapter.AdapterResult{}, observationNodeFailure(err)
+			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}
-		last := frameDifference{}
-		if nodeTypeID == nodes.WaitStableNodeID && stableDuration == 0 {
-			return observationResult(builtins, invocation, last, "stable")
-		}
-		elapsed, stableElapsed := time.Duration(0), time.Duration(0)
-		for elapsed < timeout {
-			delay := min(poll, timeout-elapsed)
-			if err := invocation.Wait(ctx, delay); err != nil {
+		defer func() {
+			runErr = errors.Join(runErr, invocation.Targets.Drop(context.WithoutCancel(ctx), captureHandle))
+		}()
+		difference, output, captures, captureBytes, err := pollFrameObservationWithClock(
+			ctx, invocation.Wait, time.Now, timeout, poll, stableDuration, threshold, int(cellDelta),
+			nodeTypeID == nodes.WaitStableNodeID,
+			func(observeCtx context.Context) (frameSignature, int64, error) {
+				return captureFrameSignature(observeCtx, invocation, captureHandle, region, int(gridSize))
+			},
+		)
+		counters["captures"], counters["capture_bytes"] = captures, captureBytes
+		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return nodeadapter.AdapterResult{}, err
 			}
-			elapsed += delay
-			current, capturedBytes, err := captureFrameSignature(ctx, invocation, region, int(gridSize))
-			counters["captures"]++
-			counters["capture_bytes"] += capturedBytes
-			if err != nil {
-				return nodeadapter.AdapterResult{}, observationNodeFailure(err)
-			}
-			last = compareFrameSignatures(baseline, current, int(cellDelta))
-			if nodeTypeID == nodes.WaitChangeNodeID {
-				if last.changedRatio >= threshold {
-					return observationResult(builtins, invocation, last, "changed")
-				}
-				continue
-			}
-			if last.changedRatio <= threshold {
-				stableElapsed += delay
-				if stableElapsed >= stableDuration {
-					return observationResult(builtins, invocation, last, "stable")
-				}
-			} else {
-				stableElapsed = 0
-			}
-			baseline = current
+			return nodeadapter.AdapterResult{}, observationNodeFailure(err)
 		}
-		return observationResult(builtins, invocation, last, "timeout")
+		return observationResult(builtins, invocation, difference, output)
+	}
+}
+
+func pollFrameObservationWithClock(
+	ctx context.Context,
+	wait func(context.Context, time.Duration) error,
+	now func() time.Time,
+	timeout, poll, stableDuration time.Duration,
+	threshold float64,
+	cellDelta int,
+	stable bool,
+	observe func(context.Context) (frameSignature, int64, error),
+) (frameDifference, string, int64, int64, error) {
+	deadline := now().Add(timeout)
+	baseline, captureBytes, err := observe(ctx)
+	captures := int64(1)
+	if err != nil {
+		return frameDifference{}, "", captures, captureBytes, err
+	}
+	last := frameDifference{}
+	if stable && stableDuration == 0 {
+		return last, "stable", captures, captureBytes, nil
+	}
+	stableSince := now()
+	for {
+		remaining := deadline.Sub(now())
+		if remaining <= 0 {
+			return last, "timeout", captures, captureBytes, nil
+		}
+		if err := wait(ctx, min(poll, remaining)); err != nil {
+			return frameDifference{}, "", captures, captureBytes, err
+		}
+		if !now().Before(deadline) {
+			return last, "timeout", captures, captureBytes, nil
+		}
+		current, currentBytes, err := observe(ctx)
+		captures++
+		captureBytes += currentBytes
+		if err != nil {
+			return frameDifference{}, "", captures, captureBytes, err
+		}
+		last = compareFrameSignatures(baseline, current, cellDelta)
+		observedAt := now()
+		if !stable {
+			if last.changedRatio >= threshold {
+				return last, "changed", captures, captureBytes, nil
+			}
+		} else if last.changedRatio <= threshold {
+			if observedAt.Sub(stableSince) >= stableDuration {
+				return last, "stable", captures, captureBytes, nil
+			}
+		} else {
+			stableSince = observedAt
+		}
+		baseline = current
 	}
 }
 
@@ -125,16 +165,14 @@ func observationDurations(invocation nodeadapter.Invocation, nodeTypeID string) 
 	return time.Duration(timeoutMillis) * time.Millisecond, poll, stable, nil
 }
 
-func captureFrameSignature(ctx context.Context, invocation nodeadapter.Invocation, region visionRegion, gridSize int) (frameSignature, int64, error) {
-	frame, captureBytes, err := captureTemplateFrame(ctx, invocation)
+func captureFrameSignature(ctx context.Context, invocation nodeadapter.Invocation, handle resource.Handle, region visionRegion, gridSize int) (frameSignature, int64, error) {
+	captured, captureBytes, err := captureTemplateFrameFromHandle(ctx, invocation, handle, &installed.CaptureRegion{
+		X: region.X, Y: region.Y, Width: region.Width, Height: region.Height, Unit: region.Unit,
+	})
 	if err != nil {
 		return frameSignature{}, 0, err
 	}
-	search, err := resolveVisionRegion(frame.Bounds(), region)
-	if err != nil {
-		return frameSignature{}, captureBytes, observationFailure(nodes.VisionRegionInvalidCode, err)
-	}
-	return frameSignature{grid: visionpkg.Downsample(frame.SubImage(search).(*image.RGBA), gridSize)}, captureBytes, nil
+	return frameSignature{grid: visionpkg.Downsample(captured.Image, gridSize)}, captureBytes, nil
 }
 
 func compareFrameSignatures(before, after frameSignature, cellDelta int) frameDifference {

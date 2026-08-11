@@ -30,9 +30,13 @@ function harness(overrides: Partial<EditorRunSession> = {}) {
     showSuccess,
     openWorkbench,
     focusDebugNode,
+    activeRun: () => ({ runId: 'run-1' }),
+    chooseTimelineDestination: vi.fn(async () => 'C:/exports/run.json'),
+    exportTimeline: vi.fn(async () => ({ entries: 3 })),
   }
   return {
     session,
+    dependencies,
     openWorkbench,
     showError,
     showSuccess,
@@ -123,5 +127,15 @@ describe('editor run controller', () => {
     await expect(run.controller.execute({ kind: 'save' })).resolves.toEqual({ ok: false })
     await expect(run.controller.execute({ kind: 'start' })).resolves.toEqual({ ok: false })
     expect(run.showError).not.toHaveBeenCalled()
+  })
+
+  it('owns timeline destination selection, export, and feedback', async () => {
+    const run = harness()
+
+    await expect(run.controller.execute({ kind: 'export-timeline' })).resolves.toEqual({ ok: true })
+    expect(run.dependencies.chooseTimelineDestination).toHaveBeenCalledWith('yotta-run-run-1.json')
+    expect(run.dependencies.exportTimeline).toHaveBeenCalledWith('run-1', 'C:/exports/run.json')
+    expect(run.showSuccess).toHaveBeenCalledWith('translated:workflow.timeline.export_succeeded')
+    expect(run.controller.timelineExporting.value).toBe(false)
   })
 })

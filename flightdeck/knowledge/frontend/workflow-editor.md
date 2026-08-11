@@ -10,7 +10,7 @@
 | layout、selection、run、resource 等动作 | `Editor*Controller.ts` |
 | Source node → Vue Flow node 投影 | `workflowFlowProjection.ts` |
 | canvas gesture props | `workflowCanvasInteraction.ts` |
-| node/inspector/value editor | `WorkflowNode.vue`、`WorkflowInspector.vue`、`WorkflowValueEditor.vue` |
+| node/inspector/value editor | `frontend/src/app/editor/WorkflowNode.vue`、`WorkflowInspector.vue`、`WorkflowValueEditor.vue` |
 
 View 负责组合，Controller 负责一个用户动作，EditorSession 负责可持久的 domain state 与 command。不要把
 revision CAS、保存、运行或资源副作用重新塞进 Vue component watcher。

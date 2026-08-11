@@ -102,7 +102,11 @@ func automationObservationErrors() []nodecontract.ErrorSpec {
 	}
 	result := make([]nodecontract.ErrorSpec, 0, len(codes))
 	for _, code := range codes {
-		result = append(result, nodecontract.ErrorSpec{Code: code, Category: "automation", RetryHint: false})
+		category := "automation"
+		if code == VisionImageInvalidCode || code == VisionRegionInvalidCode {
+			category = "vision"
+		}
+		result = append(result, nodecontract.ErrorSpec{Code: code, Category: category, RetryHint: false})
 	}
 	return result
 }

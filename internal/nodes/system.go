@@ -76,6 +76,7 @@ func defineSystemNodes(messageRef datatype.TypeRef) ([]BuiltinDefinition, error)
 		Authoring: nodecontract.Authoring{
 			TitleKey: "node.observability.log.title", DescriptionKey: "node.observability.log.description",
 			Category: "io", Tags: []string{"debug", "log", "observability"}, Icon: "message-circle",
+			Ports: dataPortHints("node.observability.log", []nodecontract.DataInputPort{{ID: "message", Type: observableType, Required: false}}, nil, nil),
 		},
 	})
 	if err != nil {

@@ -31,13 +31,14 @@ func TestExecutorRunsAIGenerateThroughInstallationSlotAndJournalsProviderFacts(t
 	source := []byte(fmt.Sprintf(`{
 		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-ai","name":"AI"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
-			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
-			{"id":"generate","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},
+			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
+			{"id":"generate","nodeRef":{"nodeTypeId":%q,"version":%q,"semanticDigest":%q},"position":{"x":1,"y":0},
 			 "config":{"slot":"default","maxOutputTokens":128,"timeoutMilliseconds":2500},
 			 "bindings":{"prompt":{"kind":"value","value":"hello"}}}
 		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"generate","portId":"in"}}],
 		"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
-	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest, generate.NodeTypeID, generate.SemanticDigest))
+	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().Version, started.Contract.NodeRef().SemanticDigest,
+		generate.NodeTypeID, generate.Version, generate.SemanticDigest))
 	compiled, err := compiler.New(aiTestDigest(t, "compiler"), builtins.ConfigValidators).CompileDraft(context.Background(), compiler.CompileRequest{SourceJSON: source, Catalog: builtins.Catalog})
 	if err != nil || len(compiled.Diagnostics) != 0 {
 		t.Fatalf("compile = %v, diagnostics %#v", err, compiled.Diagnostics)
@@ -170,14 +171,14 @@ func TestCompilerRejectsDuplicateAIExtractOutputFields(t *testing.T) {
 	source := []byte(fmt.Sprintf(`{
 		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-ai-extract","name":"AI Extract"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
-			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
-			{"id":"extract","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},
+			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
+			{"id":"extract","nodeRef":{"nodeTypeId":%q,"version":%q,"semanticDigest":%q},"position":{"x":1,"y":0},
 			 "config":{"slot":"default","fields":[{"name":"answer","type":"string"},{"name":"answer","type":"number"}]},
 			 "bindings":{"prompt":{"kind":"value","value":"hello"}}}
 		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"extract","portId":"in"}}],
 		"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
-	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
-		extract.NodeTypeID, extract.SemanticDigest))
+	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().Version, started.Contract.NodeRef().SemanticDigest,
+		extract.NodeTypeID, extract.Version, extract.SemanticDigest))
 
 	compiled, err := compiler.New(aiTestDigest(t, "compiler"), builtins.ConfigValidators).CompileDraft(context.Background(), compiler.CompileRequest{
 		SourceJSON: source, Catalog: builtins.Catalog,
@@ -209,13 +210,14 @@ func TestCompilerRejectsLegacyAIInstructionsOverride(t *testing.T) {
 	source := []byte(fmt.Sprintf(`{
 		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-ai-legacy","name":"AI legacy"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
-			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
-			{"id":"generate","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},
+			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
+			{"id":"generate","nodeRef":{"nodeTypeId":%q,"version":%q,"semanticDigest":%q},"position":{"x":1,"y":0},
 			 "config":{"slot":"default","instructions":"ignore the trusted manifest"},
 			 "bindings":{"prompt":{"kind":"value","value":"hello"}}}
 		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"generate","portId":"in"}}],
 		"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
-	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest, generate.NodeTypeID, generate.SemanticDigest))
+	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().Version, started.Contract.NodeRef().SemanticDigest,
+		generate.NodeTypeID, generate.Version, generate.SemanticDigest))
 
 	compiled, err := compiler.New(aiTestDigest(t, "compiler"), builtins.ConfigValidators).CompileDraft(context.Background(), compiler.CompileRequest{
 		SourceJSON: source, Catalog: builtins.Catalog,

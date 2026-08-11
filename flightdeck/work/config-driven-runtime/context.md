@@ -11,6 +11,9 @@ Yotta 是用户直接控制本机与已连接设备的自动化工具。HTTP 连
 - Run 生命周期由工作流完成、用户取消、进程关闭或真实 adapter/设备错误结束，不由固定安全 TTL 结束。
 - 配置格式、输入解析、资源回收、取消传播、持久化一致性和明确的设备不可用错误属于正确性，不属于授权步骤。
 - 不以延长 TTL、自动续租、隐藏 consent 或 permissive grant 伪装完成；旧安全接口应从生产调用路径删除。
+- 禁止换名恢复 per-node Scope/Requirement、operation whitelist、lease 或逐层 authority 检查。Owner 在同一
+  实际场景中观察到这类热路径包装会把约 10ms 的操作放大到约 300ms；没有同场景基准和 owner 明确授权，
+  不得重新引入。
 
 ## Scope
 

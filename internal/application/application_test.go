@@ -275,6 +275,7 @@ func TestApplicationMigratesCompatibleNodeContractsBeforeCompile(t *testing.T) {
 	started, _ := builtins.Definition(nodes.RunStartedNodeID)
 	playback, _ := builtins.Definition(nodes.PlayInputClipNodeID)
 	stalePlaybackRef := playback.Contract.NodeRef()
+	stalePlaybackRef.Version = "1.0.0"
 	stalePlaybackRef.SemanticDigest = "sha256:ff7ea9d0b2ca91cb2062cff30dd5ca8575555ec5363b4c76e746925ee6ae027b"
 	source := schema.WorkflowSource{
 		Format: schema.Format, Version: schema.Version,
@@ -344,12 +345,100 @@ func TestApplicationMigratesCompatibleNodeContractsBeforeCompile(t *testing.T) {
 	}
 }
 
+func TestApplicationMigratesTemplateErrorCategoryContractsBeforeCompile(t *testing.T) {
+	now := time.Date(2026, 8, 11, 18, 0, 0, 0, time.UTC)
+	application, sources, _, builtins, _, _ := newTestApplication(t, now, nil)
+	started, _ := builtins.Definition(nodes.RunStartedNodeID)
+	waitTemplate, _ := builtins.Definition(nodes.WaitTemplateNodeID)
+	clickTemplate, _ := builtins.Definition(nodes.ClickTemplateNodeID)
+	waitTemplateGone, _ := builtins.Definition(nodes.WaitTemplateGoneNodeID)
+
+	staleWaitRef := waitTemplate.Contract.NodeRef()
+	staleWaitRef.Version = "1.0.0"
+	staleWaitRef.SemanticDigest = "sha256:cd4f4177c886c36ba2ede3634b67b87c4d22597fa86e21269cae9bc38cc2066e"
+	staleClickRef := clickTemplate.Contract.NodeRef()
+	staleClickRef.Version = "1.0.0"
+	staleClickRef.SemanticDigest = "sha256:370ee214c1f0e99d149a5f709019e74480f9054442e058ae6349054997f72c1d"
+	staleWaitGoneRef := waitTemplateGone.Contract.NodeRef()
+	staleWaitGoneRef.Version = "1.0.0"
+	staleWaitGoneRef.SemanticDigest = "sha256:28eaccad35ee50f132dce3e2a45a85ad09d2c59d99c48dcdd42f9f7d3fb80253"
+
+	source := schema.WorkflowSource{
+		Format: schema.Format, Version: schema.Version,
+		Workflow: schema.Workflow{ID: "template-error-category-contracts", Name: "Template error category contracts"},
+		Revision: 0, EntryGraph: "main",
+		Graphs: []schema.Graph{{
+			ID: "main", Kind: schema.GraphKindMain,
+			Nodes: []schema.Node{
+				{ID: "start", NodeRef: started.Contract.NodeRef(), Position: schema.Position{}, Config: map[string]any{}, Bindings: map[string]schema.InputBinding{}},
+				{ID: "wait", NodeRef: staleWaitRef, Position: schema.Position{}, Config: map[string]any{"slot": "window-target"}, Bindings: map[string]schema.InputBinding{}},
+				{ID: "click", NodeRef: staleClickRef, Position: schema.Position{}, Config: map[string]any{"slot": "window-target"}, Bindings: map[string]schema.InputBinding{}},
+				{ID: "wait-gone", NodeRef: staleWaitGoneRef, Position: schema.Position{}, Config: map[string]any{"slot": "window-target"}, Bindings: map[string]schema.InputBinding{}},
+			},
+			Edges: []schema.Edge{
+				{Channel: schema.EdgeExec, From: schema.Endpoint{NodeID: "start", PortID: "started"}, To: schema.Endpoint{NodeID: "wait", PortID: "in"}},
+				{Channel: schema.EdgeExec, From: schema.Endpoint{NodeID: "wait", PortID: "found"}, To: schema.Endpoint{NodeID: "click", PortID: "in"}},
+				{Channel: schema.EdgeExec, From: schema.Endpoint{NodeID: "click", PortID: "completed"}, To: schema.Endpoint{NodeID: "wait-gone", PortID: "in"}},
+			},
+			Inputs: []schema.GraphPort{}, Outputs: []schema.GraphPort{},
+		}},
+		Resources: []schema.WorkflowResource{}, TargetProfileDefinitions: []schema.TargetProfileDefinition{},
+		CredentialRequirements: []schema.CredentialRequirement{}, Dependencies: []schema.NodePackageDependency{}, Variables: []schema.Variable{},
+	}
+	raw, err := artifact.Marshal(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sources.Save(context.Background(), raw, -1); err != nil {
+		t.Fatal(err)
+	}
+	if err := application.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = application.Close(context.Background()) })
+
+	migrated, err := application.GetSource(source.Workflow.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if migrated.Revision() != 1 {
+		t.Fatalf("migrated revision = %d, want 1", migrated.Revision())
+	}
+	migratedSource, parseDiagnostics := schema.ParseSource(migrated.Artifact())
+	if len(parseDiagnostics) != 0 {
+		t.Fatalf("migrated source diagnostics = %#v", parseDiagnostics)
+	}
+	if got := migratedSource.Graphs[0].Nodes[1].NodeRef; got != waitTemplate.Contract.NodeRef() {
+		t.Fatalf("migrated wait-template ref = %#v", got)
+	}
+	if got := migratedSource.Graphs[0].Nodes[2].NodeRef; got != clickTemplate.Contract.NodeRef() {
+		t.Fatalf("migrated click-template ref = %#v", got)
+	}
+	if got := migratedSource.Graphs[0].Nodes[3].NodeRef; got != waitTemplateGone.Contract.NodeRef() {
+		t.Fatalf("migrated wait-template-gone ref = %#v", got)
+	}
+	if got := migratedSource.Graphs[0].Edges[1]; got.From.PortID != "found" || got.To.PortID != "in" {
+		t.Fatalf("migration changed valid template edge = %#v", got)
+	}
+
+	compiled, err := application.CompileSource(context.Background(), source.Workflow.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, diagnostic := range compiled.Diagnostics {
+		if diagnostic.Code == compiler.CodeNodeContractMismatch || diagnostic.Code == compiler.CodeUnknownPort {
+			t.Fatalf("contract migration left derivative diagnostic = %#v", compiled.Diagnostics)
+		}
+	}
+}
+
 func TestApplicationMigratesIncompleteAIContractWithoutHidingItsMissingInputs(t *testing.T) {
 	now := time.Date(2026, 7, 28, 15, 30, 0, 0, time.UTC)
 	application, sources, _, builtins, _, _ := newTestApplication(t, now, nil)
 	started, _ := builtins.Definition(nodes.RunStartedNodeID)
 	extract, _ := builtins.Definition(nodes.AIExtractNodeID)
 	staleExtractRef := extract.Contract.NodeRef()
+	staleExtractRef.Version = "1.0.0"
 	staleExtractRef.SemanticDigest = "sha256:dbcb528cb623272c3a7544c1a2ff6ed2e77c14dba1d795b6fea9511f87d99646"
 	source := schema.WorkflowSource{
 		Format: schema.Format, Version: schema.Version,

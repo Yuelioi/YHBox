@@ -174,6 +174,18 @@ describe('workflow authoring foundations', () => {
     expect(dialog).toContain('data-testid="confirm-alternate"')
   })
 
+  it('keeps durable workflow metadata orchestration outside the view', () => {
+    const editor = readSource('src/views/WorkflowEditorView.vue')
+    const controller = readSource('src/app/editor/EditorWorkflowMetadataController.ts')
+
+    expect(editor).toContain('createEditorWorkflowMetadataController({')
+    expect(editor).not.toContain('async function openWorkflowSettings')
+    expect(editor).not.toContain('async function saveWorkflowSettings')
+    expect(controller).toContain('options.port.getSource(options.session.workflowId)')
+    expect(controller).toContain('options.port.updateSourceMetadata(')
+    expect(controller).toContain('await options.session.load(workflowId)')
+  })
+
   it('uses a node-generic context menu and keeps visual templates in typed editor fields', () => {
     const editor = readSource('src/views/WorkflowEditorView.vue')
     const node = readSource('src/app/editor/WorkflowNode.vue')

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/nodes"
 	run "github.com/yottaapp/yotta/internal/run"
@@ -41,8 +42,12 @@ func TestWaitStableRunsThroughExactTargetCaptureAndRecordedJournal(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if provider.captures != 2 || provider.closed != 2 {
+	if provider.captures != 2 || provider.closed != 1 {
 		t.Fatalf("capture lifecycle = captures:%d closed:%d", provider.captures, provider.closed)
+	}
+	if provider.captureFormat != "rgba" || provider.captureRegion == nil ||
+		*provider.captureRegion != (automationinstalled.CaptureRegion{X: 0, Y: 0, Width: 1, Height: 1, Unit: "ratio"}) {
+		t.Fatalf("observation capture format/region = %q / %#v", provider.captureFormat, provider.captureRegion)
 	}
 	if got := string(result.NodeOutputs["stable"]["changed-ratio"].InlineJSON()); got != "0" {
 		t.Fatalf("changed ratio = %s", got)
@@ -61,12 +66,15 @@ func TestWaitStableRunsThroughExactTargetCaptureAndRecordedJournal(t *testing.T)
 func waitStableSource(builtins nodes.Builtins, slot string) []byte {
 	started, _ := builtins.Definition(nodes.RunStartedNodeID)
 	stable, _ := builtins.Definition(nodes.WaitStableNodeID)
+	// Deadline accounting, including capture time, is covered with a fake clock
+	// in automation_observation_test.go. Keep this integration budget above the
+	// host scheduler quantum so it tests Target reuse and journaling, not timing.
 	return []byte(fmt.Sprintf(`{
 		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-wait-stable","name":"Wait Stable"},"revision":0,"entryGraph":"main",
 		"graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"stable","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{"slot":%q},
-			 "bindings":{"region":{"kind":"default"},"threshold":{"kind":"value","value":0.02},"timeout":{"kind":"value","value":20},"poll-interval":{"kind":"value","value":10},"grid-size":{"kind":"value","value":4},"cell-delta":{"kind":"value","value":12},"stable-duration":{"kind":"value","value":10}}}
+			 "bindings":{"region":{"kind":"default"},"threshold":{"kind":"value","value":0.02},"timeout":{"kind":"value","value":1000},"poll-interval":{"kind":"value","value":10},"grid-size":{"kind":"value","value":4},"cell-delta":{"kind":"value","value":12},"stable-duration":{"kind":"value","value":10}}}
 		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"stable","portId":"in"}}],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
 		stable.Contract.NodeRef().NodeTypeID, stable.Contract.NodeRef().SemanticDigest, slot))

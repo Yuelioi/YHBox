@@ -774,6 +774,8 @@ function testFailureMessage(profile: AIModelProfileDraft, result: AIProfileTestR
       return t('settingsAI.test_errors.permission', { status })
     case 'invalid-request':
       return t('settingsAI.test_errors.invalid_request', { status })
+    case 'invalid-response':
+      return t('settingsAI.test_errors.invalid_response', { status })
     case 'rate-limit':
       return t('settingsAI.test_errors.rate_limit', { status })
     case 'timeout':

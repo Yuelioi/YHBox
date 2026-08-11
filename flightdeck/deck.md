@@ -2,7 +2,7 @@
 
 ## Open Work
 
-- **Focus:** [V4 后续稳定性收尾](work/v4-followup-stabilization/index.md)
+- **Focus:** [V4 发布兼容性封板](work/v4-release-compatibility-floor/index.md)
 
 ## Project links
 

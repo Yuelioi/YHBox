@@ -317,6 +317,23 @@ func TestAnthropicMessagesUsesOutputConfigAndCacheAwareUsage(t *testing.T) {
 }
 
 func TestProviderFailuresAndNonCompletedStructuredOutputFailClosed(t *testing.T) {
+	t.Run("HTML success response identifies endpoint mismatch", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+			writer.Header().Set("Content-Type", "text/html; charset=utf-8")
+			writer.Header().Set("x-request-id", "request-html")
+			_, _ = writer.Write([]byte(`<!doctype html><title>NewAPI</title><p>Sign in</p>`))
+		}))
+		defer server.Close()
+		provider := nativeProviderForTest(t, profileForTest(t, ProviderOpenAIResponses), server.URL)
+		_, err := provider.Generate(context.Background(), "secret", GenerateRequest{AttemptID: "attempt-html", Prompt: renderedPromptForTest(t, "x"), Retention: RetentionProviderDefault})
+		var failure *ProviderFailure
+		if !errors.As(err, &failure) || failure.Stage != FailureContract || failure.Class != FailureInvalidResponse ||
+			failure.HTTPStatus == nil || *failure.HTTPStatus != http.StatusOK || failure.ProviderCode != "html-response" ||
+			failure.ProviderRequestID != "request-html" {
+			t.Fatalf("failure = %#v", err)
+		}
+	})
+
 	t.Run("overloaded", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 			writer.Header().Set("request-id", "request-529")

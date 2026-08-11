@@ -88,65 +88,92 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
+async function mountConfiguredAIProfile(): Promise<HTMLElement> {
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  const store = useSettingsStore()
+  store.data = {
+    ui: {},
+    locale: 'zh',
+    capture: {},
+    ai: {
+      profiles: [
+        {
+          slot: 'model',
+          label: 'DeepSeek',
+          provider: 'openai-responses',
+          endpoint: 'https://api.deepseek.com',
+          allowLocalHttp: false,
+          model: 'deepseek-v4-flash',
+          maxOutputTokens: 4096,
+          capabilities: {
+            structuredOutput: false,
+            toolCalling: false,
+            parallelTools: false,
+            background: false,
+            zeroRetention: false,
+          },
+          pricing: {
+            inputMicrounitsPerMillion: 0,
+            cacheReadMicrounitsPerMillion: 0,
+            outputMicrounitsPerMillion: 0,
+          },
+          evaluation: 'unverified',
+        },
+      ],
+    },
+    network: { httpOrigins: [] },
+    applications: { profiles: [] },
+    automation: { targets: [] },
+  } as unknown as Settings
+
+  const root = document.createElement('div')
+  document.body.append(root)
+  const app = createApp(SettingsAI)
+  app.use(pinia)
+  app.use(ui)
+  mounted.push(app)
+  app.mount(root)
+  await nextTick()
+  return root
+}
+
+async function runConfiguredProfileTest(root: HTMLElement): Promise<void> {
+  const profileHeader = root.querySelector('.ai-profile > button') as HTMLButtonElement
+  profileHeader.click()
+  await nextTick()
+  const test = [...root.querySelectorAll('button')].find((button) =>
+    button.textContent?.includes('settingsAI.profiles.test'),
+  )
+  test?.click()
+}
+
 describe('SettingsAI model draft', () => {
   it('explains a Responses 404 and points to Chat Completions', async () => {
-    const pinia = createPinia()
-    setActivePinia(pinia)
-    const store = useSettingsStore()
-    store.data = {
-      ui: {},
-      locale: 'zh',
-      capture: {},
-      ai: {
-        profiles: [
-          {
-            slot: 'model',
-            label: 'DeepSeek',
-            provider: 'openai-responses',
-            endpoint: 'https://api.deepseek.com',
-            allowLocalHttp: false,
-            model: 'deepseek-v4-flash',
-            maxOutputTokens: 4096,
-            capabilities: {
-              structuredOutput: false,
-              toolCalling: false,
-              parallelTools: false,
-              background: false,
-              zeroRetention: false,
-            },
-            pricing: {
-              inputMicrounitsPerMillion: 0,
-              cacheReadMicrounitsPerMillion: 0,
-              outputMicrounitsPerMillion: 0,
-            },
-            evaluation: 'unverified',
-          },
-        ],
-      },
-      network: { httpOrigins: [] },
-      applications: { profiles: [] },
-      automation: { targets: [] },
-    } as unknown as Settings
-
-    const root = document.createElement('div')
-    document.body.append(root)
-    const app = createApp(SettingsAI)
-    app.use(pinia)
-    app.use(ui)
-    mounted.push(app)
-    app.mount(root)
-    await nextTick()
-
-    const profileHeader = root.querySelector('.ai-profile > button') as HTMLButtonElement
-    profileHeader.click()
-    await nextTick()
-    const test = [...root.querySelectorAll('button')].find((button) =>
-      button.textContent?.includes('settingsAI.profiles.test'),
-    )
-    test?.click()
+    const root = await mountConfiguredAIProfile()
+    await runConfiguredProfileTest(root)
 
     await vi.waitFor(() =>
       expect(root.textContent).toContain('settingsAI.test_errors.not_found_responses'),
+    )
+  })
+
+  it('identifies a successful HTML response as an endpoint or proxy mismatch', async () => {
+    mocks.testProfile.mockResolvedValue({
+      ok: false,
+      provider: '',
+      requestedModel: '',
+      resolvedModel: '',
+      finish: '',
+      failureClass: 'invalid-response',
+      httpStatus: 200,
+      error: 'AI provider failure: invalid-response',
+    })
+    const root = await mountConfiguredAIProfile()
+    await runConfiguredProfileTest(root)
+
+    await vi.waitFor(() =>
+      expect(root.textContent).toContain('settingsAI.test_errors.invalid_response'),
     )
   })
 

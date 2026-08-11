@@ -267,17 +267,18 @@ const (
 type FailureClass string
 
 const (
-	FailureInvalidRequest FailureClass = "invalid-request"
-	FailureAuthentication FailureClass = "authentication"
-	FailurePermission     FailureClass = "permission"
-	FailureNotFound       FailureClass = "not-found"
-	FailureConflict       FailureClass = "conflict"
-	FailureRateLimit      FailureClass = "rate-limit"
-	FailureOverloaded     FailureClass = "overloaded"
-	FailureTimeout        FailureClass = "timeout"
-	FailureServer         FailureClass = "server"
-	FailureCancelled      FailureClass = "cancelled"
-	FailureUnknown        FailureClass = "unknown"
+	FailureInvalidRequest  FailureClass = "invalid-request"
+	FailureInvalidResponse FailureClass = "invalid-response"
+	FailureAuthentication  FailureClass = "authentication"
+	FailurePermission      FailureClass = "permission"
+	FailureNotFound        FailureClass = "not-found"
+	FailureConflict        FailureClass = "conflict"
+	FailureRateLimit       FailureClass = "rate-limit"
+	FailureOverloaded      FailureClass = "overloaded"
+	FailureTimeout         FailureClass = "timeout"
+	FailureServer          FailureClass = "server"
+	FailureCancelled       FailureClass = "cancelled"
+	FailureUnknown         FailureClass = "unknown"
 )
 
 type RetryDisposition string

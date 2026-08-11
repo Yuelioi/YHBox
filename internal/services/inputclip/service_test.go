@@ -1,9 +1,12 @@
 package inputclip
 
 import (
+	"bytes"
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/services/asset"
@@ -38,8 +41,8 @@ func TestServiceMetadataUpdatePreservesNominalBlobIdentity(t *testing.T) {
 	if got.Blob != wantRef || got.Label != "After" || got.Description != "new" || got.Category != "updated" || len(got.Tags) != 1 || got.Tags[0] != "b" {
 		t.Fatalf("updated clip = %#v, original BlobRef = %#v", got, wantRef)
 	}
-	list := service.List()
-	if len(list) != 1 || list[0].Blob != wantRef {
+	list, err := service.List()
+	if err != nil || len(list) != 1 || list[0].Blob != wantRef {
 		t.Fatalf("clip summaries = %#v", list)
 	}
 	summary, err := service.Summary(clip.ID)
@@ -58,6 +61,24 @@ func TestServiceMetadataUpdatePreservesNominalBlobIdentity(t *testing.T) {
 	}
 	if _, err := service.Events(clip.ID, 0, maxEventPageSize+1); err == nil {
 		t.Fatal("oversized event page succeeded")
+	}
+}
+
+func TestServiceListReportsUnsupportedCarrierInsteadOfHidingClip(t *testing.T) {
+	assets, _ := newInputClipAssetStore(t, t.TempDir())
+	if _, err := assets.CommitRecordBlob(
+		context.Background(), MediaType, bytes.NewBufferString("not-an-input-clip"),
+		func(ref blob.BlobRef) asset.AssetRecord {
+			return asset.AssetRecord{
+				GUID: "clip-broken", Kind: asset.KindClip, Name: "Broken", Origin: asset.Origin{Kind: "user"},
+				Blob: &ref, CreatedAt: time.Now().UTC(),
+			}
+		},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewService(assets).List(); err == nil || !strings.Contains(err.Error(), "clip-broken") {
+		t.Fatalf("List error = %v", err)
 	}
 }
 

@@ -598,9 +598,13 @@ async function onRun(schedule: Schedule) {
 }
 
 function onRepair(schedule: Schedule) {
-  const workflowId = schedule.lastReadiness?.workflowId ?? schedule.targets[0]?.id
+  const readiness = schedule.lastReadiness
+  const workflowId = readiness?.workflowId ?? schedule.targets[0]?.id
   if (!workflowId) return
-  void router.push(`/workflows/${workflowId}/edit`)
+  const query: Record<string, string> = {}
+  if (readiness?.graphId) query.focusGraphPath = readiness.graphId
+  if (readiness?.nodeId) query.focusNode = readiness.nodeId
+  void router.push({ path: `/workflows/${workflowId}/edit`, query })
 }
 
 async function onDelete(schedule: Schedule) {

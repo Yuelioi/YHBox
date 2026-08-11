@@ -16,6 +16,15 @@ const (
 
 func defineHTTPGetNode(types extendedTypes, integerRef datatype.TypeRef) (BuiltinDefinition, nodecontract.Contract, error) {
 	const schemaID = HTTPGetNodeID + "/config"
+	inputs := []nodecontract.DataInputPort{
+		{ID: "path", Type: datatype.RefExpression(types.stringRef), Required: true, Default: rawDefault(`"/"`)},
+		{ID: "query", Type: datatype.RefExpression(types.jsonRef), Required: true, Default: rawDefault(`{}`)},
+	}
+	outputs := []nodecontract.DataOutputPort{
+		{ID: "status", Type: datatype.RefExpression(integerRef)},
+		{ID: "body", Type: datatype.RefExpression(types.stringRef)},
+		{ID: "content-type", Type: datatype.RefExpression(types.stringRef)},
+	}
 	contract, err := nodecontract.Seal(nodecontract.Draft{Version: BuiltinNodeVersion,
 		NodeTypeID: HTTPGetNodeID, ConfigSchemaRoot: schemaID,
 		ConfigSchemaBundle: []datatype.SchemaResource{{ID: schemaID, Schema: json.RawMessage(fmt.Sprintf(`{
@@ -25,15 +34,7 @@ func defineHTTPGetNode(types extendedTypes, integerRef datatype.TypeRef) (Builti
 			"required":["slot"],"additionalProperties":false
 		}`, schemaID))}},
 		Ports: nodecontract.PortSet{
-			DataInputs: []nodecontract.DataInputPort{
-				{ID: "path", Type: datatype.RefExpression(types.stringRef), Required: true, Default: rawDefault(`"/"`)},
-				{ID: "query", Type: datatype.RefExpression(types.jsonRef), Required: true, Default: rawDefault(`{}`)},
-			},
-			DataOutputs: []nodecontract.DataOutputPort{
-				{ID: "status", Type: datatype.RefExpression(integerRef)},
-				{ID: "body", Type: datatype.RefExpression(types.stringRef)},
-				{ID: "content-type", Type: datatype.RefExpression(types.stringRef)},
-			},
+			DataInputs: inputs, DataOutputs: outputs,
 			ExecInputs: signalList("in"), ExecOutputs: signalList("completed"), ErrorOutputs: signalList("failed"),
 		},
 		Execution: nodecontract.ExecutionSpec{
@@ -50,6 +51,7 @@ func defineHTTPGetNode(types extendedTypes, integerRef datatype.TypeRef) (Builti
 		Authoring: nodecontract.Authoring{
 			TitleKey: "node.network.httpGet.title", DescriptionKey: "node.network.httpGet.description", Category: "network",
 			Tags: []string{"network", "http", "get", "api"}, Icon: "world-www",
+			Ports: dataPortHints("node.network.httpGet", inputs, outputs, nil),
 		},
 	})
 	if err != nil {

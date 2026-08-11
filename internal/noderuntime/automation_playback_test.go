@@ -207,12 +207,13 @@ func automationPlaybackSource(builtins nodes.Builtins, slot string, ref blob.Blo
 	return []byte(fmt.Sprintf(`{
 		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-automation-playback","name":"Automation Playback"},"revision":0,"entryGraph":"main",
 		"graphs":[{"id":"main","kind":"main","nodes":[
-			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
-			{"id":"playback","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{"slot":%q},
+			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
+			{"id":"playback","nodeRef":{"nodeTypeId":%q,"version":%q,"semanticDigest":%q},"position":{"x":1,"y":0},"config":{"slot":%q},
 			 "bindings":{"clip":{"kind":"blob","blob":{"mediaType":%q,"digest":%q,"size":%d}}}}
 		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"playback","portId":"in"}}],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
-	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
-		playback.Contract.NodeRef().NodeTypeID, playback.Contract.NodeRef().SemanticDigest, slot, ref.MediaType, ref.Digest, ref.Size))
+	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().Version, started.Contract.NodeRef().SemanticDigest,
+		playback.Contract.NodeRef().NodeTypeID, playback.Contract.NodeRef().Version, playback.Contract.NodeRef().SemanticDigest,
+		slot, ref.MediaType, ref.Digest, ref.Size))
 }
 
 func automationMacroSource(builtins nodes.Builtins, slot string, ref blob.BlobRef) []byte {

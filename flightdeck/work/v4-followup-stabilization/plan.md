@@ -8,27 +8,30 @@
 - [x] 统一保存错误、Toast、页面状态和 modal 的反馈边界，并支持定位失败节点。
 - [x] 修复 Log 节点手填消息被可选泛型输入类型推导阻断的问题。
 - [x] 重新生成受影响合同并完成相关 Go/前端定向测试。
-- [x] 建立当前 146 个内置节点、21 个 Authoring 分类的审查基线与统一检查模板。
-- [ ] 检查 `event` 分类（1）。
-- [ ] 检查 `data` 分类（6）。
-- [ ] 检查 `logic` 分类（4）。
-- [ ] 检查 `comparison` 分类（6）。
-- [ ] 检查 `math` 分类（24）。
-- [ ] 检查 `text` 分类（13）。
-- [ ] 检查 `conversion` 分类（10）。
-- [ ] 检查 `json` 分类（3）。
-- [ ] 检查 `geometry` 分类（4）。
-- [ ] 检查 `collection` 分类（7）。
-- [ ] 检查 `control` 分类（8）。
-- [ ] 检查 `time` 分类（4）。
-- [ ] 检查 `random` 分类（4）。
-- [ ] 检查 `state` 分类（5）。
-- [ ] 检查 `io` 分类（6）。
-- [ ] 检查 `network` 分类（1）。
-- [ ] 检查 `application` 分类（2）。
-- [ ] 检查 `script` 分类（1）。
-- [ ] 检查 `vision` 分类（7）。
-- [ ] 检查 `automation` 分类（28）。
+- [x] 建立当前 147 个内置节点、21 个 Authoring 分类的审查基线与统一检查模板。
+- [x] 完成[发布审查修复](slices/release-review-remediation.md)：迁移、兼容、反馈与门禁已验证；误加的
+  Configured Target Scope/Requirement/逐层权限验证已回退，恢复 per-Run 直接调用。
+- [x] 冻结 `v4.0.0` 首次公开兼容基线：开发期 artifact 可一次性升级，发布后保留确定性相邻 migration。
+- [x] 检查 `event` 分类（1）。
+- [x] 检查 `data` 分类（6）。
+- [x] 检查 `logic` 分类（4）。
+- [x] 检查 `comparison` 分类（6）。
+- [x] 检查 `math` 分类（24）。
+- [x] 检查 `text` 分类（13）。
+- [x] 检查 `conversion` 分类（10）。
+- [x] 检查 `json` 分类（3）。
+- [x] 检查 `geometry` 分类（4）。
+- [x] 检查 `collection` 分类（7）。
+- [x] 检查 `control` 分类（8）。
+- [x] 检查 `time` 分类（4）。
+- [x] 检查 `random` 分类（4）。
+- [x] 检查 `state` 分类（5）。
+- [x] 检查 `io` 分类（6）。
+- [x] 检查 `network` 分类（1）。
+- [x] 检查 `application` 分类（2）。
+- [x] 检查 `script` 分类（1）。
+- [x] 检查 `vision` 分类（7）。
+- [x] 检查 `automation` 分类（29）。
 - [x] 检查 `ai` 分类（2）。
-- [ ] 修复分类审查发现的问题并完成各分类定向回归。
-- [ ] 对全部分类审查后的累计修改只运行一次最终 `task check`，记录真实退出码。
+- [x] 修复分类审查发现的问题并完成各分类定向回归。
+- [x] 对全部分类审查后的累计修改运行最终 `task check`，记录真实退出码。

@@ -7,7 +7,7 @@
 
 ## Status
 
-Open
+Finished
 
 ## Current
 
@@ -122,14 +122,79 @@ JSON 解码失败被错误压成无 HTTP 状态的 `invalid-request`，前端又
 这一误导文案。正确路径上的纯文本请求成功；同通道单次图片请求返回 HTTP 503“上游服务暂不可用”，
 只能确认失败与请求头无关，尚不能证明该通道稳定支持视觉。
 
+2026-08-11 发布前大型审查已完成并进入修复：确认 Macro/Schedule 旧格式没有完成确定性持久迁移，
+跨目标指针默认值不可执行，同版本内置契约替换缺少显式迁移，NewAPI HTML 响应反馈误导；完整门禁还
+暴露 staticcheck 阻断与一项可达依赖漏洞。审查同时错误地把 Configured Target 没有 per-node 权限收窄
+列为阻断，修正记录见[发布审查修复切片](slices/release-review-remediation.md)。
+
+本地发布审查修复已完成：Macro/Schedule 旧格式会确定性迁移并持久写回，有语义变化的内置契约使用显式
+版本迁移，NewAPI 的 HTTP 200 HTML 响应具有独立错误分类和可操作提示，staticcheck 与可达依赖漏洞已清零。
+误加的 Program Target Requirement、admission 验证和 per-node Target Scope 已完整回退，Configured Target
+恢复配置即授权、per-Run 直接调用；相关 6 个 Go 包回归和差异检查通过。`task check:full` 曾在回退前以
+退出码 0 通过，所有分类完成后仍需对最终累计差异再运行一次。
+
+Owner 已确认 `v4.0.0` 为首次公开兼容基线：此前开发 artifact 可在备份后一次性升级，不形成长期 reader
+承诺；从该基线起保留确定性相邻 migration。`event` 分类 1 个节点已完成纵向审查：RunStarted 的显示、
+单次触发、Program reopen、调试和 journal 语义成立；补齐 authoring/compiler 对子图 `run-root` 的拒绝，
+避免子图节点在展开后变成全局 Run 入口。相关 Go 包、33 项前端用例、类型检查与 i18n 门禁通过。
+
+纯节点分类已继续完成 `data`、`logic`、`comparison` 与 `math`：补齐结构拆分、布尔真值表、比较边界和
+数学错误路径的纵向回归；修正 Select/比较/数学节点与实际类型、有限 JSON 数值语义不一致的说明，删除
+开发期契约中不可达的数学错误声明，并为可达错误补齐双语反馈。相关 nodes/noderuntime、格式与 i18n
+门禁通过。
+
+`text`、`conversion` 与 `json` 分类也已完成：JSON Parse/Path/Stringify 的合同、规范化边界、缺失值/
+通配语义和错误反馈已有回归；通用 ToString/ToJSON/Select 的泛型约束收紧为可观察内联值，避免 Blob、Image
+和 runtime Stream 在编译成功后才于 inline adapter 失败。nodes/noderuntime、格式与 i18n 定向门禁通过。
+
+`geometry`、`collection`、`control`、`time`、`random` 与 `state` 分类已完成：修正集合旧版宽松
+行为说明、几何单位说明和控制区预算说明，补齐几何纵向执行与集合边界回归。正式投影的 75 个错误码现均有
+中英文反馈，并新增 i18n 门禁防止节点声明错误后遗漏用户文案。当前 tracked 投影实数为 147 个节点，其中
+automation 为 29 个；审查清单原有 146/28 计数已校正。相关 nodes/noderuntime/compiler 与 i18n 门禁通过。
+
+最后六个分类 `io`、`network`、`application`、`script`、`vision` 与 `automation` 已完成：图像文件节点补齐
+可达的无效图像错误声明与空文件/目录边界，网络查询结构和各类端口提示与实际合同一致；自动化等待复用单个
+目标句柄并直接截取 ROI，墙钟超时包含抓图与分析耗时，模板 settle 使用最新结果并传播失败，同时移除重复
+Drop。Configured Target 仍为配置即授权、per-Run 直接 Open/Invoke/Drop，没有恢复逐节点安全包装。
+`internal/nodes`、`internal/noderuntime` 定向测试与正式契约生成/漂移检查通过。最终 `task check` 在修正三处
+oxfmt 格式差异后以退出码 0 完成，94 个受影响 Go 包与前端 486 项测试等全部增量门禁通过。Owner 随后确认
+同一游戏窗口的“捕鱼”性能黄金验收已通过；该结果属于本 Work 的终态证据，不需要另建 Work。
+
 ## Next
 
-重新构建后在同一游戏窗口运行一次“捕鱼”，从放大的 Run 时间线导出 JSON，确认点击模板默认
-`captures=1`，并比较 [`capture_ms` / `match_ms` 采集点](../../../internal/noderuntime/automation_template.go)
-与上一份记录；真机性能确认后按 [计划](plan.md) 恢复 `event` 分类检查。开发阶段只做定向验证，
-所有分类完成后再运行一次最终 `task check`。
+None.
 
 ## Progress
+
+- 2026-08-11 owner 确认同一游戏窗口的“捕鱼”性能黄金验收已通过；移除错误的待验收表述，不另建
+  已经完成的捕鱼 Work。V4 稳定性收尾的代码、门禁与真机证据现均闭合。
+- 2026-08-11 最终 `task check` 首次运行真实退出码 201，唯一失败为三处 i18n 文件未使用仓库 oxfmt；
+  修正并定向确认后重跑，真实退出码 0、耗时 226.9 秒。94 个受影响 Go 包、契约/版本/Wails/AI eval、
+  前端格式/静态检查/类型/i18n 与 486 项测试全部通过，Work 完成。
+- 2026-08-11 完成 `io`、`network`、`application`、`script`、`vision` 与 `automation` 分类审查；
+  修正图像错误合同、等待/模板正确性、自动化目标生命周期和热路径抓图开销，补齐作者提示与纵向回归。
+  147 节点/21 分类正式契约已重新生成且漂移检查通过，未引入 Configured Target 安全层。
+- 2026-08-11 完成 `geometry`、`collection`、`control`、`time`、`random` 与 `state` 分类审查；
+  修正集合旧语义说明和几何/控制预算说明，补齐几何纵向与集合边界回归，并新增门禁确保全部 75 个投影
+  错误码都有中英文反馈。校正当前基线为 147 个节点、automation 29 个。
+- 2026-08-11 完整回退误加的 Configured Target 安全层：删除 Program Target Requirement、admission 预检、
+  per-node Scope/Borrow 和逐操作白名单，恢复 per-Run 直接 Open/Invoke/Drop；保留 AI/File/Blob/Stream
+  原有边界。targetruntime、nodecontract、compiler、noderuntime、application、appbootstrap 回归通过。
+- 2026-08-11 完成 `text`、`conversion`、`json` 分类审查；补齐 JSON 纵向执行和错误边界回归，收紧
+  inline 泛型类型范围，相关 Go、格式与 i18n 定向门禁通过。
+- 2026-08-11 owner 纠正 Configured Target 审查结论：网络、应用、自动化配置本身就是授权，禁止恢复
+  capability/grant/租约/arm 或换名加入 per-node Scope/Requirement；逐层验证已有约 10ms→300ms 的实测
+  回归。根 `AGENTS.md` 已加入硬约束，当前错误实现待回退。
+- 2026-08-11 完成 `data`、`logic`、`comparison`、`math` 分类审查与定向回归；修正文案与实际类型/
+  数值域偏差，删除 4.0 兼容 floor 前不可达的数学错误声明，并补齐可达数学错误的双语反馈。
+- 2026-08-11 确认 4.0.0 首次公开兼容 floor，并完成 `event` 分类：新增稳定的
+  `INVALID_INSTRUCTION_PLACEMENT`，authoring 拒绝把 RunStarted 添加或折叠进子图，compiler 对导入的
+  越界 Source fail closed；相关 Go、前端、类型与 i18n 定向门禁通过。
+- 2026-08-11 发布审查本地修复曾补齐 Macro/Schedule 持久迁移、精确节点契约迁移、跨目标指针默认值与
+  NewAPI HTML 错误分类，并清零 staticcheck/可达漏洞；同期加入的 Program 目标准入与运行权限收窄后来
+  被 owner 确认为违反既有配置直驱决策的性能回归，不能作为已完成成果。
+- 2026-08-11 完成发布前 Standards/Spec 双轴审查与完整门禁诊断；建立发布审查修复切片，明确本地修复
+  与需要 owner/外部权限的历史、远端、许可证、签名和真机验收边界。
 
 - 2026-07-28 建立阶段性交接：确认 `INVALID_FIELD` 不是应用槽位配置错误，而是作者补丁 schema 与执行器
   的临时句柄语义不一致；后端同场景保存通过，生成 schema 对

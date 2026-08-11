@@ -10,9 +10,9 @@
   "staticcheck": "v0.6.1",
   "govulncheck": "v1.6.0",
   "wails": {
-    "go": "v3.0.0-alpha2.117",
-    "cli": "v3.0.0-alpha2.117",
-    "runtime": "3.0.0-alpha.97"
+    "go": "v3.0.0-beta.6",
+    "cli": "v3.0.0-beta.6",
+    "runtime": "3.0.0-beta.5"
   },
   "githubRunners": {
     "ubuntu": "ubuntu-24.04",

@@ -13,6 +13,7 @@ import (
 
 const (
 	aiImplementationVersion = "v3"
+	aiNodeVersion           = "1.1.0"
 
 	MinAITimeoutMilliseconds     int64 = 1_000
 	DefaultAITimeoutMilliseconds int64 = 120_000
@@ -176,7 +177,7 @@ func sealAINode(nodeID string, inputRef, outputRef, imageRef datatype.TypeRef, g
 			ID: "output-fields", ConfigKey: "fields", ValidatorID: ai.StructuredFieldsValidatorID, SemanticDigest: validatorDigest,
 		}}
 	}
-	return nodecontract.Seal(nodecontract.Draft{Version: BuiltinNodeVersion,
+	return nodecontract.Seal(nodecontract.Draft{Version: aiNodeVersion,
 		NodeTypeID: nodeID, ConfigSchemaRoot: schemaID,
 		ConfigSchemaBundle: []datatype.SchemaResource{{ID: schemaID, Schema: json.RawMessage(fmt.Sprintf(`{
 			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema",

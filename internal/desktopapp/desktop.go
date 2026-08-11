@@ -299,7 +299,7 @@ func Run(config Config) error {
 	// exposed nominal BlobRef through explicit blob-read and playback grants.
 	clipSvc := newClipService(assetStore, app.Emit)
 	macroSvc := newMacroService(assetStore, app.Emit)
-	snippetSvc := snippet.NewService(snippetStore, app.Emit)
+	snippetSvc := snippet.NewServiceWithAuthoring(snippetStore, workflowRuntime.AuthoringProjection, app.Emit)
 
 	// 全局强停热键取消唯一 Application worker 的 queued/running Runs。
 	// 设置面板里 UI.ActionStopHotkey 改这一条；空 → 默认 Ctrl+Shift+F9。

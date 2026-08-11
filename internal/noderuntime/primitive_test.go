@@ -98,5 +98,9 @@ func compilePrimitiveProgram(t *testing.T, builtins nodes.Builtins, source []byt
 	if !ok {
 		t.Fatal("compiler did not produce a Program")
 	}
-	return program
+	opened, err := compiler.OpenProgram(program.Artifact(), builtins.Catalog, builtins.ConfigValidators, build)
+	if err != nil {
+		t.Fatalf("reopen Program: %v", err)
+	}
+	return opened
 }

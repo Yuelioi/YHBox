@@ -60,7 +60,13 @@ func fileLoadImage(builtins nodes.Builtins) nodeadapter.Adapter {
 		if err != nil {
 			return nodeadapter.AdapterResult{}, mapFileFailure(err)
 		}
-		if metadata.IsDirectory || metadata.Size <= 0 || metadata.Size > int64(maximum) {
+		if metadata.IsDirectory {
+			return nodeadapter.AdapterResult{}, fileFailure(workspacefs.CodeIsDirectory, errors.New("image path is a directory"))
+		}
+		if metadata.Size <= 0 {
+			return nodeadapter.AdapterResult{}, fileFailure(nodes.VisionImageInvalidCode, errors.New("image file is empty"))
+		}
+		if metadata.Size > int64(maximum) {
 			return nodeadapter.AdapterResult{}, fileFailure(workspacefs.CodeBudgetExceeded, errors.New("image file exceeds its load budget"))
 		}
 		content := make([]byte, 0, int(metadata.Size))

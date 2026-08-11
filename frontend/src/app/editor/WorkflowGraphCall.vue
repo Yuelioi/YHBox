@@ -1,7 +1,7 @@
 <template>
   <article
     data-testid="workflow-graph-call"
-    class="min-w-[230px] overflow-visible rounded-lg border bg-default shadow-sm"
+    class="workflow-node-drag-surface min-w-[230px] cursor-grab overflow-visible rounded-lg border bg-default shadow-sm active:cursor-grabbing"
     :class="
       selected
         ? 'border-default ring-2 ring-primary/80 ring-offset-2 ring-offset-default'
@@ -10,7 +10,7 @@
     @dblclick.stop="emit('open')"
   >
     <header
-      class="workflow-node-drag-handle flex cursor-grab items-center gap-2 rounded-t-lg border-b border-default bg-primary/5 px-3 py-2.5"
+      class="flex items-center gap-2 rounded-t-lg border-b border-default bg-primary/5 px-3 py-2.5"
     >
       <UIcon name="i-tabler-folders" class="size-4 text-primary" />
       <div class="min-w-0 flex-1">

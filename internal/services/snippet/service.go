@@ -7,11 +7,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/yottaapp/yotta/internal/nodeauthoring"
+	workflowauthoring "github.com/yottaapp/yotta/internal/workflow/authoring"
+	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
 type Service struct {
-	store *Store
-	emit  func(name string, data any)
+	store     *Store
+	authoring nodeauthoring.Snapshot
+	emit      func(name string, data any)
 }
 
 func NewService(store *Store, emit ...func(name string, data any)) *Service {
@@ -19,6 +23,15 @@ func NewService(store *Store, emit ...func(name string, data any)) *Service {
 	if len(emit) > 0 {
 		service.emit = emit[0]
 	}
+	return service
+}
+
+// NewServiceWithAuthoring enables durable NodeRef migration for persisted
+// snippets. The migration runs only when an old snippet is read or saved; it
+// is not part of workflow execution.
+func NewServiceWithAuthoring(store *Store, authoring nodeauthoring.Snapshot, emit ...func(name string, data any)) *Service {
+	service := NewService(store, emit...)
+	service.authoring = authoring
 	return service
 }
 
@@ -33,9 +46,9 @@ func (s *Service) Get(id string) (*Snippet, error) {
 	if s.store == nil {
 		return nil, errors.New("snippet store is unavailable")
 	}
-	value, ok := s.store.Get(strings.TrimSpace(id))
-	if !ok {
-		return nil, fmt.Errorf("snippet %q not found", id)
+	value, err := s.load(strings.TrimSpace(id))
+	if err != nil {
+		return nil, err
 	}
 	return &value, nil
 }
@@ -55,6 +68,9 @@ func (s *Service) Save(value *Snippet) (*Snippet, error) {
 		return nil, err
 	}
 	result.Shortcut = shortcut
+	if _, err := s.upgradeNodeTemplate(&result); err != nil {
+		return nil, err
+	}
 	if shortcut != "" {
 		for _, item := range s.store.List().Items {
 			if item.ID != result.ID && strings.EqualFold(item.Shortcut, shortcut) {
@@ -95,9 +111,9 @@ func (s *Service) MarkUsed(id string) (*Snippet, error) {
 	if s.store == nil {
 		return nil, errors.New("snippet store is unavailable")
 	}
-	value, ok := s.store.Get(strings.TrimSpace(id))
-	if !ok {
-		return nil, fmt.Errorf("snippet %q not found", id)
+	value, err := s.load(strings.TrimSpace(id))
+	if err != nil {
+		return nil, err
 	}
 	now := time.Now().UTC()
 	value.UsageCount++
@@ -108,6 +124,48 @@ func (s *Service) MarkUsed(id string) (*Snippet, error) {
 	s.emitChanged()
 	result := clone(value)
 	return &result, nil
+}
+
+func (s *Service) load(id string) (Snippet, error) {
+	value, ok := s.store.Get(id)
+	if !ok {
+		return Snippet{}, fmt.Errorf("snippet %q not found", id)
+	}
+	changed, err := s.upgradeNodeTemplate(&value)
+	if err != nil {
+		return Snippet{}, fmt.Errorf("snippet %q: %w", id, err)
+	}
+	if changed {
+		if err := s.store.Save(value); err != nil {
+			return Snippet{}, fmt.Errorf("persist migrated snippet %q: %w", id, err)
+		}
+	}
+	return value, nil
+}
+
+func (s *Service) upgradeNodeTemplate(value *Snippet) (bool, error) {
+	if !s.authoring.Valid() {
+		return false, nil
+	}
+	upgraded, changed, err := workflowauthoring.UpgradeDetachedNode(schema.Node{
+		NodeRef:  value.Payload.NodeRef,
+		Label:    value.Payload.Label,
+		Config:   value.Payload.Config,
+		Bindings: value.Payload.Bindings,
+		Disabled: value.Payload.Disabled,
+	}, s.authoring)
+	if err != nil {
+		return false, fmt.Errorf("node %q is incompatible with this Yotta version: %w", value.Payload.NodeRef.NodeTypeID, err)
+	}
+	if !changed {
+		return false, nil
+	}
+	value.Payload.NodeRef = upgraded.NodeRef
+	value.Payload.Label = upgraded.Label
+	value.Payload.Config = upgraded.Config
+	value.Payload.Bindings = upgraded.Bindings
+	value.Payload.Disabled = upgraded.Disabled
+	return true, nil
 }
 
 func (s *Service) emitChanged() {

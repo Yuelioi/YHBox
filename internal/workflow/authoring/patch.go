@@ -32,12 +32,6 @@ const (
 
 var handlePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,63}$`)
 
-const (
-	playInputClipNodeTypeID           = "https://schemas.yotta.dev/nodes/automation/play-input-clip"
-	playInputClipStableDigest         = "sha256:bab93b5e1f655e3f5e23c254139b92a23b048c93d3d212ff7f32d2dd009e0d75"
-	playInputClipRetractedScaleDigest = "sha256:ff7ea9d0b2ca91cb2062cff30dd5ca8575555ec5363b4c76e746925ee6ae027b"
-)
-
 type PatchRequest struct {
 	WorkflowID   string    `json:"workflowId" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
 	BaseRevision int64     `json:"baseRevision" jsonschema:"required,minimum=0,maximum=9007199254740991"`
@@ -605,6 +599,9 @@ func (e *Engine) applyCommand(source *schema.WorkflowSource, command Command, in
 		if !ok {
 			return patchError(index, "UNKNOWN_NODE_TYPE", "node type is not in the admitted Catalog")
 		}
+		if graph.Kind != schema.GraphKindMain && projection.Instruction.Kind == nodecontract.InstructionRunRoot {
+			return patchError(index, "INVALID_INSTRUCTION_PLACEMENT", "run root nodes are only valid in the main graph")
+		}
 		if !finitePosition(payload.Position) {
 			return patchError(index, "INVALID_POSITION", "node position must be finite")
 		}
@@ -655,10 +652,15 @@ func (e *Engine) applyCommand(source *schema.WorkflowSource, command Command, in
 		if projection.NodeRef == node.NodeRef {
 			break
 		}
-		if !admittedNodeContractUpgrade(node.NodeRef, projection.NodeRef) {
+		migrations, ok := admittedNodeContractUpgradePath(node.NodeRef, projection.NodeRef)
+		if !ok {
 			return patchError(index, "INCOMPATIBLE_NODE_UPGRADE", "node contract migration is not admitted")
 		}
-		prepareAdmittedNodeContractUpgrade(node)
+		for _, migration := range migrations {
+			if err := prepareAdmittedNodeContractUpgrade(migration, graph, node); err != nil {
+				return patchError(index, "INCOMPATIBLE_NODE_UPGRADE", err.Error())
+			}
+		}
 		if err := applyCompatibleNodeUpgrade(source, graph, node, projection); err != nil {
 			return patchError(index, "INCOMPATIBLE_NODE_UPGRADE", err.Error())
 		}
@@ -1360,6 +1362,12 @@ func (e *Engine) collapseSelection(source *schema.WorkflowSource, command Collap
 		if selected[id] || nodeByID(graph, id) == nil && graphCallByID(graph, id) == nil {
 			return fmt.Errorf("selected graph element %q is invalid", id)
 		}
+		if node := nodeByID(graph, id); node != nil {
+			projection, ok := e.projection.Node(node.NodeRef.NodeTypeID)
+			if ok && projection.Instruction.Kind == nodecontract.InstructionRunRoot {
+				return errors.New("run root nodes cannot be moved into a subgraph")
+			}
+		}
 		selected[id] = true
 	}
 	subgraph := schema.Graph{
@@ -1702,14 +1710,47 @@ func instanceProjection(snapshot nodeauthoring.Snapshot, node schema.Node) (node
 	return resolved, err == nil
 }
 
-func admittedNodeContractUpgrade(from, to nodecontract.NodeRef) bool {
-	return from.NodeTypeID == to.NodeTypeID && from.Version == to.Version
-}
-
-func prepareAdmittedNodeContractUpgrade(node *schema.Node) {
-	if string(node.NodeRef.SemanticDigest) == playInputClipRetractedScaleDigest {
-		delete(node.Bindings, "turn-scale")
+// UpgradeDetachedNode advances a persisted node template, such as a Snippet,
+// through the same exact migration chain used by Workflow Source. Detached
+// nodes have no graph topology, so migrations that would require rewriting an
+// edge remain deliberately unsupported by this interface.
+func UpgradeDetachedNode(node schema.Node, snapshot nodeauthoring.Snapshot) (schema.Node, bool, error) {
+	if !snapshot.Valid() {
+		return schema.Node{}, false, errors.New("upgrade detached node requires a valid authoring projection")
 	}
+	projection, ok := snapshot.Node(node.NodeRef.NodeTypeID)
+	if !ok {
+		return schema.Node{}, false, fmt.Errorf("node type %q is unavailable in the current catalog", node.NodeRef.NodeTypeID)
+	}
+	if projection.NodeRef == node.NodeRef {
+		return node, false, nil
+	}
+	migrations, ok := admittedNodeContractUpgradePath(node.NodeRef, projection.NodeRef)
+	if !ok {
+		return schema.Node{}, false, fmt.Errorf(
+			"node contract %s/%s cannot migrate to %s/%s",
+			node.NodeRef.Version, node.NodeRef.SemanticDigest,
+			projection.NodeRef.Version, projection.NodeRef.SemanticDigest,
+		)
+	}
+	raw, err := json.Marshal(node)
+	if err != nil {
+		return schema.Node{}, false, fmt.Errorf("clone detached node: %w", err)
+	}
+	var upgraded schema.Node
+	if err := json.Unmarshal(raw, &upgraded); err != nil {
+		return schema.Node{}, false, fmt.Errorf("clone detached node: %w", err)
+	}
+	graph := schema.Graph{}
+	for _, migration := range migrations {
+		if err := prepareAdmittedNodeContractUpgrade(migration, &graph, &upgraded); err != nil {
+			return schema.Node{}, false, fmt.Errorf("prepare node contract migration: %w", err)
+		}
+	}
+	if err := applyCompatibleNodeUpgrade(nil, &graph, &upgraded, projection); err != nil {
+		return schema.Node{}, false, fmt.Errorf("apply node contract migration: %w", err)
+	}
+	return upgraded, true, nil
 }
 
 // applyCompatibleNodeUpgrade advances a stale node reference only when the

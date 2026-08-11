@@ -13,7 +13,7 @@ task check
 
 它读取相对 HEAD 的 staged、unstaged 和 untracked 文件；设置 `CHECK_BASE=<ref>` 时也纳入
 `<ref>...HEAD`。它先打印计划，再按路径选择受影响 Go package 及反向依赖、前端快速门禁，以及 contract、
-bindings、toolchain、plugin、AI/Rust 等专门检查。
+bindings、toolchain、plugin、AI/Rust 和文档等专门检查。
 
 该命令通常超过 60 秒。首次执行就使用可续接、可轮询的进程；外层调用超时不代表失败。重试前确认原
 进程已结束并取得真实退出码，不能并行重复启动同一门禁。
@@ -35,6 +35,7 @@ contracts、bindings、版本/Wails、AI 和 Rust。只在 CI、发布/打包、
 | Android ADB adapter | 在已授权 exact serial/package 上运行 `scripts/android-adb-smoke.ps1` |
 | Browser CDP adapter | 运行 `scripts/browser-cdp-smoke.ps1`，使用独立 profile 和空闲端口 |
 | release candidate | `task release:smoke`；只验证 frozen staging，不修改 payload |
+| README、`docs/`、Knowledge 或 Markdown 导航 | `task check:docs`，验证本地链接、Task 名和禁止的旧公开名称 |
 
 native automation smoke 会使用全局输入、前台窗口和 hook。不要与其它 UI smoke 并行，不要中途强杀；
 如果当前目标完整性级别更高，应以与 production 一致的管理员权限运行，而不是重试刷绿。

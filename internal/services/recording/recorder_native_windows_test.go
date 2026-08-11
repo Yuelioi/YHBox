@@ -86,7 +86,8 @@ func TestNativeRecorderProducesCanonicalEncodableInput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload native recording asset: %v", err)
 	}
-	if len(loaded.Events) != len(clip.Events) || loaded.Blob != clip.Blob || len(clips.List()) != 1 {
+	list, listErr := clips.List()
+	if len(loaded.Events) != len(clip.Events) || loaded.Blob != clip.Blob || listErr != nil || len(list) != 1 {
 		t.Fatalf("reloaded native clip=%#v events=%d", loaded, len(loaded.Events))
 	}
 	for _, event := range loaded.Events[:min(2, len(loaded.Events))] {

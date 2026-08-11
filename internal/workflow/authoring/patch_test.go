@@ -62,6 +62,56 @@ func TestEngineAppliesAtomicTypedPatchWithHostOwnedNodeIDs(t *testing.T) {
 	}
 }
 
+func TestEngineKeepsRunRootNodesInTheMainGraph(t *testing.T) {
+	builtins, projection := testContracts(t)
+	engine, err := authoring.New(builtins.Catalog, projection, func() string { return "run-root" })
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := engine.Apply(emptySource(), []authoring.Command{{
+		Kind: authoring.CommandAddGraph,
+		AddGraph: &authoring.AddGraphCommand{Graph: schema.Graph{
+			ID: "child", Name: "Child", Kind: schema.GraphKindSubgraph,
+			Nodes: []schema.Node{}, Calls: []schema.GraphCall{}, Edges: []schema.Edge{},
+			Inputs: []schema.GraphPort{}, Outputs: []schema.GraphPort{}, Entries: []schema.Endpoint{},
+			Exits: []schema.GraphExit{}, Annotations: []schema.Annotation{},
+		}},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = engine.Apply(created.Source, []authoring.Command{{
+		Kind: authoring.CommandAddNode,
+		AddNode: &authoring.AddNodeCommand{
+			GraphID: "child", NodeTypeID: nodes.RunStartedNodeID, Position: schema.Position{},
+		},
+	}})
+	var patchErr *authoring.PatchError
+	if !errors.As(err, &patchErr) || patchErr.Code != "INVALID_INSTRUCTION_PLACEMENT" {
+		t.Fatalf("subgraph run root error = %#v", err)
+	}
+
+	withRoot, err := engine.Apply(created.Source, []authoring.Command{{
+		Kind: authoring.CommandAddNode,
+		AddNode: &authoring.AddNodeCommand{
+			GraphID: "main", NodeTypeID: nodes.RunStartedNodeID, Position: schema.Position{},
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = engine.Apply(withRoot.Source, []authoring.Command{{
+		Kind: authoring.CommandCollapseSelection,
+		CollapseSelection: &authoring.CollapseSelectionCommand{
+			GraphID: "main", SubgraphID: "collapsed", CallID: "call-collapsed", Name: "Collapsed",
+			NodeIDs: []string{"run-root"}, Position: schema.Position{},
+		},
+	}})
+	if !errors.As(err, &patchErr) || patchErr.Code != "INVALID_SELECTION" {
+		t.Fatalf("collapsed run root error = %#v", err)
+	}
+}
+
 func TestEngineBindsWorkflowResourceWithoutLosingPortableIdentity(t *testing.T) {
 	builtins, projection := testContracts(t)
 	engine, err := authoring.New(builtins.Catalog, projection, func() string { return "node-resource" })
@@ -299,6 +349,7 @@ func TestEngineRetractsTurnScaleContractWithoutBreakingPlaybackNode(t *testing.T
 	stale := created.Source
 	node := &stale.Graphs[0].Nodes[0]
 	currentRef := node.NodeRef
+	node.NodeRef.Version = "1.0.0"
 	node.NodeRef.SemanticDigest = "sha256:ff7ea9d0b2ca91cb2062cff30dd5ca8575555ec5363b4c76e746925ee6ae027b"
 	node.Bindings["clip"] = schema.InputBinding{Kind: schema.BindingDefault}
 	node.Bindings["turn-scale"] = schema.InputBinding{Kind: schema.BindingDefault}
@@ -332,6 +383,7 @@ func TestEngineRejectsNodeContractUpgradeThatWouldDropUserBinding(t *testing.T) 
 	}
 	stale := created.Source
 	node := &stale.Graphs[0].Nodes[0]
+	node.NodeRef.Version = "1.0.0"
 	node.NodeRef.SemanticDigest = "sha256:ff7ea9d0b2ca91cb2062cff30dd5ca8575555ec5363b4c76e746925ee6ae027b"
 	node.Bindings["turn-scale"] = schema.InputBinding{Kind: schema.BindingDefault}
 	node.Bindings["removed-input"] = schema.InputBinding{Kind: schema.BindingDefault}
@@ -345,7 +397,7 @@ func TestEngineRejectsNodeContractUpgradeThatWouldDropUserBinding(t *testing.T) 
 	}
 }
 
-func TestEngineAllowsShapeCompatibleSameVersionNodeContractMigration(t *testing.T) {
+func TestEngineRejectsUnregisteredNodeContractMigration(t *testing.T) {
 	builtins, projection := testContracts(t)
 	engine, err := authoring.New(builtins.Catalog, projection, func() string { return "concat" })
 	if err != nil {
@@ -358,20 +410,55 @@ func TestEngineAllowsShapeCompatibleSameVersionNodeContractMigration(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	currentRef := created.Source.Graphs[0].Nodes[0].NodeRef
 	stale := created.Source
 	stale.Graphs[0].Nodes[0].NodeRef.SemanticDigest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	stale.Graphs[0].Nodes[0].Bindings["a"] = schema.InputBinding{Kind: schema.BindingValue, Value: json.RawMessage(`"hello"`)}
 	stale.Graphs[0].Nodes[0].Bindings["b"] = schema.InputBinding{Kind: schema.BindingValue, Value: json.RawMessage(`" world"`)}
-	upgraded, err := engine.Apply(stale, []authoring.Command{{
+	_, err = engine.Apply(stale, []authoring.Command{{
 		Kind:                authoring.CommandUpgradeNodeContract,
 		UpgradeNodeContract: &authoring.NodeCommand{GraphID: "main", NodeID: "concat"},
+	}})
+	var patchErr *authoring.PatchError
+	if !errors.As(err, &patchErr) || patchErr.Code != "INCOMPATIBLE_NODE_UPGRADE" {
+		t.Fatalf("error = %#v", err)
+	}
+}
+
+func TestEngineMigratesMovePointerWithoutChangingLegacyDefaults(t *testing.T) {
+	builtins, projection := testContracts(t)
+	engine, err := authoring.New(builtins.Catalog, projection, func() string { return "move" })
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := engine.Apply(emptySource(), []authoring.Command{{
+		Kind:    authoring.CommandAddNode,
+		AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.MovePointerNodeID},
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := upgraded.Source.Graphs[0].Nodes[0].NodeRef; got != currentRef {
-		t.Fatalf("upgraded node ref = %#v", got)
+	currentRef := created.Source.Graphs[0].Nodes[0].NodeRef
+	stale := created.Source
+	node := &stale.Graphs[0].Nodes[0]
+	node.NodeRef.Version = "1.0.0"
+	node.NodeRef.SemanticDigest = "sha256:2bf1f8059f1269e407d2aedf4f717cc6c0b860eb46b92abd1794a3aa3bf559af"
+
+	upgraded, err := engine.Apply(stale, []authoring.Command{{
+		Kind:                authoring.CommandUpgradeNodeContract,
+		UpgradeNodeContract: &authoring.NodeCommand{GraphID: "main", NodeID: "move"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := upgraded.Source.Graphs[0].Nodes[0]
+	if got.NodeRef != currentRef {
+		t.Fatalf("upgraded node ref = %#v", got.NodeRef)
+	}
+	if binding := got.Bindings["duration"]; binding.Kind != schema.BindingValue || string(binding.Value) != "300" {
+		t.Fatalf("duration binding = %#v", binding)
+	}
+	if binding := got.Bindings["motion"]; binding.Kind != schema.BindingValue || string(binding.Value) != `"linear"` {
+		t.Fatalf("motion binding = %#v", binding)
 	}
 }
 

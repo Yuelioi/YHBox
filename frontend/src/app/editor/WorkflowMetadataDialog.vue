@@ -55,13 +55,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseModal from '@/components/common/BaseModal.vue'
 import { addCreatedCategory, uniqueCategoryOptions } from '@/lib/categoryOptions'
-
-export interface WorkflowMetadataDraft {
-  name: string
-  description: string
-  category: string
-  tags: string[]
-}
+import type { WorkflowMetadataDraft } from './EditorWorkflowMetadataController'
 
 const props = defineProps<
   WorkflowMetadataDraft & { open: boolean; busy?: boolean; error?: string }

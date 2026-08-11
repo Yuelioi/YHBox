@@ -73,11 +73,6 @@ func automationWindow(nodeID, operation, effectID, actionName string) nodeadapte
 			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, action, installed.CodeWindowFailed, runErr))
 		}()
 
-		handle, err := openConfiguredTarget(ctx, invocation, installed.KindWindow, []string{operation})
-		if err != nil {
-			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
-		}
-		defer func() { runErr = errors.Join(runErr, invocation.Targets.Drop(context.WithoutCancel(ctx), handle)) }()
 		request, err := automationWindowRequest(invocation, nodeID, operation)
 		if err != nil {
 			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeInvalidRequest, err)
@@ -89,6 +84,11 @@ func automationWindow(nodeID, operation, effectID, actionName string) nodeadapte
 		if err != nil {
 			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, err)
 		}
+		handle, err := openConfiguredTarget(ctx, invocation, installed.KindWindow, []string{operation})
+		if err != nil {
+			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
+		}
+		defer func() { runErr = errors.Join(runErr, invocation.Targets.Drop(context.WithoutCancel(ctx), handle)) }()
 		raw, err := invocation.Targets.Invoke(ctx, handle, operation, payload)
 		if err != nil {
 			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)

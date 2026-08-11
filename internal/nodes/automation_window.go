@@ -116,6 +116,7 @@ func sealAutomationWindowContract(nodeID, effectID, operation, titleKey, icon st
 		Instruction:       nodecontract.Invoke(),
 		ConfiguredTargets: automationTargetSpec("target", targetKinds...),
 		Errors: []nodecontract.ErrorSpec{
+			{Code: installed.CodeInvalidRequest, Category: "automation", RetryHint: false},
 			{Code: installed.CodeTargetNotFound, Category: "automation", RetryHint: true},
 			{Code: installed.CodeTargetAmbiguous, Category: "automation", RetryHint: false},
 			{Code: installed.CodeWindowFailed, Category: "automation", RetryHint: true},

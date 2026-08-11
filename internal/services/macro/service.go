@@ -42,7 +42,11 @@ func (s *Service) Save(value *Macro) (*Macro, error) {
 		id = "macro-" + uuid.NewString()
 	}
 	createdAt := time.Now().UTC()
-	if existing, ok := s.store.Get(id); ok {
+	existing, ok, err := s.store.Record(id)
+	if err != nil {
+		return nil, fmt.Errorf("read existing macro %q: %w", id, err)
+	}
+	if ok {
 		if existing.Kind != asset.KindMacro {
 			return nil, fmt.Errorf("asset %q is not a macro", id)
 		}
@@ -80,7 +84,10 @@ func (s *Service) Get(id string) (*Macro, error) {
 	if s.store == nil {
 		return nil, errors.New("macro service store is unavailable")
 	}
-	record, ok := s.store.Get(id)
+	record, ok, err := s.store.Record(id)
+	if err != nil {
+		return nil, fmt.Errorf("read macro %q: %w", id, err)
+	}
 	if !ok || record.Kind != asset.KindMacro || record.Blob == nil {
 		return nil, fmt.Errorf("macro %q not found", id)
 	}
@@ -88,29 +95,47 @@ func (s *Service) Get(id string) (*Macro, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read macro %q: %w", id, err)
 	}
-	document, err := Decode(bytes.NewReader(content))
+	decoded, err := decode(bytes.NewReader(content))
 	if err != nil {
 		return nil, fmt.Errorf("decode macro %q: %w", id, err)
+	}
+	document := decoded.Document
+	ref := *record.Blob
+	if decoded.SourceVersion != SchemaVersion {
+		var carrier bytes.Buffer
+		if err := Encode(&carrier, document); err != nil {
+			return nil, fmt.Errorf("encode migrated macro %q: %w", id, err)
+		}
+		before := s.store.Revision()
+		ref, err = s.store.ReplaceRecordBlob(context.Background(), MediaType, bytes.NewReader(carrier.Bytes()), record.GUID, *record.Blob)
+		if err != nil {
+			return nil, fmt.Errorf("publish migrated macro %q: %w", id, err)
+		}
+		s.emitChangedSince(before)
 	}
 	return &Macro{
 		ID: record.GUID, Label: record.Name, Description: record.Description, Category: record.Category,
 		Tags: append([]string(nil), record.Tags...), CreatedAt: record.CreatedAt.UTC().Format(time.RFC3339),
-		Document: document, Blob: *record.Blob,
+		Document: document, Blob: ref,
 	}, nil
 }
 
-func (s *Service) List() []Summary {
+func (s *Service) List() ([]Summary, error) {
 	if s.store == nil {
-		return []Summary{}
+		return []Summary{}, nil
 	}
 	result := []Summary{}
-	for _, record := range s.store.List() {
+	records, err := s.store.Records()
+	if err != nil {
+		return nil, fmt.Errorf("list macro records: %w", err)
+	}
+	for _, record := range records {
 		if record.Kind != asset.KindMacro {
 			continue
 		}
 		value, err := s.Get(record.GUID)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("list macro %q: %w", record.GUID, err)
 		}
 		analysis := Analyze(value.Document)
 		result = append(result, Summary{
@@ -119,7 +144,7 @@ func (s *Service) List() []Summary {
 			ActionCount: len(value.Document.Actions), DurationUs: analysis.DurationUs, Blob: value.Blob,
 		})
 	}
-	return result
+	return result, nil
 }
 
 func (s *Service) Analyze(document Document) Analysis {
@@ -130,7 +155,10 @@ func (s *Service) Delete(id string) error {
 	if s.store == nil {
 		return errors.New("macro service store is unavailable")
 	}
-	record, ok := s.store.Get(id)
+	record, ok, err := s.store.Record(id)
+	if err != nil {
+		return fmt.Errorf("read macro %q: %w", id, err)
+	}
 	if !ok || record.Kind != asset.KindMacro {
 		return fmt.Errorf("macro %q not found", id)
 	}

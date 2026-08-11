@@ -463,7 +463,7 @@ func removeEmptyMigrationDirectories(root string) error {
 			return err
 		}
 		if len(entries) != 0 {
-			return fmt.Errorf("Blob Store migration directory %q is not empty", name)
+			return fmt.Errorf("blob store migration directory %q is not empty", name)
 		}
 		if err := os.Remove(path); err != nil {
 			return err

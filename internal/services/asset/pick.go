@@ -4,19 +4,22 @@ package asset
 // PickVariant 从 guid 对应记录的 Variants 中挑最合适的一档。
 // 精确分辨率命中优先；miss 时按长边比距最近的档兜底（调用方据 v.Resolution 自算缩放比）。
 // 算法 = 精确分辨率命中优先, 否则长边比最近的档 (跨分辨率缩放兜底候选)。
-func (s *Store) PickVariant(guid string, frameW, frameH int) (Variant, bool) {
-	rec, ok := s.Get(guid)
+func (s *Store) PickVariant(guid string, frameW, frameH int) (Variant, bool, error) {
+	rec, ok, err := s.Record(guid)
+	if err != nil {
+		return Variant{}, false, err
+	}
 	if !ok {
-		return Variant{}, false
+		return Variant{}, false, nil
 	}
 	if len(rec.Variants) == 0 {
-		return Variant{}, false
+		return Variant{}, false, nil
 	}
 
 	// 精确命中优先。
 	for _, v := range rec.Variants {
 		if v.Resolution[0] == frameW && v.Resolution[1] == frameH {
-			return v, true
+			return v, true, nil
 		}
 	}
 
@@ -44,5 +47,5 @@ func (s *Store) PickVariant(guid string, frameW, frameH int) (Variant, bool) {
 			best, bestScore, found = v, ratio, true
 		}
 	}
-	return best, found
+	return best, found, nil
 }

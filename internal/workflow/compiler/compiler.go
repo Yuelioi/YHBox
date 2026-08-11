@@ -42,6 +42,7 @@ const (
 	CodeInvalidStateVariable          = "INVALID_STATE_VARIABLE"
 	CodeInvalidStateAccess            = "INVALID_STATE_ACCESS"
 	CodeInvalidCapabilityBinding      = "INVALID_CAPABILITY_BINDING"
+	CodeInvalidInstructionPlacement   = "INVALID_INSTRUCTION_PLACEMENT"
 	CodeNoExecutionRoot               = "NO_EXECUTION_ROOT"
 	CodeDataCycle                     = "DATA_CYCLE"
 	CodeUnsupportedSourceFeature      = "UNSUPPORTED_SOURCE_FEATURE"
@@ -105,6 +106,7 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 		result.Diagnostics = []Diagnostic{diagnostic(CodeInvalidCatalog, nil, "")}
 		return result, nil
 	}
+	result.Diagnostics = append(result.Diagnostics, validateInstructionPlacement(source, request.Catalog)...)
 
 	body := programBody{
 		SourceHash: result.SourceHash, CatalogHash: request.Catalog.Hash(), CompilerBuild: c.build,
@@ -175,6 +177,32 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 	}
 	sortDiagnostics(result.Diagnostics)
 	return result, nil
+}
+
+func validateInstructionPlacement(source schema.WorkflowSource, catalog nodecatalog.Snapshot) []Diagnostic {
+	diagnostics := make([]Diagnostic, 0)
+	for graphIndex, graph := range source.Graphs {
+		if graph.ID == source.EntryGraph {
+			continue
+		}
+		for nodeIndex, node := range graph.Nodes {
+			entry, ok := catalog.Lookup(node.NodeRef.NodeTypeID)
+			if !ok || entry.Contract.NodeRef() != node.NodeRef ||
+				entry.Contract.Machine().Instruction.Kind != nodecontract.InstructionRunRoot {
+				continue
+			}
+			item := diagnosticAtNode(
+				CodeInvalidInstructionPlacement,
+				[]string{"graphs", fmt.Sprint(graphIndex), "nodes", fmt.Sprint(nodeIndex), "nodeRef"},
+				graph.ID,
+				node.ID,
+			)
+			item.Params["instruction"] = string(nodecontract.InstructionRunRoot)
+			item.Params["allowedGraph"] = source.EntryGraph
+			diagnostics = append(diagnostics, item)
+		}
+	}
+	return diagnostics
 }
 
 func validateNodePackageDependencies(source schema.WorkflowSource, catalog nodecatalog.Snapshot) []Diagnostic {
@@ -285,11 +313,13 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, resou
 	compiled := programGraph{ID: graph.ID, Nodes: []programNode{}, SignalRoutes: []programSignalRoute{}, DataOrder: []string{}}
 	var diagnostics []Diagnostic
 	nodes := make(map[string]int, len(graph.Nodes))
+	declaredNodes := make(map[string]bool, len(graph.Nodes))
 	contracts := make(map[string]nodecontract.MachineContract, len(graph.Nodes))
 	pendingBindings := make(map[string]map[string]schema.InputBinding, len(graph.Nodes))
 	types := newTypeSolver(catalog.TypeSystem())
 	validators := map[string]*runtimejsonschema.Schema{}
 	for nodeIndex, sourceNode := range graph.Nodes {
+		declaredNodes[sourceNode.ID] = true
 		if err := ctx.Err(); err != nil {
 			return compiled, diagnostics, err
 		}
@@ -304,7 +334,15 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, resou
 			continue
 		}
 		if entry.Contract.NodeRef() != sourceNode.NodeRef {
-			diagnostics = append(diagnostics, diagnosticAtNode(CodeNodeContractMismatch, append(path, "nodeRef"), graph.ID, sourceNode.ID))
+			diagnostic := diagnosticAtNode(CodeNodeContractMismatch, append(path, "nodeRef"), graph.ID, sourceNode.ID)
+			diagnostic.Params["nodeLabel"] = sourceNode.ID
+			if sourceNode.Label != "" {
+				diagnostic.Params["nodeLabel"] = sourceNode.Label
+			}
+			diagnostic.Params["nodeTypeId"] = sourceNode.NodeRef.NodeTypeID
+			diagnostic.Params["sourceVersion"] = sourceNode.NodeRef.Version
+			diagnostic.Params["currentVersion"] = entry.Contract.NodeRef().Version
+			diagnostics = append(diagnostics, diagnostic)
 			continue
 		}
 		machine := entry.Contract.Machine()
@@ -448,7 +486,14 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, resou
 		fromIndex, fromOK := nodes[edge.From.NodeID]
 		toIndex, toOK := nodes[edge.To.NodeID]
 		if !fromOK || !toOK {
-			diagnostics = append(diagnostics, diagnostic(CodeUnknownPort, path, graph.ID))
+			// A declared node that failed contract/config admission already has a
+			// primary node diagnostic. Do not misreport every attached edge as an
+			// unknown port merely because that node was omitted from the Program.
+			fromMissing := !fromOK && !declaredNodes[edge.From.NodeID]
+			toMissing := !toOK && !declaredNodes[edge.To.NodeID]
+			if fromMissing || toMissing {
+				diagnostics = append(diagnostics, diagnosticAtEdge(CodeUnknownPort, path, graph.ID, edge, fromMissing, toMissing))
+			}
 			continue
 		}
 		fromNode, toNode := &compiled.Nodes[fromIndex], &compiled.Nodes[toIndex]
@@ -461,7 +506,7 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, resou
 				(!toExists && inputPortExists(toMachine.Ports, edge.To.PortID)) {
 				code = CodeEdgeChannelMismatch
 			}
-			diagnostics = append(diagnostics, diagnostic(code, path, graph.ID))
+			diagnostics = append(diagnostics, diagnosticAtEdge(code, path, graph.ID, edge, !fromExists, !toExists))
 			continue
 		}
 		if edge.Channel != schema.EdgeData && !toMachine.Instruction.AcceptsSignalInput(string(edge.Channel), edge.To.PortID) {
@@ -932,6 +977,22 @@ func diagnostic(code string, path []string, graphID string) Diagnostic {
 func diagnosticAtNode(code string, path []string, graphID, nodeID string) Diagnostic {
 	diagnostic := diagnostic(code, path, graphID)
 	diagnostic.NodeID = nodeID
+	return diagnostic
+}
+
+func diagnosticAtEdge(code string, path []string, graphID string, edge schema.Edge, invalidFrom, invalidTo bool) Diagnostic {
+	diagnostic := diagnostic(code, path, graphID)
+	diagnostic.Params["fromNodeId"] = edge.From.NodeID
+	diagnostic.Params["fromPortId"] = edge.From.PortID
+	diagnostic.Params["toNodeId"] = edge.To.NodeID
+	diagnostic.Params["toPortId"] = edge.To.PortID
+	diagnostic.Params["channel"] = string(edge.Channel)
+	switch {
+	case invalidFrom:
+		diagnostic.NodeID = edge.From.NodeID
+	case invalidTo:
+		diagnostic.NodeID = edge.To.NodeID
+	}
 	return diagnostic
 }
 

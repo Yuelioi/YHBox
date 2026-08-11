@@ -1,21 +1,25 @@
 # Yotta architecture and code map
 
 Yotta 是 Wails v3 桌面应用。Vue presentation、Go application command、Workflow compiler/runtime、
-configured target 和平台 adapter 分层；GUI、CLI、Schedule、MCP 与 AI authoring 最终共用同一个
-`internal/application.Application` 和同一条 Program 执行路径。
+configured target 和平台 adapter 分层。桌面进程中的 GUI 与 Schedule 共用一个
+`internal/application.Application`；CLI 为所选 profile 打开自己的 `internal/localruntime.Runtime`，但使用相同的
+Application 类型和 Program 执行路径。MCP 与 AI authoring 进入同一 Source、typed patch、compile/preview
+边界，不拥有 Run 入口或第二套 runtime。
 
 ```text
-Vue / CLI / Schedule / MCP
-            │
-     services / transport
-            │
-       Application
-   ┌────────┼──────────┐
-Source → Compiler → Program → Run/Debug
-   │          │             │
-Catalog   Node Catalog   providers + configured targets
-   │                        │
-SQLite + CAS            platform adapters
+Vue + Schedule (desktop)      CLI
+             │                 │
+          services / command adapter
+                      │
+        Application (per profile runtime)
+        ┌─────────────┼──────────────┐
+     Source → Compiler → Program → Run/Debug
+        │          │                  │
+   SQLite + CAS  Node Catalog   providers + configured targets
+                                      │
+                                platform adapters
+
+MCP / AI ──> authoring proposal / typed patch / compile / preview
 ```
 
 ## Composition
@@ -33,12 +37,14 @@ main.go
 
 - `main.go` 只保留进程入口和嵌入资源。
 - `internal/desktopapp/` 组合 Wails 窗口、services、事件和 desktop 生命周期。
-- `internal/localruntime/` 打开 desktop 与 CLI 共用的 profile、Catalog、settings 和核心 runtime。
+- `internal/localruntime/` 是 desktop 与 CLI 共用的核心 profile/Catalog/settings/Application 组装入口；不同进程
+  各自打开实例，同一 profile 受 single-writer lease 约束。
 - `internal/appbootstrap/` 从 Catalog、节点、provider 和 Target 配置构造执行环境。
 - `internal/appruntime/` 管理后台组件的启动、失败回滚和逆序关闭。
 
-presentation 不得自行重建 storage、compiler、executor、provider 或 target runtime。这个边界由
-`internal/architecture/platform_boundaries_test.go` 等架构测试约束。
+`internal/localruntime/` 拥有共享的 storage-backed 核心组装。`internal/desktopapp/` 可以围绕它构造 Wails
+presentation、Schedule、Asset、Snippet 等桌面专用 service，但不得再创建第二套 compiler、executor、provider、
+Target runtime 或 Application。这个边界由 `internal/architecture/platform_boundaries_test.go` 约束。
 
 ## 关键代码地图
 
@@ -73,5 +79,6 @@ presentation 不得自行重建 storage、compiler、executor、provider 或 tar
 - 启动 goroutine、hook、server、worker 或输入持有状态的组件必须有 owner、取消和等待/关闭路径。
 - 不可信的 Workflow、package、MCP、文件、网络和进程输入在各自边界 strict/fail closed。
 
-继续阅读：[运行链](runtime.md)、[本地存储](storage.md)、[威胁模型](threat-model.md)。具体修改步骤见
-[任务知识](../../flightdeck/knowledge/README.md)。
+继续阅读：[运行链](runtime.md)、[合同与生成投影](contracts.md)、[本地存储](storage.md)、
+[威胁模型](threat-model.md)。面向产品对象的说明从 [Workflow 与创作](../product/workflows.md) 开始；具体
+修改步骤见[任务知识](../../flightdeck/knowledge/README.md)。

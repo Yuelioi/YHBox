@@ -14,7 +14,8 @@ Workflow 实际操作的当前设备对象或服务，例如应用、窗口、�
 _Avoid_: Provider installation、adapter installation
 
 **Schedule**:
-让一个或多个 Workflow 按时间、快捷键或启动事件自动运行的可选触发配置。
+让一个或多个 Workflow 的启动请求按每日/间隔、全局快捷键、daemon 注册时一次或手动动作进入运行队列的
+本机配置；它不等待前一个 Run 到达 terminal 后再提交下一个。
 _Avoid_: Job、计划任务实例
 
 **Resource**:
@@ -49,7 +50,8 @@ Graph 中对一种 Node Type 的具体使用。
 _Avoid_: Node instance object
 
 **Snippet**:
-用户保存并可再次插入的一组节点、连线和相关创作信息。
+用户从一个 Node 保存并可再次插入的 NodeTemplate，包含 NodeRef、config、bindings、disabled 状态和创作
+metadata。多节点复用使用 Subgraph。
 _Avoid_: Mini workflow
 
 ## Local configuration

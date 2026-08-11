@@ -16,7 +16,9 @@ Wails-specific composition、window 和 event wiring 位于 `internal/desktopapp
    `appruntime` 关闭。新增 registration 后必须重启后端，前端 HMR 不会新增 RPC。
 4. 通过正式 Task/Wails 入口重新生成 `frontend/bindings/`；它被 gitignore，不能手改或提交。
 5. 普通 service 在 `frontend/src/lib/backend.ts` 增加 typed facade；Workflow command 在
-   `frontend/src/app/transport/workflow.ts`。其它 store/component 不直接 import generated bindings。
+   `frontend/src/app/transport/workflow.ts`。只有这两个 transport module 可以导入 bound service namespace 并
+   发起 RPC。组件可在确有类型权威需要时导入 generated model type/enum，但不能直接调用 service method；
+   该边界由 `frontend/src/lib/rpc-boundary.test.ts` 检查。
 
 ## Error and event contract
 
@@ -28,7 +30,8 @@ Wails-specific composition、window 和 event wiring 位于 `internal/desktopapp
   “invalid result”错误。
 - event payload 使用可校验 DTO。带 generation/sequence 的 snapshot 只允许单调前进；较晚返回的 RPC
   不能覆盖已经收到的更新 event。
-- service/event 名与签名由 tracked RPC contract 审查；某次 service/method 数量只是观测值，不是门禁。
+- service/method 名与签名由 tracked RPC contract 审查；event 常量、payload 与单调 generation/sequence 由
+  frontend/backend event tests 单独约束。某次 service/method 数量只是观测值，不是门禁。
 
 ## Verification
 

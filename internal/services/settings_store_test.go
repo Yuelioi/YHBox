@@ -203,25 +203,3 @@ func TestSettingsStoreMigratesRetiredTargetSecurityFields(t *testing.T) {
 		t.Fatalf("rewritten settings retained retired target fields: %s", rewritten)
 	}
 }
-
-func writeUncheckedSettingsEnvelope(t *testing.T, path string, settings *Settings, generation uint64) {
-	t.Helper()
-	payload, err := artifact.Marshal(settings)
-	if err != nil {
-		t.Fatal(err)
-	}
-	checksum, err := artifact.Sum(settingsPayloadDomain, payload)
-	if err != nil {
-		t.Fatal(err)
-	}
-	raw, err := json.Marshal(settingsEnvelope{
-		Format: SettingsFormat, Version: SettingsSchemaVersion,
-		Generation: generation, Checksum: checksum, Payload: payload,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, raw, 0o600); err != nil {
-		t.Fatal(err)
-	}
-}

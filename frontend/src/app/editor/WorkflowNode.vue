@@ -1,6 +1,6 @@
 <template>
   <article
-    class="workflow-node group/node relative w-[260px] min-w-[260px] max-w-[260px] overflow-visible rounded-lg border bg-elevated shadow-sm transition-[border-color,box-shadow] duration-150"
+    class="workflow-node workflow-node-drag-surface group/node relative w-[260px] min-w-[260px] max-w-[260px] cursor-grab overflow-visible rounded-lg border bg-elevated shadow-sm transition-[border-color,box-shadow] duration-150 active:cursor-grabbing"
     :class="visualState.surfaceClasses"
     :data-node-type-id="projection.nodeRef.nodeTypeId"
     @contextmenu.prevent.stop="openNodeContextMenu"
@@ -13,7 +13,7 @@
       aria-hidden="true"
     />
     <header
-      class="workflow-node-drag-handle flex cursor-grab items-center gap-2 rounded-t-lg border-b border-default bg-muted/35 px-3 py-2.5 active:cursor-grabbing"
+      class="flex items-center gap-2 rounded-t-lg border-b border-default bg-muted/35 px-3 py-2.5"
     >
       <UIcon :name="iconName" class="size-4 shrink-0 text-primary" aria-hidden="true" />
       <div class="min-w-0 flex-1">
