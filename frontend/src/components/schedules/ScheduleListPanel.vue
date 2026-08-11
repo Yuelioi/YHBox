@@ -59,11 +59,11 @@
         </p>
         <p
           v-if="schedule.lastStatus === 'failed' && schedule.lastReadiness"
-          class="mt-0.5 flex min-w-0 items-center gap-1 text-[10px] text-warning"
+          class="mt-1 flex min-w-0 items-start gap-1.5 text-[10px] leading-4 text-warning"
           data-testid="schedule-readiness"
         >
-          <UIcon name="i-tabler-alert-circle" class="size-3 shrink-0" />
-          <span class="truncate">{{ lastReadinessLabel(schedule) }}</span>
+          <UIcon name="i-tabler-alert-circle" class="mt-0.5 size-3 shrink-0" />
+          <span class="min-w-0 flex-1 break-words">{{ lastReadinessLabel(schedule) }}</span>
           <UButton
             size="xs"
             variant="link"

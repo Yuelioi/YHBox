@@ -42,6 +42,18 @@ func currentSourceMigrationPlan() (sourceMigrationPlan, error) {
 	return newSourceMigrationPlan(sourceContract{Format: schema.Format, Version: schema.Version}, nil)
 }
 
+// MigrateSourceArtifact is the shared read seam for durable stores and
+// portable bundles. It only applies fully registered format/version chains;
+// callers validate and publish the returned current artifact at their own
+// authority boundary.
+func MigrateSourceArtifact(raw []byte) ([]byte, bool, error) {
+	plan, err := currentSourceMigrationPlan()
+	if err != nil {
+		return nil, false, err
+	}
+	return plan.Migrate(raw)
+}
+
 func newSourceMigrationPlan(current sourceContract, steps []sourceMigrationStep) (sourceMigrationPlan, error) {
 	if !current.valid() {
 		return sourceMigrationPlan{}, errors.New("workflow source migration plan requires a current contract")

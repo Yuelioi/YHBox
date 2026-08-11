@@ -6,17 +6,33 @@ import { planChecks } from './check-changed.mjs'
 import { affectedGoPackages } from './check-go-changed.mjs'
 
 test('routes only checks relevant to changed files', () => {
-  assert.deepEqual(planChecks(['docs/architecture/README.md']), [])
+  assert.deepEqual(planChecks(['docs/architecture/README.md']), ['check:docs'])
   assert.deepEqual(planChecks(['frontend/src/views/WorkflowEditorView.vue']), [
     'check:frontend:quick',
   ])
   assert.deepEqual(planChecks(['internal/workflow/compiler/compiler.go']), ['check:go:changed'])
   assert.deepEqual(planChecks(['internal/nodes/extended.go']), [
     'contracts:check',
+    'nodes:compatibility:check',
     'check:go:changed',
   ])
+	assert.deepEqual(planChecks(['internal/services/schedule/model.go']), [
+	  'versions:compatibility:check',
+	  'check:bindings',
+	  'check:go:changed',
+	])
   assert.deepEqual(planChecks(['native/capture_wgc/src/lib.rs']), ['check:rust'])
   assert.deepEqual(planChecks(['.github/workflows/ci.yml']), ['check:supply-chain:actions'])
+  assert.deepEqual(planChecks(['pkg/platform/hires_timer_windows_test.go']), [
+    'check:go:changed',
+    'check:windows:timer',
+  ])
+})
+
+test('routes documentation and its checker through the stable Markdown gate', () => {
+  assert.deepEqual(planChecks(['README.md']), ['check:docs'])
+  assert.deepEqual(planChecks(['scripts/check-docs.mjs']), ['check:docs'])
+  assert.deepEqual(planChecks(['Taskfile.yml']), ['check:changed:self', 'check:docs'])
 })
 
 test('mixed Go and frontend work does not pull in unrelated Rust or supply-chain checks', () => {
@@ -54,7 +70,9 @@ test('keeps full validation explicit for CI and packaging', () => {
   assert.match(checkBody, /scripts\/check-changed\.mjs/)
   assert.doesNotMatch(checkBody, /check:supply-chain|check:go|check:frontend/)
   assert.match(fullBody, /check:supply-chain/)
+  assert.match(fullBody, /check:docs/)
   assert.match(fullBody, /check:go:full/)
+  assert.match(fullBody, /check:windows:timer/)
   assert.match(fullBody, /check:frontend:full/)
   assert.match(packageBody, /check:full/)
   assert.match(ci, /task check:full/)

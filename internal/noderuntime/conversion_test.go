@@ -191,23 +191,7 @@ func TestExecutorConvertsBlobToStreamAndBackThroughAdmittedCapabilities(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	build, err := artifact.Sum("yotta/test/compiler-build/v1", []byte("noderuntime conversion test"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	compileResult, err := compiler.New(build, builtins.ConfigValidators).CompileDraft(ctx, compiler.CompileRequest{
-		SourceJSON: conversionSource(builtins, inputRef), Catalog: builtins.Catalog,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(compileResult.Diagnostics) != 0 {
-		t.Fatalf("compile diagnostics = %#v", compileResult.Diagnostics)
-	}
-	program, ok := compileResult.Program()
-	if !ok {
-		t.Fatal("compiler did not produce a Program")
-	}
+	program := compilePrimitiveProgram(t, builtins, conversionSource(builtins, inputRef))
 
 	now := time.Date(2026, 7, 15, 3, 0, 0, 0, time.UTC)
 	blobProvider, err := blob.NewProvider(store, blob.ProviderLimits{MaxChunkBytes: 64 << 10, QueueCapacity: 4})

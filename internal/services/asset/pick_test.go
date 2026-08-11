@@ -24,7 +24,10 @@ func TestStore_PickVariant(t *testing.T) {
 	}
 
 	// Case 1: 精确命中 1920x1080 → 返回 b1080。
-	got, ok := s.PickVariant("g", 1920, 1080)
+	got, ok, err := s.PickVariant("g", 1920, 1080)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !ok {
 		t.Fatal("case1: exact hit should return ok=true")
 	}
@@ -34,7 +37,10 @@ func TestStore_PickVariant(t *testing.T) {
 
 	// Case 2: 2560x1440 没有精确档 → 长边比 fallback（2560 vs 1920 长边比=1.33, vs 1280 长边比=2.0）
 	// 应命中 1920x1080（更近）, ok=true。
-	got2, ok2 := s.PickVariant("g", 2560, 1440)
+	got2, ok2, err := s.PickVariant("g", 2560, 1440)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !ok2 {
 		t.Fatal("case2: fallback should return ok=true")
 	}
@@ -43,7 +49,10 @@ func TestStore_PickVariant(t *testing.T) {
 	}
 
 	// Case 3: guid 不存在 → ok=false。
-	_, ok3 := s.PickVariant("missing", 1920, 1080)
+	_, ok3, err := s.PickVariant("missing", 1920, 1080)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if ok3 {
 		t.Error("case3: missing guid should return ok=false")
 	}
@@ -51,7 +60,10 @@ func TestStore_PickVariant(t *testing.T) {
 	// Case 4: 记录存在但 0 个变体 → ok=false。
 	empty := makeRecord("empty", "Empty", KindTemplate)
 	s.PutRecord(empty)
-	_, ok4 := s.PickVariant("empty", 1920, 1080)
+	_, ok4, err := s.PickVariant("empty", 1920, 1080)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if ok4 {
 		t.Error("case4: record with 0 variants should return ok=false")
 	}

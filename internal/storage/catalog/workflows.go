@@ -128,6 +128,53 @@ func (r *WorkflowRepository) Commit(
 	return tx.Commit()
 }
 
+// PublishMigration atomically replaces one exact Workflow Source artifact
+// without inventing a user edit revision. The previous hash is the migration
+// CAS; the workflow identity and revision in record remain unchanged.
+func (r *WorkflowRepository) PublishMigration(
+	ctx context.Context,
+	previousHash artifact.Digest,
+	record WorkflowSourceRecord,
+	references []WorkflowReference,
+) error {
+	if err := r.ready(); err != nil {
+		return err
+	}
+	if !previousHash.Valid() {
+		return errors.New("workflow migration requires the previous source hash")
+	}
+	if err := validateWorkflowSourceRecord(record); err != nil {
+		return err
+	}
+	if err := validateWorkflowReferences(references); err != nil {
+		return err
+	}
+	tx, err := r.database.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	result, err := tx.ExecContext(ctx, `
+		UPDATE workflow_sources SET
+			name = ?, source_hash = ?, format = ?, version = ?, artifact = ?, updated_at = ?
+		WHERE workflow_id = ? AND revision = ? AND source_hash = ?
+	`, record.Name, record.Hash.String(), record.Format, record.Version, record.Artifact,
+		record.UpdatedAt.UTC().Format(time.RFC3339Nano), record.WorkflowID, record.Revision, previousHash.String())
+	if err != nil {
+		return errors.Join(err, tx.Rollback())
+	}
+	updated, err := result.RowsAffected()
+	if err != nil || updated != 1 {
+		if err == nil {
+			err = ErrWorkflowSourceConflict
+		}
+		return errors.Join(err, tx.Rollback())
+	}
+	if err := replaceWorkflowReferences(ctx, tx, record.WorkflowID, references); err != nil {
+		return errors.Join(err, tx.Rollback())
+	}
+	return tx.Commit()
+}
+
 func (r *WorkflowRepository) Delete(
 	ctx context.Context,
 	workflowID string,
@@ -346,22 +393,31 @@ func commitWorkflowSource(
 			}
 			return err
 		}
-		if _, err := tx.ExecContext(ctx,
-			"DELETE FROM object_refs WHERE owner_kind = ? AND owner_id = ?",
-			workflowObjectOwnerKind, record.WorkflowID); err != nil {
-			return err
-		}
-		if _, err := tx.ExecContext(ctx,
-			"DELETE FROM workflow_refs WHERE workflow_id = ?", record.WorkflowID); err != nil {
-			return err
-		}
+	}
+	return replaceWorkflowReferences(ctx, tx, record.WorkflowID, references)
+}
+
+func replaceWorkflowReferences(
+	ctx context.Context,
+	tx *sql.Tx,
+	workflowID string,
+	references []WorkflowReference,
+) error {
+	if _, err := tx.ExecContext(ctx,
+		"DELETE FROM object_refs WHERE owner_kind = ? AND owner_id = ?",
+		workflowObjectOwnerKind, workflowID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx,
+		"DELETE FROM workflow_refs WHERE workflow_id = ?", workflowID); err != nil {
+		return err
 	}
 	for _, reference := range references {
 		result, err := tx.ExecContext(ctx, `
 			INSERT INTO workflow_refs(workflow_id, role, digest, media_type, size)
 			SELECT ?, ?, digest, ?, ? FROM gc_objects
 			WHERE digest = ? AND size = ? AND state = 'active'
-		`, record.WorkflowID, reference.Role, reference.Blob.MediaType, reference.Blob.Size,
+		`, workflowID, reference.Role, reference.Blob.MediaType, reference.Blob.Size,
 			reference.Blob.Digest.String(), reference.Blob.Size)
 		if err != nil {
 			return err
@@ -376,7 +432,7 @@ func commitWorkflowSource(
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO object_refs(owner_kind, owner_id, role, digest, media_type, size)
 			VALUES (?, ?, ?, ?, ?, ?)
-		`, workflowObjectOwnerKind, record.WorkflowID, reference.Role,
+		`, workflowObjectOwnerKind, workflowID, reference.Role,
 			reference.Blob.Digest.String(), reference.Blob.MediaType, reference.Blob.Size); err != nil {
 			return err
 		}

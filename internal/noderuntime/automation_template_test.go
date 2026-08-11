@@ -2,6 +2,7 @@ package noderuntime
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
 	"time"
@@ -9,6 +10,28 @@ import (
 	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodes"
 )
+
+func TestSettleTemplateMatchUsesTheFreshResultAndPropagatesFailure(t *testing.T) {
+	waited := time.Duration(0)
+	fresh, err := settleTemplateMatch(context.Background(), 25*time.Millisecond, func(_ context.Context, delay time.Duration) error {
+		waited = delay
+		return nil
+	}, func(context.Context) (visionMatchResult, error) {
+		return visionMatchResult{Matched: false, Score: 0.2}, nil
+	})
+	if err != nil || waited != 25*time.Millisecond || fresh.Matched || fresh.Score != 0.2 {
+		t.Fatalf("fresh=%#v waited=%s err=%v", fresh, waited, err)
+	}
+
+	wantErr := errors.New("capture failed")
+	if _, err := settleTemplateMatch(context.Background(), time.Millisecond, func(context.Context, time.Duration) error {
+		return nil
+	}, func(context.Context) (visionMatchResult, error) {
+		return visionMatchResult{}, wantErr
+	}); !errors.Is(err, wantErr) {
+		t.Fatalf("settle relocation error = %v, want %v", err, wantErr)
+	}
+}
 
 func TestPollTemplateStateUsesFreshObservationsAndBoundedWaits(t *testing.T) {
 	tests := []struct {

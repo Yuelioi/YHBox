@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 )
@@ -72,6 +74,169 @@ func TestExtendedPureDefinitionsAreStrictAndGeneratedFromTheCatalog(t *testing.T
 	}
 }
 
+func TestMathContractsDeclareOnlyReachableFailures(t *testing.T) {
+	builtins, err := Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := map[string][]string{
+		DivideNodeID:          {divisionByZeroCode, unrepresentableResultCode},
+		ModuloNodeID:          {divisionByZeroCode},
+		NegateNodeID:          {},
+		AbsoluteNodeID:        {},
+		MinimumNodeID:         {},
+		MaximumNodeID:         {},
+		FloorNodeID:           {},
+		CeilingNodeID:         {},
+		RoundNodeID:           {unrepresentableResultCode},
+		ClampNodeID:           {},
+		PowerNodeID:           {mathDomainErrorCode, unrepresentableResultCode},
+		SquareRootNodeID:      {mathDomainErrorCode},
+		IntegerAddNodeID:      {unrepresentableResultCode},
+		IntegerSubtractNodeID: {unrepresentableResultCode},
+		IntegerMultiplyNodeID: {unrepresentableResultCode},
+		IntegerModuloNodeID:   {divisionByZeroCode},
+		IntegerNegateNodeID:   {},
+		IntegerAbsoluteNodeID: {},
+		IntegerMinimumNodeID:  {},
+		IntegerMaximumNodeID:  {},
+		IntegerClampNodeID:    {},
+	}
+	for nodeID, want := range expected {
+		definition, ok := builtins.Definition(nodeID)
+		if !ok {
+			t.Fatalf("math definition %q is missing", nodeID)
+		}
+		declared := definition.Contract.Machine().Errors
+		got := make([]string, len(declared))
+		for index, item := range declared {
+			got[index] = item.Code
+		}
+		if !slices.Equal(got, want) {
+			t.Fatalf("%s errors = %v, want %v", nodeID, got, want)
+		}
+	}
+}
+
+func TestTextContractsDeclareOnlyReachableFailures(t *testing.T) {
+	builtins, err := Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := map[string][]string{
+		ConcatNodeID:       {},
+		ContainsNodeID:     {},
+		LengthNodeID:       {},
+		ReplaceNodeID:      {},
+		SubstringNodeID:    {},
+		TrimNodeID:         {},
+		UppercaseNodeID:    {},
+		LowercaseNodeID:    {},
+		IndexOfNodeID:      {},
+		StartsWithNodeID:   {},
+		EndsWithNodeID:     {},
+		RegexMatchNodeID:   {invalidRegexCode},
+		RegexExtractNodeID: {invalidRegexCode},
+	}
+	for nodeID, want := range expected {
+		definition, ok := builtins.Definition(nodeID)
+		if !ok {
+			t.Fatalf("text definition %q is missing", nodeID)
+		}
+		declared := definition.Contract.Machine().Errors
+		got := make([]string, len(declared))
+		for index, item := range declared {
+			got[index] = item.Code
+		}
+		if !slices.Equal(got, want) {
+			t.Fatalf("%s errors = %v, want %v", nodeID, got, want)
+		}
+	}
+}
+
+func TestConversionContractsDeclareOnlyReachableFailures(t *testing.T) {
+	builtins, err := Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := map[string][]string{
+		BlobToStreamNodeID:      {"conversion.blob_to_stream_failed"},
+		StreamToBlobNodeID:      {"conversion.stream_to_blob_failed"},
+		ToStringNodeID:          {},
+		StringToNumberNodeID:    {invalidNumberCode},
+		StringToIntegerNodeID:   {invalidIntegerCode},
+		TruncateToIntegerNodeID: {invalidIntegerCode},
+		FloorToIntegerNodeID:    {invalidIntegerCode},
+		CeilingToIntegerNodeID:  {invalidIntegerCode},
+		RoundToIntegerNodeID:    {invalidIntegerCode},
+		StringToBooleanNodeID:   {invalidBooleanCode},
+	}
+	for nodeID, want := range expected {
+		definition, ok := builtins.Definition(nodeID)
+		if !ok {
+			t.Fatalf("conversion definition %q is missing", nodeID)
+		}
+		declared := definition.Contract.Machine().Errors
+		got := make([]string, len(declared))
+		for index, item := range declared {
+			got[index] = item.Code
+		}
+		if !slices.Equal(got, want) {
+			t.Fatalf("%s errors = %v, want %v", nodeID, got, want)
+		}
+	}
+}
+
+func TestJSONContractsAndInlineGenericsDeclareExactBoundaries(t *testing.T) {
+	builtins, err := Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := map[string][]string{
+		ParseJSONNodeID: {invalidJSONCode},
+		JSONPathNodeID:  {invalidJSONPathCode},
+		ToJSONNodeID:    {},
+	}
+	for nodeID, want := range expected {
+		definition, ok := builtins.Definition(nodeID)
+		if !ok {
+			t.Fatalf("JSON definition %q is missing", nodeID)
+		}
+		declared := definition.Contract.Machine().Errors
+		got := make([]string, len(declared))
+		for index, item := range declared {
+			got[index] = item.Code
+		}
+		if !slices.Equal(got, want) {
+			t.Fatalf("%s errors = %v, want %v", nodeID, got, want)
+		}
+	}
+	for nodeID, portIDs := range map[string][]string{
+		ToStringNodeID: {"value"},
+		ToJSONNodeID:   {"value"},
+		SelectNodeID:   {"when_true", "when_false"},
+	} {
+		definition, _ := builtins.Definition(nodeID)
+		ports := definition.Contract.Machine().Ports.DataInputs
+		for _, portID := range portIDs {
+			found := false
+			for _, port := range ports {
+				if port.ID != portID {
+					continue
+				}
+				found = true
+				if port.Type.Kind != datatype.TypeExpressionVariable ||
+					!slices.Equal(port.Type.Constraints, []string{string(datatype.TraitObservable)}) {
+					t.Fatalf("%s.%s type = %#v", nodeID, portID, port.Type)
+				}
+			}
+			if !found {
+				t.Fatalf("%s input %s is missing", nodeID, portID)
+			}
+		}
+	}
+}
+
 func TestExtendedEvaluatorsReportDeclaredTerminalFailures(t *testing.T) {
 	builtins, err := Build()
 	if err != nil {
@@ -97,7 +262,12 @@ func TestExtendedEvaluatorsReportDeclaredTerminalFailures(t *testing.T) {
 		code   string
 	}{
 		{DivideNodeID, map[string]json.RawMessage{"a": json.RawMessage(`1`), "b": json.RawMessage(`0`)}, divisionByZeroCode},
+		{ModuloNodeID, map[string]json.RawMessage{"a": json.RawMessage(`1`), "b": json.RawMessage(`0`)}, divisionByZeroCode},
+		{PowerNodeID, map[string]json.RawMessage{"base": json.RawMessage(`-1`), "exponent": json.RawMessage(`0.5`)}, mathDomainErrorCode},
+		{PowerNodeID, map[string]json.RawMessage{"base": json.RawMessage(`0`), "exponent": json.RawMessage(`-1`)}, unrepresentableResultCode},
 		{SquareRootNodeID, map[string]json.RawMessage{"value": json.RawMessage(`-1`)}, mathDomainErrorCode},
+		{IntegerModuloNodeID, map[string]json.RawMessage{"a": json.RawMessage(`1`), "b": json.RawMessage(`0`)}, divisionByZeroCode},
+		{IntegerAddNodeID, map[string]json.RawMessage{"a": json.RawMessage(`9007199254740991`), "b": json.RawMessage(`1`)}, unrepresentableResultCode},
 		{RegexMatchNodeID, map[string]json.RawMessage{"text": json.RawMessage(`"x"`), "pattern": json.RawMessage(`"["`)}, invalidRegexCode},
 		{StringToBooleanNodeID, map[string]json.RawMessage{"text": json.RawMessage(`"yes"`)}, invalidBooleanCode},
 	} {
@@ -166,7 +336,7 @@ func TestEveryExtendedEvaluatorExecutesItsConformanceExample(t *testing.T) {
 		{SelectNodeID, rawInputs("condition", `false`, "when_true", `1`, "when_false", `2`), `2`},
 		{MakePointNodeID, rawInputs("x", `0.25`, "y", `0.75`, "unit", `"ratio"`), `{"unit":"ratio","x":0.25,"y":0.75}`},
 		{OffsetPointNodeID, rawInputs("point", `{"x":0.9,"y":0.1,"unit":"ratio"}`, "offset_x", `0.5`, "offset_y", `-0.5`), `{"unit":"ratio","x":1,"y":0}`},
-		{PointDistanceNodeID, rawInputs("begin", `{"x":0,"y":0,"unit":"pixel"}`, "end", `{"x":3,"y":4,"unit":"pixel"}`), `5`},
+		{PointDistanceNodeID, rawInputs("begin", `{"x":0,"y":0,"unit":"px"}`, "end", `{"x":3,"y":4,"unit":"px"}`), `5`},
 		{RegionAroundPointNodeID, rawInputs("center", `{"x":0.95,"y":0.05,"unit":"ratio"}`, "width", `0.4`, "height", `0.2`), `{"height":0.2,"unit":"ratio","width":0.4,"x":0.6,"y":0}`},
 	}
 	for _, test := range cases {
@@ -228,8 +398,9 @@ func TestExtendedEvaluatorsEnforceBoundarySemantics(t *testing.T) {
 		{ToStringNodeID, rawInputs("value", `{"b":2,"a":1}`), `"{\"a\":1,\"b\":2}"`},
 		{StringToBooleanNodeID, rawInputs("text", `"true"`), `true`},
 		{JSONPathNodeID, rawInputs("json", `{"a":1}`, "path", `"$.missing"`), `null`},
+		{JSONPathNodeID, rawInputs("json", `{"items":[{"x":1},{"y":2},{"x":3}]}`, "path", `"$.items[*].x"`), `[1,null,3]`},
 		{SelectNodeID, rawInputs("condition", `true`, "when_true", `1`, "when_false", `2`), `1`},
-		{RegionAroundPointNodeID, rawInputs("center", `{"x":5,"y":6,"unit":"pixel"}`, "width", `-2`, "height", `4`), `{"height":4,"unit":"pixel","width":0,"x":5,"y":4}`},
+		{RegionAroundPointNodeID, rawInputs("center", `{"x":5,"y":6,"unit":"px"}`, "width", `-2`, "height", `4`), `{"height":4,"unit":"px","width":0,"x":5,"y":4}`},
 	} {
 		got, err := evaluate(test.nodeID, test.inputs)
 		if err != nil {
@@ -250,11 +421,19 @@ func TestExtendedEvaluatorsEnforceBoundarySemantics(t *testing.T) {
 		{PowerNodeID, rawInputs("base", `-1`, "exponent", `0.5`), mathDomainErrorCode},
 		{RegexExtractNodeID, rawInputs("text", `"x"`, "pattern", `"["`), invalidRegexCode},
 		{StringToNumberNodeID, rawInputs("text", `" 1"`), invalidNumberCode},
+		{StringToNumberNodeID, rawInputs("text", `"+1"`), invalidNumberCode},
+		{StringToNumberNodeID, rawInputs("text", `"0x1p2"`), invalidNumberCode},
+		{StringToNumberNodeID, rawInputs("text", `"01"`), invalidNumberCode},
 		{StringToNumberNodeID, rawInputs("text", `"1e999"`), invalidNumberCode},
+		{StringToIntegerNodeID, rawInputs("text", `"+1"`), invalidIntegerCode},
+		{StringToIntegerNodeID, rawInputs("text", `"01"`), invalidIntegerCode},
+		{StringToIntegerNodeID, rawInputs("text", `"9007199254740992"`), invalidIntegerCode},
 		{ParseJSONNodeID, rawInputs("text", `"{"`), invalidJSONCode},
 		{ParseJSONNodeID, rawInputs("text", `"1 2"`), invalidJSONCode},
+		{ParseJSONNodeID, rawInputs("text", `"-0"`), invalidJSONCode},
 		{JSONPathNodeID, rawInputs("json", `{}`, "path", `"a"`), invalidJSONPathCode},
-		{PointDistanceNodeID, rawInputs("begin", `{"x":0,"y":0,"unit":"pixel"}`, "end", `{"x":0,"y":0,"unit":"ratio"}`), geometryUnitMismatchCode},
+		{JSONPathNodeID, rawInputs("json", `{}`, "path", `"$.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a"`), invalidJSONPathCode},
+		{PointDistanceNodeID, rawInputs("begin", `{"x":0,"y":0,"unit":"px"}`, "end", `{"x":0,"y":0,"unit":"ratio"}`), geometryUnitMismatchCode},
 	} {
 		_, err := evaluate(test.nodeID, test.inputs)
 		var failure *InlineFailure

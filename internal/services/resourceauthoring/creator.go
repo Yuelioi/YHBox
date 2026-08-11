@@ -57,7 +57,7 @@ type Creator struct {
 
 func NewCreator(blobs *blob.Store, assets *asset.Store) (*Creator, error) {
 	if blobs == nil || assets == nil {
-		return nil, errors.New("Workflow Resource creator requires shared Blob and Global Asset stores")
+		return nil, errors.New("workflow Resource creator requires shared Blob and Global Asset stores")
 	}
 	return &Creator{blobs: blobs, assets: assets}, nil
 }
@@ -98,7 +98,7 @@ func (c *Creator) Promote(ctx context.Context, resource schema.WorkflowResource)
 		ref := resource.InputClip.Blob
 		record.Blob = &ref
 	default:
-		return Promotion{}, errors.New("Workflow Resource promotion kind is invalid")
+		return Promotion{}, errors.New("workflow Resource promotion kind is invalid")
 	}
 	if err := c.assets.PublishExistingRecord(ctx, record); err != nil {
 		return Promotion{}, fmt.Errorf("publish promoted Global Asset: %w", err)
@@ -112,10 +112,10 @@ func (c *Creator) CreateImage(ctx context.Context, draft ImageDraft) (schema.Wor
 		return schema.WorkflowResource{}, err
 	}
 	if draft.Resolution[0] <= 0 || draft.Resolution[1] <= 0 {
-		return schema.WorkflowResource{}, errors.New("Workflow Resource image resolution must be positive")
+		return schema.WorkflowResource{}, errors.New("workflow Resource image resolution must be positive")
 	}
 	if !validRegion(draft.Region) {
-		return schema.WorkflowResource{}, errors.New("Workflow Resource image region is invalid")
+		return schema.WorkflowResource{}, errors.New("workflow Resource image region is invalid")
 	}
 	if !strings.HasPrefix(draft.DataURL, pngDataURLPrefix) {
 		return schema.WorkflowResource{}, fmt.Errorf("data URL must start with %q", pngDataURLPrefix)
@@ -126,12 +126,12 @@ func (c *Creator) CreateImage(ctx context.Context, draft ImageDraft) (schema.Wor
 	}
 	config, err := png.DecodeConfig(bytes.NewReader(content))
 	if err != nil || config.Width <= 0 || config.Height <= 0 {
-		return schema.WorkflowResource{}, errors.New("Workflow Resource image must contain a valid PNG")
+		return schema.WorkflowResource{}, errors.New("workflow Resource image must contain a valid PNG")
 	}
 	bbox := regionBBox(draft.Resolution, draft.Region)
 	if bbox[0] < 0 || bbox[1] < 0 || bbox[2] <= bbox[0] || bbox[3] <= bbox[1] ||
 		bbox[2] > draft.Resolution[0] || bbox[3] > draft.Resolution[1] {
-		return schema.WorkflowResource{}, errors.New("Workflow Resource image region has no valid pixels")
+		return schema.WorkflowResource{}, errors.New("workflow Resource image region has no valid pixels")
 	}
 	ref, err := c.blobs.Put(ctx, "image/png", bytes.NewReader(content))
 	if err != nil {
@@ -214,16 +214,16 @@ func (c *Creator) CreateInputClip(ctx context.Context, draft InputClipDraft) (sc
 func normalizeMetadata(metadata Metadata) (Metadata, error) {
 	metadata.Name = strings.TrimSpace(metadata.Name)
 	if metadata.Name == "" || len([]rune(metadata.Name)) > 80 {
-		return Metadata{}, errors.New("Workflow Resource name must contain 1 to 80 characters")
+		return Metadata{}, errors.New("workflow Resource name must contain 1 to 80 characters")
 	}
 	metadata.Description = strings.TrimSpace(metadata.Description)
 	metadata.Category = strings.TrimSpace(metadata.Category)
 	if len([]rune(metadata.Description)) > 4096 || len([]rune(metadata.Category)) > 128 {
-		return Metadata{}, errors.New("Workflow Resource presentation metadata exceeds its size budget")
+		return Metadata{}, errors.New("workflow Resource presentation metadata exceeds its size budget")
 	}
 	metadata.Tags = normalizeTags(metadata.Tags)
 	if len(metadata.Tags) > 64 {
-		return Metadata{}, errors.New("Workflow Resource tags exceed the count budget")
+		return Metadata{}, errors.New("workflow Resource tags exceed the count budget")
 	}
 	return metadata, nil
 }

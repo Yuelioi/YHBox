@@ -28,6 +28,10 @@ type RunReadiness struct {
 	Code          string
 	GraphID       string
 	NodeID        string
+	FromNodeID    string
+	FromPortID    string
+	ToNodeID      string
+	ToPortID      string
 	RequirementID string
 	Slot          string
 }
@@ -39,10 +43,14 @@ func ClassifyRunStart(result StartRunResult, startErr error) RunReadiness {
 	for _, diagnostic := range result.Diagnostics {
 		if diagnostic.Severity == schema.SeverityError {
 			return RunReadiness{
-				State:   RunReadinessWorkflowInvalid,
-				Code:    diagnostic.Code,
-				GraphID: strings.Join(diagnostic.GraphPath, "/"),
-				NodeID:  diagnostic.NodeID,
+				State:      RunReadinessWorkflowInvalid,
+				Code:       diagnostic.Code,
+				GraphID:    strings.Join(diagnostic.GraphPath, "/"),
+				NodeID:     diagnostic.NodeID,
+				FromNodeID: diagnosticStringParam(diagnostic, "fromNodeId"),
+				FromPortID: diagnosticStringParam(diagnostic, "fromPortId"),
+				ToNodeID:   diagnosticStringParam(diagnostic, "toNodeId"),
+				ToPortID:   diagnosticStringParam(diagnostic, "toPortId"),
 			}
 		}
 	}
@@ -66,6 +74,11 @@ func ClassifyRunStart(result StartRunResult, startErr error) RunReadiness {
 		return RunReadiness{State: RunReadinessFailed}
 	}
 	return RunReadiness{State: RunReadinessNotStarted}
+}
+
+func diagnosticStringParam(diagnostic schema.Diagnostic, key string) string {
+	value, _ := diagnostic.Params[key].(string)
+	return value
 }
 
 func (r RunReadiness) UserFixable() bool {

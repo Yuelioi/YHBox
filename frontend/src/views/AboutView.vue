@@ -1,154 +1,92 @@
 <template>
-  <div class="h-full overflow-y-auto">
-    <div class="mx-auto flex w-full max-w-[920px] flex-col gap-7 px-8 py-8">
-      <!-- 产品介绍 -->
-      <section class="flex items-start gap-4 border-b border-default pb-7">
-        <div class="pt-0.5">
-          <IconBadge icon="i-tabler-info-circle" size="lg" shape="round" color="primary" />
-        </div>
-        <div class="min-w-0">
-          <h2 class="text-lg font-semibold text-highlighted mb-1.5">
-            {{ info?.name ?? 'Yotta' }}
-            <span class="text-muted font-normal ml-1 font-mono tabular-nums"
-              >v{{ info?.version ?? '...' }}</span
-            >
-          </h2>
-          <p class="max-w-xl text-sm text-muted leading-relaxed">
-            {{ t('about.tagline') }}
-          </p>
-        </div>
-      </section>
-
-      <!-- 核心概念 -->
-      <section class="flex flex-col gap-4 border-b border-default pb-7">
-        <div class="flex items-center gap-2">
-          <UIcon name="i-tabler-bulb" class="size-4 text-dimmed" />
-          <h2 class="text-sm font-medium text-highlighted">{{ t('about.concepts.title') }}</h2>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5">
-          <div v-for="c in concepts" :key="c.key">
-            <div class="flex items-center gap-2 mb-1.5">
-              <UIcon :name="c.icon" class="size-4" :class="c.iconClass" />
-              <span class="text-sm font-medium text-highlighted">{{
-                t(`about.concepts.${c.key}.name`)
-              }}</span>
+  <div class="workspace-canvas h-full overflow-y-auto">
+    <main class="mx-auto flex w-full max-w-[880px] flex-col px-6 py-8 sm:px-10 sm:py-10">
+      <section
+        class="relative overflow-hidden rounded-2xl border border-default bg-elevated px-6 py-7 sm:px-9 sm:py-9"
+      >
+        <YottaMark class="pointer-events-none absolute -right-10 -top-12 size-60 opacity-[0.045]" />
+        <div class="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-7">
+          <YottaMark class="size-20 shrink-0 shadow-lg shadow-black/20" />
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-3">
+              <h1 class="text-3xl font-semibold tracking-[-0.025em] text-highlighted">
+                {{ info?.name ?? 'Yotta' }}
+              </h1>
+              <span
+                class="rounded-md border border-default bg-muted/45 px-2 py-1 font-mono text-[11px] tabular-nums text-muted"
+              >
+                v{{ info?.version ?? '...' }}
+              </span>
             </div>
-            <p class="text-xs text-muted leading-relaxed">
-              {{ t(`about.concepts.${c.key}.desc`) }}
+            <p class="mt-3 max-w-2xl text-[15px] leading-7 text-muted">
+              {{ t('about.tagline') }}
             </p>
+            <div class="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3">
+              <p v-if="info?.author" class="flex items-center gap-2 text-sm">
+                <UIcon name="i-tabler-user-circle" class="size-4 text-dimmed" aria-hidden="true" />
+                <span class="text-dimmed">{{ t('about.author_label') }}</span>
+                <span class="font-medium text-highlighted">{{ info.author }}</span>
+              </p>
+              <button
+                v-if="info?.repo"
+                type="button"
+                class="inline-flex max-w-full cursor-pointer items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3.5 py-2 text-sm font-medium text-primary transition-colors hover:border-primary/45 hover:bg-primary/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                :aria-label="t('about.source_action')"
+                @click="openExternal(info.repo)"
+              >
+                <UIcon name="i-tabler-brand-github" class="size-4 shrink-0" aria-hidden="true" />
+                <span class="truncate">{{ repoLabel }}</span>
+                <UIcon name="i-tabler-arrow-up-right" class="size-4 shrink-0" aria-hidden="true" />
+              </button>
+              <button
+                v-if="info?.bilibili"
+                type="button"
+                class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-default bg-muted/25 px-3.5 py-2 text-sm font-medium text-toned transition-colors hover:bg-muted/45 hover:text-highlighted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                :aria-label="t('about.author_home_action')"
+                @click="openExternal(info.bilibili)"
+              >
+                <UIcon name="i-tabler-brand-bilibili" class="size-4 shrink-0" aria-hidden="true" />
+                <span>Bilibili</span>
+                <UIcon name="i-tabler-arrow-up-right" class="size-4 shrink-0" aria-hidden="true" />
+              </button>
+            </div>
           </div>
         </div>
       </section>
 
-      <!-- 作者 / 链接 -->
-      <section class="flex flex-col gap-4 border-b border-default pb-7">
-        <div class="flex items-center gap-2">
-          <UIcon name="i-tabler-user" class="size-4 text-dimmed" />
-          <h2 class="text-sm font-medium text-highlighted">{{ t('about.section_author') }}</h2>
+      <section class="mt-10">
+        <div class="max-w-2xl">
+          <h2 class="text-lg font-semibold text-highlighted">{{ t('about.concepts.title') }}</h2>
+          <p class="mt-2 text-sm leading-6 text-muted">{{ t('about.concepts.subtitle') }}</p>
         </div>
-        <div class="text-sm space-y-2">
-          <div class="flex items-center justify-between gap-4">
-            <span class="text-muted inline-flex items-center gap-1.5">
-              <UIcon name="i-tabler-user" class="size-3.5" /> {{ t('about.label_author') }}
-            </span>
-            <span class="text-default font-medium">{{ info?.author ?? '—' }}</span>
-          </div>
-          <div class="flex items-center justify-between gap-4">
-            <span class="text-muted inline-flex items-center gap-1.5">
-              <UIcon name="i-tabler-brand-github" class="size-3.5" /> {{ t('about.label_source') }}
-            </span>
-            <button
-              v-if="info?.repo"
-              type="button"
-              class="rounded text-default font-medium hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors cursor-pointer truncate"
-              @click="openExternal(info.repo)"
+        <div class="about-concept-grid mt-5 grid grid-cols-1 sm:grid-cols-2">
+          <article v-for="c in concepts" :key="c.key" class="about-concept flex gap-3.5 py-5">
+            <div
+              class="flex size-9 shrink-0 items-center justify-center rounded-lg border border-default bg-muted/30"
             >
-              {{ info.repo.replace('https://', '') }} ↗
-            </button>
-          </div>
-          <div class="flex items-center justify-between gap-4">
-            <span class="text-muted inline-flex items-center gap-1.5">
-              <UIcon name="i-tabler-brand-bilibili" class="size-3.5" /> B
-              {{ t('about.label_site') }}
-            </span>
-            <button
-              v-if="info?.bilibili"
-              type="button"
-              class="rounded text-default font-medium hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors cursor-pointer truncate"
-              @click="openExternal(info.bilibili)"
-            >
-              {{ info.bilibili.replace('https://', '') }} ↗
-            </button>
-          </div>
+              <UIcon :name="c.icon" class="size-4.5" :class="c.iconClass" aria-hidden="true" />
+            </div>
+            <div class="min-w-0">
+              <h3 class="text-sm font-semibold text-highlighted">
+                {{ t(`about.concepts.${c.key}.name`) }}
+              </h3>
+              <p class="mt-1.5 text-xs leading-5 text-muted">
+                {{ t(`about.concepts.${c.key}.desc`) }}
+              </p>
+            </div>
+          </article>
         </div>
       </section>
-
-      <!-- 技术栈 -->
-      <section class="flex flex-col gap-4 border-b border-default pb-7">
-        <div class="flex items-center gap-2">
-          <UIcon name="i-tabler-stack-2" class="size-4 text-dimmed" />
-          <h2 class="text-sm font-medium text-highlighted">{{ t('about.section_stack') }}</h2>
-        </div>
-        <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-          <div class="flex items-center justify-between">
-            <span class="text-muted">Runtime</span>
-            <span class="text-default font-medium font-mono">Wails 3</span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-muted">Frontend</span>
-            <span class="text-default font-medium font-mono">Vue 3 + TS</span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-muted">UI</span>
-            <span class="text-default font-medium font-mono">NuxtUI v4</span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-muted">Backend</span>
-            <span class="text-default font-medium font-mono">Go 1.25</span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-muted">Logger</span>
-            <span class="text-default font-medium font-mono">zerolog</span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-muted">CV / Input</span>
-            <span class="text-default font-medium font-mono">pkg/vision + Win32</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- 致谢 -->
-      <section class="space-y-4 pt-1">
-        <div class="flex items-center gap-2">
-          <UIcon name="i-tabler-heart" class="size-4 text-dimmed" />
-          <h2 class="text-sm font-medium text-highlighted">{{ t('about.section_thanks') }}</h2>
-        </div>
-        <div class="text-sm space-y-2">
-          <div class="flex items-start justify-between gap-4">
-            <span class="text-muted">{{ t('about.label_icon') }}</span>
-            <button
-              type="button"
-              class="rounded text-default font-medium hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors cursor-pointer"
-              @click="openExternal('https://www.pixiv.net/artworks/120610310')"
-            >
-              Pixiv #120610310 ↗
-            </button>
-          </div>
-          <p class="text-xs text-dimmed leading-relaxed">
-            {{ t('about.icon_credit') }}
-          </p>
-        </div>
-      </section>
-    </div>
+    </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Browser } from '@wailsio/runtime'
 import { backend } from '@/lib/backend'
-import IconBadge from '@/components/common/IconBadge.vue'
+import YottaMark from '@/components/common/YottaMark.vue'
 
 const { t } = useI18n()
 
@@ -161,6 +99,7 @@ interface AppInfo {
 }
 
 const info = ref<AppInfo | null>(null)
+const repoLabel = computed(() => info.value?.repo.replace(/^https?:\/\//, '') ?? '')
 
 // 核心概念（从原帮助页迁来；文案走 about.concepts.* i18n）。
 // icon 色是概念分类识别色（非状态语义），配色统一时不要改成 warning/success 等状态色。
@@ -181,3 +120,28 @@ function openExternal(url: string) {
   Browser.OpenURL(url)
 }
 </script>
+
+<style scoped>
+.about-concept {
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.about-concept:last-child {
+  border-bottom: 0;
+}
+
+@media (min-width: 640px) {
+  .about-concept:nth-child(odd) {
+    padding-right: 2rem;
+    border-right: 1px solid var(--ui-border);
+  }
+
+  .about-concept:nth-child(even) {
+    padding-left: 2rem;
+  }
+
+  .about-concept:nth-child(n + 3) {
+    border-bottom: 0;
+  }
+}
+</style>

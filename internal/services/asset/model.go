@@ -2,7 +2,6 @@
 package asset
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/yottaapp/yotta/internal/blob"
@@ -45,24 +44,4 @@ type AssetRecord struct {
 	Variants      []Variant     `json:"variants,omitempty"` // 仅 template; 按 Resolution 唯一
 	Blob          *blob.BlobRef `json:"blob,omitempty"`     // clip / macro
 	CreatedAt     time.Time     `json:"createdAt"`
-}
-
-func (r AssetRecord) validate() error {
-	if r.GUID == "" {
-		return fmt.Errorf("asset GUID is required")
-	}
-	if r.Kind != KindTemplate && r.Kind != KindClip && r.Kind != KindMacro {
-		return fmt.Errorf("unknown asset kind %q", r.Kind)
-	}
-	for i, variant := range r.Variants {
-		if err := variant.Blob.Validate(); err != nil {
-			return fmt.Errorf("variant %d blob: %w", i, err)
-		}
-	}
-	if r.Blob != nil {
-		if err := r.Blob.Validate(); err != nil {
-			return fmt.Errorf("clip blob: %w", err)
-		}
-	}
-	return nil
 }

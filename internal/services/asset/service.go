@@ -180,7 +180,9 @@ func (s *Service) SaveTemplateCapture(dataURL, name, category string, tags []str
 // AddTemplateVariant 给已有模板加/换一个分辨率档 (重拍同 GUID). 同 recRes 覆盖该变体 blob.
 // 返目标 GUID — 给 FE 区分成功 (返 guid) 与失败 (RPC error), 跟 SaveTemplateCapture 对称.
 func (s *Service) AddTemplateVariant(guid, dataURL string, recRes [2]int, region [4]float32) (string, error) {
-	if _, ok := s.store.Get(guid); !ok {
+	if _, ok, err := s.store.Record(guid); err != nil {
+		return "", fmt.Errorf("load asset %q: %w", guid, err)
+	} else if !ok {
 		return "", fmt.Errorf("asset %q not found", guid)
 	}
 	if !strings.HasPrefix(dataURL, "data:image/png;base64,") {
@@ -208,7 +210,10 @@ func (s *Service) AddTemplateVariant(guid, dataURL string, recRes [2]int, region
 // RemoveVariant 删指定分辨率的单个变体档 (详情页"删这一档"). 返目标 GUID 给 FE 区分成功/失败.
 // 守卫: 仅剩 1 档时拒删 (删它=废掉整个素材, 该走 Delete 整删). FE 也仅在 >1 档时给入口.
 func (s *Service) RemoveVariant(guid string, w, h int) (string, error) {
-	rec, ok := s.store.Get(guid)
+	rec, ok, err := s.store.Record(guid)
+	if err != nil {
+		return "", fmt.Errorf("load asset %q: %w", guid, err)
+	}
 	if !ok {
 		return "", fmt.Errorf("asset %q not found", guid)
 	}
@@ -216,7 +221,7 @@ func (s *Service) RemoveVariant(guid string, w, h int) (string, error) {
 		return "", fmt.Errorf("asset %q 仅剩 1 个分辨率档, 删它请用删除整个素材", guid)
 	}
 	before := s.store.Revision()
-	err := s.store.RemoveVariant(guid, [2]int{w, h})
+	err = s.store.RemoveVariant(guid, [2]int{w, h})
 	s.emitChangedSince(before, guid)
 	if err != nil {
 		return "", err
@@ -224,13 +229,18 @@ func (s *Service) RemoveVariant(guid string, w, h int) (string, error) {
 	return guid, nil
 }
 
-// List 返全局资产摘要 (template + clip).
-func (s *Service) List() []AssetSummary {
+// List 返全局资产摘要 (template + clip). Storage failures are returned so a
+// broken Catalog cannot masquerade as an empty library.
+func (s *Service) List() ([]AssetSummary, error) {
+	records, err := s.store.Records()
+	if err != nil {
+		return nil, fmt.Errorf("list assets: %w", err)
+	}
 	out := []AssetSummary{}
-	for _, rec := range s.store.List() {
+	for _, rec := range records {
 		out = append(out, assetSummary(rec))
 	}
-	return out
+	return out, nil
 }
 
 func (s *Service) QueryAssets(query AssetQuery) (AssetPage, error) {
@@ -301,11 +311,14 @@ func (s *Service) BatchUpdateMeta(requests []BatchMetaRequest) []BatchResult {
 		result := BatchResult{GUID: request.GUID}
 		if _, duplicate := seen[request.GUID]; duplicate {
 			result.Error = "duplicate asset update request"
-		} else if record, ok := s.store.Get(request.GUID); !ok {
-			result.Error = "asset not found"
 		} else {
 			seen[request.GUID] = struct{}{}
-			if err := s.store.PutRecordMeta(record.GUID, record.Name, record.Description, strings.TrimSpace(request.Category), cleanTags(request.Tags)); err != nil {
+			record, ok, err := s.store.Record(request.GUID)
+			if err != nil {
+				result.Error = err.Error()
+			} else if !ok {
+				result.Error = "asset not found"
+			} else if err := s.store.PutRecordMeta(record.GUID, record.Name, record.Description, strings.TrimSpace(request.Category), cleanTags(request.Tags)); err != nil {
 				result.Error = err.Error()
 			} else {
 				result.Updated = true
@@ -327,7 +340,9 @@ func (s *Service) BatchDelete(guids []string) []BatchResult {
 			result.Error = "duplicate asset delete request"
 		} else {
 			seen[guid] = struct{}{}
-			if _, ok := s.store.Get(guid); !ok {
+			if _, ok, err := s.store.Record(guid); err != nil {
+				result.Error = err.Error()
+			} else if !ok {
 				result.Error = "asset not found"
 			} else if err := s.store.DeleteRecord(guid); err != nil {
 				result.Error = err.Error()
@@ -343,7 +358,10 @@ func (s *Service) BatchDelete(guids []string) []BatchResult {
 
 // Get 返单条记录.
 func (s *Service) Get(guid string) (AssetRecord, error) {
-	rec, ok := s.store.Get(guid)
+	rec, ok, err := s.store.Record(guid)
+	if err != nil {
+		return AssetRecord{}, fmt.Errorf("load asset %q: %w", guid, err)
+	}
 	if !ok {
 		return AssetRecord{}, fmt.Errorf("asset %q not found", guid)
 	}
@@ -411,7 +429,9 @@ func previewDimensions(width, height int) (int, int) {
 
 // UpdateMeta 改资产显示名 + 描述 + 分类 + 标签 (记录级元数据, 不动变体/blob).
 func (s *Service) UpdateMeta(guid, name, description, category string, tags []string) error {
-	if _, ok := s.store.Get(guid); !ok {
+	if _, ok, err := s.store.Record(guid); err != nil {
+		return fmt.Errorf("load asset %q: %w", guid, err)
+	} else if !ok {
 		return fmt.Errorf("asset %q not found", guid)
 	}
 	before := s.store.Revision()
@@ -466,11 +486,17 @@ type VariantPick struct {
 // 在 record.Variants[] 里的下标 + 是否精确命中该分辨率. 详情页进来据此自动切档 + 决定按钮"重拍/新增".
 // 挑档算法权威在 store.PickVariant (有单测), 此处只把选中档换算成下标, 不复刻算法.
 func (s *Service) PickVariant(guid string, w, h int) (VariantPick, error) {
-	v, ok := s.store.PickVariant(guid, w, h)
+	v, ok, err := s.store.PickVariant(guid, w, h)
+	if err != nil {
+		return VariantPick{}, fmt.Errorf("load asset %q: %w", guid, err)
+	}
 	if !ok {
 		return VariantPick{}, fmt.Errorf("asset %q 无可用变体 (%dx%d)", guid, w, h)
 	}
-	rec, ok := s.store.Get(guid)
+	rec, ok, err := s.store.Record(guid)
+	if err != nil {
+		return VariantPick{}, fmt.Errorf("load asset %q: %w", guid, err)
+	}
 	if !ok {
 		return VariantPick{}, fmt.Errorf("asset %q not found", guid)
 	}
@@ -499,29 +525,6 @@ func assetSummary(rec AssetRecord) AssetSummary {
 		summary.Blob = &ref
 	}
 	return summary
-}
-
-func normalizedTags(tags []string) map[string]struct{} {
-	result := make(map[string]struct{}, len(tags))
-	for _, tag := range tags {
-		if normalized := strings.ToLower(strings.TrimSpace(tag)); normalized != "" {
-			result[normalized] = struct{}{}
-		}
-	}
-	return result
-}
-
-func containsEveryTag(tags []string, wanted map[string]struct{}) bool {
-	if len(wanted) == 0 {
-		return true
-	}
-	available := normalizedTags(tags)
-	for tag := range wanted {
-		if _, ok := available[tag]; !ok {
-			return false
-		}
-	}
-	return true
 }
 
 func cleanTags(tags []string) []string {

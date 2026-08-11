@@ -112,13 +112,15 @@ func automationTemplate(builtins nodes.Builtins, nodeTypeID string) nodeadapter.
 		switch nodeTypeID {
 		case nodes.WaitTemplateNodeID:
 			if match.Matched && settle > 0 {
-				if err := invocation.Wait(ctx, settle); err != nil {
-					return nodeadapter.AdapterResult{}, err
+				relocated, relocateErr := settleTemplateMatch(ctx, settle, invocation.Wait, func(relocateCtx context.Context) (visionMatchResult, error) {
+					value, _, err := captureAndMatch(relocateCtx, invocation, captureHandle, preparedTemplate, region, threshold, counters)
+					return value, err
+				})
+				counters["captures"]++
+				if relocateErr != nil {
+					return nodeadapter.AdapterResult{}, templateNodeFailure(relocateErr)
 				}
-				if relocated, _, relocateErr := captureAndMatch(ctx, invocation, captureHandle, preparedTemplate, region, threshold, counters); relocateErr == nil && relocated.Matched {
-					match = relocated
-					counters["captures"]++
-				}
+				match = relocated
 			}
 			if err := emitTemplateMatchStatus(ctx, invocation, match.Matched, counters); err != nil {
 				return nodeadapter.AdapterResult{}, err
@@ -165,6 +167,21 @@ func automationTemplate(builtins nodes.Builtins, nodeTypeID string) nodeadapter.
 			return nodeadapter.AdapterResult{}, templateFailure(installed.CodeContractViolation, errors.New("template automation node is not installed"))
 		}
 	}
+}
+
+func settleTemplateMatch(
+	ctx context.Context,
+	settle time.Duration,
+	wait func(context.Context, time.Duration) error,
+	relocate func(context.Context) (visionMatchResult, error),
+) (visionMatchResult, error) {
+	if wait == nil || relocate == nil {
+		return visionMatchResult{}, errors.New("template settle host functions are missing")
+	}
+	if err := wait(ctx, settle); err != nil {
+		return visionMatchResult{}, err
+	}
+	return relocate(ctx)
 }
 
 func emitTemplateMatchStatus(ctx context.Context, invocation nodeadapter.Invocation, matched bool, counters map[string]int64) error {
@@ -292,19 +309,6 @@ type capturedTemplateFrame struct {
 	Image                   *image.RGBA
 	OriginX, OriginY        int
 	FrameWidth, FrameHeight int
-}
-
-func captureTemplateFrame(ctx context.Context, invocation nodeadapter.Invocation) (_ *image.RGBA, captureBytes int64, runErr error) {
-	handle, err := openConfiguredTarget(ctx, invocation, installed.KindCapture, installed.CaptureOperations())
-	if err != nil {
-		return nil, 0, mapAutomationFailure(err)
-	}
-	defer func() { runErr = errors.Join(runErr, invocation.Targets.Drop(context.WithoutCancel(ctx), handle)) }()
-	captured, captureBytes, err := captureTemplateFrameFromHandle(ctx, invocation, handle, nil)
-	if err != nil {
-		return nil, 0, err
-	}
-	return captured.Image, captureBytes, nil
 }
 
 func captureTemplateFrameFromHandle(ctx context.Context, invocation nodeadapter.Invocation, handle resource.Handle, region *installed.CaptureRegion) (_ capturedTemplateFrame, captureBytes int64, runErr error) {

@@ -665,7 +665,7 @@ func (s *Service) finalizePending(pending pendingRecording, destination, label, 
 		}
 		if destination == DestinationWorkflowResource {
 			if s.resources == nil {
-				return nil, errors.New("Workflow Resource creator is unavailable")
+				return nil, errors.New("workflow Resource creator is unavailable")
 			}
 			resource, err := s.resources.CreateMacro(context.Background(), resourceauthoring.MacroDraft{
 				Metadata: resourceauthoring.Metadata{
@@ -720,7 +720,7 @@ func (s *Service) finalizePending(pending pendingRecording, destination, label, 
 	clip.UpdateDuration()
 	if destination == DestinationWorkflowResource {
 		if s.resources == nil {
-			return nil, errors.New("Workflow Resource creator is unavailable")
+			return nil, errors.New("workflow Resource creator is unavailable")
 		}
 		resource, err := s.resources.CreateInputClip(context.Background(), resourceauthoring.InputClipDraft{
 			Metadata: resourceauthoring.Metadata{

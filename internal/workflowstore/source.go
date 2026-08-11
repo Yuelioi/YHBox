@@ -69,6 +69,18 @@ type SourceStore struct {
 }
 
 func OpenSourceStore(repository *catalog.WorkflowRepository, options SourceStoreOptions) (*SourceStore, error) {
+	plan, err := currentSourceMigrationPlan()
+	if err != nil {
+		return nil, fmt.Errorf("open Workflow Source migration registry: %w", err)
+	}
+	return openSourceStore(repository, options, plan)
+}
+
+func openSourceStore(
+	repository *catalog.WorkflowRepository,
+	options SourceStoreOptions,
+	plan sourceMigrationPlan,
+) (*SourceStore, error) {
 	if repository == nil || options.MaxSources <= 0 {
 		return nil, errors.New("workflow source store requires a Catalog repository and positive source limit")
 	}
@@ -83,15 +95,47 @@ func OpenSourceStore(repository *catalog.WorkflowRepository, options SourceStore
 	if len(records) > options.MaxSources {
 		return nil, errors.New("workflow source repository exceeds source limit")
 	}
-	sources := make(map[string]SourceSnapshot, len(records))
+	type preparedSource struct {
+		original  catalog.WorkflowSourceRecord
+		candidate sourceCandidate
+		migrated  bool
+	}
+	prepared := make([]preparedSource, 0, len(records))
 	for _, record := range records {
-		candidate, err := inspectSource(record.Artifact, true)
-		if err != nil || candidate.snapshot.workflowID != record.WorkflowID ||
-			candidate.snapshot.revision != record.Revision || candidate.snapshot.hash != record.Hash ||
-			candidate.name != record.Name || candidate.format != record.Format || candidate.version != record.Version {
+		contract, contractErr := sourceContractOf(record.Artifact)
+		if contractErr != nil || contract.Format != record.Format || contract.Version != record.Version {
 			return nil, fmt.Errorf("%w: Catalog record %q is inconsistent", ErrSourceChanged, record.WorkflowID)
 		}
-		sources[record.WorkflowID] = candidate.snapshot
+		migratedRaw, migrated, migrationErr := plan.Migrate(record.Artifact)
+		if migrationErr != nil {
+			return nil, fmt.Errorf("migrate Workflow Source %q: %w", record.WorkflowID, migrationErr)
+		}
+		candidate, inspectErr := inspectSource(migratedRaw, !migrated)
+		if inspectErr != nil || candidate.snapshot.workflowID != record.WorkflowID ||
+			candidate.snapshot.revision != record.Revision || candidate.name != record.Name {
+			return nil, fmt.Errorf("%w: Catalog record %q is inconsistent after migration", ErrSourceChanged, record.WorkflowID)
+		}
+		if !migrated && (candidate.snapshot.hash != record.Hash ||
+			candidate.format != record.Format || candidate.version != record.Version) {
+			return nil, fmt.Errorf("%w: Catalog record %q is inconsistent", ErrSourceChanged, record.WorkflowID)
+		}
+		prepared = append(prepared, preparedSource{original: record, candidate: candidate, migrated: migrated})
+	}
+	// Every source has passed migration and current-schema validation before
+	// publication begins. Each Catalog replacement is an exact hash CAS; a
+	// crash between records is safely resumed on the next open.
+	for _, source := range prepared {
+		if !source.migrated {
+			continue
+		}
+		record := source.candidate.record(options.Now().UTC())
+		if err := repository.PublishMigration(ctx, source.original.Hash, record, source.candidate.references()); err != nil {
+			return nil, fmt.Errorf("publish Workflow Source migration %q: %w", source.original.WorkflowID, sourceRepositoryError(err))
+		}
+	}
+	sources := make(map[string]SourceSnapshot, len(prepared))
+	for _, source := range prepared {
+		sources[source.candidate.snapshot.workflowID] = source.candidate.snapshot
 	}
 	quarantine, err := repository.ListQuarantine(ctx)
 	if err != nil {

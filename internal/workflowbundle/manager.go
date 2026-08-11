@@ -334,11 +334,19 @@ func (m *Manager) openArchive(ctx context.Context, archivePath string) (*openedB
 	if err != nil {
 		return fail(err)
 	}
-	document, canonical, digest, refs, err := inspectSource(sourceRaw)
+	originalCanonical, originalDigest, err := schema.CanonicalSourceArtifact(sourceRaw)
+	if err != nil || !bytes.Equal(sourceRaw, originalCanonical) || originalDigest != manifest.SourceHash {
+		return fail(errors.New("workflow bundle Source identity does not match its manifest"))
+	}
+	migratedSource, _, err := workflowstore.MigrateSourceArtifact(sourceRaw)
+	if err != nil {
+		return fail(fmt.Errorf("migrate workflow bundle Source: %w", err))
+	}
+	document, _, digest, refs, err := inspectSource(migratedSource)
 	if err != nil {
 		return fail(err)
 	}
-	if !bytes.Equal(sourceRaw, canonical) || digest != manifest.SourceHash || document.Workflow.ID != manifest.WorkflowID ||
+	if document.Workflow.ID != manifest.WorkflowID ||
 		!equalDependencies(document.Dependencies, manifest.Dependencies) || !equalRefs(refs, manifest.Blobs) {
 		return fail(errors.New("workflow bundle Source identity does not match its manifest"))
 	}

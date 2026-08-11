@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>Yotta</title>
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="#18181b" />
+  <rect
+    x="44"
+    y="44"
+    width="936"
+    height="936"
+    rx="212"
+    fill="none"
+    stroke="#3f3f46"
+    stroke-width="24"
+  />
+
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M292 284 512 504 732 284M512 504v236" stroke="#09090b" stroke-width="168" />
+    <path d="M292 284 512 504" stroke="#34d399" stroke-width="104" />
+    <path d="m732 284-220 220" stroke="#38bdf8" stroke-width="104" />
+    <path d="M512 504v236" stroke="#a78bfa" stroke-width="104" />
+  </g>
+
+  <circle cx="292" cy="284" r="82" fill="#09090b" />
+  <circle cx="292" cy="284" r="54" fill="#34d399" />
+  <circle cx="732" cy="284" r="82" fill="#09090b" />
+  <circle cx="732" cy="284" r="54" fill="#38bdf8" />
+  <circle cx="512" cy="740" r="82" fill="#09090b" />
+  <circle cx="512" cy="740" r="54" fill="#a78bfa" />
+  <circle cx="512" cy="504" r="76" fill="#09090b" />
+  <circle cx="512" cy="504" r="44" fill="#fafafa" />
+</svg>

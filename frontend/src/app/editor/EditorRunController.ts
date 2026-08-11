@@ -13,6 +13,7 @@ export type EditorRunCommand =
   | { kind: 'cancel' }
   | { kind: 'refresh' }
   | { kind: 'load-timeline-page'; page: number }
+  | { kind: 'export-timeline' }
 
 export interface EditorRunCommandResult {
   ok: boolean
@@ -35,16 +36,20 @@ export interface EditorRunSession {
 
 export interface EditorRunControllerDependencies {
   session: EditorRunSession
-  translate: (key: string) => string
+  translate: (key: string, params?: Record<string, unknown>) => string
   showError: (title: string, error: unknown) => void
   showSuccess: (title: string) => void
   openWorkbench: (tab: EditorRuntimeWorkbenchTab) => void
   focusDebugNode: (graphPath: string[], nodeId: string) => Promise<void>
+  activeRun: () => Pick<RunView, 'runId'> | null
+  chooseTimelineDestination: (filename: string) => Promise<string>
+  exportTimeline: (runId: string, destination: string) => Promise<{ entries: number }>
 }
 
 export function createEditorRunController(dependencies: EditorRunControllerDependencies) {
   const saveSucceeded = ref(false)
   const debugControlBusy = ref(false)
+  const timelineExporting = ref(false)
   let saveFlashTimer: ReturnType<typeof setTimeout> | undefined
 
   async function execute(command: EditorRunCommand): Promise<EditorRunCommandResult> {
@@ -65,6 +70,8 @@ export function createEditorRunController(dependencies: EditorRunControllerDepen
         return refresh()
       case 'load-timeline-page':
         return loadTimelinePage(command.page)
+      case 'export-timeline':
+        return exportTimeline()
     }
   }
 
@@ -185,6 +192,28 @@ export function createEditorRunController(dependencies: EditorRunControllerDepen
     }
   }
 
+  async function exportTimeline(): Promise<EditorRunCommandResult> {
+    const run = dependencies.activeRun()
+    if (!run || timelineExporting.value) return { ok: false }
+    timelineExporting.value = true
+    try {
+      const destination = await dependencies.chooseTimelineDestination(
+        `yotta-run-${run.runId}.json`,
+      )
+      if (!destination) return { ok: false }
+      const result = await dependencies.exportTimeline(run.runId, destination)
+      dependencies.showSuccess(
+        dependencies.translate('workflow.timeline.export_succeeded', { count: result.entries }),
+      )
+      return { ok: true }
+    } catch (error) {
+      dependencies.showError(dependencies.translate('workflow.timeline.export_failed'), error)
+      return { ok: false }
+    } finally {
+      timelineExporting.value = false
+    }
+  }
+
   function flashSave(value: boolean): void {
     clearTimeout(saveFlashTimer)
     saveSucceeded.value = value
@@ -198,6 +227,7 @@ export function createEditorRunController(dependencies: EditorRunControllerDepen
   return {
     saveSucceeded,
     debugControlBusy,
+    timelineExporting,
     execute,
     dispose,
   }

@@ -61,6 +61,13 @@ describe('workflow runtime inspection UI', () => {
     )
   })
 
+  it('keeps timeline export orchestration in the run controller', () => {
+    expect(runController).toContain('dependencies.chooseTimelineDestination(')
+    expect(runController).toContain('dependencies.exportTimeline(run.runId, destination)')
+    expect(editor).toContain('@export-timeline="editorRuns.execute({ kind: \'export-timeline\' })"')
+    expect(editor).not.toContain('async function exportRunTimeline')
+  })
+
   it('represents an unset target through the placeholder instead of an invalid empty select item', () => {
     expect(editor).toContain('workflow.target_default.placeholder')
     expect(editor).toContain('workflow.target_default.clear')
@@ -71,6 +78,13 @@ describe('workflow runtime inspection UI', () => {
     expect(valueEditor).toContain(':compact="compact"')
     expect(durationEditor).toContain(`:size="compact ? 'xs' : 'sm'"`)
     expect(durationEditor).toContain(`'grid-cols-[minmax(0,1fr)_80px] gap-1.5'`)
+  })
+
+  it('uses the full safe node surface for dragging while controls opt out', () => {
+    expect(node).toContain('workflow-node-drag-surface')
+    expect(node).not.toContain('workflow-node-drag-handle')
+    expect(node).toContain('class="nodrag nopan transition-opacity"')
+    expect(node).toContain('class="nodrag nopan space-y-2')
   })
 
   it('groups compiler diagnostics and shows only compiler-declared fixes', () => {

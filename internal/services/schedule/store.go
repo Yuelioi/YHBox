@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/yottaapp/yotta/internal/durablefs"
 )
 
 // idRE allowed ID 字符集：alphanumeric + _ + -。
@@ -51,6 +53,12 @@ func (s *Store) load() error {
 	if err != nil {
 		return err
 	}
+	loaded := make(map[string]Schedule)
+	type pendingMigration struct {
+		path    string
+		content []byte
+	}
+	migrations := make([]pendingMigration, 0)
 	for _, ent := range entries {
 		if ent.IsDir() || filepath.Ext(ent.Name()) != ".json" {
 			continue
@@ -69,33 +77,9 @@ func (s *Store) load() error {
 		if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 			return fmt.Errorf("parse %s: expected exactly one JSON value", path)
 		}
-		if sc.SchemaVersion == "1" {
-			for index := range sc.Targets {
-				if sc.Targets[index].Kind != "workflow" {
-					return fmt.Errorf("migrate %s: legacy target kind %q is invalid", path, sc.Targets[index].Kind)
-				}
-				sc.Targets[index].Kind = TargetWorkflow
-			}
-			sc.SchemaVersion = CurrentSchemaVersion
-		}
-		if sc.SchemaVersion == "2" {
-			for index := range sc.Targets {
-				if sc.Targets[index].Kind != "workflow-installation" {
-					return fmt.Errorf("migrate %s: v2 target kind %q is invalid", path, sc.Targets[index].Kind)
-				}
-				sc.Targets[index].Kind = TargetWorkflow
-			}
-			// V2 stored Installation IDs. Keep the reference visible for repair,
-			// but do not automatically fire a potentially stale target.
-			sc.SchemaVersion = CurrentSchemaVersion
-			sc.Enabled = false
-		}
-		if sc.SchemaVersion == "3" {
-			sc.SchemaVersion = CurrentSchemaVersion
-		}
-		if sc.SchemaVersion == "4" {
-			sc.TargetIntervalSeconds = 0
-			sc.SchemaVersion = CurrentSchemaVersion
+		migrated, err := migrateToCurrent(&sc)
+		if err != nil {
+			return fmt.Errorf("migrate %s: %w", path, err)
 		}
 		normalizeMetadata(&sc)
 		if err := sc.Validate(); err != nil {
@@ -105,8 +89,82 @@ func (s *Store) load() error {
 		if sc.ID != fileID {
 			return fmt.Errorf("validate %s: schedule.id %q does not match filename %q", path, sc.ID, fileID)
 		}
-		s.byID[sc.ID] = sc
+		if _, duplicate := loaded[sc.ID]; duplicate {
+			return fmt.Errorf("validate %s: duplicate schedule.id %q", path, sc.ID)
+		}
+		loaded[sc.ID] = sc
+		if migrated {
+			content, err := json.MarshalIndent(sc, "", "  ")
+			if err != nil {
+				return fmt.Errorf("encode migrated %s: %w", path, err)
+			}
+			migrations = append(migrations, pendingMigration{path: path, content: content})
+		}
 	}
+	// All source files have now been parsed, migrated on copies, identity
+	// checked, and validated. Each replacement is crash-atomic; a restart can
+	// safely resume any remaining adjacent migrations.
+	for _, migration := range migrations {
+		if err := durablefs.WriteFile(migration.path, migration.content, 0o600); err != nil {
+			return fmt.Errorf("publish migrated %s: %w", migration.path, err)
+		}
+	}
+	s.byID = loaded
+	return nil
+}
+
+func migrateToCurrent(sc *Schedule) (bool, error) {
+	if sc == nil {
+		return false, errors.New("schedule migration requires a value")
+	}
+	sourceVersion := sc.SchemaVersion
+	for sc.SchemaVersion != CurrentSchemaVersion {
+		switch sc.SchemaVersion {
+		case "1":
+			if err := migrateV1ToV2(sc); err != nil {
+				return false, err
+			}
+		case "2":
+			if err := migrateV2ToV3(sc); err != nil {
+				return false, err
+			}
+		case "3":
+			sc.SchemaVersion = "4"
+		case "4":
+			sc.TargetIntervalSeconds = 0
+			sc.SchemaVersion = "5"
+		default:
+			return false, fmt.Errorf("schemaVersion %q is unsupported", sc.SchemaVersion)
+		}
+	}
+	return sourceVersion != CurrentSchemaVersion, nil
+}
+
+func migrateV1ToV2(sc *Schedule) error {
+	for index := range sc.Targets {
+		if sc.Targets[index].Kind != "workflow" {
+			return fmt.Errorf("v1 target kind %q is invalid", sc.Targets[index].Kind)
+		}
+		sc.Targets[index].Kind = "workflow-installation"
+	}
+	// A Workflow Source ID cannot be proven to identify an Installation.
+	// Preserve the reference for repair, but never keep the schedule armed.
+	sc.Enabled = false
+	sc.SchemaVersion = "2"
+	return nil
+}
+
+func migrateV2ToV3(sc *Schedule) error {
+	for index := range sc.Targets {
+		if sc.Targets[index].Kind != "workflow-installation" {
+			return fmt.Errorf("v2 target kind %q is invalid", sc.Targets[index].Kind)
+		}
+		sc.Targets[index].Kind = TargetWorkflow
+	}
+	// V2 stored Installation IDs. Keep the reference visible for repair, but
+	// do not automatically fire a potentially stale Workflow target.
+	sc.Enabled = false
+	sc.SchemaVersion = "3"
 	return nil
 }
 
@@ -136,16 +194,11 @@ func (s *Store) Save(sc *Schedule) error {
 		return err
 	}
 	path := filepath.Join(s.root, local.ID+".json")
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, raw, 0o644); err != nil {
-		return err
+	writeErr := durablefs.WriteFile(path, raw, 0o600)
+	if writeErr == nil || durablefs.Committed(writeErr) {
+		s.byID[local.ID] = local
 	}
-	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(tmp)
-		return err
-	}
-	s.byID[local.ID] = local
-	return nil
+	return writeErr
 }
 
 func normalizeMetadata(sc *Schedule) {
@@ -192,7 +245,7 @@ func (s *Store) Delete(id string) error {
 	if err := validateID(id); err != nil {
 		return err
 	}
-	if err := os.Remove(filepath.Join(s.root, id+".json")); err != nil && !errors.Is(err, os.ErrNotExist) {
+	if err := durablefs.Remove(filepath.Join(s.root, id+".json")); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	delete(s.byID, id)

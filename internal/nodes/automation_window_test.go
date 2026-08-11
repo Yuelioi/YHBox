@@ -61,5 +61,10 @@ func TestDesktopWindowOperationsRemainTargetBoundAndTyped(t *testing.T) {
 			!slices.Equal(machine.ConfiguredTargets[0].TargetKinds, []string{installed.TargetKindDesktopWindow}) || !signalIDsEqual(machine.Ports.ExecOutputs, want.exec) {
 			t.Fatalf("window contract %q = %#v", nodeID, machine)
 		}
+		if !slices.ContainsFunc(machine.Errors, func(spec nodecontract.ErrorSpec) bool {
+			return spec.Code == installed.CodeInvalidRequest
+		}) {
+			t.Fatalf("window contract %q omits runtime invalid-request failures: %#v", nodeID, machine.Errors)
+		}
 	}
 }

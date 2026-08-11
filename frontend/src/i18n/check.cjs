@@ -18,6 +18,14 @@ const { createJiti } = require('jiti')
 const ROOT_I18N = __dirname
 const ROOT_SRC = path.join(__dirname, '..')
 const ROOT_FE = path.join(__dirname, '..', '..')
+const NODE_PROJECTION = path.join(
+  ROOT_FE,
+  '..',
+  'contracts',
+  'node',
+  'current',
+  'builtin-authoring.json',
+)
 
 const jiti = createJiti(__filename, { interopDefault: true })
 
@@ -237,8 +245,51 @@ function checkStaticKeyReferences() {
   return false
 }
 
+function checkProjectedNodeErrorMessages() {
+  let projection
+  try {
+    projection = JSON.parse(fs.readFileSync(NODE_PROJECTION, 'utf8'))
+  } catch (error) {
+    console.error('[node-errors] FAIL 无法读取当前节点投影: ' + error.message)
+    return false
+  }
+  const nodes = projection?.body?.nodes
+  if (!Array.isArray(nodes)) {
+    console.error('[node-errors] FAIL 当前节点投影缺少 body.nodes')
+    return false
+  }
+  const zh = flatten(loadMessages('zh.ts'))
+  const en = flatten(loadMessages('en.ts'))
+  const codes = [
+    ...new Set(
+      nodes.flatMap((node) =>
+        Array.isArray(node.errors) ? node.errors.map((item) => item.code) : [],
+      ),
+    ),
+  ].sort()
+  const missing = []
+  for (const code of codes) {
+    const key = `error.${code}`
+    const locales = [
+      typeof zh[key] === 'string' ? null : 'zh',
+      typeof en[key] === 'string' ? null : 'en',
+    ]
+      .filter(Boolean)
+      .join('/')
+    if (locales) missing.push({ key, locales })
+  }
+  if (missing.length === 0) {
+    console.log(`[node-errors] OK ${codes.length} projected error codes have zh/en messages`)
+    return true
+  }
+  console.error(`[node-errors] FAIL ${missing.length} projected error codes are missing messages:`)
+  missing.forEach((item) => console.error(`  - ${item.key} missing ${item.locales}`))
+  return false
+}
+
 const parityOK = checkKeyParity()
 const compileOK = checkMessageCompile()
 const residueOK = checkResidueLiterals()
 const refsOK = checkStaticKeyReferences()
-process.exit(parityOK && compileOK && residueOK && refsOK ? 0 : 1)
+const nodeErrorsOK = checkProjectedNodeErrorMessages()
+process.exit(parityOK && compileOK && residueOK && refsOK && nodeErrorsOK ? 0 : 1)

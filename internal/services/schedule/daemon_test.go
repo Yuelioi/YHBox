@@ -215,7 +215,8 @@ func TestDaemonFireManualPersistsBlockedReadiness(t *testing.T) {
 		t.Fatal(err)
 	}
 	runner := &fakeWorkflowRunner{readiness: RunReadiness{
-		State: "target-required", Code: "admission.target_unavailable", Slot: "game-window",
+		State: "workflow-invalid", Code: "UNKNOWN_PORT", NodeID: "click",
+		FromNodeID: "wait", FromPortID: "found", ToNodeID: "click", ToPortID: "in",
 	}}
 	daemon := NewDaemon(store, runner, newFakeRegistrar())
 	schedule := validSchedule("blocked")
@@ -231,12 +232,14 @@ func TestDaemonFireManualPersistsBlockedReadiness(t *testing.T) {
 		t.Fatalf("FireManual: %v", err)
 	}
 	if result.Status != FireStatusFailed || result.Readiness == nil ||
-		result.Readiness.State != "target-required" {
+		result.Readiness.State != "workflow-invalid" || result.Readiness.FromPortID != "found" ||
+		result.Readiness.ToPortID != "in" {
 		t.Fatalf("FireManual result = %#v", result)
 	}
 	stored, found := store.Get(schedule.ID)
 	if !found || stored.LastStatus != FireStatusFailed || stored.LastReadiness == nil ||
-		stored.LastReadiness.Slot != "game-window" || stored.LastReadiness.WorkflowID != "workflow-1" {
+		stored.LastReadiness.WorkflowID != "workflow-1" || stored.LastReadiness.NodeID != "click" ||
+		stored.LastReadiness.FromNodeID != "wait" || stored.LastReadiness.ToNodeID != "click" {
 		t.Fatalf("stored schedule = %#v, found=%v", stored, found)
 	}
 }

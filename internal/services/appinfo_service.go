@@ -23,7 +23,7 @@ func (s *AppInfoService) Info() AppInfo {
 		Name:     "Yotta",
 		Version:  version.Version,
 		Author:   "Yueli",
-		Repo:     "https://github.com/yottaapp/yotta",
+		Repo:     "https://github.com/yuelioi/yotta",
 		Bilibili: "https://space.bilibili.com/4279370",
 	}
 }

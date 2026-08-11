@@ -110,15 +110,18 @@ try {
     ['authoring-patch.schema.json', workflowAuthoringSchemaText],
     ['authoring-patch.ts', workflowAuthoringTypes],
   ])
-  const nodeFiles = new Map([
+  const nodeContractFiles = new Map([
     ['node-contract.schema.json', nodeSchemaText],
     ['node-contract.ts', nodeTypes],
     ['authoring-projection.schema.json', authoringSchemaText],
     ['authoring-projection.ts', authoringTypes],
+  ])
+  const nodeSnapshotFiles = new Map([
     ['builtin-catalog.json', builtinCatalogText],
     ['builtin-authoring.json', builtinAuthoringText],
     ['builtin-nodes.md', builtinDocsText],
   ])
+  const nodeFiles = new Map([...nodeContractFiles, ...nodeSnapshotFiles])
   const workflowCurrentFiles = new Map([
     ['workflow-source.ts', `export * from '../${metadata.workflow.pathVersion}/workflow-source'\n`],
     ['diagnostic.ts', `export * from '../${metadata.workflow.pathVersion}/diagnostic'\n`],
@@ -133,9 +136,16 @@ try {
 
   if (writeMode) {
     await mkdir(outputRoot, { recursive: true })
-    for (const [name, content] of files) await writeFile(resolve(outputRoot, name), content)
+    for (const [name, content] of files) {
+      await writeVersionedFile(outputRoot, name, content, 'Workflow')
+    }
     await mkdir(nodeOutputRoot, { recursive: true })
-    for (const [name, content] of nodeFiles) await writeFile(resolve(nodeOutputRoot, name), content)
+    for (const [name, content] of nodeContractFiles) {
+      await writeVersionedFile(nodeOutputRoot, name, content, 'Node Contract')
+    }
+    for (const [name, content] of nodeSnapshotFiles) {
+      await writeFile(resolve(nodeOutputRoot, name), content)
+    }
     await mkdir(workflowCurrentRoot, { recursive: true })
     for (const [name, content] of workflowCurrentFiles) await writeFile(resolve(workflowCurrentRoot, name), content)
     await mkdir(nodeCurrentRoot, { recursive: true })
@@ -184,4 +194,17 @@ function fail(message) {
   console.error(message)
   process.exitCode = 1
   throw new Error(message)
+}
+
+async function writeVersionedFile(outputRoot, name, content, domain) {
+  const path = resolve(outputRoot, name)
+  try {
+    const existing = await readFile(path, 'utf8')
+    if (existing !== content) {
+      fail(`${domain} artifact ${name} is immutable at this version. Bump the owning contract version before updating it.`)
+    }
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error
+    await writeFile(path, content)
+  }
 }

@@ -23,8 +23,8 @@ func (a *Application) compileDraft(ctx context.Context, sourceJSON []byte) (comp
 	})
 }
 
-// migrateCompatibleContracts publishes only node contract upgrades that
-// preserve config, bindings, topology, stable type, and version.
+// migrateCompatibleContracts publishes only exact node contract upgrades in
+// the authoring migration registry.
 func (a *Application) migrateCompatibleContracts(ctx context.Context) error {
 	for _, snapshot := range a.sources.List() {
 		source, diagnostics := schema.ParseSource(snapshot.Artifact())
@@ -35,8 +35,7 @@ func (a *Application) migrateCompatibleContracts(ctx context.Context) error {
 		for _, graph := range source.Graphs {
 			for _, node := range graph.Nodes {
 				projection, ok := a.authoring.Node(node.NodeRef.NodeTypeID)
-				if !ok || projection.NodeRef == node.NodeRef ||
-					projection.NodeRef.Version != node.NodeRef.Version {
+				if !ok || projection.NodeRef == node.NodeRef {
 					continue
 				}
 				command := authoring.Command{

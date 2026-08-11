@@ -99,7 +99,7 @@ func Rollback(ctx context.Context, options Options) (result Result, resultErr er
 			}
 		case blob.LayoutVersion:
 		default:
-			return Result{}, errors.New("Blob migration rollback source is invalid")
+			return Result{}, errors.New("blob migration rollback source is invalid")
 		}
 	}
 

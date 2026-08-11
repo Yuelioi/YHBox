@@ -712,10 +712,11 @@ func diagnosticHelp(code string) (string, []string) {
 		explanation string
 		repairs     []string
 	}{
-		"UNKNOWN_NODE_TYPE":      {"The source pins a node type absent from the admitted Catalog.", []string{"Search and describe the trusted catalog, then choose an admitted node."}},
-		"NODE_CONTRACT_MISMATCH": {"A node semantic digest does not match its admitted Node Contract.", []string{"Remove and re-add the node through typed authoring commands."}},
-		"INVALID_CONFIG":         {"Node config violates the exact Node Contract schema.", []string{"Describe the node and set only declared fields with valid values."}},
-		"UNBOUND_INPUT":          {"A required data input has no edge, value, blob, or default binding.", []string{"Connect a compatible output or bind an explicit value/default."}},
+		"UNKNOWN_NODE_TYPE":             {"The source pins a node type absent from the admitted Catalog.", []string{"Search and describe the trusted catalog, then choose an admitted node."}},
+		"NODE_CONTRACT_MISMATCH":        {"A node semantic digest does not match its admitted Node Contract.", []string{"Remove and re-add the node through typed authoring commands."}},
+		"INVALID_CONFIG":                {"Node config violates the exact Node Contract schema.", []string{"Describe the node and set only declared fields with valid values."}},
+		"INVALID_INSTRUCTION_PLACEMENT": {"A host-lowered node instruction is placed in a graph where its lifecycle semantics are invalid.", []string{"Keep run-root nodes in the main entry graph and use declared entries for subgraphs."}},
+		"UNBOUND_INPUT":                 {"A required data input has no edge, value, blob, or default binding.", []string{"Connect a compatible output or bind an explicit value/default."}},
 	}
 	if value, ok := help[code]; ok {
 		return value.explanation, value.repairs

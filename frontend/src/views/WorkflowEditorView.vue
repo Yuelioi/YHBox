@@ -100,7 +100,7 @@
         :tags="workflowMetadata.tags"
         :busy="workflowSettingsBusy"
         :error="workflowSettingsError"
-        @submit="saveWorkflowSettings"
+        @submit="editorMetadata.save"
       />
 
       <div
@@ -654,7 +654,7 @@
         :timeline-exporting="timelineExporting"
         @cancel="editorRuns.execute({ kind: 'cancel' })"
         @refresh="editorRuns.execute({ kind: 'refresh' })"
-        @export-timeline="exportRunTimeline"
+        @export-timeline="editorRuns.execute({ kind: 'export-timeline' })"
         @page="(page) => editorRuns.execute({ kind: 'load-timeline-page', page })"
         @focus-node="focusNode"
         @focus="focusDiagnostic"
@@ -1233,7 +1233,6 @@ import {
   onBeforeUnmount,
   onDeactivated,
   onMounted,
-  reactive,
   ref,
   watch,
 } from 'vue'
@@ -1299,9 +1298,9 @@ import {
 } from '@/app/editor/EditorRecordingController'
 import { createEditorCanvasLayoutController } from '@/app/editor/EditorCanvasLayoutController'
 import { createEditorSelectionController } from '@/app/editor/EditorSelectionController'
+import { createEditorWorkflowMetadataController } from '@/app/editor/EditorWorkflowMetadataController'
 import type { EditorToolbarCommand, EditorToolbarContext } from '@/app/editor/editorToolbarModel'
 import type { WorkflowWorkspacePanel } from '@/app/editor/workspacePanel'
-import type { WorkflowMetadataDraft } from '@/app/editor/WorkflowMetadataDialog.vue'
 import { parseWorkspaceResource, RESOURCE_DRAG_FORMAT } from '@/app/editor/resourceDrag'
 import { snapshotGlobalAssetByID } from '@/app/editor/workflowResourceSnapshot'
 import type {
@@ -1340,6 +1339,7 @@ import {
 import {
   createWorkflowNodeGestureState,
   projectWorkflowFlowNodes,
+  WORKFLOW_NODE_DRAG_SURFACE,
 } from '@/app/editor/workflowFlowProjection'
 import {
   canvasOwnsWheelTarget,
@@ -1449,15 +1449,6 @@ let resourceLocateSequence = 0
 const inspectorAutoOpen = useLocalStorage('yotta.workflow.inspector.auto-open', true)
 const inspectorSidebarOpen = ref(inspectorAutoOpen.value)
 const inspectorSidebarWidth = ref(360)
-const workflowSettingsOpen = ref(false)
-const workflowSettingsBusy = ref(false)
-const workflowSettingsError = ref('')
-const workflowMetadata = reactive<WorkflowMetadataDraft>({
-  name: '',
-  description: '',
-  category: '',
-  tags: [],
-})
 const workspaceResourcePanel = computed(
   () =>
     workspacePanel.value === 'macro' ||
@@ -1503,7 +1494,6 @@ const connectionError = ref('')
 const minimapOpen = ref(false)
 const runtimeWorkbenchOpen = ref(false)
 const runtimeWorkbenchTab = ref<EditorRuntimeWorkbenchTab>('logs')
-const timelineExporting = ref(false)
 const diagnosticsOpen = computed(
   () => runtimeWorkbenchOpen.value && runtimeWorkbenchTab.value === 'diagnostics',
 )
@@ -1520,13 +1510,41 @@ const debugModeActive = computed(
 )
 const editorRuns = createEditorRunController({
   session,
-  translate: (key) => t(key),
+  translate: (key, params) => (params ? t(key, params) : t(key)),
   showError,
   showSuccess,
   openWorkbench: openRuntimeWorkbench,
   focusDebugNode: focusNode,
+  activeRun: () => session.activeRun,
+  chooseTimelineDestination: (filename) => workflowTransport.chooseRunTimelineDestination(filename),
+  exportTimeline: (runId, destination) => workflowTransport.exportRunTimeline(runId, destination),
 })
-const { saveSucceeded, debugControlBusy } = editorRuns
+const { saveSucceeded, debugControlBusy, timelineExporting } = editorRuns
+const editorMetadata = createEditorWorkflowMetadataController({
+  session,
+  port: {
+    getSource: async (workflowId) => {
+      const source = await workflowTransport.getSource(workflowId)
+      return {
+        name: source.name,
+        description: source.description,
+        category: source.category,
+        tags: source.tags,
+      }
+    },
+    updateSourceMetadata: (workflowId, baseRevision, draft) =>
+      workflowTransport.updateSourceMetadata(workflowId, baseRevision, draft),
+  },
+  saveCurrent: async () => (await editorRuns.execute({ kind: 'save' })).ok,
+  translate: (key) => t(key),
+  describeError: errorMessage,
+})
+const {
+  dialogOpen: workflowSettingsOpen,
+  busy: workflowSettingsBusy,
+  error: workflowSettingsError,
+  metadata: workflowMetadata,
+} = editorMetadata
 const editorToolbarContext = computed<Omit<EditorToolbarContext, 'dirty'>>(() => ({
   canUndo: session.canUndo,
   canRedo: session.canRedo,
@@ -1809,7 +1827,7 @@ const flowNodes = computed<FlowNode[]>(() => {
               type: 'graph-call',
               position: nodeGestures.positions.get(call.id) ?? call.position,
               data: { call, graph: callee },
-              dragHandle: '.workflow-node-drag-handle',
+              dragHandle: WORKFLOW_NODE_DRAG_SURFACE,
             },
           ]
         : []
@@ -2176,6 +2194,7 @@ onMounted(async () => {
   } catch {
     return
   }
+  await focusRequestedNode()
   unsubscribeRun = onRunChanged((event) => {
     if (event.runId === session.activeRun?.runId) void editorRuns.execute({ kind: 'refresh' })
   })
@@ -3820,52 +3839,10 @@ function handleEditorToolbarCommand(command: EditorToolbarCommand): void {
       void editorRuns.execute({ kind: 'save' })
       return
     case 'settings':
-      void openWorkflowSettings()
+      void editorMetadata.open()
       return
     case 'reload':
       void reloadWorkflow()
-  }
-}
-
-async function openWorkflowSettings(): Promise<void> {
-  const source = session.source
-  if (!source) return
-  workflowMetadata.name = source.workflow.name
-  workflowMetadata.description = ''
-  workflowMetadata.category = ''
-  workflowMetadata.tags = []
-  workflowSettingsError.value = ''
-  workflowSettingsOpen.value = true
-  workflowSettingsBusy.value = true
-  try {
-    const metadata = await workflowTransport.getSource(session.workflowId)
-    workflowMetadata.name = metadata.name || source.workflow.name
-    workflowMetadata.description = metadata.description ?? ''
-    workflowMetadata.category = metadata.category ?? ''
-    workflowMetadata.tags = [...(metadata.tags ?? [])]
-  } catch (error) {
-    workflowSettingsError.value = errorMessage(error)
-  } finally {
-    workflowSettingsBusy.value = false
-  }
-}
-
-async function saveWorkflowSettings(draft: WorkflowMetadataDraft): Promise<void> {
-  if (workflowSettingsBusy.value) return
-  workflowSettingsBusy.value = true
-  workflowSettingsError.value = ''
-  try {
-    if (session.dirty && !(await editorRuns.execute({ kind: 'save' })).ok) {
-      workflowSettingsError.value = t('workflow.editor.metadata_save_blocked')
-      return
-    }
-    await workflowTransport.updateSourceMetadata(session.workflowId, session.baseRevision, draft)
-    await session.load(session.workflowId)
-    workflowSettingsOpen.value = false
-  } catch (error) {
-    workflowSettingsError.value = errorMessage(error)
-  } finally {
-    workflowSettingsBusy.value = false
   }
 }
 
@@ -3960,27 +3937,19 @@ function toggleRuntimeWorkbench(tab: EditorRuntimeWorkbenchTab): void {
   openRuntimeWorkbench(tab)
 }
 
-async function exportRunTimeline(): Promise<void> {
-  const run = session.activeRun
-  if (!run || timelineExporting.value) return
-  const destination = await workflowTransport.chooseRunTimelineDestination(
-    `yotta-run-${run.runId}.json`,
-  )
-  if (!destination) return
-  timelineExporting.value = true
-  try {
-    const result = await workflowTransport.exportRunTimeline(run.runId, destination)
-    showSuccess(t('workflow.timeline.export_succeeded', { count: result.entries }))
-  } catch (error) {
-    showError(t('workflow.timeline.export_failed'), error)
-  } finally {
-    timelineExporting.value = false
-  }
-}
-
 async function focusDiagnostic(diagnostic: WorkflowDiagnostic): Promise<void> {
   if (!diagnostic.nodeId) return
   await focusNode(diagnostic.graphPath ?? [], diagnostic.nodeId)
+}
+
+async function focusRequestedNode(): Promise<void> {
+  const nodeId = typeof route.query.focusNode === 'string' ? route.query.focusNode : ''
+  if (!nodeId || !session.source) return
+  const requestedPath =
+    typeof route.query.focusGraphPath === 'string'
+      ? route.query.focusGraphPath.split('/').filter(Boolean)
+      : []
+  await focusNode(requestedPath.length ? requestedPath : [session.source.entryGraph], nodeId)
 }
 
 async function focusNode(graphPath: string[], nodeId: string): Promise<void> {

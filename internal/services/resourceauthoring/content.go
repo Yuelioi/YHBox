@@ -87,7 +87,7 @@ func (c *Creator) Open(ctx context.Context, resource schema.WorkflowResource) (C
 		}
 		return Content{Kind: resource.Kind, InputClip: inputClipContent(clip)}, nil
 	default:
-		return Content{}, errors.New("Workflow Resource kind is invalid")
+		return Content{}, errors.New("workflow Resource kind is invalid")
 	}
 }
 
@@ -149,13 +149,13 @@ func (c *Creator) Rewrite(ctx context.Context, resource schema.WorkflowResource,
 		}
 		return updated, nil
 	default:
-		return schema.WorkflowResource{}, errors.New("Workflow Resource edit kind is invalid")
+		return schema.WorkflowResource{}, errors.New("workflow Resource edit kind is invalid")
 	}
 }
 
 func (c *Creator) Events(ctx context.Context, resource schema.WorkflowResource, offset, limit int) (EventPage, error) {
 	if offset < 0 || limit <= 0 || limit > maxResourceEventPageSize {
-		return EventPage{}, errors.New("Workflow Resource event page is outside the bounded range")
+		return EventPage{}, errors.New("workflow Resource event page is outside the bounded range")
 	}
 	if err := schema.ValidateWorkflowResource(resource); err != nil {
 		return EventPage{}, fmt.Errorf("validate Workflow Resource events: %w", err)
@@ -189,7 +189,7 @@ func (c *Creator) Duplicate(ctx context.Context, resource schema.WorkflowResourc
 	case schema.ResourceInputClip:
 		duplicate.ID = "clip-" + uuid.NewString()
 	default:
-		return schema.WorkflowResource{}, errors.New("Workflow Resource kind is invalid")
+		return schema.WorkflowResource{}, errors.New("workflow Resource kind is invalid")
 	}
 	return duplicate, nil
 }
@@ -206,7 +206,7 @@ func (c *Creator) openMacro(ctx context.Context, resource schema.WorkflowResourc
 	analysis := macro.Analyze(document)
 	if len(analysis.Issues) != 0 || resource.Macro.BaseResolution != document.BaseResolution ||
 		resource.Macro.ActionCount != len(document.Actions) || resource.Macro.DurationUs != analysis.DurationUs {
-		return macro.Document{}, errors.New("Workflow Resource macro carrier does not match Source metadata")
+		return macro.Document{}, errors.New("workflow Resource macro carrier does not match Source metadata")
 	}
 	return document, nil
 }
@@ -225,7 +225,7 @@ func (c *Creator) openInputClip(ctx context.Context, resource schema.WorkflowRes
 		metadata.RecordingMode != string(clip.Meta.RecordingMode) || metadata.MouseMode != clip.Meta.MouseMode ||
 		metadata.BaseResolution != clip.Meta.BaseResolution || metadata.MouseCounts360 != clip.Meta.MouseCounts360 ||
 		metadata.StopHotkeyVK != clip.Meta.StopHotkeyVK {
-		return nil, errors.New("Workflow Resource InputClip carrier does not match Source metadata")
+		return nil, errors.New("workflow Resource InputClip carrier does not match Source metadata")
 	}
 	return clip, nil
 }

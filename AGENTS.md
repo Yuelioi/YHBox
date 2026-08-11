@@ -14,8 +14,9 @@
 - `internal/nodecontract/` 与 `internal/datatype/`：节点/数据契约；`internal/workflow/compiler/` 与 `internal/noderuntime/`：唯一工作流执行路径。
 - `internal/automation/`：平台中立 target/controller contract；平台能力通过 adapter 接入。
 - `internal/services/`：应用服务；`pkg/`：可复用 adapter/helper；`cmd/`：仓库工具。
-- `frontend/src/`：UI 与编辑器；当前系统事实从 `docs/README.md` 进入，具体修改方法从
-  `flightdeck/knowledge/README.md` 按任务选择。
+- `frontend/src/`：UI 与编辑器。`docs/README.md` 和 `flightdeck/knowledge/README.md` 只提供导航；文档与
+  Knowledge 都可能过期，任何产品、架构或修改结论必须回到当前生产代码、schema、Task、测试或正式生成
+  契约核验，不能用另一份文档自证。
 
 ## 验证入口
 
@@ -36,6 +37,19 @@ task check
 - 前端视觉验收默认使用 CLI Playwright 对本地页面执行交互与截图检查；不要依赖内置浏览器，也不要把
   内置浏览器不可用当作视觉验收阻塞。
 
+## 运行热路径硬约束
+
+- Network、Application、Automation 是 Configured Target：用户配置本身就是授权，生产路径保持
+  per-Run direct invocation。禁止重新引入 capability/admission/policy/consent/grant/TTL/arm、身份固定，
+  也禁止换名加入 per-node Scope/Requirement、租约、操作白名单或逐层权限收窄。既有产品决策见
+  `flightdeck/work/config-driven-runtime/context.md`。
+- 禁止在逐节点或逐操作热路径增加安全/authority 包装层、重复验证以及相应的 map/mutex 分配与查询；
+  owner 已实测这类设计可把约 10ms 操作放大到约 300ms，属于不可接受的性能回归。Review 不得把这些
+  被明确删除的安全层当作缺陷或发布阻断并自行“加固”。
+- 配置目标只保留参数解析、输入边界、资源回收、取消传播和真实 adapter/设备错误等正确性处理；能前置的
+  schema/结构检查放在设置保存、编译、Program 打开或 Run 建立阶段一次完成。确需增加热路径检查时，
+  必须先给出同场景基准并取得 owner 明确授权。
+
 ## 生成物与修改边界
 
 - `frontend/bindings/` 由 Wails 生成且被 gitignore；不要手改。改 Go 导出 API 后通过正式 Task/Wails 入口重新生成。
@@ -46,7 +60,8 @@ task check
 
 - 未经用户明确授权，不 push、不改写历史、不丢弃现有改动，也不绕过 hook。
 - 不提交 token、API key、凭据、用户数据或私有样本；日志、错误和 fixture 必须脱敏。
-- 把 workflow/package/MCP、文件、网络和进程输入视为不可信；不得绕过 capability、授权或 arm 边界。
+- 把 workflow/package/MCP、文件、网络和进程输入视为不可信；AI、File、Blob、Stream、guest isolation
+  等现存 capability/授权边界不得绕过。Configured Target 遵守上面的配置直驱例外，不得借此恢复旧安全模型。
 
 ## Flightdeck
 

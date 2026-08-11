@@ -6,7 +6,9 @@ import (
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/nodecontract"
+	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
@@ -57,6 +59,52 @@ func TestServicePersistsExactNodeTemplateWithoutInstanceState(t *testing.T) {
 		if contains := string(content); len(contains) > 0 && stringContains(contains, forbidden) {
 			t.Fatalf("persisted snippet contains %s: %s", forbidden, contains)
 		}
+	}
+}
+
+func TestServiceMigratesStaleNodeRefAndDurablyReopens(t *testing.T) {
+	root := t.TempDir()
+	store, err := NewStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy, err := NewService(store).Save(&Snippet{
+		Name: "Legacy move pointer",
+		Payload: NodeTemplate{
+			NodeRef: nodecontract.NodeRef{
+				NodeTypeID:     "https://schemas.yotta.dev/nodes/automation/move-pointer",
+				Version:        "1.0.0",
+				SemanticDigest: artifact.Digest("sha256:2bf1f8059f1269e407d2aedf4f717cc6c0b860eb46b92abd1794a3aa3bf559af"),
+			},
+			Config:   map[string]any{"slot": "desktop-window"},
+			Bindings: map[string]schema.InputBinding{},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	projection := currentAuthoringProjection(t)
+	migrated, err := NewServiceWithAuthoring(store, projection).Get(legacy.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current, ok := projection.Node(legacy.Payload.NodeRef.NodeTypeID)
+	if !ok || migrated.Payload.NodeRef != current.NodeRef {
+		t.Fatalf("migrated NodeRef = %+v, current = %+v", migrated.Payload.NodeRef, current.NodeRef)
+	}
+	if got := string(migrated.Payload.Bindings["duration"].Value); got != "300" {
+		t.Fatalf("legacy duration = %s", got)
+	}
+	if got := string(migrated.Payload.Bindings["motion"].Value); got != `"linear"` {
+		t.Fatalf("legacy motion = %s", got)
+	}
+	reopened, err := NewStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	persisted, ok := reopened.Get(legacy.ID)
+	if !ok || persisted.Payload.NodeRef != current.NodeRef {
+		t.Fatalf("persisted migrated snippet = %+v", persisted)
 	}
 }
 
@@ -143,4 +191,20 @@ func stringContains(value, fragment string) bool {
 		}
 	}
 	return false
+}
+
+func currentAuthoringProjection(t *testing.T) nodeauthoring.Snapshot {
+	t.Helper()
+	builtins, err := nodes.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	projection, err := nodeauthoring.Project(nodeauthoring.Input{
+		Catalog: builtins.Catalog, Types: builtins.Types, Capabilities: builtins.Capabilities,
+		Contracts: builtins.Contracts, GeneratorVersion: nodes.GeneratorVersion,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return projection
 }

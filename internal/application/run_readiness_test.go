@@ -10,9 +10,15 @@ import (
 
 func TestClassifyRunStartSeparatesBlockedRunsFromSystemFailures(t *testing.T) {
 	invalid := ClassifyRunStart(StartRunResult{Diagnostics: []schema.Diagnostic{{
-		Severity: schema.SeverityError, Code: "INVALID_CONFIG", NodeID: "click",
+		Severity: schema.SeverityError, Code: "UNKNOWN_PORT", NodeID: "click",
+		Params: map[string]any{
+			"fromNodeId": "wait", "fromPortId": "found",
+			"toNodeId": "click", "toPortId": "in",
+		},
 	}}}, nil)
-	if invalid.State != RunReadinessWorkflowInvalid || invalid.Code != "INVALID_CONFIG" || !invalid.UserFixable() {
+	if invalid.State != RunReadinessWorkflowInvalid || invalid.Code != "UNKNOWN_PORT" || !invalid.UserFixable() ||
+		invalid.FromNodeID != "wait" || invalid.FromPortID != "found" ||
+		invalid.ToNodeID != "click" || invalid.ToPortID != "in" {
 		t.Fatalf("invalid readiness = %#v", invalid)
 	}
 

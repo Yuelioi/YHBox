@@ -6,6 +6,8 @@ const source = readFileSync(
   join(process.cwd(), 'src/components/schedules/ScheduleListPanel.vue'),
   'utf8',
 )
+const schedulesView = readFileSync(join(process.cwd(), 'src/views/SchedulesView.vue'), 'utf8')
+const editorView = readFileSync(join(process.cwd(), 'src/views/WorkflowEditorView.vue'), 'utf8')
 
 describe('ScheduleListPanel structure', () => {
   it('uses the shared management table language with selectable rows', () => {
@@ -29,6 +31,14 @@ describe('ScheduleListPanel structure', () => {
     expect(source).toContain('data-testid="schedule-readiness"')
     expect(source).toContain('data-testid="schedule-repair"')
     expect(source).toContain('runReadinessMessage(readinessOutcome(schedule.lastReadiness))')
+    expect(source).not.toContain('<span class="truncate">{{ lastReadinessLabel(schedule) }}</span>')
+  })
+
+  it('opens the failed workflow at the diagnostic node instead of offering a vague repair', () => {
+    expect(schedulesView).toContain('focusGraphPath')
+    expect(schedulesView).toContain('focusNode')
+    expect(editorView).toContain('route.query.focusGraphPath')
+    expect(editorView).toContain('route.query.focusNode')
   })
 
   it('supports metadata and date columns without a management-mode branch', () => {

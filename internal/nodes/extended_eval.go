@@ -426,7 +426,7 @@ func stringToNumber(_ context.Context, inputs map[string]json.RawMessage, _ map[
 	if err != nil {
 		return nil, err
 	}
-	if text == "" || text != strings.TrimSpace(text) {
+	if text == "" || text != strings.TrimSpace(text) || !json.Valid([]byte(text)) {
 		return nil, &InlineFailure{Code: invalidNumberCode, Cause: errors.New("number string is not canonical")}
 	}
 	value, err := strconv.ParseFloat(text, 64)
@@ -445,7 +445,7 @@ func stringToInteger(_ context.Context, inputs map[string]json.RawMessage, _ map
 	if err != nil {
 		return nil, err
 	}
-	if text == "" || text != strings.TrimSpace(text) || strings.HasPrefix(text, "+") {
+	if text == "" || text != strings.TrimSpace(text) || !json.Valid([]byte(text)) {
 		return nil, &InlineFailure{Code: invalidIntegerCode, Cause: errors.New("integer string is not canonical")}
 	}
 	value, err := strconv.ParseInt(text, 10, 64)

@@ -52,9 +52,6 @@ func automationInput(nodeTypeID, operation string) nodeadapter.Adapter {
 		if err := installed.OpenEffectResponse(raw); err != nil {
 			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}
-		if err := invocation.Targets.Drop(context.WithoutCancel(ctx), handle); err != nil {
-			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
-		}
 		return nodeadapter.AdapterResult{ExecOutputs: []string{"completed"}}, nil
 	}
 }

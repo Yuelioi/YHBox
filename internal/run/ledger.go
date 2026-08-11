@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	ledgerSummaryFormat  = "yotta.run-summary"
-	ledgerSummaryVersion = "1"
+	LedgerSummaryFormat  = "yotta.run-summary"
+	LedgerSummaryVersion = "1"
 )
 
 type ledgerSummaryDocument struct {
@@ -78,11 +78,11 @@ func ledgerRecord(record Record, valueCatalog datatype.ValueTypeCatalog) (catalo
 
 func ledgerSummary(record Record) (catalog.RunSummaryRecord, error) {
 	if !record.Valid() {
-		return catalog.RunSummaryRecord{}, errors.New("Run summary requires a valid Record")
+		return catalog.RunSummaryRecord{}, errors.New("run summary requires a valid Record")
 	}
 	document := record.state.document
 	artifactBytes, err := artifact.Marshal(ledgerSummaryDocument{
-		Format: ledgerSummaryFormat, Version: ledgerSummaryVersion,
+		Format: LedgerSummaryFormat, Version: LedgerSummaryVersion,
 		RunID: document.RunID, ProgramHash: document.ProgramHash,
 		CatalogHash: document.CatalogHash, CapabilityPlanDigest: document.CapabilityPlanDigest,
 		GrantDigest: document.GrantDigest, GrantArtifact: document.GrantArtifact,
@@ -176,7 +176,7 @@ func openLedgerRecord(record catalog.RunLedgerRecord, valueCatalog datatype.Valu
 		return Record{}, err
 	}
 	if sealed.Digest() != record.Summary.Digest {
-		return Record{}, errors.New("Run Ledger head digest mismatch")
+		return Record{}, errors.New("run Ledger head digest mismatch")
 	}
 	return sealed, nil
 }
@@ -194,7 +194,7 @@ func openLedgerSummary(record catalog.RunSummaryRecord) (Summary, error) {
 		!document.QueuedAt.Equal(record.QueuedAt) ||
 		!equalRunTime(document.StartedAt, record.StartedAt) ||
 		!equalRunTime(document.EndedAt, record.EndedAt) {
-		return Summary{}, errors.New("Run Ledger summary columns disagree with its artifact")
+		return Summary{}, errors.New("run Ledger summary columns disagree with its artifact")
 	}
 	var failure *RunError
 	if document.Error != nil {
@@ -218,7 +218,7 @@ func openLedgerSummaryDocument(raw []byte) (ledgerSummaryDocument, error) {
 	if err := decodeCanonicalLedgerArtifact(raw, &document); err != nil {
 		return ledgerSummaryDocument{}, fmt.Errorf("open Run summary: %w", err)
 	}
-	if document.Format != ledgerSummaryFormat || document.Version != ledgerSummaryVersion {
+	if document.Format != LedgerSummaryFormat || document.Version != LedgerSummaryVersion {
 		return ledgerSummaryDocument{}, errors.New("unsupported Run summary artifact")
 	}
 	return document, nil
@@ -231,7 +231,7 @@ func openLedgerEvent(stored catalog.RunEventRecord) (journalEntry, error) {
 	}
 	if validateJournalFact(entry) != nil || entry.Sequence != stored.Sequence ||
 		string(entry.Kind) != stored.Kind || !entry.OccurredAt.Equal(stored.OccurredAt) {
-		return journalEntry{}, errors.New("Run event columns disagree with its artifact")
+		return journalEntry{}, errors.New("run event columns disagree with its artifact")
 	}
 	return entry, nil
 }
@@ -242,18 +242,18 @@ func openLedgerValue(stored catalog.RunValueRecord) (durableValue, error) {
 		return durableValue{}, fmt.Errorf("open Run value: %w", err)
 	}
 	if value.ValueID != stored.ValueID || value.ValueDigest != stored.ValueDigest {
-		return durableValue{}, errors.New("Run value columns disagree with its artifact")
+		return durableValue{}, errors.New("run value columns disagree with its artifact")
 	}
 	return value, nil
 }
 
 func decodeCanonicalLedgerArtifact(raw []byte, destination any) error {
 	if len(raw) == 0 || len(raw) > MaxRecordBytes {
-		return errors.New("Run Ledger artifact exceeds byte budget")
+		return errors.New("run Ledger artifact exceeds byte budget")
 	}
 	canonical, err := artifact.Canonicalize(raw)
 	if err != nil || !bytes.Equal(canonical, raw) {
-		return errors.New("Run Ledger artifact is not canonical")
+		return errors.New("run Ledger artifact is not canonical")
 	}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
@@ -262,7 +262,7 @@ func decodeCanonicalLedgerArtifact(raw []byte, destination any) error {
 	}
 	var trailing any
 	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		return errors.New("Run Ledger artifact contains trailing values")
+		return errors.New("run Ledger artifact contains trailing values")
 	}
 	return nil
 }

@@ -14,6 +14,11 @@ Workflow 只绑定稳定 slot。Settings 的 installation 描述 target kind、a
 adapter-owned profile；运行时才解析 HWND、ADB connection 或 CDP session。当前 target kind 是 desktop
 window、Android device 和 Browser CDP，consumer 应使用语义 descriptor，不硬编码 Win32 identity。
 
+Configured Target 的配置本身就是授权。Application 为每个 Run 取得一次 immutable target generation，并让
+节点直接调用该 Run 的 session；不要重新加入逐节点 consent、grant、identity scan、全量 profile 校验或其它
+通用安全层。需要的 validation 放在设置保存/installation 构造、Run snapshot 或 adapter 的具体 operation
+边界，不能让每个 10ms 输入/捕获动作重复承担数百毫秒的配置验证。
+
 ## Input semantics
 
 - `sendinput` 写入系统输入流并使用真实前台/光标，适合读取 Raw Input/异步状态的游戏；它受 UIPI、前台、

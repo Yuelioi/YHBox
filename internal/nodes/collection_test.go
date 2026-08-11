@@ -71,6 +71,20 @@ func TestCollectionEvaluatorsAreStrictAndImmutable(t *testing.T) {
 	if err != nil || string(appended["result"]) != `[1,2,3]` {
 		t.Fatalf("append = %s, %v", appended["result"], err)
 	}
+	joined, err := evaluate(JoinNodeID, map[string]json.RawMessage{"list": json.RawMessage(`["a","节点"]`), "separator": json.RawMessage(`"/"`)})
+	if err != nil || string(joined["result"]) != `"a/节点"` {
+		t.Fatalf("join = %s, %v", joined["result"], err)
+	}
+	length, err := evaluate(ListLengthNodeID, map[string]json.RawMessage{"list": json.RawMessage(`[1,2,3]`)})
+	if err != nil || string(length["result"]) != `3` {
+		t.Fatalf("length = %s, %v", length["result"], err)
+	}
+	sliced, err := evaluate(ListSliceNodeID, map[string]json.RawMessage{
+		"list": json.RawMessage(`[1,2,3]`), "start": json.RawMessage(`-2`), "count": json.RawMessage(`-1`),
+	})
+	if err != nil || string(sliced["result"]) != `[1,2,3]` {
+		t.Fatalf("slice = %s, %v", sliced["result"], err)
+	}
 	contains, err := evaluate(ListContainsNodeID, map[string]json.RawMessage{"list": json.RawMessage(`[{"b":2,"a":1}]`), "value": json.RawMessage(`{"a":1,"b":2}`)})
 	if err != nil || string(contains["result"]) != `true` {
 		t.Fatalf("contains = %s, %v", contains["result"], err)

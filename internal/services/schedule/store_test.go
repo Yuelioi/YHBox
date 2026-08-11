@@ -1,6 +1,7 @@
 package schedule
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -83,7 +84,7 @@ func TestScheduleStoreMigratesLegacyWorkflowTargets(t *testing.T) {
 		t.Fatal(err)
 	}
 	migrated, found := store.Get("legacy")
-	if !found || !migrated.Enabled || migrated.SchemaVersion != CurrentSchemaVersion ||
+	if !found || migrated.Enabled || migrated.SchemaVersion != CurrentSchemaVersion ||
 		len(migrated.Targets) != 1 || migrated.Targets[0].Kind != TargetWorkflow ||
 		migrated.Targets[0].ID != "workflow-1" {
 		t.Fatalf("migrated legacy schedule = %#v, found=%v", migrated, found)
@@ -119,6 +120,25 @@ func TestScheduleStoreMigratesVersion4WithImmediateTargets(t *testing.T) {
 	migrated, found := store.Get("v4")
 	if !found || migrated.SchemaVersion != CurrentSchemaVersion || migrated.TargetIntervalSeconds != 0 {
 		t.Fatalf("migrated v4 schedule = %#v, found=%v", migrated, found)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "v4.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var persisted Schedule
+	if err := json.Unmarshal(raw, &persisted); err != nil {
+		t.Fatal(err)
+	}
+	if persisted.SchemaVersion != CurrentSchemaVersion {
+		t.Fatalf("persisted schemaVersion = %q, want %q", persisted.SchemaVersion, CurrentSchemaVersion)
+	}
+	reopened, err := NewStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reloaded, found := reopened.Get("v4")
+	if !found || reloaded.SchemaVersion != CurrentSchemaVersion {
+		t.Fatalf("reloaded schedule = %#v, found=%v", reloaded, found)
 	}
 }
 

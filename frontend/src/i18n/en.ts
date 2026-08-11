@@ -548,11 +548,13 @@ export default {
     conversion: {
       blobToStream: {
         title: 'Blob to stream',
-        description: 'Open durable binary content as a leased runtime stream.',
+        description:
+          'Open durable binary content as a leased stream that is valid only for the current run.',
       },
       streamToBlob: {
         title: 'Stream to blob',
-        description: 'Consume a leased runtime stream and commit it as durable binary content.',
+        description:
+          'Consume a leased stream from the current run and commit it as durable binary content.',
         config: {
           mediaType: {
             title: 'Media type',
@@ -705,6 +707,18 @@ export default {
         title: 'Run script',
         description:
           'Execute JavaScript in a one-shot isolated worker with canonical JSON input and output.',
+        input: {
+          input: {
+            title: 'Input',
+            description: 'Canonical JSON exposed to the guest as the isolated input value.',
+          },
+        },
+        output: {
+          result: {
+            title: 'Result',
+            description: 'Canonical JSON-compatible value returned by the guest.',
+          },
+        },
         config: {
           source: {
             title: 'JavaScript source',
@@ -722,15 +736,45 @@ export default {
       readText: {
         title: 'Read workspace text',
         description: 'Read bounded text from the Yotta-managed workflow file workspace.',
+        input: {
+          path: {
+            title: 'Relative path',
+            description: 'File path relative to the managed workflow workspace.',
+          },
+        },
+        output: {
+          text: { title: 'Text', description: 'Decoded file text.' },
+          metadata: { title: 'File metadata', description: 'Canonical metadata for the file.' },
+        },
       },
       readJSON: {
         title: 'Read workspace JSON',
         description:
           'Read and strictly parse one UTF-8 JSON document from the workflow file workspace.',
+        input: {
+          path: {
+            title: 'Relative path',
+            description: 'JSON file path relative to the managed workflow workspace.',
+          },
+        },
+        output: {
+          value: { title: 'JSON value', description: 'Canonical parsed JSON value.' },
+          text: { title: 'Source text', description: 'Original decoded UTF-8 document text.' },
+          metadata: { title: 'File metadata', description: 'Canonical metadata for the file.' },
+        },
       },
       stat: {
         title: 'Inspect workspace file',
         description: 'Read canonical metadata without exposing an ambient host filesystem path.',
+        input: {
+          path: {
+            title: 'Relative path',
+            description: 'File or directory path relative to the managed workflow workspace.',
+          },
+        },
+        output: {
+          metadata: { title: 'File metadata', description: 'Canonical metadata for the path.' },
+        },
       },
       loadImage: {
         title: 'Load workspace image',
@@ -790,6 +834,24 @@ export default {
       httpGet: {
         title: 'HTTP GET',
         description: 'Read UTF-8 text from a configured HTTP base URL using a relative path.',
+        input: {
+          path: {
+            title: 'Relative path',
+            description: 'Path resolved against the configured HTTP base URL.',
+          },
+          query: {
+            title: 'Query',
+            description: 'JSON object whose values are arrays of query-string values.',
+          },
+        },
+        output: {
+          status: { title: 'Status', description: 'HTTP response status code.' },
+          body: { title: 'Body', description: 'Bounded UTF-8 response body.' },
+          'content-type': {
+            title: 'Content type',
+            description: 'Response Content-Type header, or an empty string when absent.',
+          },
+        },
         config: {
           slot: {
             title: 'HTTP target slot',
@@ -806,6 +868,12 @@ export default {
       terminate: {
         title: 'Terminate application',
         description: 'Terminate processes that belong to the configured path and return the count.',
+        output: {
+          'terminated-count': {
+            title: 'Terminated count',
+            description: 'Number of matching processes terminated by this invocation.',
+          },
+        },
       },
       config: {
         slot: {
@@ -1286,6 +1354,13 @@ export default {
         title: 'Write log',
         description:
           'Write one bounded, Run-attributed message and record only its digest in the action journal.',
+        input: {
+          message: {
+            title: 'Message',
+            description:
+              'Optional observable value; when connected, it overrides the configured message.',
+          },
+        },
         config: {
           message: {
             title: 'Message',
@@ -1317,8 +1392,7 @@ export default {
       },
       delay: {
         title: 'Delay',
-        description:
-          'Wait for a bounded duration with cooperative Run cancellation, then emit Done.',
+        description: 'Wait up to 24 hours with cooperative Run cancellation, then emit Done.',
       },
       endBranch: {
         title: 'End branch',
@@ -1327,17 +1401,17 @@ export default {
       repeat: {
         title: 'Repeat',
         description:
-          'Run an isolated activation a bounded number of times. Body drains before the next iteration; Break and Continue target this exact region.',
+          'Run an isolated activation 0–10,000 times. Body drains before the next iteration; Break and Continue target this exact region.',
       },
       forEach: {
         title: 'For each',
         description:
-          'Run an isolated activation once per typed list item and expose the current Index and Item.',
+          'Run an isolated activation once per typed list item, up to 10,000 items, and expose the current Index and Item.',
       },
       retry: {
         title: 'Retry region',
         description:
-          'Retry only failures explicitly routed back to this region. Completed and Exhausted are separate control results.',
+          'Make 1–100 attempts and retry only failures explicitly routed back to this region. Completed and Exhausted are separate results.',
       },
       switch: {
         title: 'Typed switch',
@@ -1390,38 +1464,39 @@ export default {
       },
       breakFileMetadata: {
         title: 'Break file metadata',
-        description: 'Exposes path, name, media type, size, modified time, and directory flag.',
+        description:
+          'Exposes path, name, extension, media type, size, modified time, and directory flag.',
       },
     },
     builtin: {
       'collection-append': {
         title: 'List Append',
         description:
-          'Add one item to the end, producing a NEW list (the original is unchanged; to accumulate, store it back with Set Variable using type "any").',
+          'Add one same-typed item and return a new list; the input list is never mutated.',
       },
       'collection-contains': {
         title: 'List Contains',
         description:
-          'Whether the list has an item equal to Value. Same rules as the Equals node: same types compare directly, different types compare as text.',
+          'Test whether a same-typed equatable value occurs in the list using canonical equality; no text coercion is performed.',
       },
       'collection-get': {
         title: 'List Get',
         description:
-          'Take the item at Index (counting from 0). Out-of-range gives null — an item can itself be null, so check List Length first to tell them apart.',
+          'Return the item at a zero-based index. A negative or out-of-range index fails explicitly; use List Length when the index is uncertain.',
       },
       'collection-join': {
         title: 'Join',
         description:
-          'Join list items into one piece of text with a separator. Non-text items are converted automatically.',
+          'Join a list of text values with a separator. Non-text lists are not accepted.',
       },
       'collection-length': {
         title: 'List Length',
-        description: 'Count the items in a list. A non-list counts as 0.',
+        description: 'Return the number of items in a strongly typed list.',
       },
       'collection-slice': {
         title: 'List Slice',
         description:
-          'Take Count items starting at Start, as a new list. Count -1 (default) takes to the end, 0 gives an empty list. Out-of-range Start gives an empty list.',
+          'Return a new list from Start for Count items. Negative Start clamps to 0; a negative Count takes the remainder; zero or an out-of-range Start returns an empty list.',
       },
       'collection-split': {
         title: 'Split',
@@ -1431,7 +1506,7 @@ export default {
       'comparison-equal': {
         title: 'Equals',
         description:
-          'Tells whether two values are equal, giving true/false. Accepts any type; same types compare directly, while different types are both turned into text first (so the number 1 and the text "1" count as equal).',
+          'Compares the canonical values of one exact type. It never silently turns different types into text.',
       },
       'comparison-greater-or-equal': {
         title: 'Greater or equal',
@@ -1450,19 +1525,18 @@ export default {
         description: 'Tells whether A < B, giving true/false.',
       },
       'comparison-not-equal': {
-        title: 'Not equals',
+        title: 'Not equal',
         description:
-          'Tells whether two values are not equal, giving true/false. Compares the same way as Equals: same types directly, different types both turned into text first.',
+          'Reports whether the canonical values of one exact type differ, without cross-type text coercion.',
       },
       'conversion-string-to-boolean': {
         title: 'To bool',
-        description:
-          'Turns a value into true/false. An empty value, the number 0, and empty text count as false; everything else counts as true.',
+        description: 'Strictly parses lowercase true or false; every other value fails.',
       },
       'conversion-string-to-number': {
         title: 'To number',
         description:
-          'Turns a value into a number, e.g. the text "12.5" becomes 12.5 and true becomes 1. Anything that cannot convert (like plain letters) gives 0.',
+          'Strictly parses a finite JSON decimal number. Whitespace, non-numeric text, and out-of-range values fail.',
       },
       'conversion-string-to-integer': {
         title: 'Text to integer',
@@ -1490,12 +1564,12 @@ export default {
       'conversion-to-string': {
         title: 'To string',
         description:
-          'Turns any value into text. Numbers, true/false, points and more all convert; an empty value becomes "null".',
+          'Turns an observable inline JSON value into text. Strings keep their contents; other values use canonical JSON. Blobs, images, and runtime streams are not accepted.',
       },
       'geometry-make-point': {
         title: 'Make Point',
         description:
-          'Build a coordinate value from two numbers (X, Y) and a unit. Wire it to nodes that need a coordinate such as Click or Scroll. Use it when you need to compute coordinates dynamically.',
+          'Build a typed coordinate from X, Y, and either ratio or px units. Ratio coordinates use the 0–1 frame space.',
       },
       'geometry-offset-point': {
         title: 'Offset Point',
@@ -1505,26 +1579,27 @@ export default {
       'geometry-point-distance': {
         title: 'Point Distance',
         description:
-          'Calculate the straight-line distance between two coordinates. Useful for checking whether a detection is close enough to a target point.',
+          'Calculate straight-line distance between two points with the same unit; the result uses that unit and mixed units fail.',
       },
       'geometry-region-around-point': {
         title: 'ROI Around Point',
         description:
-          'Create an ROI for screenshot or detection around a center point. Width and height are percentages and the result is clamped inside the screen.',
+          'Create a centered ROI in the center point’s unit. Ratio regions are clamped inside the frame; px regions preserve pixel dimensions.',
       },
       'json-parse': {
         title: 'Parse JSON',
         description:
-          'Parses JSON text into a structured value that can feed JsonPath, Fetch request bodies, or other JSON inputs.',
+          'Parses and canonicalizes one JSON document. Trailing values, negative zero, and numbers outside the interoperable profile are rejected.',
       },
       'json-path': {
         title: 'JSON path',
         description:
-          'Extracts fields or array items from a JSON value. Supports $, .field, [index], and [*], for example $.items[0].url or $.items[*].url.',
+          'Extracts fields or array items using $, .field, [index], and [*]. A missing result is null; wildcard results preserve missing positions with null.',
       },
       'json-stringify': {
         title: 'To JSON text',
-        description: 'Serializes any value to JSON text for logging, API calls, or file output.',
+        description:
+          'Canonically serializes an observable inline JSON value. Blobs, images, and runtime streams are not accepted directly.',
       },
       'logic-and': {
         title: 'Logical AND',
@@ -1543,7 +1618,7 @@ export default {
       'logic-select': {
         title: 'Select (ternary)',
         description:
-          'Looks at the condition and picks one of two values to output: A when the condition is true, B when it is false. A and B can be any type.',
+          'Outputs When True or When False according to the condition. Both branches must use the same observable inline JSON type.',
       },
       'math-absolute': {
         title: 'Abs',
@@ -1568,7 +1643,7 @@ export default {
       },
       'math-integer-negate': {
         title: 'Integer negate',
-        description: 'Flips an integer sign while preserving its type; overflow fails.',
+        description: 'Flips an integer sign while preserving its type.',
       },
       'math-integer-absolute': {
         title: 'Integer absolute',
@@ -1594,15 +1669,15 @@ export default {
       },
       'math-divide': {
         title: 'Divide',
-        description:
-          'Divides A by B and gives the quotient. When the divisor is 0 the result is NaN (not a number).',
+        description: 'Divides A by B. A zero divisor or a non-finite result fails explicitly.',
       },
       'math-floor': { title: 'Floor', description: 'Round X down: 3.7 gives 3, -3.2 gives -4.' },
       'math-maximum': { title: 'Max', description: 'The larger of two numbers.' },
       'math-minimum': { title: 'Min', description: 'The smaller of two numbers.' },
       'math-modulo': {
         title: 'Modulo',
-        description: 'Gives the remainder of A divided by B; works with decimals too.',
+        description:
+          'Gives the remainder of A divided by B; decimals are supported and a zero divisor fails.',
       },
       'math-multiply': {
         title: 'Multiply',
@@ -1615,7 +1690,7 @@ export default {
       'math-power': {
         title: 'Pow',
         description:
-          'Base raised to Exp. Math conventions apply: negative base with fractional exponent gives NaN, 0 to a negative power gives Infinity, 0^0 gives 1.',
+          'Raises Base to Exp. Fractional powers of a negative base report a domain error, non-finite results fail, and 0^0 is 1.',
       },
       'math-round': {
         title: 'Round',
@@ -1624,7 +1699,8 @@ export default {
       },
       'math-square-root': {
         title: 'Sqrt',
-        description: 'Square root of X. Negative X gives NaN (wire an Abs node first if needed).',
+        description:
+          'Square root of X. Negative values report a domain error (wire an Abs node first if needed).',
       },
       'math-subtract': {
         title: 'Subtract',
@@ -1633,7 +1709,7 @@ export default {
       'text-contains': {
         title: 'Contains',
         description:
-          'Tells whether the needle text appears somewhere inside the haystack, giving true/false. Case-sensitive; non-text inputs are turned into text first.',
+          'Tells whether one text value contains the requested substring. Both inputs must be text, and matching is case-sensitive.',
       },
       'text-ends-with': {
         title: 'Ends With',
@@ -1653,12 +1729,12 @@ export default {
       'text-regex-extract': {
         title: 'Regex Extract',
         description:
-          'Extract the first match of the regular expression; with capture groups, group 1 is taken. No match or an invalid pattern gives an empty string (invalid patterns also log a warning).',
+          'Extract the first regular-expression match; with capture groups, group 1 is taken. No match gives an empty string, while an invalid pattern fails the run.',
       },
       'text-regex-match': {
         title: 'Regex Match',
         description:
-          "Whether any part of the text matches the regular expression (search semantics: b matches abc). For a full match wrap the pattern in ^ and {'$'}. An invalid pattern always gives false and logs a warning.",
+          "Whether any part of the text matches the regular expression (search semantics: b matches abc). For a full match wrap the pattern in ^ and {'$'}. An invalid pattern fails the run.",
       },
       'text-replace': {
         title: 'Replace',
@@ -1851,8 +1927,10 @@ export default {
     UNUSED_CAPABILITY_DECLARATION: 'A capability declaration is unused',
     INVALID_CATALOG: 'The node catalog is invalid',
     UNKNOWN_NODE_TYPE: 'The node type is not in the catalog',
-    NODE_CONTRACT_MISMATCH: 'The node contract digest does not match',
-    UNKNOWN_PORT: 'An edge references an unknown port',
+    NODE_CONTRACT_MISMATCH:
+      'This node definition does not match the current version. Open the workflow, locate the node, then upgrade or replace it with the current node.',
+    UNKNOWN_PORT:
+      'A workflow connection points to an input or output that no longer exists. Open the workflow, locate the affected node, remove the old connection, then reconnect using the inputs or outputs currently shown.',
     EDGE_CHANNEL_MISMATCH: 'Edge channel kinds do not match',
     TYPE_MISMATCH: 'Data types do not match',
     UNRESOLVED_TYPE: 'A data type could not be resolved',
@@ -1867,6 +1945,7 @@ export default {
     INVALID_STATE_VARIABLE: 'A state-variable declaration is invalid',
     INVALID_STATE_ACCESS: 'State-variable access is invalid',
     INVALID_CAPABILITY_BINDING: 'A capability binding is invalid',
+    INVALID_INSTRUCTION_PLACEMENT: 'The node instruction is not valid in this graph',
     NO_EXECUTION_ROOT: 'No execution root is available',
     UNREACHABLE_EXECUTION: 'An execution node is unreachable',
     DATA_CYCLE: 'Data dependencies form a cycle',
@@ -1886,6 +1965,84 @@ export default {
       'The operation did not complete. Try again; if it continues, open diagnostics (code: {code}).',
     TRANSPORT_TIMEOUT: 'The request timed out; try again',
     TRANSPORT_UNAVAILABLE: 'The backend connection is unavailable; restart Yotta',
+    math: {
+      division_by_zero:
+        'The divisor cannot be zero; check the B input of the Divide or Modulo node',
+      domain_error:
+        'The value is outside the real-number domain; check the Power or Square Root inputs',
+      result_not_representable:
+        'The result is not a storable finite number or exceeds the safe-integer range',
+    },
+    text: {
+      invalid_regex: 'The regular expression is invalid; correct its syntax and try again',
+    },
+    conversion: {
+      invalid_number:
+        'The text is not a finite decimal number; remove whitespace and check its syntax and range',
+      invalid_integer:
+        'The value is not a safe integer; check its syntax and the +/-9007199254740991 range',
+      invalid_boolean: 'The text is not a boolean; only lowercase true or false is accepted',
+      blob_to_stream_failed:
+        'The binary content could not be opened as a stream; check that the resource is still available',
+      stream_to_blob_failed: 'The runtime stream could not be committed as durable binary content',
+    },
+    json: {
+      invalid_document:
+        'The JSON document is invalid or contains numbers outside the interoperable profile',
+      invalid_path: 'The JSON path is invalid or exceeds the 64-step or 1024-byte budget',
+    },
+    ai: {
+      generation_failed:
+        'The AI model could not complete generation; check the selected model, endpoint, and request.',
+    },
+    collection: {
+      index_out_of_range:
+        'The list index is outside the available items; check List Length or the index value.',
+    },
+    control: {
+      delay_failed: 'The delay could not complete; check cancellation and the requested duration.',
+      switch_failed: 'The switch value or one of its cases is invalid for the resolved type.',
+      thrown: 'The workflow was explicitly failed by a Fail workflow node.',
+    },
+    geometry: {
+      unit_mismatch:
+        'The points use different coordinate units; make both ratio coordinates or both pixel coordinates.',
+    },
+    inputclip: {
+      invalid: 'The input recording clip is invalid or no longer available.',
+    },
+    macro: {
+      invalid: 'The macro is invalid or no longer available.',
+    },
+    observability: {
+      log_contract_violation: 'The workflow log payload violated its runtime contract.',
+      log_write_failed: 'The workflow log entry could not be recorded.',
+    },
+    random: {
+      empty_choice: 'Random Choice requires a non-empty typed list.',
+      entropy_unavailable:
+        'The host entropy source is unavailable; the random value was not produced.',
+      invalid_probability: 'Probability must be a finite number from 0 through 1.',
+      invalid_range: 'The random range is invalid or cannot be represented.',
+    },
+    state: {
+      read_failed: 'The Run-local state value could not be read.',
+      update_failed: 'The numeric state value could not be updated atomically.',
+      write_failed: 'The Run-local state value could not be written.',
+    },
+    time: {
+      observation_failed: 'The invocation time could not be recorded.',
+      stopwatch_failed: 'The stopwatch start instant or elapsed value is invalid.',
+    },
+    vision: {
+      analysis_failed: 'Image analysis could not complete.',
+      color_range_invalid: 'The color range is invalid for the selected color space.',
+      image_invalid: 'The image is invalid, unsupported, or outside the processing budget.',
+      match_failed: 'Template matching could not complete.',
+      region_invalid: 'The image region is invalid or lies outside the frame.',
+      template_invalid:
+        'The template image is invalid, unsupported, or outside the processing budget.',
+    },
     admission: {
       target_unavailable:
         'A required target is unavailable. Check that it is configured and currently matches.',
@@ -1918,6 +2075,8 @@ export default {
       playback_busy: 'Input playback is busy',
       unsupported_host: 'This automation operation is unsupported on the host',
       contract_violation: 'The automation provider violated its contract',
+      dual_color_bar_not_found: 'The dual color bar was not found before the timeout.',
+      observation_failed: 'The automation target could not produce the requested observation.',
     },
     network: {
       invalid_request: 'The network request is invalid',
@@ -1933,6 +2092,9 @@ export default {
       is_directory: 'A file was expected, but the target is a directory',
       read_failed: 'The file could not be read',
       contract_violation: 'The filesystem provider violated its contract',
+      decode_failed: 'The file could not be decoded with the selected text encoding.',
+      invalid_json: 'The file does not contain one valid interoperable JSON document.',
+      write_failed: 'The file could not be written to the workflow workspace.',
     },
     script: {
       source_invalid: 'The script source is invalid',
@@ -2894,6 +3056,8 @@ export default {
         'AI model “{slot}” is unavailable. Select an installed model in the node or finish configuring it under Settings → AI Connections.',
       ai_credential_unavailable:
         'AI model “{slot}” has no usable API key. Add one under Settings → AI Connections.',
+      unknown_port:
+        'The connection “{fromNodeId} / {fromPortId}” → “{toNodeId} / {toPortId}” is no longer valid because an input or output is missing. Open the workflow to locate the affected node, remove the old connection, then reconnect using the inputs or outputs currently shown.',
     },
     toast: {
       list_failed: 'Could not load workflows',
@@ -2995,7 +3159,7 @@ export default {
     run_queued: 'Schedule started',
     run_not_started: 'Schedule did not start',
     run_failed: 'Schedule run failed',
-    repair_action: 'Fix workflow',
+    repair_action: 'Open and locate',
     more_action: 'More actions for “{name}”',
     create: 'New schedule',
     back_to_list: 'Back to list',
@@ -3962,6 +4126,8 @@ export default {
       permission: '{status}: this API key cannot use the selected model.',
       invalid_request:
         '{status}: the provider rejected the request. Check the API protocol, model name, and declared capabilities.',
+      invalid_response:
+        '{status}: this address returned a web page or an invalid API response. Check the API base URL, protocol, and reverse-proxy configuration.',
       rate_limit: '{status}: the request is rate- or quota-limited. Try again later.',
       timeout: 'The provider connection timed out. Check the network or retry later.',
       server: '{status}: the provider service is temporarily unavailable. Try again later.',
@@ -4005,34 +4171,30 @@ export default {
     },
   },
   about: {
-    tagline: 'Compose nodes. Run automatically.',
+    tagline: 'Turn repeated actions into workflows you can see, debug, and reuse.',
+    author_label: 'Created by',
+    author_home_action: "Open the author's Bilibili profile",
+    source_action: 'Open the Yotta source repository',
     concepts: {
-      title: 'Core concepts',
+      title: 'From connection to execution',
+      subtitle:
+        'Compose, configure, run, and diagnose in one local workspace without binding a workflow to a temporary window or device session.',
       workflow: {
-        name: 'Workflow',
-        desc: 'The only editable orchestration document. A Source stores typed graphs, configuration, state declarations, and exact NodeRefs, then commits a server-normalized revision.',
+        name: 'Visual workflows',
+        desc: 'Connect inputs, decisions, data processing, and actions as nodes, then split complex flows into readable reusable subgraphs.',
       },
       catalog: {
-        name: 'Node Catalog',
-        desc: 'An immutable snapshot of Node Contracts, data types, capability requirements, and implementation locks. UI, AI, CLI, and docs share its Authoring Projection.',
+        name: 'Typed nodes',
+        desc: 'Inputs, outputs, and connections have explicit types, so invalid ports and missing configuration surface before a run.',
       },
       program_run: {
-        name: 'Program and Run',
-        desc: 'A checked Source becomes a content-addressed immutable Program. Each execution is an independent, cancellable, auditable Run; only non-target capabilities enter admission when needed.',
+        name: 'Run and debug',
+        desc: 'Normal runs and breakpoint debugging share one execution path, with timeline, logs, and diagnostics explaining every step.',
       },
       installation: {
-        name: 'Configuration and Target',
-        desc: 'Network, application, and automation targets use stable configured slots and are called directly. Models and plugins retain their own capability requirements. Workflows do not persist native handles.',
+        name: 'Local targets',
+        desc: 'Desktop windows, Android, browsers, HTTP, and AI connections stay in local settings while workflows reference stable target slots.',
       },
     },
-    section_author: 'Author · Links',
-    label_author: 'Author',
-    label_source: 'Source',
-    label_site: 'Site',
-    section_stack: 'Tech stack',
-    section_thanks: 'Acknowledgements',
-    label_icon: 'App icon',
-    icon_credit:
-      'Icon sourced from public works on Pixiv; copyright belongs to the original author. For personal use only; please contact for replacement if requested.',
   },
 }

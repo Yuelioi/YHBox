@@ -4,17 +4,20 @@
 
 1. Workflow Source 保存在 Content Catalog，由 `internal/workflowstore.SourceStore` 读取；
    `internal/workflow/authoring.Engine` 只接受 typed commands，`internal/application` 以 base revision CAS 提交。
-2. `internal/workflow/compiler.Compiler` 使用同一份 sealed Node Catalog、Data Type 和 Authoring Projection
-   检查图并生成 immutable、content-addressed Program。
+2. `internal/workflow/compiler.Compiler` 使用 sealed Node Catalog（其中的 Node Contract 引用精确 Data Type）和
+   config validator 检查图并生成 immutable、content-addressed Program。Authoring Projection 从同一 Catalog
+   单独派生给 GUI/AI/MCP，不是 Compiler 输入。
 3. `internal/workflowstore.ProgramStore` 把 Program 放进 `cache/programs`。它是有配额、可淘汰、可重建的
    derived cache，不是 Workflow Source 或备份 authority。
-4. `internal/application.Application` 在执行前持久化 Run、完成 admission，并封存 provider 与 configured
-   target snapshot；同一个 `compiler.Executor` 和 scheduler 执行普通 Run 与 Debug Run。
+4. `internal/application.Application` 先持久化 Program，再取得 provider/configured target generation 并完成
+   capability admission；只有 durable queued Run 创建成功才进入 worker queue。同一个 `compiler.Executor` 和
+   scheduler 执行普通 Run 与 Debug Run。
 5. Run 状态、NodeAttempt、AdapterAction、values 和 events 写入 Run Ledger。进程重启会中断遗留 RUNNING、
    取消未交付 QUEUED，不猜测或透明重放外部副作用。
 
-GUI、headless CLI、Schedule、hotkey、MCP 和 AI authoring 只能调用 Application command；不得绕过它直接
-拼 Source Store、Compiler、Executor 或第二个 queue/debug runtime。
+GUI、headless CLI 与 Schedule 的执行只能调用 Application command；桌面与 CLI 可以是不同进程/runtime
+实例，但不能分叉执行语义。MCP 和 AI authoring 的修改也必须进入正式 Source/typed patch 边界。
+presentation 不得绕过它们直接拼 Source Store、Compiler、Executor 或第二个 queue/debug runtime。
 
 ## Node execution
 
@@ -24,7 +27,8 @@ GUI、headless CLI、Schedule、hotkey、MCP 和 AI authoring 只能调用 Appli
   `internal/nodeauthoring/` 从同一 Catalog 派生前端创作投影。
 - `internal/noderuntime/` 把 exact NodeRef/implementation lock 绑定到 adapter。adapter 只接收 typed input、
   trigger、窄资源/Target session、action recorder 和 state binding，不拥有 graph scheduler。
-- data edge 使用精确 TypeExpression；exec 与 error 是独立 signal route；status event 只进入 Run/debug UI。
+- data edge 使用精确 TypeExpression；exec 与 error 是独立 signal route。status event 不参与图路由，但会先作为
+  `NodeStatus` fact 写入 Run Ledger，再投影到 Run/debug UI。
 - BlobRef 可持久化；Stream、Resource 和 held-input handle 只在所属 Run lease 内有效。
 
 当前节点清单不写进文档。运行 `task nodes`、`task nodes:catalog` 或 `task nodes:authoring` 从 sealed builtins
@@ -41,8 +45,9 @@ Settings 生成不可变 installation/environment snapshot，新 Run 使用新�
 - Automation 目前通过统一语义描述 Win32 desktop window、Android ADB 和 Browser CDP；Workflow 绑定稳定
   slot，不持久化临时 HWND、设备连接或浏览器 session。
 
-配置热替换必须整体发布新 environment；不能只更新一半 provider/target 表。Target、resource、held input
-和 worker 的释放由 Run owner 负责，cancel/failure/teardown 都必须走同一清理路径。
+配置热替换必须整体发布新 environment；不能只更新一半 provider/target 表。Configured Target 的配置本身
+就是授权，新 Run 按 generation 直接调用；不要在每个 node 前再增加 consent/grant/重复 target 验证。
+Target、resource、held input 和 worker 的释放由 Run owner 负责，cancel/failure/teardown 都必须走同一清理路径。
 
 ## Lifecycle
 

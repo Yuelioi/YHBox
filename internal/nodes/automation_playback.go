@@ -13,6 +13,7 @@ import (
 const (
 	InputClipTypeID       = "https://schemas.yotta.dev/types/automation/input-clip/v1"
 	PlayInputClipNodeID   = "https://schemas.yotta.dev/nodes/automation/play-input-clip"
+	PlayInputClipVersion  = "1.1.0"
 	PlayInputClipEffectID = "https://schemas.yotta.dev/effects/automation/play-input-clip/v1"
 	InputClipInvalidCode  = "inputclip.invalid"
 )
@@ -33,7 +34,7 @@ func sealInputClipType() (datatype.Definition, error) {
 
 func definePlayInputClipNode(inputClipRef datatype.TypeRef, blobRead capability.Definition) (BuiltinDefinition, nodecontract.Contract, error) {
 	const schemaID = PlayInputClipNodeID + "/config"
-	contract, err := nodecontract.Seal(nodecontract.Draft{Version: BuiltinNodeVersion,
+	contract, err := nodecontract.Seal(nodecontract.Draft{Version: PlayInputClipVersion,
 		NodeTypeID: PlayInputClipNodeID, ConfigSchemaRoot: schemaID,
 		ConfigSchemaBundle: []datatype.SchemaResource{{ID: schemaID, Schema: json.RawMessage(fmt.Sprintf(`{
 			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",

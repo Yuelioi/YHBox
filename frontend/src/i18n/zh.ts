@@ -458,11 +458,11 @@ export default {
     conversion: {
       blobToStream: {
         title: 'Blob 转流',
-        description: '把持久二进制内容打开为带租约的运行时流。',
+        description: '把持久二进制内容打开为带租约的运行时流；该流只在当前运行内有效。',
       },
       streamToBlob: {
         title: '流转 Blob',
-        description: '消费带租约的运行时流，并提交为持久二进制内容。',
+        description: '消费当前运行内的带租约流，并提交为可持久保存的二进制内容。',
         config: {
           mediaType: {
             title: '媒体类型',
@@ -561,6 +561,12 @@ export default {
       execute: {
         title: '执行脚本',
         description: '在一次性隔离 worker 中执行 JavaScript，输入和输出均为规范化 JSON。',
+        input: {
+          input: { title: '输入', description: '以隔离 input 值提供给 guest 的规范化 JSON。' },
+        },
+        output: {
+          result: { title: '结果', description: 'guest 返回的规范化 JSON 兼容值。' },
+        },
         config: {
           source: {
             title: 'JavaScript 源码',
@@ -577,14 +583,35 @@ export default {
       readText: {
         title: '读取工作区文本',
         description: '从 Yotta 管理的工作流文件区中有界读取文本。',
+        input: {
+          path: { title: '相对路径', description: '相对于工作流文件区的文件路径。' },
+        },
+        output: {
+          text: { title: '文本', description: '解码后的文件文本。' },
+          metadata: { title: '文件信息', description: '该文件的规范化元数据。' },
+        },
       },
       readJSON: {
         title: '读取工作区 JSON',
         description: '从工作流文件区读取并严格解析单个 UTF-8 JSON 文档。',
+        input: {
+          path: { title: '相对路径', description: '相对于工作流文件区的 JSON 文件路径。' },
+        },
+        output: {
+          value: { title: 'JSON 值', description: '解析后的规范化 JSON 值。' },
+          text: { title: '源文本', description: '原始解码后的 UTF-8 文档文本。' },
+          metadata: { title: '文件信息', description: '该文件的规范化元数据。' },
+        },
       },
       stat: {
         title: '检查工作区文件',
         description: '读取规范化元数据，不暴露宿主文件系统的任意路径权限。',
+        input: {
+          path: { title: '相对路径', description: '相对于工作流文件区的文件或目录路径。' },
+        },
+        output: {
+          metadata: { title: '文件信息', description: '该路径的规范化元数据。' },
+        },
       },
       loadImage: {
         title: '加载工作区图片',
@@ -625,6 +652,18 @@ export default {
       httpGet: {
         title: 'HTTP GET',
         description: '使用相对路径，从配置的 HTTP 基础 URL 读取 UTF-8 文本。',
+        input: {
+          path: { title: '相对路径', description: '相对于已配置 HTTP 基础 URL 解析的路径。' },
+          query: { title: '查询参数', description: '值均为查询字符串数组的 JSON 对象。' },
+        },
+        output: {
+          status: { title: '状态码', description: 'HTTP 响应状态码。' },
+          body: { title: '响应正文', description: '有界的 UTF-8 响应正文。' },
+          'content-type': {
+            title: '内容类型',
+            description: '响应的 Content-Type 头；未提供时为空字符串。',
+          },
+        },
         config: {
           slot: {
             title: 'HTTP 目标槽位',
@@ -641,6 +680,12 @@ export default {
       terminate: {
         title: '终止应用',
         description: '终止与配置路径对应的进程，并返回终止数量。',
+        output: {
+          'terminated-count': {
+            title: '终止数量',
+            description: '本次调用终止的匹配进程数量。',
+          },
+        },
       },
       config: {
         slot: {
@@ -916,6 +961,12 @@ export default {
       log: {
         title: '写入日志',
         description: '写入一条有界、带 Run 归属的消息，action journal 只记录其摘要。',
+        input: {
+          message: {
+            title: '消息',
+            description: '可选的可观察值；连接后会覆盖检查器中配置的消息。',
+          },
+        },
         config: {
           message: {
             title: '消息',
@@ -945,7 +996,7 @@ export default {
       },
       delay: {
         title: '延迟',
-        description: '等待一个有上限且可随 Run 取消的时长，然后发出「完成」。',
+        description: '等待最长 24 小时且可随 Run 取消的时长，然后发出「完成」。',
       },
       endBranch: {
         title: '结束分支',
@@ -954,15 +1005,16 @@ export default {
       repeat: {
         title: '重复',
         description:
-          '在有界次数内运行隔离的 activation。本轮「循环体」排空后才进入下一轮，「中断」和「继续」只作用于这个 region。',
+          '运行 0 到 10000 次隔离 activation。本轮「循环体」排空后才进入下一轮，「中断」和「继续」只作用于这个 region。',
       },
       forEach: {
         title: '遍历',
-        description: '对强类型列表的每个元素运行一次隔离 activation，并输出当前索引和元素。',
+        description: '对强类型列表最多 10000 个元素逐一运行隔离 activation，并输出当前索引和元素。',
       },
       retry: {
         title: '重试区域',
-        description: '只重试显式路由回该 region 的失败；「完成」和「耗尽」是两个独立的控制结果。',
+        description:
+          '执行 1 到 100 次尝试，只重试显式路由回该 region 的失败；「完成」和「耗尽」是两个独立结果。',
       },
       switch: {
         title: '强类型 Switch',
@@ -999,37 +1051,35 @@ export default {
       breakColorBlob: { title: '拆分颜色块', description: '取得颜色块面积、中心点和边界区域。' },
       breakFileMetadata: {
         title: '拆分文件信息',
-        description: '取得路径、名称、类型、大小、修改时间和目录标记。',
+        description: '取得路径、名称、扩展名、媒体类型、大小、修改时间和目录标记。',
       },
     },
     builtin: {
       'collection-append': {
         title: '追加元素',
-        description:
-          '在列表末尾加一个元素，得到一个新列表（原列表不变；要累积请配合「写变量」存回去，变量类型选 any）。',
+        description: '追加一个同类型元素并返回新列表；输入列表本身不会被修改。',
       },
       'collection-contains': {
         title: '列表包含',
-        description:
-          '判断列表里有没有等于 Value 的元素。比较规则与「等于」节点相同：类型相同直接比，类型不同转文字比。',
+        description: '按规范值判断列表是否包含同类型、可比较的元素；不会转成文字后再比较。',
       },
       'collection-get': {
         title: '取列表元素',
         description:
-          '取第 Index 个元素（从 0 数）。序号超出范围得 null——元素本身也可能是 null，要区分先用「列表长度」查。',
+          '按从 0 开始的序号取元素；负数或越界会明确失败，序号不确定时先接「列表长度」。',
       },
       'collection-join': {
         title: '拼接列表',
-        description: '把列表里的元素用分隔符连成一段文本。非文本元素自动转文字。',
+        description: '用分隔符拼接文字列表；不接受其它元素类型的列表。',
       },
       'collection-length': {
         title: '列表长度',
-        description: '数列表里有几个元素。不是列表算 0 个。',
+        description: '返回强类型列表中的元素数量。',
       },
       'collection-slice': {
         title: '截取列表',
         description:
-          '从第 Start 个元素开始取 Count 个，得到新列表。Count 填 -1（默认）取到末尾，0 得空列表。起点超出范围得空列表。',
+          '从 Start 起取 Count 个元素并返回新列表。Start 为负时按 0；Count 为负时取到末尾；Count 为 0 或 Start 越界时返回空列表。',
       },
       'collection-split': {
         title: '拆分文本',
@@ -1084,12 +1134,13 @@ export default {
       },
       'conversion-to-string': {
         title: '转字符串',
-        description: '把任意值转成文字。数字、真假、坐标等都能转，空值转成「null」。',
+        description:
+          '把可观察的 JSON 内联值转成文字；字符串保留原内容，其它值使用规范 JSON。Blob、图像和运行时流不支持直接转换。',
       },
       'geometry-make-point': {
         title: '组装坐标',
         description:
-          '把两个数字(X、Y)拼成一个「坐标」值,接到点击/滑动等需要坐标的节点上。可选单位:百分比(0-1,跟窗口大小无关)或像素。需要用算出来的数字当坐标时用它。',
+          '用 X、Y 和 ratio 或 px 单位组装强类型坐标；ratio 坐标使用 0 到 1 的画面空间。',
       },
       'geometry-offset-point': {
         title: '偏移坐标',
@@ -1098,26 +1149,26 @@ export default {
       },
       'geometry-point-distance': {
         title: '两点距离',
-        description: '计算两个坐标之间的直线距离。常用于判断检测结果是否离目标点足够近。',
+        description: '计算两个同单位坐标的直线距离，结果沿用该单位；ratio 与 px 混用会失败。',
       },
       'geometry-region-around-point': {
         title: '点周围区域',
-        description:
-          '以一个坐标为中心生成截图/识别用的 ROI 区域，宽高按百分比填写，并自动限制在屏幕内。',
+        description: '按中心点的单位生成居中 ROI；ratio 区域会限制在画面内，px 区域保留像素宽高。',
       },
       'json-parse': {
         title: '解析 JSON',
         description:
-          '把一段 JSON 文本解析成结构化值，可以接给 JsonPath、Fetch 请求体或其它 JSON 输入。',
+          '把单个 JSON 文档解析并规范化成结构化值；不接受尾随值、负零或超出可互操作范围的数字。',
       },
       'json-path': {
         title: '取 JSON 路径',
         description:
-          '从 JSON 值里取字段或数组项。支持 $、.字段、[序号] 和 [*]，例如 $.items[0].url 或 $.items[*].url。',
+          '从 JSON 值里取字段或数组项。支持 $、.字段、[序号] 和 [*]；未找到时得 null，通配列表会用 null 保留缺失项的位置。',
       },
       'json-stringify': {
         title: '转 JSON 文本',
-        description: '把任意值序列化成 JSON 文本，方便写日志、传给接口或保存到文件。',
+        description:
+          '把可观察的 JSON 内联值规范序列化成文本；Blob、图像和运行时流不支持直接序列化。',
       },
       'logic-and': {
         title: '逻辑与',
@@ -1131,7 +1182,7 @@ export default {
       'logic-select': {
         title: '三元选择',
         description:
-          '看条件真假，从 A、B 两个值里挑一个输出：条件为真给 A，为假给 B。A、B 什么类型都行。',
+          '条件为真时输出「为真时」的值，为假时输出「为假时」的值；两路必须是同一种可观察的 JSON 内联类型。',
       },
       'math-absolute': { title: '绝对值', description: '取 X 的绝对值（负变正）。' },
       'math-add': { title: '加', description: '把两个数字相加，给出和。' },
@@ -1153,7 +1204,7 @@ export default {
       },
       'math-integer-negate': {
         title: '整数取负',
-        description: '改变整数符号并保持整数类型；超出安全整数范围会失败。',
+        description: '改变整数符号并保持整数类型。',
       },
       'math-integer-absolute': {
         title: '整数绝对值',
@@ -1182,7 +1233,7 @@ export default {
       },
       'math-divide': {
         title: '除',
-        description: '用 A 除以 B，给出商。除数为 0 时结果是 NaN（非数字）。',
+        description: '用 A 除以 B，给出商。除数为 0 或结果超出有限数范围时会失败。',
       },
       'math-floor': {
         title: '向下取整',
@@ -1190,13 +1241,16 @@ export default {
       },
       'math-maximum': { title: '取较大', description: '两个数里取较大的那个。' },
       'math-minimum': { title: '取较小', description: '两个数里取较小的那个。' },
-      'math-modulo': { title: '取模', description: '求 A 除以 B 的余数，支持小数。' },
+      'math-modulo': {
+        title: '取模',
+        description: '求 A 除以 B 的余数，支持小数；除数为 0 时会失败。',
+      },
       'math-multiply': { title: '乘', description: '把两个数字相乘，给出积。' },
       'math-negate': { title: '取负', description: '把数字变号：正数变负、负数变正。' },
       'math-power': {
         title: '乘方',
         description:
-          '算 Base 的 Exp 次方。特殊情况按数学惯例：负数开分数次方得 NaN、0 的负次方得 Infinity、0 的 0 次方得 1。',
+          '算 Base 的 Exp 次方。负底数的分数次方会报定义域错误，非有限结果会失败；0 的 0 次方按 1 处理。',
       },
       'math-round': {
         title: '四舍五入',
@@ -1205,13 +1259,13 @@ export default {
       },
       'math-square-root': {
         title: '开平方',
-        description: '算 X 的平方根。X 是负数时得 NaN（需要时先接"绝对值"节点）。',
+        description: '算 X 的平方根。X 为负数时会报定义域错误（需要时先接「绝对值」节点）。',
       },
       'math-subtract': { title: '减', description: '用 A 减去 B，给出差。' },
       'text-contains': {
         title: '包含',
         description:
-          '判断源串里是否出现过子串这一段文字，给出真/假。区分大小写；非文字的输入会先转成文字再找。',
+          '判断文本里是否出现指定子串，给出真/假。两个输入都必须是文字，并且区分大小写。',
       },
       'text-ends-with': {
         title: '结尾是',
@@ -1231,12 +1285,12 @@ export default {
       'text-regex-extract': {
         title: '正则提取',
         description:
-          '从文本里提取第一段匹配正则表达式的内容；表达式带括号分组时取第 1 组。没匹配到、或表达式写错时得空串（写错另记警告日志）。',
+          '从文本里提取第一段匹配正则表达式的内容；表达式带括号分组时取第 1 组。没匹配到时得空串，表达式无效时运行失败。',
       },
       'text-regex-match': {
         title: '正则匹配',
         description:
-          '判断文本里是否有匹配正则表达式的部分（是"包含"式：abc 用 b 也算中）。要整串完全匹配，给表达式首尾加 ^ 和 {\'$\'}。表达式写错时结果恒为否，并记一条警告日志。',
+          '判断文本里是否有匹配正则表达式的部分（是"包含"式：abc 用 b 也算中）。要整串完全匹配，给表达式首尾加 ^ 和 {\'$\'}。表达式无效时运行失败。',
       },
       'text-replace': {
         title: '替换文本',
@@ -1425,8 +1479,10 @@ export default {
     UNUSED_CAPABILITY_DECLARATION: '存在未使用的能力声明',
     INVALID_CATALOG: '节点目录无效',
     UNKNOWN_NODE_TYPE: '节点类型不在目录中',
-    NODE_CONTRACT_MISMATCH: '节点契约摘要不匹配',
-    UNKNOWN_PORT: '连线引用了未知端口',
+    NODE_CONTRACT_MISMATCH:
+      '节点定义与当前版本不一致。请打开工作流定位该节点，并使用当前版本的节点升级或替换它。',
+    UNKNOWN_PORT:
+      '工作流中有一条连接指向已不存在的输入或输出。请打开工作流定位问题节点，删除旧连接，再从节点当前显示的输入或输出重新连接。',
     EDGE_CHANNEL_MISMATCH: '连线通道类型不匹配',
     TYPE_MISMATCH: '数据类型不匹配',
     UNRESOLVED_TYPE: '数据类型无法解析',
@@ -1441,6 +1497,7 @@ export default {
     INVALID_STATE_VARIABLE: '状态变量声明无效',
     INVALID_STATE_ACCESS: '状态变量访问无效',
     INVALID_CAPABILITY_BINDING: '能力绑定无效',
+    INVALID_INSTRUCTION_PLACEMENT: '节点指令不能放在当前图中',
     NO_EXECUTION_ROOT: '没有可执行入口',
     UNREACHABLE_EXECUTION: '存在无法到达的执行节点',
     DATA_CYCLE: '数据依赖形成循环',
@@ -1458,6 +1515,72 @@ export default {
     UNEXPECTED_CODE: '操作未完成，请重试；如果持续发生，请打开诊断信息（错误码：{code}）',
     TRANSPORT_TIMEOUT: '请求超时，请稍后重试',
     TRANSPORT_UNAVAILABLE: '后端连接不可用，请重启 Yotta',
+    math: {
+      division_by_zero: '除数不能为 0；请检查除法或取模节点的 B 输入',
+      domain_error: '数值超出实数定义域；请检查乘方或开平方输入',
+      result_not_representable: '计算结果不是可保存的有限数，或超出安全整数范围',
+    },
+    text: {
+      invalid_regex: '正则表达式无效；请检查语法后重试',
+    },
+    conversion: {
+      invalid_number: '无法解析为有限十进制数；请去掉空白并检查数字格式和范围',
+      invalid_integer: '无法得到安全整数；请检查格式以及 ±9007199254740991 的范围',
+      invalid_boolean: '无法解析为布尔值；只接受小写 true 或 false',
+      blob_to_stream_failed: '无法打开二进制内容流；请检查资源是否仍可用',
+      stream_to_blob_failed: '无法把运行时流提交为持久二进制内容',
+    },
+    json: {
+      invalid_document: 'JSON 文档无效或超出可互操作数值范围',
+      invalid_path: 'JSON 路径无效或超过 64 段、1024 字节的预算',
+    },
+    ai: {
+      generation_failed: 'AI 模型未能完成生成；请检查所选模型、接口地址和请求内容',
+    },
+    collection: {
+      index_out_of_range: '列表序号超出可用元素范围；请检查「列表长度」或序号值',
+    },
+    control: {
+      delay_failed: '延迟未能完成；请检查取消状态和等待时长',
+      switch_failed: 'Switch 的待匹配值或某个 case 不符合已解析类型',
+      thrown: '工作流被「令工作流失败」节点显式终止',
+    },
+    geometry: {
+      unit_mismatch: '两个坐标的单位不同；请统一使用 ratio 或统一使用 px',
+    },
+    inputclip: {
+      invalid: '输入录制片段无效或已不可用',
+    },
+    macro: {
+      invalid: '宏无效或已不可用',
+    },
+    observability: {
+      log_contract_violation: '工作流日志内容不符合运行时契约',
+      log_write_failed: '无法记录工作流日志',
+    },
+    random: {
+      empty_choice: '「随机取值」需要非空的强类型列表',
+      entropy_unavailable: '宿主熵源不可用，未产生随机值',
+      invalid_probability: '概率必须是 0 到 1 之间的有限数',
+      invalid_range: '随机范围无效或无法表示',
+    },
+    state: {
+      read_failed: '无法读取 Run 本地状态值',
+      update_failed: '无法原子更新数值状态',
+      write_failed: '无法写入 Run 本地状态值',
+    },
+    time: {
+      observation_failed: '无法记录本次调用时间',
+      stopwatch_failed: '秒表开始时间或经过时长无效',
+    },
+    vision: {
+      analysis_failed: '图像分析未能完成',
+      color_range_invalid: '颜色范围不符合所选颜色空间',
+      image_invalid: '图像无效、不受支持或超出处理预算',
+      match_failed: '模板匹配未能完成',
+      region_invalid: '图像区域无效或超出画面',
+      template_invalid: '模板图像无效、不受支持或超出处理预算',
+    },
     admission: {
       target_unavailable: '所需目标不可用；请检查目标是否已配置且当前可匹配',
       target_ambiguous: '目标匹配不唯一',
@@ -1489,6 +1612,8 @@ export default {
       playback_busy: '输入回放正忙',
       unsupported_host: '当前平台不支持此自动化操作',
       contract_violation: '自动化提供器违反契约',
+      dual_color_bar_not_found: '在超时前没有找到双色条',
+      observation_failed: '自动化目标无法产生所需观测结果',
     },
     network: {
       invalid_request: '网络请求无效',
@@ -1504,6 +1629,9 @@ export default {
       is_directory: '期望文件，但目标是目录',
       read_failed: '文件读取失败',
       contract_violation: '文件系统提供器违反契约',
+      decode_failed: '无法按所选文字编码解码文件',
+      invalid_json: '文件不是单个有效的可互操作 JSON 文档',
+      write_failed: '无法把文件写入工作流文件区',
     },
     script: {
       source_invalid: '脚本源码无效',
@@ -2424,6 +2552,8 @@ export default {
         'AI 模型“{slot}”当前不可用。请在节点中选择已安装的模型，或前往“设置 → AI 连接”完成配置。',
       ai_credential_unavailable:
         'AI 模型“{slot}”缺少可用的 API 密钥。请前往“设置 → AI 连接”补充密钥。',
+      unknown_port:
+        '连接“{fromNodeId} / {fromPortId}”→“{toNodeId} / {toPortId}”已失效，其中一个输入或输出已不存在。打开工作流后会定位问题节点；删除这条旧连接，再从当前显示的输入或输出重新连接。',
     },
     toast: {
       list_failed: '无法加载工作流',
@@ -2523,7 +2653,7 @@ export default {
     run_queued: '计划已开始运行',
     run_not_started: '计划未能启动',
     run_failed: '计划运行失败',
-    repair_action: '去修复',
+    repair_action: '打开并定位',
     more_action: '“{name}”的更多操作',
     create: '新建计划',
     back_to_list: '返回列表',
@@ -3453,6 +3583,8 @@ export default {
       authentication: '{status}：认证失败，请检查 API 密钥。',
       permission: '{status}：密钥没有调用该模型的权限。',
       invalid_request: '{status}：供应商拒绝了请求，请核对接口协议、模型名和声明能力。',
+      invalid_response:
+        '{status}：该地址返回了网页或无效的 API 响应，请检查 API 基础地址、接口协议和反向代理配置。',
       rate_limit: '{status}：请求过于频繁或额度受限，请稍后重试。',
       timeout: '连接供应商超时，请检查网络或稍后重试。',
       server: '{status}：供应商服务暂时不可用，请稍后重试。',
@@ -3496,34 +3628,30 @@ export default {
   },
   // 关于页 (AboutView).
   about: {
-    tagline: '节点编排，自动执行',
+    tagline: '把重复操作变成可看见、可调试、可复用的工作流。',
+    author_label: '作者',
+    author_home_action: '打开作者的 Bilibili 主页',
+    source_action: '打开 Yotta 源码仓库',
     concepts: {
-      title: '核心概念',
+      title: '从连接到运行',
+      subtitle:
+        '在一个本地工作台里完成编排、配置、运行和诊断，不把工作流锁进某个临时窗口或设备会话。',
       workflow: {
-        name: '工作流 (Workflow)',
-        desc: '唯一的可编辑编排文档。Source 只保存强类型图、配置、状态声明和精确 NodeRef，保存时由服务端规范化并按 revision 提交。',
+        name: '可视化工作流',
+        desc: '用节点连接输入、判断、数据处理和动作；复杂流程仍能拆成可读、可复用的子图。',
       },
       catalog: {
-        name: '节点目录 (Catalog)',
-        desc: 'Node Contract、数据类型、能力需求与实现锁的不可变快照。UI、AI、CLI 和文档共同消费同一份 Authoring Projection。',
+        name: '类型化节点',
+        desc: '输入、输出和连接都有明确类型，编辑时就能发现接错端口或缺少配置，而不是等运行后猜原因。',
       },
       program_run: {
-        name: '程序与运行 (Program / Run)',
-        desc: 'Source 经检查后得到内容寻址的不可变 Program；每次执行生成独立、可取消、可审计的 Run，只有非目标能力按需进入准入。',
+        name: '运行与调试',
+        desc: '普通运行与断点调试使用同一条执行路径；时间线、日志和诊断共同说明每一步发生了什么。',
       },
       installation: {
-        name: '配置与目标 (Configuration / Target)',
-        desc: '网络、应用和自动化目标以稳定 slot 配置并由运行直接调用；模型和插件继续声明各自的能力需求。工作流不保存原生句柄。',
+        name: '本地目标',
+        desc: '桌面窗口、Android、浏览器、HTTP 和 AI 连接保留在本机配置中，工作流只引用稳定的目标槽位。',
       },
     },
-    section_author: '作者 · 链接',
-    label_author: '作者',
-    label_source: '源码',
-    label_site: '站',
-    section_stack: '技术栈',
-    section_thanks: '致谢',
-    label_icon: '软件图标',
-    icon_credit:
-      '图标来源于 Pixiv 公开作品, 版权归原作者所有. 本工具仅作个人使用, 如作者要求请联系替换.',
   },
 }

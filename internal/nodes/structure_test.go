@@ -48,19 +48,58 @@ func TestStructuredTypesGenerateTypedBreakNodes(t *testing.T) {
 	}
 }
 
-func TestBreakFileMetadataReturnsEveryTypedField(t *testing.T) {
+func TestGeneratedBreakNodesReturnEveryTypedField(t *testing.T) {
 	builtins, err := Build()
 	if err != nil {
 		t.Fatal(err)
 	}
-	definition, _ := builtins.Definition(BreakFileMetadataNodeID)
-	input := json.RawMessage(`{"path":"a.txt","name":"a.txt","extension":"txt","mediaType":"text/plain","size":12,"modifiedUnixMillis":42,"isDirectory":false}`)
-	outputs, err := definition.EvaluateInline(context.Background(), map[string]json.RawMessage{"value": input}, nil)
-	if err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name   string
+		nodeID string
+		input  json.RawMessage
+		want   map[string]string
+	}{
+		{name: "point", nodeID: BreakPointNodeID, input: json.RawMessage(`{"x":0.25,"y":0.75,"unit":"ratio"}`), want: map[string]string{
+			"unit": `"ratio"`, "x": `0.25`, "y": `0.75`,
+		}},
+		{name: "region", nodeID: BreakRegionNodeID, input: json.RawMessage(`{"x":1,"y":2,"width":3,"height":4,"unit":"px"}`), want: map[string]string{
+			"height": `4`, "unit": `"px"`, "width": `3`, "x": `1`, "y": `2`,
+		}},
+		{name: "template match", nodeID: BreakTemplateMatchNodeID, input: json.RawMessage(`{"score":0.9,"center":{"x":3,"y":4,"unit":"px"},"bounds":{"x":1,"y":2,"width":4,"height":5,"unit":"px"}}`), want: map[string]string{
+			"bounds": `{"x":1,"y":2,"width":4,"height":5,"unit":"px"}`,
+			"center": `{"x":3,"y":4,"unit":"px"}`, "score": `0.9`,
+		}},
+		{name: "QR code", nodeID: BreakQRCodeNodeID, input: json.RawMessage(`{"text":"yotta","points":[{"x":1,"y":2,"unit":"px"}]}`), want: map[string]string{
+			"points": `[{"x":1,"y":2,"unit":"px"}]`, "text": `"yotta"`,
+		}},
+		{name: "color blob", nodeID: BreakColorBlobNodeID, input: json.RawMessage(`{"area":12,"center":{"x":3,"y":4,"unit":"px"},"bounds":{"x":1,"y":2,"width":4,"height":5,"unit":"px"}}`), want: map[string]string{
+			"area": `12`, "bounds": `{"x":1,"y":2,"width":4,"height":5,"unit":"px"}`,
+			"center": `{"x":3,"y":4,"unit":"px"}`,
+		}},
+		{name: "file metadata", nodeID: BreakFileMetadataNodeID, input: json.RawMessage(`{"path":"a.txt","name":"a.txt","extension":"txt","mediaType":"text/plain","size":12,"modifiedUnixMillis":42,"isDirectory":false}`), want: map[string]string{
+			"extension": `"txt"`, "is-directory": `false`, "media-type": `"text/plain"`,
+			"modified-unix-millis": `42`, "name": `"a.txt"`, "path": `"a.txt"`, "size": `12`,
+		}},
 	}
-	if string(outputs["name"]) != `"a.txt"` || string(outputs["size"]) != `12` || string(outputs["is-directory"]) != `false` {
-		t.Fatalf("metadata fields = %#v", outputs)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			definition, ok := builtins.Definition(test.nodeID)
+			if !ok {
+				t.Fatalf("break node %q is missing", test.nodeID)
+			}
+			outputs, err := definition.EvaluateInline(context.Background(), map[string]json.RawMessage{"value": test.input}, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(outputs) != len(test.want) {
+				t.Fatalf("outputs = %#v", outputs)
+			}
+			for field, want := range test.want {
+				if got := string(outputs[field]); got != want {
+					t.Fatalf("%s = %s, want %s", field, got, want)
+				}
+			}
+		})
 	}
 }
 

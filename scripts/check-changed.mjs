@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 
 const CHECK_ORDER = [
   'check:changed:self',
+  'check:docs',
   'check:supply-chain:actions',
   'check:supply-chain:toolchains',
   'check:supply-chain:artifacts',
@@ -11,12 +12,15 @@ const CHECK_ORDER = [
   'check:supply-chain:frontend',
   'check:rust',
   'contracts:check',
+  'nodes:compatibility:check',
+  'versions:compatibility:check',
   'plugins:check',
   'check:ai-eval',
   'versions:check',
   'wails:verify',
   'check:bindings',
   'check:go:changed',
+  'check:windows:timer',
   'check:frontend:quick',
 ]
 
@@ -31,6 +35,9 @@ export function planChecks(paths) {
   for (const path of files) {
     if (matches(path, /^(Taskfile\.yml|scripts\/check-(changed|go-changed)(\.test)?\.mjs)$/)) {
       add('check:changed:self')
+    }
+    if (path.endsWith('.md') || matches(path, /^(Taskfile\.yml|scripts\/check-docs(\.test)?\.mjs)$/)) {
+      add('check:docs')
     }
     if (matches(path, /^\.github\/workflows\//)) add('check:supply-chain:actions')
     if (matches(path, /^(\.tool-versions|scripts\/verify-toolchains\.ps1)$/)) {
@@ -52,6 +59,12 @@ export function planChecks(paths) {
     if (matches(path, /^(internal\/(nodes|nodecontract|nodeauthoring|datatype|nodeinstance)\/|internal\/workflow\/schema\/|contracts\/(node|workflow)\/|scripts\/generate-workflow-contracts\.mjs$)/)) {
       add('contracts:check')
     }
+    if (matches(path, /^(internal\/(nodes|nodecontract|nodeauthoring|datatype|capability|releasecompat)\/|internal\/workflow\/authoring\/contract_migration(?:_internal_test)?\.go$|contracts\/(node|catalog)\/releases\/|cmd\/yotta-node-compat\/)/)) {
+      add('nodes:compatibility:check')
+    }
+    if (matches(path, /^(VERSION$|contracts\/releases\/|cmd\/yotta-versions\/|internal\/(automation\/installed\/adapter|blob\/(store|migration)|capability\/(definition|plan|grant)|datatype\/(definition|value_envelope)|hostapi\/version|nodeauthoring\/projection|nodecatalog\/snapshot|nodecontract\/contract|nodepackage\/(manifest|trust|lifecycle)|pluginprotocol\/frame|releasecompat\/|run\/(record|ledger|store)|scriptengine\/contract|services\/(settings_store|asset\/model|inputclip\/codec|macro\/model|mcpserver\/catalog|schedule\/model|snippet\/model)|storage\/(profile|catalog\/(foundation|backup)|migrate\/(engine|snapshot))|workflow\/compiler\/program|workflow\/schema\/model|workflowbundle\/manager|workflowstore\/(source|program)).*\.go$)/)) {
+      add('versions:compatibility:check')
+    }
     if (matches(path, /^(internal\/(nodepackage|pluginconformance|pluginhost|pluginprotocol|processsandbox|wasmrunner)\/|sdk\/plugin\/|contracts\/plugin\/|cmd\/plugin-sdk\/)/)) {
       add('plugins:check')
     }
@@ -61,6 +74,9 @@ export function planChecks(paths) {
     if (matches(path, /^(main\.go|internal\/services\/.*\.go$|contracts\/wails-rpc\.json$)/)) add('check:bindings')
 
     if (path.endsWith('.go')) add('check:go:changed')
+    if (matches(path, /^pkg\/platform\/hires_timer_windows(?:_test)?\.go$/)) {
+      add('check:windows:timer')
+    }
     if (matches(path, /^frontend\/(?!dist\/|bindings\/)/) || matches(path, /^contracts\/(node|workflow)\/.*\.ts$/)) {
       add('check:frontend:quick')
     }

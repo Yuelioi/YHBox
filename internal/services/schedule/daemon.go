@@ -188,7 +188,8 @@ func (d *Daemon) registerLocked(s *Schedule) error {
 		}
 		d.hotkeyKs[s.ID] = key
 	case TriggerOnce:
-		// 启动后立即一次。任务先登记到 daemon owner，再异步执行以避免持锁。
+		// 每次注册时立即一次；Reload 会重新注册。任务先登记到 daemon
+		// owner，再异步执行以避免持锁。
 		d.launchFireLocked(s.ID)
 	case TriggerManual:
 		// 不注册自动触发
@@ -198,7 +199,7 @@ func (d *Daemon) registerLocked(s *Schedule) error {
 	return nil
 }
 
-// FireManual UI 上手动按 ▶ 跑某 schedule。
+// FireManual explicitly runs one schedule without an automatic trigger.
 func (d *Daemon) FireManual(scheduleID string) (FireResult, error) {
 	return d.fireOwned(scheduleID)
 }

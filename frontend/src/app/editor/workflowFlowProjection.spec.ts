@@ -5,7 +5,7 @@ import type { Node, NodeProjection } from './EditorSession'
 import {
   createWorkflowNodeGestureState,
   projectWorkflowFlowNodes,
-  WORKFLOW_NODE_DRAG_HANDLE,
+  WORKFLOW_NODE_DRAG_SURFACE,
 } from './workflowFlowProjection'
 
 const mountedApps: Array<ReturnType<typeof createApp>> = []
@@ -44,7 +44,8 @@ describe('workflow flow projection', () => {
 
     flow.updateNode('node-a', { position: { x: 320, y: 240 } })
     expect(flow.findNode('node-a')?.position).toEqual({ x: 320, y: 240 })
-    expect(projectedNodes.value[0]?.dragHandle).toBe(WORKFLOW_NODE_DRAG_HANDLE)
+    expect(WORKFLOW_NODE_DRAG_SURFACE).toBe('.workflow-node-drag-surface')
+    expect(projectedNodes.value[0]?.dragHandle).toBe(WORKFLOW_NODE_DRAG_SURFACE)
 
     selected.value = true
     await nextTick()

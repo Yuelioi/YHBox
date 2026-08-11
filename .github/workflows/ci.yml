@@ -117,7 +117,7 @@ jobs:
           version: 3.49.1
 
       - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.6
 
       - name: Install staticcheck
         run: go install honnef.co/go/tools/cmd/staticcheck@v0.6.1
@@ -192,13 +192,13 @@ jobs:
       - name: Fuzz MCP node parameters
         run: go test ./internal/services/mcpserver -run=^$ -fuzz=^FuzzMCPPatchCommands$ -fuzztime=10s
 
-      - name: Fuzz Workflow v3 strict parser
+      - name: Fuzz current Workflow strict parser
         run: go test ./internal/workflow/schema -run=^$ -fuzz=^FuzzParseSource$ -fuzztime=10s
 
-      - name: Fuzz Workflow v3 compiler
+      - name: Fuzz current Workflow compiler
         run: go test ./internal/workflow/compiler -run=^$ -fuzz=^FuzzCompileDraft$ -fuzztime=10s
 
-      - name: Fuzz Workflow v3 Program open
+      - name: Fuzz current Program open
         run: go test ./internal/workflow/compiler -run=^$ -fuzz=^FuzzOpenProgram$ -fuzztime=10s
 
   portable-core:
@@ -302,7 +302,7 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
 
       - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.6
 
       - name: Verify Wails toolchain
         shell: pwsh

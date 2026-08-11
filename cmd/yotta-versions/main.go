@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	installedautomation "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
@@ -22,7 +23,9 @@ import (
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/nodepackage"
+	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/pluginprotocol"
+	"github.com/yottaapp/yotta/internal/releasecompat"
 	runartifact "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/services"
@@ -34,8 +37,10 @@ import (
 	"github.com/yottaapp/yotta/internal/services/snippet"
 	"github.com/yottaapp/yotta/internal/storage"
 	"github.com/yottaapp/yotta/internal/storage/catalog"
+	storagemigrate "github.com/yottaapp/yotta/internal/storage/migrate"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
+	"github.com/yottaapp/yotta/internal/workflowbundle"
 	"github.com/yottaapp/yotta/internal/workflowstore"
 )
 
@@ -47,6 +52,13 @@ type productVersion struct {
 	Major int
 	Minor int
 	Patch int
+}
+
+type inventoryRow struct {
+	name             string
+	version          string
+	class            string
+	readableVersions []string
 }
 
 func (v productVersion) String() string {
@@ -98,7 +110,7 @@ func main() {
 
 func run(arguments []string) error {
 	if len(arguments) == 0 {
-		return errors.New("usage: yotta-versions <show|check|sync|bump|inventory|ldflag>")
+		return errors.New("usage: yotta-versions <show|check|sync|bump|inventory|compatibility|ldflag>")
 	}
 	root, err := repositoryRoot()
 	if err != nil {
@@ -159,6 +171,8 @@ func run(arguments []string) error {
 		}
 		printInventory(current)
 		return nil
+	case "compatibility":
+		return runVersionDomainCompatibility(root, current, arguments[1:])
 	default:
 		return fmt.Errorf("unknown yotta-versions command %q", arguments[0])
 	}
@@ -304,7 +318,7 @@ func projectWindowsInfo(raw []byte, version productVersion) ([]byte, error) {
 		return nil, err
 	}
 	if len(document.Info) == 0 {
-		return nil, errors.New("Windows info has no language blocks")
+		return nil, errors.New("windows info has no language blocks")
 	}
 	document.Fixed.FileVersion = version.WindowsManifest()
 	document.Fixed.ProductVersion = version.WindowsManifest()
@@ -342,41 +356,128 @@ func replaceExactlyOne(raw []byte, pattern *regexp.Regexp, replacement []byte) (
 }
 
 func printInventory(product productVersion) {
-	rows := [][2]string{
-		{"product", product.String()},
-		{storage.RootFormat, storage.LayoutVersion},
-		{"content-catalog-schema", strconv.Itoa(catalog.ContentSchemaVersion)},
-		{"run-ledger-schema", strconv.Itoa(catalog.RunSchemaVersion)},
-		{catalog.BackupFormat, strconv.Itoa(catalog.BackupVersion)},
-		{services.SettingsFormat, services.SettingsSchemaVersion},
-		{schema.Format, schema.Version},
-		{datatype.Format, datatype.Version},
-		{nodecontract.Format, nodecontract.Version},
-		{nodeauthoring.Format, nodeauthoring.Version},
-		{nodecatalog.Format, nodecatalog.Version},
-		{compiler.ProgramFormat, compiler.ProgramVersion},
-		{capability.DefinitionFormat, capability.DefinitionVersion},
-		{capability.PlanFormat, capability.PlanVersion},
-		{capability.RunGrantFormat, capability.RunGrantVersion},
-		{runartifact.RecordFormat, runartifact.RecordVersion},
-		{"run-store-layout", runartifact.LayoutVersion},
-		{"asset-record-schema", strconv.Itoa(asset.RecordSchemaVersion)},
-		{"schedule-schema", string(schedule.CurrentSchemaVersion)},
-		{"snippet-schema", snippet.SchemaVersion},
-		{"macro-schema", strconv.Itoa(macro.SchemaVersion)},
-		{inputclip.MediaType, strconv.FormatUint(uint64(inputclip.FormatVersion), 10)},
-		{nodepackage.RegistryFormat, nodepackage.RegistryVersion},
-		{"host-interface", hostapi.Current},
-		{"script-worker-protocol", scriptengine.Protocol},
-		{"plugin-protocol", pluginprotocol.Protocol},
-		{mcpserver.CatalogSearchFormat, mcpserver.CatalogSearchVersion},
-		{mcpserver.CatalogDescriptionFormat, mcpserver.CatalogDescriptionVersion},
-		{"blob-store-layout", blob.LayoutVersion},
-		{"workflow-source-store-layout", workflowstore.SourceLayoutVersion},
-		{"program-store-layout", workflowstore.ProgramLayoutVersion},
+	fmt.Printf("%-38s %-20s %s\n", "DOMAIN", "VERSION", "CLASS")
+	for _, row := range inventoryRows(product) {
+		fmt.Printf("%-38s %-20s %s\n", row.name, row.version, row.class)
 	}
+}
+
+func inventoryRows(product productVersion) []inventoryRow {
+	return []inventoryRow{
+		versionRow("product", product.String(), "release"),
+		versionRow(releasecompat.BuiltinNodeReleaseFormat, strconv.Itoa(releasecompat.BuiltinNodeReleaseVersion), "release-floor"),
+		versionRow(releasecompat.BuiltinCatalogReleaseFormat, strconv.Itoa(releasecompat.BuiltinCatalogReleaseVersion), "release-floor"),
+		versionRow(releasecompat.VersionDomainReleaseFormat, strconv.Itoa(releasecompat.VersionDomainReleaseVersion), "release-floor"),
+		versionRow(storage.RootFormat, storage.LayoutVersion, "durable-layout"),
+		versionRow("content-catalog-schema", strconv.Itoa(catalog.ContentSchemaVersion), "durable-schema"),
+		versionRow("run-ledger-schema", strconv.Itoa(catalog.RunSchemaVersion), "durable-schema"),
+		versionRow(catalog.BackupFormat, strconv.Itoa(catalog.BackupVersion), "backup"),
+		versionRow(storagemigrate.PlanFormat, strconv.Itoa(storagemigrate.DocumentVersion), "migration-state"),
+		versionRow(storagemigrate.JournalFormat, strconv.Itoa(storagemigrate.DocumentVersion), "migration-state"),
+		versionRow(storagemigrate.DiagnosticsFormat, strconv.Itoa(storagemigrate.DocumentVersion), "migration-state"),
+		versionRow(storagemigrate.SnapshotFormat, strconv.Itoa(storagemigrate.SnapshotVersion), "migration-state"),
+		versionRow(services.SettingsFormat, services.SettingsSchemaVersion, "user-data"),
+		versionRow(schema.Format, schema.Version, "user-data"),
+		versionRow(workflowbundle.Format, strconv.Itoa(workflowbundle.Version), "portable"),
+		versionRow(datatype.Format, datatype.Version, "contract"),
+		versionRow(datatype.ValueEnvelopeFormat, datatype.ValueEnvelopeVersion, "durable-value"),
+		versionRow(nodecontract.Format, nodecontract.Version, "contract"),
+		versionRow(nodeauthoring.Format, nodeauthoring.Version, "derived"),
+		versionRow(nodecatalog.Format, nodecatalog.Version, "contract"),
+		versionRow("builtin-node-generator", nodes.GeneratorVersion, "generator"),
+		versionRow(compiler.ProgramFormat, compiler.ProgramVersion, "derived"),
+		versionRow(capability.DefinitionFormat, capability.DefinitionVersion, "contract"),
+		versionRow(capability.PlanFormat, capability.PlanVersion, "run-artifact"),
+		versionRow(capability.RunGrantFormat, capability.RunGrantVersion, "run-artifact"),
+		versionRow(runartifact.RecordFormat, runartifact.RecordVersion, "run-artifact"),
+		versionRow(runartifact.LedgerSummaryFormat, runartifact.LedgerSummaryVersion, "user-data"),
+		versionRow("run-store-layout", runartifact.LayoutVersion, "durable-layout"),
+		versionRow("asset-record-schema", strconv.Itoa(asset.RecordSchemaVersion), "user-data"),
+		versionRow("schedule-schema", string(schedule.CurrentSchemaVersion), "user-data"),
+		versionRow("snippet-schema", snippet.SchemaVersion, "user-data"),
+		versionRow("macro-schema", strconv.Itoa(macro.SchemaVersion), "user-data"),
+		versionRow(inputclip.MediaType, strconv.FormatUint(uint64(inputclip.FormatVersion), 10), "user-data"),
+		versionRow(nodepackage.Format, nodepackage.Version, "portable"),
+		versionRow(nodepackage.TrustPolicyFormat, nodepackage.TrustPolicyVersion, "user-data"),
+		versionRow(nodepackage.SignatureFormat, nodepackage.SignatureVersion, "portable"),
+		versionRow(nodepackage.RegistryFormat, nodepackage.RegistryVersion, "user-data"),
+		versionRow(installedautomation.InstallationManifestFormat, strconv.Itoa(installedautomation.InstallationManifestVersion), "contract"),
+		versionRow("automation-target-profile", installedautomation.ProfileVersionV1, "user-data"),
+		versionRow("host-interface", hostapi.Current, "protocol"),
+		versionRow("script-worker-protocol", scriptengine.Protocol, "protocol"),
+		versionRow("plugin-protocol", pluginprotocol.Protocol, "protocol"),
+		versionRow(mcpserver.CatalogSearchFormat, mcpserver.CatalogSearchVersion, "protocol"),
+		versionRow(mcpserver.CatalogDescriptionFormat, mcpserver.CatalogDescriptionVersion, "protocol"),
+		versionRow("blob-store-layout", blob.LayoutVersion, "durable-layout"),
+		versionRow("workflow-source-store-layout", workflowstore.SourceLayoutVersion, "durable-layout"),
+		versionRow("program-store-layout", workflowstore.ProgramLayoutVersion, "derived-layout"),
+	}
+}
+
+func versionRow(name, version, class string, readableVersions ...string) inventoryRow {
+	if len(readableVersions) == 0 {
+		readableVersions = []string{version}
+	}
+	return inventoryRow{
+		name: name, version: version, class: class,
+		readableVersions: append([]string(nil), readableVersions...),
+	}
+}
+
+func runVersionDomainCompatibility(root string, product productVersion, arguments []string) error {
+	flags := flag.NewFlagSet("yotta-versions compatibility", flag.ContinueOnError)
+	write := flags.Bool("write", false, "freeze the current product release before checking")
+	requireCurrent := flags.Bool("require-current", false, "require a snapshot for the current product version")
+	if err := flags.Parse(arguments); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 {
+		return errors.New("usage: yotta-versions compatibility [--write] [--require-current]")
+	}
+	domains, err := currentVersionDomains(product)
+	if err != nil {
+		return err
+	}
+	releases := releasecompat.VersionDomainReleases{Root: filepath.Join(root, "contracts", "releases")}
+	if *write {
+		if err := releases.Freeze(product.String(), domains); err != nil {
+			return err
+		}
+	}
+	checked, err := releases.Check(product.String(), domains, *requireCurrent || *write)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("version-domain compatibility OK: %d release floor(s), %d tracked domains\n", checked, len(domains))
+	return nil
+}
+
+func currentVersionDomains(product productVersion) ([]releasecompat.CurrentVersionDomain, error) {
+	rows := inventoryRows(product)
+	result := make([]releasecompat.CurrentVersionDomain, 0, len(rows))
+	seen := make(map[string]struct{}, len(rows))
 	for _, row := range rows {
-		fmt.Printf("%-32s %s\n", row[0], row[1])
+		if _, duplicate := seen[row.name]; duplicate {
+			return nil, fmt.Errorf("version inventory domain %q is duplicated", row.name)
+		}
+		seen[row.name] = struct{}{}
+		if !releaseTrackedClass(row.class) {
+			continue
+		}
+		result = append(result, releasecompat.CurrentVersionDomain{
+			Name: row.name, CurrentVersion: row.version, Class: row.class,
+			ReadableVersions: append([]string(nil), row.readableVersions...),
+		})
+	}
+	return result, nil
+}
+
+func releaseTrackedClass(class string) bool {
+	switch class {
+	case "release", "release-floor", "derived", "generator", "derived-layout":
+		return false
+	default:
+		return true
 	}
 }
 

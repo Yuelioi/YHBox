@@ -146,7 +146,12 @@ func automationTemplateErrors(includeInput bool) []nodecontract.ErrorSpec {
 	}
 	result := make([]nodecontract.ErrorSpec, 0, len(codes))
 	for _, code := range codes {
-		result = append(result, nodecontract.ErrorSpec{Code: code, Category: "automation", RetryHint: false})
+		category := "automation"
+		switch code {
+		case VisionImageInvalidCode, VisionTemplateInvalidCode, VisionRegionInvalidCode, VisionMatchFailedCode:
+			category = "vision"
+		}
+		result = append(result, nodecontract.ErrorSpec{Code: code, Category: category, RetryHint: false})
 	}
 	return result
 }

@@ -7,7 +7,7 @@ export interface WorkflowNodeData {
   projection: NodeProjection
 }
 
-export const WORKFLOW_NODE_DRAG_HANDLE = '.workflow-node-drag-handle'
+export const WORKFLOW_NODE_DRAG_SURFACE = '.workflow-node-drag-surface'
 
 export interface WorkflowNodeGestureState {
   positions: ReadonlyMap<string, Node['position']>
@@ -41,7 +41,7 @@ export function projectWorkflowFlowNodes(
         id: node.id,
         type: 'workflow',
         position: livePositions.get(node.id) ?? node.position,
-        dragHandle: WORKFLOW_NODE_DRAG_HANDLE,
+        dragHandle: WORKFLOW_NODE_DRAG_SURFACE,
         data: { node, projection },
       },
     ]

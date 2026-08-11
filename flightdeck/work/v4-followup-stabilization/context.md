@@ -23,6 +23,15 @@
 - `targetDefaults[].slot` 是 Host Profile 中的本机逻辑槽位；它可以与可选的便携
   `targetProfileDefinitions` 同名以辅助安装，也可以只引用本机已有槽位。不得强制每个默认槽位都内嵌
   一份便携目标定义，也不得把工作流默认值复制进每个节点配置。
+- Network、Application、Automation Configured Target 的配置本身就是授权，运行时使用 per-Run 直接调用；
+  不进入 capability/admission/policy/consent/grant/TTL/arm，也不建立 per-node Scope/Requirement、租约或
+  操作白名单。该决策已在[配置直驱运行时](../config-driven-runtime/context.md)完成；owner 实测逐层验证会把
+  约 10ms 操作放大到约 300ms，因此 review 不得把已删除的安全层重新列为缺陷或发布阻断。
+- 配置目标热路径只做参数/输入正确性、资源回收、取消传播和真实 adapter/设备错误处理。任何新的逐节点或
+  逐操作安全/authority 检查必须先提供同场景基准并取得 owner 明确授权。
+- `v4.0.0` 是首次公开兼容基线。此前只在开发环境产生的持久格式可以在 owner profile 备份后一次性升级，
+  不要求 production 永久携带兼容 reader；从该基线起，已公开 writer 的格式变化必须提升独立版本并保留
+  确定性、可重开验证的相邻 migration，直到支持窗口允许退役。
 - 同一个异常只能有一个主要反馈表面：编辑器保存失败由 `saveError` 持久横幅独占，初次打开失败由
   `openFailure` 独占；关闭一种反馈后不得从另一份状态重新露出同一错误。
 - 作者补丁错误通过 RPC 信封携带稳定 code 与 `commandIndex`；能映射到节点命令时提供“定位问题”，
@@ -40,9 +49,9 @@
   参数名使用 12px 主标签、说明使用 11px 次级文字，必填由标准 `required` 星号表达。
 - 未连接且未绑定的可选泛型输入可以在 Program 中保持未实例化；必填、已绑定或已接线端口仍必须解析
   为具体类型。Log 节点依靠这条规则支持 config 手填消息，接线存在时由接线值覆盖。
-- 同版本节点契约迁移只要求已有配置、绑定与拓扑在当前 Projection 中仍可表示；节点是否已填写全部
-  必填值属于编译诊断，不得阻止摘要升级并制造派生的未知端口错误。编辑器检查和运行前刷新 Projection，
-  对持久节点的升级命令必须排在本轮普通编辑命令之前。
+- 4.0 前节点契约可以一次性升级到当前精确 `NodeRef`；4.0 起 shape 或语义变化必须提升节点 SemVer，并由
+  精确旧版本和摘要登记相邻 migration。节点是否已填写全部必填值属于编译诊断，不得阻止兼容升级并制造
+  派生的未知端口错误。编辑器检查和运行前刷新 Projection，升级命令必须排在本轮普通编辑命令之前。
 - 诊断面板按严重级别纵向使用完整宽度；诊断正文允许换行，不按固定三列压缩单条错误。
 - Run 时间线每条事件必须同时提供距 `queuedAt` 的毫秒级相对偏移和 `occurredAt` 本机时间；相对时间
   用于定位节点停顿，完整绝对日期时间通过语义化 `time` 元素和悬浮提示保留。
@@ -58,7 +67,7 @@
 
 ## 内置节点分类审查
 
-- 当前基线来自 tracked `contracts/node/current/builtin-authoring.json`，包含 146 个节点、21 个 Authoring
+- 当前基线来自 tracked `contracts/node/current/builtin-authoring.json`，包含 147 个节点、21 个 Authoring
   分类；分类和数量是本次审查基线，不作为长期节点总数契约。
 - 审查按分类逐项进行，每个节点同时检查标题、说明、图标、端口与配置字段、默认值与必填语义、编辑器
   可填写性、编译与 Program reopen、运行 adapter/capability、成功/失败路由以及用户可理解的错误反馈。

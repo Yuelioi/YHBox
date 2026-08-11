@@ -39,6 +39,10 @@ func defineScriptNode(jsonRef datatype.TypeRef) (BuiltinDefinition, nodecontract
 func sealScriptNode(jsonRef datatype.TypeRef) (nodecontract.Contract, error) {
 	const schemaID = ScriptExecuteNodeID + "/config"
 	defaultInput := json.RawMessage(`{}`)
+	inputs := []nodecontract.DataInputPort{{
+		ID: "input", Type: datatype.RefExpression(jsonRef), Required: true, Default: &defaultInput,
+	}}
+	outputs := []nodecontract.DataOutputPort{{ID: "result", Type: datatype.RefExpression(jsonRef)}}
 	errors := make([]nodecontract.ErrorSpec, 0, len(scriptFailureCodes()))
 	for _, code := range scriptFailureCodes() {
 		errors = append(errors, nodecontract.ErrorSpec{Code: code, Category: "script", RetryHint: false})
@@ -58,10 +62,8 @@ func sealScriptNode(jsonRef datatype.TypeRef) (nodecontract.Contract, error) {
 			},"required":["source","timeoutMilliseconds"],"additionalProperties":false
 		}`, schemaID, scriptengine.MaxSourceBytes, scriptengine.MinTimeoutMillis, scriptengine.MaxTimeoutMillis))}},
 		Ports: nodecontract.PortSet{
-			DataInputs: []nodecontract.DataInputPort{{
-				ID: "input", Type: datatype.RefExpression(jsonRef), Required: true, Default: &defaultInput,
-			}},
-			DataOutputs:  []nodecontract.DataOutputPort{{ID: "result", Type: datatype.RefExpression(jsonRef)}},
+			DataInputs:   inputs,
+			DataOutputs:  outputs,
 			ExecInputs:   []nodecontract.SignalPort{{ID: "in"}},
 			ExecOutputs:  []nodecontract.SignalPort{{ID: "completed"}},
 			ErrorOutputs: []nodecontract.SignalPort{{ID: "failed"}},
@@ -81,6 +83,7 @@ func sealScriptNode(jsonRef datatype.TypeRef) (nodecontract.Contract, error) {
 		Authoring: nodecontract.Authoring{
 			TitleKey: "node.script.execute.title", DescriptionKey: "node.script.execute.description",
 			Category: "script", Tags: []string{"script", "javascript", "json", "isolated"}, Icon: "code",
+			Ports: dataPortHints("node.script.execute", inputs, outputs, nil),
 		},
 	})
 }

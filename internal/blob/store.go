@@ -611,7 +611,7 @@ func (s *Store) recoverStaging(ctx context.Context) error {
 				}
 			}
 		}
-		if err := s.observe(ctx, Object{Digest: intent.Digest, Size: intent.Size}); err != nil {
+		if err := s.observe(ctx, Object(intent)); err != nil {
 			return err
 		}
 		if err := durablefs.Remove(intentPath); err != nil {

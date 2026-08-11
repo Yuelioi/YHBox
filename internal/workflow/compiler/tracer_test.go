@@ -78,17 +78,32 @@ func TestConcatTracerRejectsInventedOutAndContractMismatch(t *testing.T) {
 	if !hasDiagnostic(result.Diagnostics, CodeUnknownPort) {
 		t.Fatalf("invented out diagnostics = %#v", result.Diagnostics)
 	}
+	var unknownPort Diagnostic
+	for _, diagnostic := range result.Diagnostics {
+		if diagnostic.Code == CodeUnknownPort {
+			unknownPort = diagnostic
+			break
+		}
+	}
+	if unknownPort.NodeID != "concat-1" ||
+		unknownPort.Params["fromNodeId"] != "concat-1" || unknownPort.Params["fromPortId"] != "out" ||
+		unknownPort.Params["toNodeId"] != "concat-1" || unknownPort.Params["toPortId"] != "in" {
+		t.Fatalf("unknown port omitted actionable edge endpoints = %#v", unknownPort)
+	}
 
 	ref := contract.NodeRef()
 	ref.SemanticDigest = artifact.Digest("sha256:" + strings.Repeat("0", 64))
 	result, err = New(build, testConfigValidators()).CompileDraft(context.Background(), CompileRequest{
-		SourceJSON: concatSourceForTest(ref, "a", "b", nil), Catalog: catalog,
+		SourceJSON: concatSourceForTest(ref, "a", "b", &outEdge), Catalog: catalog,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !hasDiagnostic(result.Diagnostics, CodeNodeContractMismatch) {
 		t.Fatalf("contract mismatch diagnostics = %#v", result.Diagnostics)
+	}
+	if hasDiagnostic(result.Diagnostics, CodeUnknownPort) {
+		t.Fatalf("contract mismatch produced derivative unknown-port diagnostics = %#v", result.Diagnostics)
 	}
 }
 
@@ -270,13 +285,13 @@ func TestOpenProgramRevalidatesPinnedConfigValidator(t *testing.T) {
 	source := []byte(fmt.Sprintf(`{
 		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-ai-validator","name":"AI Validator"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
-			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
-			{"id":"extract","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},
+			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
+			{"id":"extract","nodeRef":{"nodeTypeId":%q,"version":%q,"semanticDigest":%q},"position":{"x":1,"y":0},
 			 "config":{"slot":"default","timeoutMilliseconds":120000,"fields":[{"name":"value","type":"string"}]},"bindings":{"prompt":{"kind":"value","value":"hello"}}}
 		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"extract","portId":"in"}}],
 		"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
-	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
-		extract.NodeTypeID, extract.SemanticDigest))
+	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().Version, started.Contract.NodeRef().SemanticDigest,
+		extract.NodeTypeID, extract.Version, extract.SemanticDigest))
 	build := testDigest(t, "AI config validator")
 	compiled, err := New(build, builtins.ConfigValidators).CompileDraft(context.Background(), CompileRequest{
 		SourceJSON: source, Catalog: builtins.Catalog,

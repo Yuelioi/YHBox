@@ -94,15 +94,26 @@ func CanonicalSource(raw []byte) (WorkflowSource, []byte, artifact.Digest, []Dia
 	if len(diagnostics) != 0 {
 		return WorkflowSource{}, nil, "", diagnostics, nil
 	}
-	canonical, err := artifact.Canonicalize(raw)
-	if err != nil {
-		return WorkflowSource{}, nil, "", nil, fmt.Errorf("canonicalize workflow source: %w", err)
-	}
-	digest, err := artifact.Sum(sourceDigestDomain, canonical)
+	canonical, digest, err := CanonicalSourceArtifact(raw)
 	if err != nil {
 		return WorkflowSource{}, nil, "", nil, err
 	}
 	return source, canonical, digest, nil, nil
+}
+
+// CanonicalSourceArtifact computes the byte identity used by stores and bundle
+// manifests without assuming the bytes already use the current Source schema.
+// Callers must still migrate and ParseSource before interpreting the document.
+func CanonicalSourceArtifact(raw []byte) ([]byte, artifact.Digest, error) {
+	canonical, err := artifact.Canonicalize(raw)
+	if err != nil {
+		return nil, "", fmt.Errorf("canonicalize workflow source: %w", err)
+	}
+	digest, err := artifact.Sum(sourceDigestDomain, canonical)
+	if err != nil {
+		return nil, "", err
+	}
+	return canonical, digest, nil
 }
 
 func decodeValidatedSource(document any, source *WorkflowSource) error {

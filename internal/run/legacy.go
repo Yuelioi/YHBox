@@ -142,14 +142,14 @@ func exactLegacyMarker(path, expected string) (bool, error) {
 		return false, err
 	}
 	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
-		return false, errors.New("Run Store marker is not a trusted file")
+		return false, errors.New("run Store marker is not a trusted file")
 	}
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return false, err
 	}
 	if string(raw) != expected {
-		return false, errors.New("Run Store marker has an unsupported version")
+		return false, errors.New("run Store marker has an unsupported version")
 	}
 	return true, nil
 }

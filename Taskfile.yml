@@ -20,13 +20,17 @@ tasks:
   check:full:
     summary: Runs the complete CI and release quality gate
     cmds:
+      - task: check:docs
       - task: check:supply-chain
       - task: contracts:check
+      - task: nodes:compatibility:check
+      - task: versions:compatibility:check
       - task: plugins:check
       - task: check:ai-eval
       - task: versions:check
       - task: wails:verify
       - task: check:go:full
+      - task: check:windows:timer
       - task: check:frontend:full
 
   check:supply-chain:
@@ -92,6 +96,12 @@ tasks:
     cmds:
       - node --test ./scripts/check-changed.test.mjs
 
+  check:docs:
+    summary: Verifies stable Markdown links, Task references and retired public names
+    cmds:
+      - node --test ./scripts/check-docs.test.mjs
+      - node ./scripts/check-docs.mjs
+
   check:go:changed:
     summary: Tests and vets changed Go packages plus their reverse dependencies
     cmds:
@@ -111,6 +121,16 @@ tasks:
     env:
       GOTOOLCHAIN: local
       GOFLAGS: -mod=readonly
+
+  check:windows:timer:
+    summary: Runs the timing-sensitive Windows high-resolution timer smoke in isolation
+    cmds:
+      - cmd: go test -count=5 ./pkg/platform -run ^TestHighResTimer_TickerAccuracy$
+        platforms: [windows]
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+      YOTTA_WINDOWS_TIMER_SMOKE: '1'
 
   check:bindings:
     summary: Regenerates and verifies Wails RPC bindings contracts
@@ -186,6 +206,8 @@ tasks:
     summary: Builds a frozen, auditable portable release candidate
     cmds:
       - task: release:verify-clean
+      - task: nodes:compatibility:release
+      - task: versions:compatibility:release
       - task: check:full
       - task: build
       - task: release:stage
@@ -298,6 +320,30 @@ tasks:
     cmds:
       - go run ./cmd/node-catalog authoring
 
+  nodes:compatibility:check:
+    summary: 验证已发布 NodeRef 可迁移且 TypeRef/CapabilityRef 仍被当前 Catalog 保留
+    cmds:
+      - go run ./cmd/yotta-node-compat
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  nodes:compatibility:freeze:
+    summary: 为当前产品版本创建不可覆盖的 built-in Catalog 引用快照
+    cmds:
+      - go run ./cmd/yotta-node-compat --write --require-current
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  nodes:compatibility:release:
+    summary: 发布前要求当前产品版本已有不可覆盖的 built-in Catalog 引用快照
+    cmds:
+      - go run ./cmd/yotta-node-compat --require-current
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
   version:show:
     summary: 显示 VERSION 中的产品发布版本
     cmds:
@@ -312,6 +358,30 @@ tasks:
     summary: 显示彼此独立的产品、合同、宿主与协议版本
     cmds:
       - go run ./cmd/yotta-versions inventory
+
+  versions:compatibility:check:
+    summary: 验证所有已发布版本域仍由当前 reader 支持
+    cmds:
+      - go run ./cmd/yotta-versions compatibility
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  versions:compatibility:freeze:
+    summary: 为当前产品版本创建不可覆盖的版本域发布快照
+    cmds:
+      - go run ./cmd/yotta-versions compatibility --write --require-current
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  versions:compatibility:release:
+    summary: 发布前要求当前产品版本已有不可覆盖的版本域快照
+    cmds:
+      - go run ./cmd/yotta-versions compatibility --require-current
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
 
   versions:check:
     summary: 验证 VERSION、产品元数据投影与独立版本域

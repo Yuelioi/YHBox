@@ -144,6 +144,7 @@ func defineFilesystemNodes(types extendedTypes, metadataRef, imageRef datatype.T
 			Authoring: nodecontract.Authoring{
 				TitleKey: item.key + ".title", DescriptionKey: item.key + ".description", Category: "io",
 				Tags: []string{"file", "filesystem", "io", "workspace"}, Icon: item.icon,
+				Ports: dataPortHints(item.key, []nodecontract.DataInputPort{pathInput}, item.outputs, nil),
 			},
 		})
 		if err != nil {
@@ -230,7 +231,7 @@ func defineImageFileNodes(stringRef, metadataRef, imageRef datatype.TypeRef, wor
 				Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutNone,
 			},
 			Instruction: nodecontract.Invoke(), CapabilityRequirements: item.requirements,
-			Errors: filesystemErrors(), StatusEvents: []nodecontract.StatusEventSpec{},
+			Errors: imageFilesystemErrors(), StatusEvents: []nodecontract.StatusEventSpec{},
 			ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 			Authoring: nodecontract.Authoring{
 				TitleKey: item.key + ".title", DescriptionKey: item.key + ".description", Category: "io",
@@ -278,4 +279,10 @@ func filesystemErrors() []nodecontract.ErrorSpec {
 		result = append(result, nodecontract.ErrorSpec{Code: code, Category: "filesystem", RetryHint: false})
 	}
 	return result
+}
+
+func imageFilesystemErrors() []nodecontract.ErrorSpec {
+	return append(filesystemErrors(), nodecontract.ErrorSpec{
+		Code: VisionImageInvalidCode, Category: "vision", RetryHint: false,
+	})
 }

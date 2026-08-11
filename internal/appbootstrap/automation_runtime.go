@@ -41,8 +41,9 @@ func (runtime *Runtime) PrepareAutomation(
 }
 
 // PrepareInstallations constructs a complete replacement snapshot. Nothing is
-// published until Commit succeeds, so settings persistence and runtime
-// activation can remain one transaction.
+// published until Commit succeeds. The settings service prepares this value
+// before its durable save and publishes it afterward; those commits are
+// ordered, but they are not a rollback-capable cross-layer transaction.
 func (runtime *Runtime) PrepareInstallations(
 	aiDrafts []ai.InstallationDraft,
 	credentials ai.CredentialStore,

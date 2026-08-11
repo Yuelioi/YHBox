@@ -11,6 +11,7 @@ Taskfile 复制一套并行命令；`task check` 是增量本地门禁，`task c
 | --- | --- | --- |
 | `assert-clean-worktree.ps1` | `task release:verify-clean` | 只读；拒绝包含 staged、unstaged 或 untracked 文件的发布工作区。 |
 | `check-changed.mjs` / `check-go-changed.mjs` | `task check` | 只读；按 Git 变更选择相关门禁，Go 包包含反向依赖。 |
+| `check-docs.mjs` | `task check:docs` / `task check` | 只读；验证稳定 Markdown 的本地链接、Task 名和已淘汰公开名称。 |
 | `check-actions-pinned.ps1` | `task check:supply-chain:actions` / `task check:full` | 只读；检查第三方 GitHub Actions 是否固定到完整 commit SHA。 |
 | `verify-toolchains.ps1` | `task check:supply-chain:toolchains` / `task check:full` | 只读；校验工具链清单、源码/CI pin、固定 runner 与本机工具版本。 |
 | `verify-third-party-artifacts.ps1` | `task check:supply-chain:artifacts` / `task check:full` | 只读；校验随仓库分发的第三方二进制、来源元数据与 SHA-256。 |
@@ -41,9 +42,3 @@ Taskfile 复制一套并行命令；`task check` 是增量本地门禁，`task c
 - 调用 `go`、`node`、`task`、CLI 或测试进程后必须检查退出码；`finally` 中的清理不能覆盖真实失败。
 - 临时产物写入 `.task/`，发布候选写入 `artifacts/`；不要把用户数据、凭据或私有样本写进仓库。
 - 需要删除脚本时，同时移除 Task/CI/knowledge 引用。只有正式入口已经替换、调用目标已经消失，且引用搜索与阶段门禁都证明无消费者时，才算可删除；“不常运行”不等于废弃。
-
-## 2026-07-19 审计结果
-
-本次审计覆盖新增 README 前的全部 18 个工具文件：16 个 PowerShell 文件均可被 PowerShell parser 解析，MJS 通过 `node --check`，JSON 可解析；所有脚本引用的 Go package 与 test function 仍存在。调用方分布为 14 个 Taskfile 入口、2 个有明确触发条件的手工 smoke、1 个 Release CI 入口和 1 个配套预算文件。
-
-未发现可以安全删除的失效脚本，因此本次没有误删仍承担真机、发布或门禁职责的文件。后续若入口发生替换，按上面的删除判据整链清理。

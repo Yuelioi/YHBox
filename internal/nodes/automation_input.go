@@ -51,6 +51,7 @@ type automationInputTypes struct {
 
 type automationInputNode struct {
 	id          string
+	version     string
 	entrypoint  string
 	titleKey    string
 	icon        string
@@ -204,14 +205,15 @@ func defineAutomationInputNodes(types automationInputTypes) ([]BuiltinDefinition
 	}
 	button := nodecontract.DataInputPort{ID: "button", Type: buttonType, Required: true, Default: rawDefault(`"left"`)}
 	motion := nodecontract.DataInputPort{ID: "motion", Type: motionType, Required: true, Default: rawDefault(`"linear"`)}
+	instantMotion := nodecontract.DataInputPort{ID: "motion", Type: motionType, Required: true, Default: rawDefault(`"instant"`)}
 	specs := []automationInputNode{
 		{
 			id: ClickPointerNodeID, entrypoint: "automation.click-pointer", titleKey: "node.automation.clickPointer", icon: "pointer", operation: installed.OperationClick, effectID: ClickPointerEffectID,
 			inputs: []nodecontract.DataInputPort{point("point"), button, duration("hold-duration", "50")}, conformance: "exact-target/atomic-pointer-click/v1",
 		},
 		{
-			id: MovePointerNodeID, entrypoint: "automation.move-pointer", titleKey: "node.automation.movePointer", icon: "location", operation: installed.OperationMove, effectID: MovePointerEffectID,
-			inputs: []nodecontract.DataInputPort{point("point"), duration("duration", "300"), motion}, conformance: "exact-target/pointer-move/v1",
+			id: MovePointerNodeID, version: "1.1.0", entrypoint: "automation.move-pointer", titleKey: "node.automation.movePointer", icon: "location", operation: installed.OperationMove, effectID: MovePointerEffectID,
+			inputs: []nodecontract.DataInputPort{point("point"), duration("duration", "0"), instantMotion}, conformance: "exact-target/pointer-move/v1",
 		},
 		{
 			id: ScrollPointerNodeID, entrypoint: "automation.scroll-pointer", titleKey: "node.automation.scrollPointer", icon: "mouse", operation: installed.OperationScroll, effectID: ScrollPointerEffectID,
@@ -259,7 +261,11 @@ func defineAutomationInputNodes(types automationInputTypes) ([]BuiltinDefinition
 
 func sealAutomationInputNode(spec automationInputNode, targetKinds []string) (nodecontract.Contract, error) {
 	schemaID := spec.id + "/config"
-	return nodecontract.Seal(nodecontract.Draft{Version: BuiltinNodeVersion,
+	version := spec.version
+	if version == "" {
+		version = BuiltinNodeVersion
+	}
+	return nodecontract.Seal(nodecontract.Draft{Version: version,
 		NodeTypeID: spec.id, ConfigSchemaRoot: schemaID,
 		ConfigSchemaBundle: []datatype.SchemaResource{{ID: schemaID, Schema: json.RawMessage(fmt.Sprintf(`{
 			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",

@@ -241,7 +241,7 @@ func (s *Store) List() ([]Record, error) {
 
 func (s *Store) TimelinePage(ctx context.Context, runID string, page, pageSize int) (TimelinePage, error) {
 	if ctx == nil {
-		return TimelinePage{}, errors.New("Run timeline requires a context")
+		return TimelinePage{}, errors.New("run timeline requires a context")
 	}
 	if err := runid.Validate(runID); err != nil {
 		return TimelinePage{}, err
@@ -270,7 +270,7 @@ func (s *Store) TimelinePage(ctx context.Context, runID string, page, pageSize i
 
 func (s *Store) BlobReferences(ctx context.Context) ([]blob.BlobRef, error) {
 	if ctx == nil {
-		return nil, errors.New("Run Blob inventory requires a context")
+		return nil, errors.New("run Blob inventory requires a context")
 	}
 	return s.repository.BlobReferences(ctx)
 }

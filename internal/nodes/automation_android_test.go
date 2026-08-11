@@ -25,3 +25,30 @@ func TestAutomationNodesExposeOnlyConfiguredTargetSemantics(t *testing.T) {
 		t.Fatalf("stop target app = %#v", stop.Contract.Machine())
 	}
 }
+
+func TestMovePointerDefaultsWorkOnEveryAdvertisedTarget(t *testing.T) {
+	builtins, err := Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	move, ok := builtins.Definition(MovePointerNodeID)
+	if !ok {
+		t.Fatal("move pointer definition is missing")
+	}
+	if move.Contract.NodeRef().Version != "1.1.0" {
+		t.Fatalf("move pointer version = %q", move.Contract.NodeRef().Version)
+	}
+	wantKinds := []string{installed.TargetKindAndroidDevice, installed.TargetKindBrowserCDP, installed.TargetKindDesktopWindow}
+	if !slices.Equal(move.Contract.Machine().ConfiguredTargets[0].TargetKinds, wantKinds) {
+		t.Fatalf("move pointer target kinds = %#v", move.Contract.Machine().ConfiguredTargets[0].TargetKinds)
+	}
+	defaults := make(map[string]string)
+	for _, input := range move.Contract.Machine().Ports.DataInputs {
+		if input.Default != nil {
+			defaults[input.ID] = string(*input.Default)
+		}
+	}
+	if defaults["duration"] != "0" || defaults["motion"] != `"instant"` {
+		t.Fatalf("move pointer defaults = %#v", defaults)
+	}
+}

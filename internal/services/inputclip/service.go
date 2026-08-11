@@ -117,7 +117,10 @@ func (s *Service) Save(clip *InputClip) error {
 // intentionally excluded from ordinary JSON; EventPage exposes a bounded
 // diagnostic window for the precise-recording workbench.
 func (s *Service) Get(id string) (*InputClip, error) {
-	rec, ok := s.store.Get(id)
+	rec, ok, err := s.store.Record(id)
+	if err != nil {
+		return nil, fmt.Errorf("read clip record %q: %w", id, err)
+	}
 	if !ok || rec.Kind != asset.KindClip {
 		return nil, fmt.Errorf("clip %q not found", id)
 	}
@@ -160,19 +163,23 @@ func (s *Service) Events(id string, offset, limit int) (EventPage, error) {
 }
 
 // List 列所有 clip 摘要 (不带 events, 列表视图用). 解 blob header 取 metadata.
-func (s *Service) List() []ClipSummary {
+func (s *Service) List() ([]ClipSummary, error) {
 	out := []ClipSummary{}
-	for _, rec := range s.store.List() {
+	records, err := s.store.Records()
+	if err != nil {
+		return nil, fmt.Errorf("list clip records: %w", err)
+	}
+	for _, rec := range records {
 		if rec.Kind != asset.KindClip {
 			continue
 		}
 		clip, err := s.Get(rec.GUID)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("list clip %q: %w", rec.GUID, err)
 		}
 		out = append(out, clipSummary(clip))
 	}
-	return out
+	return out, nil
 }
 
 func (s *Service) Summary(id string) (ClipSummary, error) {

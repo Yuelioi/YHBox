@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	ErrRunLedgerConflict = errors.New("Run Ledger generation conflict")
-	ErrRunLedgerNotFound = errors.New("Run Ledger record not found")
+	ErrRunLedgerConflict = errors.New("run Ledger generation conflict")
+	ErrRunLedgerNotFound = errors.New("run Ledger record not found")
 )
 
 // RunSummaryRecord is the small mutable projection of one Run. The canonical
@@ -117,7 +117,7 @@ func (r *RunRepository) Get(ctx context.Context, runID string) (RunLedgerRecord,
 		return RunLedgerRecord{}, err
 	}
 	if strings.TrimSpace(runID) == "" {
-		return RunLedgerRecord{}, errors.New("Run identity is required")
+		return RunLedgerRecord{}, errors.New("run identity is required")
 	}
 	tx, err := r.database.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
@@ -160,7 +160,7 @@ func (r *RunRepository) GetSummary(ctx context.Context, runID string) (RunSummar
 		return RunSummaryRecord{}, err
 	}
 	if strings.TrimSpace(runID) == "" {
-		return RunSummaryRecord{}, errors.New("Run identity is required")
+		return RunSummaryRecord{}, errors.New("run identity is required")
 	}
 	row := r.database.db.QueryRowContext(ctx, `
 		SELECT run_id, generation, record_digest, status, queued_at, started_at,
@@ -212,7 +212,7 @@ func (r *RunRepository) ListByStatus(ctx context.Context, status string) ([]RunS
 		return nil, err
 	}
 	if !validRunStatus(status) {
-		return nil, errors.New("Run status is invalid")
+		return nil, errors.New("run status is invalid")
 	}
 	rows, err := r.database.db.QueryContext(ctx, `
 		SELECT run_id, generation, record_digest, status, queued_at, started_at,
@@ -252,7 +252,7 @@ func (r *RunRepository) AppendEvent(
 	if strings.TrimSpace(runID) == "" || previousGeneration == 0 ||
 		nextGeneration != previousGeneration+1 || !previousDigest.Valid() ||
 		!nextDigest.Valid() || validateRunEvent(event) != nil || updatedAt.IsZero() {
-		return errors.New("Run event append is invalid")
+		return errors.New("run event append is invalid")
 	}
 	tx, err := r.database.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -299,7 +299,7 @@ func (r *RunRepository) Transition(
 	if previousGeneration == 0 || next.Generation != previousGeneration+1 ||
 		!previousDigest.Valid() || validateRunSummary(next) != nil ||
 		validateRunValues(values) != nil {
-		return errors.New("Run transition is invalid")
+		return errors.New("run transition is invalid")
 	}
 	tx, err := r.database.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -346,7 +346,7 @@ func (r *RunRepository) TimelinePage(
 		return RunSummaryRecord{}, RunEventPage{}, err
 	}
 	if strings.TrimSpace(runID) == "" {
-		return RunSummaryRecord{}, RunEventPage{}, errors.New("Run identity is required")
+		return RunSummaryRecord{}, RunEventPage{}, errors.New("run identity is required")
 	}
 	if pageSize <= 0 {
 		pageSize = 200
@@ -457,7 +457,7 @@ func (r *RunRepository) ArchiveTerminal(ctx context.Context, endedBefore, archiv
 		return 0, err
 	}
 	if endedBefore.IsZero() || archivedAt.IsZero() || limit < 1 || limit > 10000 {
-		return 0, errors.New("Run archive request is invalid")
+		return 0, errors.New("run archive request is invalid")
 	}
 	result, err := r.database.db.ExecContext(ctx, `
 		UPDATE runs SET archived_at = ?, updated_at = ?
@@ -481,7 +481,7 @@ func (r *RunRepository) PurgeArchived(ctx context.Context, archivedBefore time.T
 		return 0, err
 	}
 	if archivedBefore.IsZero() || limit < 1 || limit > 10000 {
-		return 0, errors.New("Run purge request is invalid")
+		return 0, errors.New("run purge request is invalid")
 	}
 	result, err := r.database.db.ExecContext(ctx, `
 		DELETE FROM runs WHERE run_id IN (
@@ -681,11 +681,11 @@ func validateRunLedgerRecord(record RunLedgerRecord) error {
 		return err
 	}
 	if uint64(len(record.Events)) != record.Summary.JournalCount {
-		return errors.New("Run event count does not match its summary")
+		return errors.New("run event count does not match its summary")
 	}
 	for index, event := range record.Events {
 		if err := validateRunEvent(event); err != nil || event.Sequence != uint64(index+1) {
-			return errors.New("Run events are not a contiguous append log")
+			return errors.New("run events are not a contiguous append log")
 		}
 	}
 	return validateRunValues(record.Values)
@@ -697,11 +697,11 @@ func validateRunSummary(record RunSummaryRecord) error {
 		record.QueuedAt.IsZero() || record.QueuedAt.Location() != time.UTC ||
 		len(record.SummaryArtifact) == 0 || record.UpdatedAt.IsZero() ||
 		record.UpdatedAt.Location() != time.UTC {
-		return errors.New("Run summary is invalid")
+		return errors.New("run summary is invalid")
 	}
 	for _, value := range []*time.Time{record.StartedAt, record.EndedAt, record.ArchivedAt} {
 		if value != nil && (value.IsZero() || value.Location() != time.UTC) {
-			return errors.New("Run summary time is invalid")
+			return errors.New("run summary time is invalid")
 		}
 	}
 	return nil
@@ -711,7 +711,7 @@ func validateRunEvent(event RunEventRecord) error {
 	if event.Sequence == 0 || strings.TrimSpace(event.Kind) == "" ||
 		event.OccurredAt.IsZero() || event.OccurredAt.Location() != time.UTC ||
 		len(event.Artifact) == 0 {
-		return errors.New("Run event is invalid")
+		return errors.New("run event is invalid")
 	}
 	return nil
 }
@@ -720,10 +720,10 @@ func validateRunValues(values []RunValueRecord) error {
 	ids := make(map[string]struct{}, len(values))
 	for index, value := range values {
 		if err := validateRunValue(value); err != nil || value.Ordinal != index {
-			return errors.New("Run values are invalid")
+			return errors.New("run values are invalid")
 		}
 		if _, duplicate := ids[value.ValueID]; duplicate {
-			return errors.New("Run value identity is duplicated")
+			return errors.New("run value identity is duplicated")
 		}
 		ids[value.ValueID] = struct{}{}
 	}
@@ -733,10 +733,10 @@ func validateRunValues(values []RunValueRecord) error {
 func validateRunValue(value RunValueRecord) error {
 	if value.Ordinal < 0 || strings.TrimSpace(value.ValueID) == "" ||
 		!value.ValueDigest.Valid() || len(value.Artifact) == 0 {
-		return errors.New("Run value is invalid")
+		return errors.New("run value is invalid")
 	}
 	if value.Blob != nil && value.Blob.Validate() != nil {
-		return errors.New("Run value Blob reference is invalid")
+		return errors.New("run value Blob reference is invalid")
 	}
 	return nil
 }
@@ -819,7 +819,7 @@ func equalOptionalBlob(left, right *blob.BlobRef) bool {
 
 func (r *RunRepository) ready() error {
 	if r == nil || r.database == nil || r.database.db == nil {
-		return errors.New("Run repository is not open")
+		return errors.New("run repository is not open")
 	}
 	return nil
 }

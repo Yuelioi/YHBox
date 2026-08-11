@@ -11,6 +11,11 @@ describe('AppTitleBar accessibility', () => {
     expect(source).toContain('buildAppNavigation')
   })
 
+  it('uses the Yotta product mark instead of a generic app icon', () => {
+    expect(source).toContain('YottaMark')
+    expect(source).not.toContain('i-tabler-device-gamepad-2')
+  })
+
   it('names utility destinations and native window controls', () => {
     expect(source).toContain(':aria-label="t(\'sidebar.settings\')"')
     expect(source).toContain(':aria-label="t(\'sidebar.about\')"')

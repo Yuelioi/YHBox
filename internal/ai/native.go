@@ -1094,9 +1094,33 @@ func (p *nativeProvider) doJSON(ctx context.Context, credential, attemptID strin
 		return requestID, boundedRaw(raw), httpFailure(response, requestID, raw)
 	}
 	if err := json.Unmarshal(raw, target); err != nil {
-		return requestID, boundedRaw(raw), contractFailureWithRequest("decode AI provider response: "+err.Error(), requestID)
+		return requestID, boundedRaw(raw), invalidProviderResponse(response, requestID, raw)
 	}
 	return requestID, boundedRaw(raw), nil
+}
+
+func invalidProviderResponse(response *http.Response, requestID string, raw []byte) *ProviderFailure {
+	status := response.StatusCode
+	code := "invalid-json-response"
+	message := "AI provider returned an invalid JSON success response"
+	if responseLooksHTML(response, raw) {
+		code = "html-response"
+		message = "AI provider returned HTML instead of API JSON; check the API base URL and protocol"
+	}
+	return &ProviderFailure{
+		Stage: FailureContract, Class: FailureInvalidResponse, HTTPStatus: &status,
+		ProviderCode: code, ProviderRequestID: requestID, Message: message,
+		Retry: RetryNever, Raw: boundedRaw(raw),
+	}
+}
+
+func responseLooksHTML(response *http.Response, raw []byte) bool {
+	contentType := strings.ToLower(strings.TrimSpace(strings.Split(response.Header.Get("Content-Type"), ";")[0]))
+	if contentType == "text/html" || contentType == "application/xhtml+xml" {
+		return true
+	}
+	sniffed := strings.ToLower(http.DetectContentType(bytes.TrimSpace(raw)))
+	return strings.HasPrefix(sniffed, "text/html") || strings.HasPrefix(sniffed, "application/xhtml+xml")
 }
 
 func providerRequestEndpoint(provider ProviderKind, configured string) (string, error) {

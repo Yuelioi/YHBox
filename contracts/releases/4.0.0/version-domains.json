@@ -1,0 +1,202 @@
+{
+  "format": "yotta.version-domain-release",
+  "version": 1,
+  "productVersion": "4.0.0",
+  "domains": [
+    {
+      "name": "application/vnd.yotta.input-clip",
+      "version": "3",
+      "class": "user-data"
+    },
+    {
+      "name": "asset-record-schema",
+      "version": "2",
+      "class": "user-data"
+    },
+    {
+      "name": "automation-target-profile",
+      "version": "1",
+      "class": "user-data"
+    },
+    {
+      "name": "blob-store-layout",
+      "version": "2",
+      "class": "durable-layout"
+    },
+    {
+      "name": "content-catalog-schema",
+      "version": "8",
+      "class": "durable-schema"
+    },
+    {
+      "name": "host-interface",
+      "version": "1.0",
+      "class": "protocol"
+    },
+    {
+      "name": "macro-schema",
+      "version": "2",
+      "class": "user-data"
+    },
+    {
+      "name": "plugin-protocol",
+      "version": "yotta.plugin/1",
+      "class": "protocol"
+    },
+    {
+      "name": "run-ledger-schema",
+      "version": "2",
+      "class": "durable-schema"
+    },
+    {
+      "name": "run-store-layout",
+      "version": "ledger-2",
+      "class": "durable-layout"
+    },
+    {
+      "name": "schedule-schema",
+      "version": "5",
+      "class": "user-data"
+    },
+    {
+      "name": "script-worker-protocol",
+      "version": "yotta.script.worker/1",
+      "class": "protocol"
+    },
+    {
+      "name": "snippet-schema",
+      "version": "1",
+      "class": "user-data"
+    },
+    {
+      "name": "workflow-source-store-layout",
+      "version": "catalog-3",
+      "class": "durable-layout"
+    },
+    {
+      "name": "yotta.automation-installation",
+      "version": "1",
+      "class": "contract"
+    },
+    {
+      "name": "yotta.capability-definition",
+      "version": "1",
+      "class": "contract"
+    },
+    {
+      "name": "yotta.capability-plan",
+      "version": "1",
+      "class": "run-artifact"
+    },
+    {
+      "name": "yotta.catalog",
+      "version": "1",
+      "class": "contract"
+    },
+    {
+      "name": "yotta.catalog-description",
+      "version": "1",
+      "class": "protocol"
+    },
+    {
+      "name": "yotta.catalog-search",
+      "version": "1",
+      "class": "protocol"
+    },
+    {
+      "name": "yotta.data-type",
+      "version": "1",
+      "class": "contract"
+    },
+    {
+      "name": "yotta.node-contract",
+      "version": "1",
+      "class": "contract"
+    },
+    {
+      "name": "yotta.node-package",
+      "version": "1",
+      "class": "portable"
+    },
+    {
+      "name": "yotta.node-package-registry",
+      "version": "3",
+      "class": "user-data"
+    },
+    {
+      "name": "yotta.node-package-signature",
+      "version": "1",
+      "class": "portable"
+    },
+    {
+      "name": "yotta.node-package-trust-policy",
+      "version": "1",
+      "class": "user-data"
+    },
+    {
+      "name": "yotta.run-grant",
+      "version": "1",
+      "class": "run-artifact"
+    },
+    {
+      "name": "yotta.run-record",
+      "version": "1",
+      "class": "run-artifact"
+    },
+    {
+      "name": "yotta.run-summary",
+      "version": "1",
+      "class": "user-data"
+    },
+    {
+      "name": "yotta.settings",
+      "version": "1",
+      "class": "user-data"
+    },
+    {
+      "name": "yotta.sqlite-backup-set",
+      "version": "1",
+      "class": "backup"
+    },
+    {
+      "name": "yotta.storage-migration-diagnostics",
+      "version": "2",
+      "class": "migration-state"
+    },
+    {
+      "name": "yotta.storage-migration-journal",
+      "version": "2",
+      "class": "migration-state"
+    },
+    {
+      "name": "yotta.storage-migration-plan",
+      "version": "2",
+      "class": "migration-state"
+    },
+    {
+      "name": "yotta.storage-migration-snapshot",
+      "version": "1",
+      "class": "migration-state"
+    },
+    {
+      "name": "yotta.storage-root",
+      "version": "3",
+      "class": "durable-layout"
+    },
+    {
+      "name": "yotta.value-envelope",
+      "version": "1",
+      "class": "durable-value"
+    },
+    {
+      "name": "yotta.workflow",
+      "version": "1",
+      "class": "user-data"
+    },
+    {
+      "name": "yotta.workflow-bundle",
+      "version": "2",
+      "class": "portable"
+    }
+  ]
+}

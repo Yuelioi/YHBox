@@ -75,19 +75,20 @@ type Config struct {
 }
 
 type Runtime struct {
-	Application  *appcore.Application
-	Builtins     nodes.Builtins
-	BlobStore    *blob.Store
-	Bundles      *workflowbundle.Manager
-	ai           ai.Installations
-	http         httpegress.Installations
-	automationMu sync.Mutex
-	current      *sealedExecutionEnvironment
-	retired      []automationinstalled.Generation
-	authoring    automationinstalled.AuthoringTargets
-	factory      executionEnvironmentFactory
-	closed       bool
-	closeErr     error
+	Application         *appcore.Application
+	Builtins            nodes.Builtins
+	BlobStore           *blob.Store
+	Bundles             *workflowbundle.Manager
+	AuthoringProjection nodeauthoring.Snapshot
+	ai                  ai.Installations
+	http                httpegress.Installations
+	automationMu        sync.Mutex
+	current             *sealedExecutionEnvironment
+	retired             []automationinstalled.Generation
+	authoring           automationinstalled.AuthoringTargets
+	factory             executionEnvironmentFactory
+	closed              bool
+	closeErr            error
 }
 
 func Build(config Config) (*Runtime, error) {
@@ -309,7 +310,8 @@ func Build(config Config) (*Runtime, error) {
 	environmentOwned = true
 	return &Runtime{
 		Application: application, Builtins: builtins, BlobStore: blobStore, Bundles: bundles,
-		ai: config.AIInstallations, http: config.HTTPInstallations,
+		AuthoringProjection: authoringProjection,
+		ai:                  config.AIInstallations, http: config.HTTPInstallations,
 		current: environment, authoring: authoringTargets, factory: environmentFactory,
 	}, nil
 }

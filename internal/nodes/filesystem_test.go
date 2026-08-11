@@ -64,6 +64,15 @@ func TestFilesystemNodesUseExactWorkspaceCapabilityAndExplicitSignals(t *testing
 		if !foundWorkspace {
 			t.Fatalf("image filesystem node %q omitted workspace authority", nodeID)
 		}
+		foundImageInvalid := false
+		for _, spec := range machine.Errors {
+			if spec.Code == nodes.VisionImageInvalidCode && spec.Category == "vision" {
+				foundImageInvalid = true
+			}
+		}
+		if !foundImageInvalid {
+			t.Fatalf("image filesystem node %q omitted %q: %#v", nodeID, nodes.VisionImageInvalidCode, machine.Errors)
+		}
 	}
 
 	if builtins.FileMetadataType.TypeRef().TypeID != nodes.FileMetadataTypeID {

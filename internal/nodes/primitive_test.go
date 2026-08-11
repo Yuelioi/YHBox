@@ -105,11 +105,62 @@ func TestPrimitiveEvaluatorsAreStrictAndUnicodeAware(t *testing.T) {
 	if got := evaluate(AddNodeID, map[string]json.RawMessage{"a": json.RawMessage(`2.5`), "b": json.RawMessage(`3.25`)}); string(got["result"]) != "5.75" {
 		t.Fatalf("add = %s", got["result"])
 	}
+	if got := evaluate(SubtractNodeID, map[string]json.RawMessage{"a": json.RawMessage(`5`), "b": json.RawMessage(`2`)}); string(got["result"]) != "3" {
+		t.Fatalf("subtract = %s", got["result"])
+	}
+	if got := evaluate(MultiplyNodeID, map[string]json.RawMessage{"a": json.RawMessage(`2.5`), "b": json.RawMessage(`4`)}); string(got["result"]) != "10" {
+		t.Fatalf("multiply = %s", got["result"])
+	}
 	if got := evaluate(LengthNodeID, map[string]json.RawMessage{"text": json.RawMessage(`"Yotta节点"`)}); string(got["result"]) != "7" {
 		t.Fatalf("length = %s", got["result"])
 	}
 	if got := evaluate(ContainsNodeID, map[string]json.RawMessage{"text": json.RawMessage(`"Yotta节点"`), "search": json.RawMessage(`"节点"`)}); string(got["result"]) != "true" {
 		t.Fatalf("contains = %s", got["result"])
+	}
+	if got := evaluate(ContainsNodeID, map[string]json.RawMessage{"text": json.RawMessage(`"Yotta节点"`), "search": json.RawMessage(`"yotta"`)}); string(got["result"]) != "false" {
+		t.Fatalf("case-sensitive contains = %s", got["result"])
+	}
+	for _, test := range []struct {
+		name   string
+		nodeID string
+		inputs map[string]json.RawMessage
+		want   string
+	}{
+		{name: "and true", nodeID: AndNodeID, inputs: map[string]json.RawMessage{"a": json.RawMessage(`true`), "b": json.RawMessage(`true`)}, want: "true"},
+		{name: "and false", nodeID: AndNodeID, inputs: map[string]json.RawMessage{"a": json.RawMessage(`true`), "b": json.RawMessage(`false`)}, want: "false"},
+		{name: "or true", nodeID: OrNodeID, inputs: map[string]json.RawMessage{"a": json.RawMessage(`false`), "b": json.RawMessage(`true`)}, want: "true"},
+		{name: "or false", nodeID: OrNodeID, inputs: map[string]json.RawMessage{"a": json.RawMessage(`false`), "b": json.RawMessage(`false`)}, want: "false"},
+		{name: "not true", nodeID: NotNodeID, inputs: map[string]json.RawMessage{"value": json.RawMessage(`true`)}, want: "false"},
+		{name: "not false", nodeID: NotNodeID, inputs: map[string]json.RawMessage{"value": json.RawMessage(`false`)}, want: "true"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := evaluate(test.nodeID, test.inputs); string(got["result"]) != test.want {
+				t.Fatalf("result = %s, want %s", got["result"], test.want)
+			}
+		})
+	}
+	for _, test := range []struct {
+		name   string
+		nodeID string
+		a      string
+		b      string
+		want   string
+	}{
+		{name: "less", nodeID: LessThanNodeID, a: "1", b: "2", want: "true"},
+		{name: "less equal boundary", nodeID: LessOrEqualNodeID, a: "2", b: "2", want: "true"},
+		{name: "greater", nodeID: GreaterThanNodeID, a: "3", b: "2", want: "true"},
+		{name: "greater equal boundary", nodeID: GreaterOrEqualNodeID, a: "2", b: "2", want: "true"},
+		{name: "less false", nodeID: LessThanNodeID, a: "2", b: "1", want: "false"},
+		{name: "greater false", nodeID: GreaterThanNodeID, a: "1", b: "2", want: "false"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got := evaluate(test.nodeID, map[string]json.RawMessage{
+				"a": json.RawMessage(test.a), "b": json.RawMessage(test.b),
+			})
+			if string(got["result"]) != test.want {
+				t.Fatalf("result = %s, want %s", got["result"], test.want)
+			}
+		})
 	}
 
 	add, _ := builtins.Definition(AddNodeID)

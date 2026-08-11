@@ -11,6 +11,10 @@ Knowledge 只保存可跨 Work 复用的项目操作指南。先按要修改的�
 | 新增/修改 Data Type、Node Contract 或 adapter | [节点开发](nodes/development.md) |
 | 修改 Target、输入、捕获、录制或鼠标/键盘语义 | [自动化输入与捕获](automation/input-and-capture.md) |
 | 新增 Go service、RPC、event 或 frontend transport | [Wails services](wails/services.md) |
+| 修改 Settings installation、运行环境代或后台生命周期 | [配置与生命周期](runtime/configuration-and-lifecycle.md) |
+| 修改 profile、durable store、schema、backup 或 migration | [存储与迁移](storage/migrations.md) |
+| 新增或更新 README、docs、Knowledge 与链接 | [文档维护](documentation/maintenance.md) |
 
-这里不保存某次故障的时间线、旧版本方案、测试数量快照或生成清单。新的结论只有在当前代码/测试验证、
+这里不保存某次故障的时间线、旧版本方案、测试数量快照或生成清单。Knowledge 本身也不是事实源；使用
+一篇指南前先核对其中的路径、命令和不变量仍受当前生产代码/Task/测试支持。新的结论只有在当前实现验证、
 能服务另一项独立工作、并可改写为正向规则时才进入 Knowledge。

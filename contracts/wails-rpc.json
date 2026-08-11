@@ -1920,6 +1920,10 @@
               "value": "\"invalid-request\""
             },
             {
+              "name": "FailureInvalidResponse",
+              "value": "\"invalid-response\""
+            },
+            {
               "name": "FailureAuthentication",
               "value": "\"authentication\""
             },
@@ -5521,6 +5525,26 @@
               "type": "string"
             },
             {
+              "name": "\"fromNodeId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"fromPortId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"toNodeId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"toPortId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
               "name": "\"requirementId\"",
               "optional": true,
               "type": "string"
@@ -6386,6 +6410,26 @@
             },
             {
               "name": "\"nodeId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"fromNodeId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"fromPortId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"toNodeId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"toPortId\"",
               "optional": true,
               "type": "string"
             },

@@ -597,13 +597,13 @@ func validateJournal(journal Journal) error {
 		return errors.New("legacy storage migration journal is invalid")
 	}
 	if journal.MigrationID == layoutOneToTwoID && journal.BlobLayoutFrom != "" {
-		return errors.New("Catalog migration journal contains Blob layout state")
+		return errors.New("catalog migration journal contains Blob layout state")
 	}
 	if journal.MigrationID == layoutTwoToThreeID &&
 		journal.BlobLayoutFrom != "" &&
 		journal.BlobLayoutFrom != "1" &&
 		journal.BlobLayoutFrom != blob.LayoutVersion {
-		return errors.New("Blob migration journal has an invalid source layout")
+		return errors.New("blob migration journal has an invalid source layout")
 	}
 	switch journal.State {
 	case StatePrepared, StateApplying, StateVerifying, StateRecoveryRequired,

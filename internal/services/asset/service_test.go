@@ -9,12 +9,15 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/yottaapp/yotta/internal/automation/target"
 	"github.com/yottaapp/yotta/internal/blob"
+	"github.com/yottaapp/yotta/internal/storage"
+	"github.com/yottaapp/yotta/internal/storage/catalog"
 )
 
 // stubCaptureAdapter 测试用: ResolveTarget 返预设值/错误; Capture 不被这些测试触及.
@@ -80,9 +83,34 @@ func TestService_SaveTemplateCapture_ListGet(t *testing.T) {
 		t.Errorf("bbox = %v, want [192 216 768 648]", v.BBox)
 	}
 
-	list := svc.List()
+	list, err := svc.List()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(list) != 1 || list[0].GUID != guid || list[0].VariantCount != 1 || len(list[0].Variants) != 1 || list[0].Variants[0].Blob != v.Blob {
 		t.Fatalf("List = %+v", list)
+	}
+}
+
+func TestServiceListPropagatesCatalogFailure(t *testing.T) {
+	dir := t.TempDir()
+	roots, err := storage.Resolve(filepath.Join(dir, "profile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundation, err := catalog.Open(context.Background(), roots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := NewStore(foundation.Assets(), foundation.Objects(), newTestBlobStore(t, dir, foundation.Objects()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := foundation.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewService(store, nil, nil).List(); err == nil {
+		t.Fatal("asset List hid the closed Catalog as an empty library")
 	}
 }
 
