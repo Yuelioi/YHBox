@@ -31,4 +31,5 @@ V4 首发格式与节点合同可冻结、可检查、可升级；后续演进�
 ## Stage 5 — External release handoff
 
 - [x] 确认 canonical `github.com/yuelioi/yotta` 可访问并切换本地 `origin`。
-- [ ] Review、commit 当前变更，从 clean worktree 完成 `task package` 与 frozen candidate smoke。
+- [x] Review、commit 当前变更；将旧历史归档并发布精简的 V4 `main`。
+- [ ] 从 clean worktree 完成 `task package` 与 frozen candidate smoke。

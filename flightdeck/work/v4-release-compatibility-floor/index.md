@@ -17,16 +17,17 @@ Open
 `@wailsio/runtime` 为上游随该版本发布的 `3.0.0-beta.5`；本地正式 Windows build 与全量门禁均通过。
 
 canonical 源码仓库已确定为 `github.com/yuelioi/yotta`，本地 `origin` 已从旧 YHBox 切换并通过 SSH
-读取验证；About、README 与安全报告入口也已同步。发布当前只剩 Git 状态阻塞：工作树仍有约 200 项状态
-记录尚未 review/commit，因此不能运行要求 clean worktree 的 `task package`。公开主线的历史切点已选定为
-`e330f47b`（V4 workflow core cutover）；旧历史将完整保存在 `archive/pre-v4-full-history`，新 `main` 只重放
-该切点及其后的 V4 提交。
+读取验证；About、README 与安全报告入口也已同步。4.0 实现基线已提交为精简主线上的 `c4f86a7b`；公开
+`main` 从 `e330f47b`（V4 workflow core cutover）的等价无父提交开始，在实现基线处共 17 个提交。完整旧历史保存在
+`archive/pre-v4-full-history`，tip 为 `5ac24dee`；两条分支的最终文件树一致并已推送核对。
+
+本地 `main` 与 `origin/main` 已同步且工作树 clean。发布当前只剩从 clean worktree 生成 frozen candidate、
+执行 smoke，以及签名和公开发布外部前置项。
 
 ## Next
 
-1. Commit 当前工作树；保持三份 4.0.0 compatibility snapshot、品牌资源与实现同批进入历史。
-2. 创建旧历史归档分支，重建并推送精简的 V4 `main`，核对远端提交计数与树内容。
-3. 从 clean worktree 按 [发布说明](../../../RELEASING.md) 执行 `task package`，再处理签名和公开发布前置项。
+1. 从 clean worktree 按 [发布说明](../../../RELEASING.md) 执行 `task package` 与 frozen candidate smoke。
+2. 处理签名、ruleset、release environment 等公开发布前置项。
 
 ## Progress
 
@@ -45,6 +46,8 @@ canonical 源码仓库已确定为 `github.com/yuelioi/yotta`，本地 `origin` 
 - 2026-08-12 重构 About 为产品能力导向页面，保留作者与主页入口并移除技术栈陈列；普通节点和子图节点改为整块
   非交互表面可拖动，按钮、输入与端口继续通过 `nodrag` 隔离。定向测试、前端生产构建、`task check`
   与正式 Windows `task build` 均通过。
+- 2026-08-12 将完整旧主线发布到 `archive/pre-v4-full-history`；以 `e330f47b` 的等价文件树建立无父根并
+  重放后续 V4 提交，将公开 `main` 在实现基线处精简为 17 个提交。归档/精简 tip 与最终树均在远端核对一致。
 
 ## References
 
