@@ -30,6 +30,27 @@ No build occurs after staging or smoke.
 
 The resulting `artifacts/Yotta-<version>-windows-amd64.zip` is an unsigned engineering candidate. `artifact-manifest.json` records the source commit, pinned toolchains, exact file set, sizes, hashes, origins and signing state.
 
+## Automated GitHub release
+
+`.github/workflows/release.yml` keeps two explicit paths:
+
+- `workflow_dispatch` builds, attests and stores the frozen candidate as a 14-day Actions artifact, but never creates a
+  GitHub Release;
+- pushing `v<VERSION>` or `v<VERSION>-<alpha|beta|rc>.<n>` runs the same frozen build and publishes the ZIP, SPDX/CycloneDX
+  SBOMs and `SHA256SUMS` as a GitHub Release. Suffixed tags become prereleases; the exact stable tag becomes Latest.
+
+The workflow rejects a tag whose base version differs from `VERSION`, whose commit is not on `main`, or whose GitHub Release
+already exists. It never replaces published assets. For example:
+
+```powershell
+$version = (Get-Content VERSION -Raw).Trim()
+git tag -a "v$version-rc.1" -m "Yotta $version release candidate 1"
+git push origin "v$version-rc.1"
+```
+
+The automated path currently publishes the unsigned payload produced by `task package`; use a prerelease tag unless the
+stable-release prerequisites below have been satisfied and publishing that exact stable tag is intentional.
+
 ## Signing the frozen payload
 
 After configuring a real Authenticode certificate and timestamp service, run:
@@ -52,4 +73,6 @@ Do not publish `v4.0.0` stable until all of the following are true outside the l
 - Authenticode certificate/timestamp, checksum, SBOM and provenance verification succeed on the final immutable assets;
 - Windows installer/upgrade/uninstall smoke runs on a clean host; Linux/macOS remain preview until their native host smoke, signing and permission UX are complete.
 
-The GitHub release workflow currently produces a provenance-attested unsigned candidate. Enabling public stable publication requires an explicit owner-controlled workflow change and the prerequisites above; a tag alone is not a release authorization.
+The GitHub release workflow produces a provenance-attested unsigned payload. Pushing the exact `v<VERSION>` tag is the
+owner-controlled stable release authorization; do not push that tag until the prerequisites above are satisfied. A manual
+workflow dispatch remains candidate-only and never publishes a Release.

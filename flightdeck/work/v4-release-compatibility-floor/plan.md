@@ -32,4 +32,5 @@ V4 首发格式与节点合同可冻结、可检查、可升级；后续演进�
 
 - [x] 确认 canonical `github.com/yuelioi/yotta` 可访问并切换本地 `origin`。
 - [x] Review、commit 当前变更；将旧历史归档并发布精简的 V4 `main`。
+- [x] 实现 tag 驱动的 frozen build、SBOM/checksum/attestation 与 GitHub Release 自动发布。
 - [ ] 从 clean worktree 完成 `task package` 与 frozen candidate smoke。

@@ -1,6 +1,9 @@
-name: Release Candidate (Frozen)
+name: Build and Release (Frozen)
 
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 concurrency:
@@ -17,6 +20,9 @@ jobs:
   build:
     name: Frozen Windows candidate
     runs-on: windows-2025
+    outputs:
+      release-tag: ${{ steps.release-ref.outputs.tag }}
+      prerelease: ${{ steps.release-ref.outputs.prerelease }}
     permissions:
       contents: read
       id-token: write
@@ -26,6 +32,35 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Validate release tag
+        id: release-ref
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $version = (Get-Content -LiteralPath VERSION -Raw).Trim()
+          $stableTag = "v$version"
+          $prereleasePattern = '^' + [regex]::Escape($stableTag) + '-(?:alpha|beta|rc)\.[1-9][0-9]*$'
+          if ($env:RELEASE_TAG -ne $stableTag -and $env:RELEASE_TAG -notmatch $prereleasePattern) {
+            throw "Release tag must be $stableTag or $stableTag-<alpha|beta|rc>.<n>; got $env:RELEASE_TAG"
+          }
+
+          if (Test-Path -LiteralPath .git/shallow) {
+            git fetch --no-tags --unshallow origin '+refs/heads/main:refs/remotes/origin/main'
+          } else {
+            git fetch --no-tags origin '+refs/heads/main:refs/remotes/origin/main'
+          }
+          $releaseCommit = (git rev-parse HEAD).Trim()
+          git merge-base --is-ancestor $releaseCommit refs/remotes/origin/main
+          if ($LASTEXITCODE -ne 0) {
+            throw "Release tag $env:RELEASE_TAG does not point to a commit on main"
+          }
+
+          $isPrerelease = ($env:RELEASE_TAG -ne $stableTag).ToString().ToLowerInvariant()
+          "tag=$env:RELEASE_TAG" >> $env:GITHUB_OUTPUT
+          "prerelease=$isPrerelease" >> $env:GITHUB_OUTPUT
 
       - name: Setup Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
@@ -97,6 +132,34 @@ jobs:
           )
           ./scripts/write-release-checksums.ps1 -Path $paths
 
+      - name: Write release notes
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          git fetch --force --tags origin
+          $releaseCommit = (git rev-parse HEAD).Trim()
+          $parent = git rev-parse "$releaseCommit`^" 2>$null
+          $previousTag = $null
+          if ($LASTEXITCODE -eq 0) {
+            $previousTag = @(
+              git tag --merged $parent --list 'v*' --sort=-version:refname
+            ) | Select-Object -First 1
+          }
+          $range = if ($previousTag) { "$previousTag..$releaseCommit" } else { $releaseCommit }
+          $changes = @(git log --first-parent --reverse --format='- %s (%h)' $range)
+          if ($changes.Count -eq 0) { $changes = @('- Release metadata only.') }
+          $notes = @(
+            "Windows x64 portable build for $env:RELEASE_TAG."
+            ''
+            '> This build is not Authenticode-signed. Verify `SHA256SUMS` and the GitHub attestations before use.'
+            ''
+            '## Changes'
+            ''
+          ) + $changes
+          Set-Content -LiteralPath artifacts/RELEASE_NOTES.md -Value $notes -Encoding utf8NoBOM
+
       - name: Attest build provenance
         uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
         with:
@@ -121,5 +184,67 @@ jobs:
             artifacts/yotta.spdx.json
             artifacts/yotta.cdx.json
             artifacts/SHA256SUMS
+            artifacts/RELEASE_NOTES.md
           if-no-files-found: error
           retention-days: 14
+
+  publish:
+    name: Publish GitHub release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - name: Download frozen candidate
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: yotta-windows-release-candidate
+          path: release-assets
+
+      - name: Publish complete asset set
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.build.outputs.release-tag }}
+          PRERELEASE: ${{ needs.build.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          archives=(release-assets/Yotta-*.zip)
+          if [[ ${#archives[@]} -ne 1 ]]; then
+            echo "::error::Expected exactly one Yotta release archive, found ${#archives[@]}"
+            exit 1
+          fi
+          assets=(
+            "${archives[0]}"
+            release-assets/yotta.spdx.json
+            release-assets/yotta.cdx.json
+            release-assets/SHA256SUMS
+          )
+          for asset in "${assets[@]}" release-assets/RELEASE_NOTES.md; do
+            [[ -f "$asset" ]] || { echo "::error::Missing release file: $asset"; exit 1; }
+          done
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "::error::Release $RELEASE_TAG already exists; refusing to replace published assets"
+            exit 1
+          fi
+
+          release_flags=(
+            --verify-tag
+            --title "Yotta ${RELEASE_TAG#v}"
+            --notes-file release-assets/RELEASE_NOTES.md
+          )
+          if [[ "$PRERELEASE" == 'true' ]]; then
+            release_flags+=(--prerelease --latest=false)
+          else
+            release_flags+=(--latest)
+          fi
+
+          gh release create "$RELEASE_TAG" "${assets[@]}" "${release_flags[@]}"
+          gh release view "$RELEASE_TAG" --json url,tagName,isDraft,isPrerelease

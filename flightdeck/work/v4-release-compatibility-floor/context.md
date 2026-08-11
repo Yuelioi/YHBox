@@ -22,6 +22,9 @@
   generation。Package 安装/更新仍是 preview owner 能力，未来产品化更新必须先定义旧依赖迁移或并存策略。
 - 对外 `main` 从 `e330f47b`（V4 workflow core cutover）的等价无父提交开始，并保留其后的 V4 提交粒度；
   之前的完整 1900+ 提交历史由 `archive/pre-v4-full-history` 持有，不删除旧对象、不把旧历史继续挂在主线祖先上。
+- GitHub Release 由 `.github/workflows/release.yml` 唯一发布：手动 dispatch 只产出短期 frozen candidate；
+  `v<VERSION>-rc.N` 等后缀标签发布 prerelease，精确 `v<VERSION>` 标签才授权 stable/Latest。发布 job 拒绝
+  非 `main` 提交、版本不符标签和已存在 Release，不覆盖既有资产。
 
 ## Acceptance
 

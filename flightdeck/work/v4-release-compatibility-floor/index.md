@@ -21,13 +21,19 @@ canonical 源码仓库已确定为 `github.com/yuelioi/yotta`，本地 `origin` 
 `main` 从 `e330f47b`（V4 workflow core cutover）的等价无父提交开始，在实现基线处共 17 个提交。完整旧历史保存在
 `archive/pre-v4-full-history`，tip 为 `5ac24dee`；两条分支的最终文件树一致并已推送核对。
 
-本地 `main` 与 `origin/main` 已同步且工作树 clean。发布当前只剩从 clean worktree 生成 frozen candidate、
-执行 smoke，以及签名和公开发布外部前置项。
+历史切换后的本地 `main` 与 `origin/main` 已同步。当前工作树只包含下面的自动发布 workflow 与说明更新；
+提交后即可从 clean checkout 生成 frozen candidate，随后处理签名和公开发布外部前置项。
+
+Release workflow 已在本地补齐标签自动发布：手动 dispatch 仍只保留 14 天 candidate；`v<VERSION>-rc.N`
+发布 prerelease，精确 `v<VERSION>` 发布 Latest。构建与发布 job 权限分离，标签必须匹配版本且属于 `main`，
+已有 Release 不会被覆盖。Actionlint、固定 SHA、标签矩阵与文档检查已通过；改动尚未 commit/push，仓库的
+immutable releases 设置目前也尚未启用。
 
 ## Next
 
-1. 从 clean worktree 按 [发布说明](../../../RELEASING.md) 执行 `task package` 与 frozen candidate smoke。
-2. 处理签名、ruleset、release environment 等公开发布前置项。
+1. Review、commit 并 push 自动发布 workflow 与 [发布说明](../../../RELEASING.md)。
+2. 推送 `v4.0.0-rc.1` 验证自动 candidate、SBOM、checksum、attestation 与 prerelease 发布。
+3. 处理签名、immutable releases、ruleset 等 stable 发布前置项后再推送 `v4.0.0`。
 
 ## Progress
 
@@ -48,6 +54,8 @@ canonical 源码仓库已确定为 `github.com/yuelioi/yotta`，本地 `origin` 
   与正式 Windows `task build` 均通过。
 - 2026-08-12 将完整旧主线发布到 `archive/pre-v4-full-history`；以 `e330f47b` 的等价文件树建立无父根并
   重放后续 V4 提交，将公开 `main` 在实现基线处精简为 17 个提交。归档/精简 tip 与最终树均在远端核对一致。
+- 2026-08-12 为 frozen release workflow 增加版本化标签触发、`main` 祖先校验、自动 release notes 与
+  最小写权限发布 job；stable/prerelease 分流且拒绝覆盖已有资产。Actionlint、Action SHA 与文档定向门禁通过。
 
 ## References
 
