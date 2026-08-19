@@ -49,7 +49,7 @@ function Invoke-Version {
     if ($exitCode -ne 0) {
         throw "$Label exited with code ${exitCode}: $output"
     }
-    $match = [regex]::Match($output, $Pattern)
+    $match = [regex]::Match($output, $Pattern, [System.Text.RegularExpressions.RegexOptions]::Multiline)
     if (-not $match.Success) {
         throw "unable to parse $Label version from: $output"
     }

@@ -162,14 +162,10 @@ func TestClickTemplateCapturesMatchesAndClicksTheSameExactTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	startedAt := time.Now()
 	result, err := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).
 		RunWithTargets(context.Background(), program, owner, targets, journal)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if elapsed := time.Since(startedAt); elapsed >= 2*time.Second {
-		t.Fatalf("first-frame template match waited %s before clicking", elapsed)
 	}
 	if len(provider.clicks) != 1 || provider.clicks[0].Point.Unit != "ratio" || provider.clicks[0].Point.X != 0.375 || provider.clicks[0].Point.Y != 23.0/60.0 {
 		t.Fatalf("template clicks = %#v", provider.clicks)

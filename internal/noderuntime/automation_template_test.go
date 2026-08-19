@@ -43,6 +43,7 @@ func TestPollTemplateStateUsesFreshObservationsAndBoundedWaits(t *testing.T) {
 		wantCaptures int
 		wantMatched  bool
 	}{
+		{name: "present first frame", states: []bool{true}, wantPresent: true, timeout: time.Second, wantWaits: nil, wantCaptures: 1, wantMatched: true},
 		{name: "appears", states: []bool{false, false, true}, wantPresent: true, timeout: time.Second, wantWaits: []time.Duration{100 * time.Millisecond, 100 * time.Millisecond}, wantCaptures: 3, wantMatched: true},
 		{name: "disappears", states: []bool{true, false}, wantPresent: false, timeout: time.Second, wantWaits: []time.Duration{100 * time.Millisecond}, wantCaptures: 2, wantMatched: false},
 		{name: "bounded timeout", states: []bool{false, false, false}, wantPresent: true, timeout: 250 * time.Millisecond, wantWaits: []time.Duration{100 * time.Millisecond, 100 * time.Millisecond, 50 * time.Millisecond}, wantCaptures: 3, wantMatched: false},
