@@ -118,9 +118,11 @@ tasks:
     generates:
       - "{{.ROOT_DIR}}/{{.BIN_DIR}}/capture_wgc.dll"
     cmds:
-      - cargo build --release --locked --manifest-path "{{.ROOT_DIR}}/native/capture_wgc/Cargo.toml"
+      - cargo rustc --release --locked --manifest-path "{{.ROOT_DIR}}/native/capture_wgc/Cargo.toml" --lib -- -C link-arg=/Brepro
       - cmd: powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '{{.ROOT_DIR}}/{{.BIN_DIR}}' | Out-Null; Copy-Item '{{.ROOT_DIR}}/native/capture_wgc/target/release/capture_wgc.dll' '{{.ROOT_DIR}}/{{.BIN_DIR}}/capture_wgc.dll' -Force"
         platforms: [windows]
+    env:
+      CARGO_INCREMENTAL: "0"
     preconditions:
       - sh: cargo --version > /dev/null 2>&1 || cargo.exe --version > /dev/null 2>&1
         msg: "cargo (Rust) not found in PATH. Install Rust toolchain: https://rustup.rs/"
