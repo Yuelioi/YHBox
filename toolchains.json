@@ -9,6 +9,8 @@
   "syft": "v1.44.0",
   "staticcheck": "v0.6.1",
   "govulncheck": "v1.6.0",
+  "protoc": "30.2",
+  "protocGenGo": "1.36.9",
   "wails": {
     "go": "v3.0.0-beta.6",
     "cli": "v3.0.0-beta.6",

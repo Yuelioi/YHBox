@@ -150,10 +150,12 @@ if ($CheckInstalled) {
     Invoke-Version "Task" "task" @("--version") '^(?:Task version:\s*v?)?([^\s]+)' ([string]$manifest.task)
     Invoke-Version "Rust" "rustc" @("--version") '^rustc\s+([^\s]+)' ([string]$manifest.rust)
     Invoke-Version "Wails CLI" "wails3" @("version") '(v3\.0\.0-[0-9A-Za-z.-]+)' ([string]$manifest.wails.cli)
+    Invoke-Version "protoc" "protoc" @("--version") '^libprotoc\s+([^\s]+)' ([string]$manifest.protoc)
+    Invoke-Version "protoc-gen-go" "protoc-gen-go" @("--version") '^protoc-gen-go(?:\.exe)?\s+v?([^\s]+)' ([string]$manifest.protocGenGo)
 }
 
 if ($CheckReleaseTools) {
     Invoke-Version "NSIS" "makensis" @("/VERSION") '^v?([^\s]+)' ([string]$manifest.nsis)
 }
 
-Write-Host "toolchain contract OK: Go $($manifest.go), Node $($manifest.node), pnpm $($manifest.pnpm), Task $($manifest.task), Rust $($manifest.rust), Wails $($manifest.wails.go)/runtime $($manifest.wails.runtime)"
+Write-Host "toolchain contract OK: Go $($manifest.go), Node $($manifest.node), pnpm $($manifest.pnpm), Task $($manifest.task), Rust $($manifest.rust), Wails $($manifest.wails.go)/runtime $($manifest.wails.runtime), protoc $($manifest.protoc), protoc-gen-go $($manifest.protocGenGo)"

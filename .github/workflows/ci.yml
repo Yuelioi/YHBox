@@ -101,6 +101,12 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Setup protoc
+        uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
+        with:
+          version: '30.2'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Setup pnpm
         uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
@@ -123,6 +129,9 @@ jobs:
 
       - name: Install staticcheck
         run: go install honnef.co/go/tools/cmd/staticcheck@v0.6.1
+
+      - name: Install protoc-gen-go
+        run: go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.9
 
       - name: Run canonical quality gate
         run: task check:full
