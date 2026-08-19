@@ -365,9 +365,10 @@ export function expandEditorCommand(command: EditorCommand): EditorCommand[] {
       return [
         ...command.nodes.flatMap(nodeCommands),
         ...command.calls.map((call): EditorCommand => ({ kind: 'add-graph-call', call })),
-        ...command.annotations.map(
-          (annotation): EditorCommand => ({ kind: 'add-annotation', annotation }),
-        ),
+        ...command.annotations.map((annotation): EditorCommand => ({
+          kind: 'add-annotation',
+          annotation,
+        })),
         ...command.edges.map((edge): EditorCommand => ({ kind: 'connect', edge })),
       ]
     case 'fork-graph-call':
@@ -380,9 +381,10 @@ export function expandEditorCommand(command: EditorCommand): EditorCommand[] {
         { kind: 'remove-graph-call', callId: command.callId },
         ...command.nodes.flatMap(nodeCommands),
         ...command.calls.map((call): EditorCommand => ({ kind: 'add-graph-call', call })),
-        ...command.annotations.map(
-          (annotation): EditorCommand => ({ kind: 'add-annotation', annotation }),
-        ),
+        ...command.annotations.map((annotation): EditorCommand => ({
+          kind: 'add-annotation',
+          annotation,
+        })),
         ...command.edges.map((edge): EditorCommand => ({ kind: 'connect', edge })),
       ]
     default:

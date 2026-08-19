@@ -985,13 +985,11 @@ export class EditorSession {
       shadow.nodes.push(node)
       return node
     })
-    const edges = nodes.slice(1).map(
-      (node, index): Edge => ({
-        channel: 'exec',
-        from: { nodeId: nodes[index].id, portId: draftNodes[index].execOutput },
-        to: { nodeId: node.id, portId: draftNodes[index + 1].execInput },
-      }),
-    )
+    const edges = nodes.slice(1).map((node, index): Edge => ({
+      channel: 'exec',
+      from: { nodeId: nodes[index].id, portId: draftNodes[index].execOutput },
+      to: { nodeId: node.id, portId: draftNodes[index + 1].execInput },
+    }))
     this.applyBatch([
       ...resources.map((resource): EditorCommand => ({ kind: 'add-resource', resource })),
       { kind: 'insert-node-selection', nodes, calls: [], annotations: [], edges },
