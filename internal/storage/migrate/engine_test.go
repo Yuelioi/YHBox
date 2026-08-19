@@ -392,6 +392,14 @@ func layoutOneFixture(t *testing.T) string {
 	if err := os.CopyFS(root, os.DirFS("testdata/layout-1")); err != nil {
 		t.Fatal(err)
 	}
+	settings := filepath.Join(root, "config", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(settings), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writeTestJSON(t, settings, map[string]string{
+		"fixture": "released-layout-1",
+		"note":    "Frozen compatibility input. Do not rewrite with current serializers.",
+	})
 	return root
 }
 

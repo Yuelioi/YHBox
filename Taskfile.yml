@@ -29,9 +29,9 @@ tasks:
       - task: check:ai-eval
       - task: versions:check
       - task: wails:verify
+      - task: check:frontend:full
       - task: check:go:full
       - task: check:windows:timer
-      - task: check:frontend:full
 
   check:supply-chain:
     summary: Verifies immutable Actions, exact toolchains and frozen dependency inputs
