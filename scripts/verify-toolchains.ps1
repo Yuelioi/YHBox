@@ -31,23 +31,23 @@ function Assert-Equal {
 
 function Invoke-Version {
     param([string]$Label, [string]$FileName, [string[]]$Arguments, [string]$Pattern, [string]$Expected)
-    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
-    $startInfo.FileName = $FileName
-    $startInfo.Arguments = $Arguments -join " "
-    $startInfo.UseShellExecute = $false
-    $startInfo.RedirectStandardOutput = $true
-    $startInfo.RedirectStandardError = $true
     try {
-        $process = [System.Diagnostics.Process]::Start($startInfo)
-        $stdout = $process.StandardOutput.ReadToEnd()
-        $stderr = $process.StandardError.ReadToEnd()
-        $process.WaitForExit()
+        $command = Get-Command -Name $FileName -CommandType Application -ErrorAction Stop | Select-Object -First 1
+        $previousErrorActionPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            $outputLines = @(& $command.Source @Arguments 2>&1)
+            $exitCode = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
     } catch {
         throw "unable to execute ${Label}: $($_.Exception.Message)"
     }
-    $output = "${stdout}`n${stderr}".Trim()
-    if ($process.ExitCode -ne 0) {
-        throw "$Label exited with code $($process.ExitCode): $output"
+    $output = ($outputLines | ForEach-Object { [string]$_ }) -join "`n"
+    $output = $output.Trim()
+    if ($exitCode -ne 0) {
+        throw "$Label exited with code ${exitCode}: $output"
     }
     $match = [regex]::Match($output, $Pattern)
     if (-not $match.Success) {

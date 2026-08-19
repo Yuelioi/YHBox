@@ -344,8 +344,13 @@ func TestProcessHostConstructionAdvertisesOnlyAvailableIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if features := host.HostFeatures(); len(features) != 1 || features[0] != ProcessIsolationHostFeatureID {
-		t.Fatalf("HostFeatures = %#v", features)
+	features := host.HostFeatures()
+	if host.runner.Available() {
+		if len(features) != 1 || features[0] != ProcessIsolationHostFeatureID {
+			t.Fatalf("HostFeatures = %#v", features)
+		}
+	} else if len(features) != 0 {
+		t.Fatalf("unavailable runner HostFeatures = %#v", features)
 	}
 	if _, err := NewProcessHost(nodecatalog.Snapshot{}, ProcessHostOptions{}); err == nil {
 		t.Fatal("NewProcessHost accepted an invalid Catalog")

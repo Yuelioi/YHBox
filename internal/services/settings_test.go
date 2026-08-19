@@ -242,9 +242,10 @@ func TestSettingsValidateLauncherSize(t *testing.T) {
 
 func TestSettingsServiceRemovingApplicationAlsoRemovesDependentTargets(t *testing.T) {
 	app := newTestApp(t, filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	executable := filepath.Join(t.TempDir(), "HTGame.exe")
 	_, _, err := app.MutateSettings(func(settings *Settings) error {
 		settings.Applications.Profiles = []InstalledApplicationSettings{{
-			Slot: "htgame", Label: "HTGame", Executable: `C:\Apps\HTGame.exe`,
+			Slot: "htgame", Label: "HTGame", Executable: executable,
 			Arguments: []string{},
 		}}
 		settings.Automation.Targets = []InstalledAutomationTargetSettings{{
@@ -345,6 +346,7 @@ func TestLoadSettings_CorruptedFileRequiresRecovery(t *testing.T) {
 
 func TestLoadSettingsAcceptsLegacyWorkflowConsentWithoutDiscardingConfiguration(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
+	executable := filepath.Join(t.TempDir(), "Game.exe")
 	settings := defaultSettings()
 	settings.Locale = "en"
 	settings.AI.Profiles = []AIModelSettings{modelSettingsForTest("assistant", "Assistant")}
@@ -353,7 +355,7 @@ func TestLoadSettingsAcceptsLegacyWorkflowConsentWithoutDiscardingConfiguration(
 		ResponseByteLimit: 8192, TimeoutMilliseconds: 1000,
 	}}
 	settings.Applications.Profiles = []InstalledApplicationSettings{{
-		Slot: "game", Label: "Game", Executable: `C:\Apps\Game.exe`,
+		Slot: "game", Label: "Game", Executable: executable,
 		Arguments: []string{},
 	}}
 	settings.Automation.Targets = []InstalledAutomationTargetSettings{{
