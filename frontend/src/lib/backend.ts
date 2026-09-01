@@ -16,6 +16,7 @@ import * as MacroService from '@bindings/github.com/yottaapp/yotta/internal/serv
 import * as SnippetService from '@bindings/github.com/yottaapp/yotta/internal/services/snippet/service.js'
 import * as AIService from '@bindings/github.com/yottaapp/yotta/internal/services/aiservice.js'
 import * as AutomationService from '@bindings/github.com/yottaapp/yotta/internal/services/automationservice.js'
+import * as MCPService from '@bindings/github.com/yottaapp/yotta/internal/services/mcpservice.js'
 import { AIModelSettings as AIModelSettingsBinding } from '@bindings/github.com/yottaapp/yotta/internal/services/models.js'
 import {
   EvalReportArtifact as EvalReportArtifactBinding,
@@ -327,7 +328,11 @@ export interface BlobPreview {
   height: number
 }
 
-export type AIProviderKind = 'openai-responses' | 'openai-chat-completions' | 'anthropic-messages'
+export type AIProviderKind =
+  | 'openai-responses'
+  | 'openai-chat-completions'
+  | 'anthropic-messages'
+  | 'codex-subscription'
 
 export interface AIProfileCapabilities {
   structuredOutput: boolean
@@ -564,6 +569,10 @@ export const backend = {
   settings: {
     get: () => invoke(SettingsService.Get),
     update: (patch: object) => invoke(SettingsService.Update, JSON.stringify(patch)),
+  },
+  mcp: {
+    registerCodex: (port: number) => invoke(MCPService.RegisterCodex, port),
+    unregisterCodex: (port: number) => invoke(MCPService.UnregisterCodex, port),
   },
   ai: {
     testProfile: (profile: AIModelProfile) =>
@@ -850,6 +859,7 @@ export const backend = {
         | 'rect'
         | 'template_save'
         | 'workflow_resource'
+        | 'workflow_resource_version'
         | 'template_recapture'
         | 'color',
       id: string,

@@ -264,14 +264,14 @@ function menuItems(schedule: Schedule) {
   return [
     [
       {
-        label: t('schedule.edit_action', { name: schedule.name }),
+        label: t('common.edit'),
         icon: 'i-tabler-edit',
         onSelect: () => emit('edit', schedule),
       },
     ],
     [
       {
-        label: t('schedule.delete_action', { name: schedule.name }),
+        label: t('common.delete'),
         icon: 'i-tabler-trash',
         color: 'error' as const,
         onSelect: () => emit('delete', schedule),

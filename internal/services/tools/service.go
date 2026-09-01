@@ -409,13 +409,13 @@ func (s *Service) CloseRecordingHUD() {
 }
 
 // OpenScreenPicker 打开屏幕选择器。mode: "point" | "rect" | "template_save" |
-// "workflow_resource" | "template_recapture" | "color"。
+// "workflow_resource" | "workflow_resource_version" | "template_recapture" | "color"。
 // requestID 调用方生成（UUID），picker 完成时通过 emit 事件 "tools:picker-result"
 // 带上 id 给调用方匹配。targetSlot 选择精确的已安装自动化目标。
 // colorSpace 仅 color 模式需要（"hsv" | "rgb"），其他模式传 ""。
 // guid 仅 template_recapture 模式需要（重拍目标资产 GUID，存成同 GUID 的新分辨率档）；其他模式传 ""。
 func (s *Service) OpenScreenPicker(mode, requestID, targetSlot, colorSpace, guid string) error {
-	if mode != "point" && mode != "rect" && mode != "template_save" && mode != "workflow_resource" && mode != "template_recapture" && mode != "color" {
+	if mode != "point" && mode != "rect" && mode != "template_save" && mode != "workflow_resource" && mode != "workflow_resource_version" && mode != "template_recapture" && mode != "color" {
 		return fmt.Errorf("unsupported mode %q", mode)
 	}
 	if requestID == "" {

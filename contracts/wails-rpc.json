@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "generator": "wails3",
   "summary": {
-    "services": 15,
-    "methods": 140,
-    "models": 229
+    "services": 16,
+    "methods": 142,
+    "models": 230
   },
   "services": [
     {
@@ -787,6 +787,35 @@
             }
           ],
           "returns": "$CancellablePromise<$models.Macro | null>"
+        }
+      ]
+    },
+    {
+      "module": "internal/services/mcpservice",
+      "methods": [
+        {
+          "name": "RegisterCodex",
+          "bindingId": "1949641060",
+          "parameters": [
+            {
+              "name": "port",
+              "optional": false,
+              "type": "number"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "UnregisterCodex",
+          "bindingId": "3880666645",
+          "parameters": [
+            {
+              "name": "port",
+              "optional": false,
+              "type": "number"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
         }
       ]
     },
@@ -2069,6 +2098,10 @@
             {
               "name": "ProviderAnthropicMessages",
               "value": "\"anthropic-messages\""
+            },
+            {
+              "name": "ProviderCodexSubscription",
+              "value": "\"codex-subscription\""
             }
           ]
         },
@@ -4581,6 +4614,22 @@
         },
         {
           "kind": "class",
+          "name": "MCPSettings",
+          "fields": [
+            {
+              "name": "\"enabled\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"port\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "MouseProfile",
           "fields": [
             {
@@ -4629,6 +4678,11 @@
               "name": "\"ai\"",
               "optional": false,
               "type": "AISettings"
+            },
+            {
+              "name": "\"mcp\"",
+              "optional": false,
+              "type": "MCPSettings"
             },
             {
               "name": "\"network\"",

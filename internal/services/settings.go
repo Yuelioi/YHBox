@@ -21,6 +21,7 @@ type Settings struct {
 	Locale       string              `json:"locale"`  // "zh" | "en"；i18n 口子，目前默认且仅 zh
 	Capture      CaptureSettings     `json:"capture"` // 截屏后端选择
 	AI           AISettings          `json:"ai"`
+	MCP          MCPSettings         `json:"mcp"`
 	Network      NetworkSettings     `json:"network"`
 	Applications ApplicationSettings `json:"applications"`
 	Automation   AutomationSettings  `json:"automation"`
@@ -28,6 +29,14 @@ type Settings struct {
 
 type AISettings struct {
 	Profiles []AIModelSettings `json:"profiles"`
+}
+
+// MCPSettings controls the local, loopback-only Streamable HTTP endpoint.
+// The desktop composition owns the listener lifecycle; settings contain no
+// bearer tokens or remote bind addresses.
+type MCPSettings struct {
+	Enabled bool `json:"enabled"`
+	Port    int  `json:"port"`
 }
 
 type NetworkSettings struct {
@@ -334,6 +343,7 @@ func defaultSettings() *Settings {
 		// 用户嫌弃自动选的可以去设置硬切 gdi/wgc/mock。
 		Capture:      CaptureSettings{Method: "auto", DumpDebug: false},
 		AI:           AISettings{Profiles: []AIModelSettings{}},
+		MCP:          MCPSettings{Enabled: false, Port: 39271},
 		Network:      NetworkSettings{HTTPOrigins: []HTTPOriginSettings{}},
 		Applications: ApplicationSettings{Profiles: []InstalledApplicationSettings{}},
 		Automation:   AutomationSettings{Targets: []InstalledAutomationTargetSettings{}},
@@ -388,6 +398,9 @@ func (s *Settings) Validate() error {
 	}
 	if err := s.AI.validate(); err != nil {
 		return err
+	}
+	if s.MCP.Port < 1024 || s.MCP.Port > 65535 {
+		return fmt.Errorf("mcp.port must be between 1024 and 65535, got %d", s.MCP.Port)
 	}
 	if err := s.Network.validate(); err != nil {
 		return err

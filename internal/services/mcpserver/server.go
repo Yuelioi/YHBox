@@ -145,21 +145,24 @@ func (s *registrar) register(protocol *server.MCPServer) {
 }
 
 func (s *registrar) tool(name, description string) mcp.Tool {
-	schemas := s.schemas[name]
-	return mcp.NewTool(name,
-		mcp.WithDescription(description), mcp.WithRawInputSchema(schemas.input), mcp.WithRawOutputSchema(schemas.output),
-		mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
-		mcp.WithIdempotentHintAnnotation(true), mcp.WithOpenWorldHintAnnotation(false),
-	)
+	return s.protocolTool(name, description, true, false, true)
 }
 
 func (s *registrar) mutationTool(name, description string) mcp.Tool {
+	return s.protocolTool(name, description, false, true, false)
+}
+
+func (s *registrar) protocolTool(name, description string, readOnly, destructive, idempotent bool) mcp.Tool {
 	schemas := s.schemas[name]
-	return mcp.NewTool(name,
-		mcp.WithDescription(description), mcp.WithRawInputSchema(schemas.input), mcp.WithRawOutputSchema(schemas.output),
-		mcp.WithReadOnlyHintAnnotation(false), mcp.WithDestructiveHintAnnotation(true),
-		mcp.WithIdempotentHintAnnotation(false), mcp.WithOpenWorldHintAnnotation(false),
-	)
+	tool := mcp.NewToolWithRawSchema(name, description, schemas.input)
+	tool.RawOutputSchema = schemas.output
+	tool.Annotations = mcp.ToolAnnotation{
+		ReadOnlyHint:    mcp.ToBoolPtr(readOnly),
+		DestructiveHint: mcp.ToBoolPtr(destructive),
+		IdempotentHint:  mcp.ToBoolPtr(idempotent),
+		OpenWorldHint:   mcp.ToBoolPtr(false),
+	}
+	return tool
 }
 
 func schemaBuilder[Input, Output any](name string) func(map[string]toolSchemas) error {

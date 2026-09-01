@@ -150,9 +150,13 @@ func (p *resourceProvider) Invoke(ctx context.Context, object any, operation str
 	if wantsStructured != session.scope.Structured || wantsStructured != (operation == OperationGenerateStructured) {
 		return nil, errors.New("AI request structured mode does not match the granted operation")
 	}
-	credential, err := p.credentials.Get(session.credentialID)
-	if err != nil || credential == "" {
-		return nil, errors.New("AI credential is unavailable")
+	credential := "codex-subscription"
+	if p.profile.Machine().Provider != ProviderCodexSubscription {
+		var err error
+		credential, err = p.credentials.Get(session.credentialID)
+		if err != nil || credential == "" {
+			return nil, errors.New("AI credential is unavailable")
+		}
 	}
 	outcome, err := p.native.Generate(ctx, credential, request)
 	if err != nil {
@@ -174,12 +178,17 @@ func (p *resourceProvider) invokeAgent(ctx context.Context, session *modelSessio
 	if !ok || !p.profile.Machine().Capabilities.ToolCalling {
 		return nil, errors.New("installed AI model does not support native tool calling")
 	}
-	credential, err := p.credentials.Get(session.credentialID)
-	if err != nil || credential == "" {
-		return nil, errors.New("AI credential is unavailable")
+	credential := "codex-subscription"
+	if p.profile.Machine().Provider != ProviderCodexSubscription {
+		var credentialErr error
+		credential, credentialErr = p.credentials.Get(session.credentialID)
+		if credentialErr != nil || credential == "" {
+			return nil, errors.New("AI credential is unavailable")
+		}
 	}
 	var outcome Outcome
 	var next any
+	var err error
 	switch operation {
 	case OperationAgentStart:
 		if session.agentState != nil {

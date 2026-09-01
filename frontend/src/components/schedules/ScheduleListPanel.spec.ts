@@ -22,8 +22,10 @@ describe('ScheduleListPanel structure', () => {
   it('names edit and overflow actions with schedule context', () => {
     expect(source).toContain(':aria-label="t(\'schedule.run_action\', { name: schedule.name })"')
     expect(source).toContain(':aria-label="t(\'schedule.more_action\', { name: schedule.name })"')
-    expect(source).toContain("label: t('schedule.edit_action', { name: schedule.name })")
-    expect(source).toContain("label: t('schedule.delete_action', { name: schedule.name })")
+    expect(source).toContain("label: t('common.edit')")
+    expect(source).toContain("label: t('common.delete')")
+    expect(source).not.toContain("label: t('schedule.edit_action', { name: schedule.name })")
+    expect(source).not.toContain("label: t('schedule.delete_action', { name: schedule.name })")
   })
 
   it('keeps one-click run and the last readiness reason in the schedule row', () => {

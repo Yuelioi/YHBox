@@ -415,6 +415,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   'start-recording': [mode: 'simple' | 'precise']
   'capture-template': []
+  'recapture-workflow-resource': [resource: WorkflowResource]
+  'create-workflow-resource-variant': [resource: WorkflowResource]
   'open-library': []
   edit: [asset: AssetSummary]
   use: [selection: AssetPickerSelection]
@@ -766,6 +768,20 @@ function itemMenu(id: string) {
                     label: t('workflow.resources.edit_content'),
                     icon: 'i-tabler-route-alt-left',
                     onSelect: () => emit('edit-workflow-resource', value),
+                  },
+                ]
+              : []),
+            ...(value.kind === 'image'
+              ? [
+                  {
+                    label: t('workflow.resources.recapture'),
+                    icon: 'i-tabler-camera-rotate',
+                    onSelect: () => emit('recapture-workflow-resource', value),
+                  },
+                  {
+                    label: t('workflow.resources.create_version'),
+                    icon: 'i-tabler-versions',
+                    onSelect: () => emit('create-workflow-resource-variant', value),
                   },
                 ]
               : []),

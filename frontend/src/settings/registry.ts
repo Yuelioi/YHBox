@@ -4,6 +4,7 @@ export const SETTINGS_THEME_KEYS = [
   'input',
   'launcher',
   'ai',
+  'mcp',
   'network',
   'applications',
   'automation',
@@ -55,6 +56,13 @@ export const SETTINGS_THEMES: readonly SettingsThemeDefinition[] = [
     labelKey: 'settingsTab.ai',
     descriptionKey: 'settingsCenter.theme.ai',
     icon: 'i-tabler-sparkles',
+  },
+  {
+    key: 'mcp',
+    group: 'connections',
+    labelKey: 'settingsTab.mcp',
+    descriptionKey: 'settingsCenter.theme.mcp',
+    icon: 'i-tabler-plug-connected',
   },
   {
     key: 'network',

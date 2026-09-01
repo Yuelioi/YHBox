@@ -43,6 +43,9 @@ func NewNativeProvider(profile ModelProfile, options HTTPOptions) (Provider, err
 	if !profile.Valid() {
 		return nil, errors.New("native AI provider requires a model profile")
 	}
+	if profile.Machine().Provider == ProviderCodexSubscription {
+		return newCodexProvider(profile)
+	}
 	if options.Client == nil {
 		transport := http.DefaultTransport.(*http.Transport).Clone()
 		transport.Proxy = nil

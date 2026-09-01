@@ -20,6 +20,7 @@ const (
 	ProviderOpenAIResponses       ProviderKind = "openai-responses"
 	ProviderOpenAIChatCompletions ProviderKind = "openai-chat-completions"
 	ProviderAnthropicMessages     ProviderKind = "anthropic-messages"
+	ProviderCodexSubscription     ProviderKind = "codex-subscription"
 )
 
 type EvaluationStatus string
@@ -63,7 +64,7 @@ type ModelProfile struct{ state *modelProfileState }
 var modelPattern = regexp.MustCompile(`^[^\x00-\x1f\x7f]{1,256}$`)
 
 func SealModelProfile(draft ModelProfileDraft) (ModelProfile, error) {
-	if (draft.Provider != ProviderOpenAIResponses && draft.Provider != ProviderOpenAIChatCompletions && draft.Provider != ProviderAnthropicMessages) || !modelPattern.MatchString(draft.Model) ||
+	if (draft.Provider != ProviderOpenAIResponses && draft.Provider != ProviderOpenAIChatCompletions && draft.Provider != ProviderAnthropicMessages && draft.Provider != ProviderCodexSubscription) || !modelPattern.MatchString(draft.Model) ||
 		draft.MaxOutputTokens < 0 || draft.MaxOutputTokens > 1_000_000 {
 		return ModelProfile{}, errors.New("invalid AI model profile identity or budget")
 	}
@@ -81,7 +82,7 @@ func SealModelProfile(draft ModelProfileDraft) (ModelProfile, error) {
 	if strings.HasPrefix(endpoint, "https://") {
 		draft.AllowLocalHTTP = false
 	}
-	if draft.Capabilities.ToolCalling {
+	if draft.Capabilities.ToolCalling && draft.Provider != ProviderCodexSubscription {
 		if err := draft.Pricing.Validate(); err != nil {
 			return ModelProfile{}, err
 		}
@@ -129,6 +130,8 @@ func DefaultProviderEndpoint(provider ProviderKind) string {
 		return OpenAIChatCompletionsBaseURL
 	case ProviderAnthropicMessages:
 		return AnthropicMessagesEndpoint
+	case ProviderCodexSubscription:
+		return "codex://subscription"
 	default:
 		return ""
 	}
@@ -138,6 +141,12 @@ func DefaultProviderEndpoint(provider ProviderKind) string {
 // inventing or requiring a provider-specific request path. It permits plain
 // HTTP only for an explicitly acknowledged loopback installation.
 func NormalizeProviderEndpoint(provider ProviderKind, raw string, allowLocalHTTP bool) (string, error) {
+	if provider == ProviderCodexSubscription {
+		if raw == "" || raw == "codex://subscription" {
+			return "codex://subscription", nil
+		}
+		return "", errors.New("Codex subscription provider endpoint is managed by Codex")
+	}
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		raw = DefaultProviderEndpoint(provider)

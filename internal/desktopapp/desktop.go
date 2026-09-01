@@ -29,6 +29,7 @@ import (
 	"github.com/yottaapp/yotta/internal/services"
 	"github.com/yottaapp/yotta/internal/services/asset"
 	"github.com/yottaapp/yotta/internal/services/calibration"
+	"github.com/yottaapp/yotta/internal/services/mcpserver"
 	"github.com/yottaapp/yotta/internal/services/recording"
 	"github.com/yottaapp/yotta/internal/services/resourceauthoring"
 	"github.com/yottaapp/yotta/internal/services/schedule"
@@ -147,6 +148,10 @@ func Run(config Config) error {
 	sharedHotkeys := hotkey.NewHotkeyManager()
 
 	settingsSvc := services.NewSettingsService(app, aiSecrets)
+	mcpRuntime, err := mcpserver.NewRuntime(workflowRuntime.Application)
+	if err != nil {
+		return fmt.Errorf("initialize MCP runtime: %w", err)
+	}
 
 	assetStore, err := asset.NewStore(
 		local.Assets,
@@ -167,30 +172,73 @@ func Run(config Config) error {
 	}
 	authoringTargets := workflowRuntime.AuthoringTargets()
 	if err := app.AttachSettingsActivator(func(before, after *services.Settings) (*services.SettingsActivationPlan, error) {
-		if reflect.DeepEqual(before.AI, after.AI) &&
-			reflect.DeepEqual(before.Network, after.Network) &&
-			reflect.DeepEqual(before.Applications, after.Applications) &&
-			reflect.DeepEqual(before.Automation, after.Automation) &&
-			before.ActiveMouseCounts360() == after.ActiveMouseCounts360() {
+		installationsChanged := !reflect.DeepEqual(before.AI, after.AI) ||
+			!reflect.DeepEqual(before.Network, after.Network) ||
+			!reflect.DeepEqual(before.Applications, after.Applications) ||
+			!reflect.DeepEqual(before.Automation, after.Automation) ||
+			before.ActiveMouseCounts360() != after.ActiveMouseCounts360()
+		mcpChanged := !reflect.DeepEqual(before.MCP, after.MCP)
+		if !installationsChanged && !mcpChanged {
 			return nil, nil
 		}
-		drafts, err := after.Automation.InstallationDrafts(after.Applications, after.ActiveMouseCounts360())
-		if err != nil {
-			return nil, fmt.Errorf("prepare installed automation: %w", err)
+		var installationCommit func() error
+		var installationAbort func()
+		if installationsChanged {
+			drafts, err := after.Automation.InstallationDrafts(after.Applications, after.ActiveMouseCounts360())
+			if err != nil {
+				return nil, fmt.Errorf("prepare installed automation: %w", err)
+			}
+			prepared, err := workflowRuntime.PrepareInstallations(
+				after.AI.InstallationDrafts(),
+				aiSecrets,
+				after.Network.InstallationDrafts(),
+				after.Applications.InstallationDrafts(),
+				drafts,
+			)
+			if err != nil {
+				return nil, err
+			}
+			installationCommit = prepared.Commit
+			installationAbort = prepared.Abort
 		}
-		prepared, err := workflowRuntime.PrepareInstallations(
-			after.AI.InstallationDrafts(),
-			aiSecrets,
-			after.Network.InstallationDrafts(),
-			after.Applications.InstallationDrafts(),
-			drafts,
-		)
-		if err != nil {
-			return nil, err
+		var mcpCommit func() error
+		var mcpAbort func()
+		if mcpChanged {
+			var err error
+			mcpCommit, mcpAbort, err = mcpRuntime.Prepare(mcpserver.RuntimeConfig{
+				Enabled: after.MCP.Enabled,
+				Port:    after.MCP.Port,
+			})
+			if err != nil {
+				if installationAbort != nil {
+					installationAbort()
+				}
+				return nil, err
+			}
 		}
 		return &services.SettingsActivationPlan{
-			Commit: prepared.Commit,
-			Abort:  prepared.Abort,
+			Commit: func() error {
+				if installationCommit != nil {
+					if err := installationCommit(); err != nil {
+						if mcpAbort != nil {
+							mcpAbort()
+						}
+						return err
+					}
+				}
+				if mcpCommit != nil {
+					return mcpCommit()
+				}
+				return nil
+			},
+			Abort: func() {
+				if installationAbort != nil {
+					installationAbort()
+				}
+				if mcpAbort != nil {
+					mcpAbort()
+				}
+			},
 		}, nil
 	}); err != nil {
 		return fmt.Errorf("attach live installation settings: %w", err)
@@ -396,6 +444,14 @@ func Run(config Config) error {
 			Close: local.Close,
 		},
 		appruntime.Resource{
+			Name: "mcp-server",
+			Start: func(context.Context) error {
+				configured := app.Settings().MCP
+				return mcpRuntime.Start(mcpserver.RuntimeConfig{Enabled: configured.Enabled, Port: configured.Port})
+			},
+			Close: mcpRuntime.Close,
+		},
+		appruntime.Resource{
 			Name:  "hotkey-registry",
 			Start: func(context.Context) error { return nil },
 			Close: hotkeyRegistry.Shutdown,
@@ -428,6 +484,7 @@ func Run(config Config) error {
 
 	wailsServices = append(wailsServices,
 		application.NewService(settingsSvc),
+		application.NewService(services.NewMCPService()),
 		application.NewService(services.NewAppInfoService()),
 		application.NewService(workflowSvc),
 		application.NewService(hotkeySvc),

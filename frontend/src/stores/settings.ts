@@ -68,6 +68,10 @@ export interface Settings {
   ai: {
     profiles: AIModelProfile[]
   }
+  mcp: {
+    enabled: boolean
+    port: number
+  }
   network: {
     httpOrigins: HTTPOriginProfile[]
   }

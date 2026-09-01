@@ -2853,6 +2853,9 @@ export default {
       edit_content: 'Edit resource content',
       duplicate: 'Create independent copy',
       duplicated: 'Created an independent workflow resource copy of “{name}”.',
+      recapture: 'Record again',
+      create_version: 'Create new version',
+      capture_failed: 'Could not save the new recording.',
       image_summary: '{variants} variants · {width}×{height}',
       macro_summary: '{actions} actions · {duration}',
       input_clip_summary: '{events} events · {duration} · recorded at {counts} counts/360',
@@ -3665,6 +3668,7 @@ export default {
     input_calibration: 'Input & calibration',
     launcher: 'Floating launcher',
     ai: 'AI connections',
+    mcp: 'MCP',
     network: 'Network targets',
     applications: 'Desktop applications',
     automation: 'Automation targets',
@@ -3688,6 +3692,7 @@ export default {
       input: 'Set the recording mode and mouse calibration profiles',
       launcher: 'Arrange launcher content and display',
       ai: 'Manage models, endpoints, and API keys',
+      mcp: 'Expose workflow tools to local AI clients',
       network: 'Manage HTTP addresses used by workflows',
       applications: 'Manage desktop programs launched by workflows',
       automation: 'Manage Windows, Android, and browser targets',
@@ -3698,6 +3703,25 @@ export default {
       saved: 'Saved on this device',
       failed: 'Save failed',
     },
+  },
+  settingsMCP: {
+    security_title: 'Local connections only',
+    security_hint:
+      'The MCP server listens only on 127.0.0.1 and is not exposed to your LAN. Connected AI clients can create, edit, compile, and preview workflows.',
+    server_title: 'MCP server',
+    server_hint: 'Enabling starts the Streamable HTTP server immediately. No restart is required.',
+    enabled_label: 'Enable MCP',
+    enabled_hint: 'Allow local compatible clients such as Codex and Claude to connect to Yotta.',
+    running: 'Running',
+    stopped: 'Disabled',
+    port_label: 'Listening port',
+    port_hint: 'Disable MCP before changing the port.',
+    endpoint_label: 'Connection URL',
+    endpoint_hint: 'Add this URL to your AI client MCP configuration.',
+    copy: 'Copy',
+    copied: 'MCP URL copied',
+    codex_registered: 'Added to Codex',
+    codex_registration_failed: 'MCP started, but automatic Codex setup failed',
   },
   iconPicker: {
     search_placeholder: 'Search icons...',
@@ -3748,6 +3772,7 @@ export default {
       rect: 'Select screen region',
       template_save: 'Capture new template',
       workflow_resource: 'Capture workflow resource',
+      workflow_resource_version: 'Record a resource version',
       template_recapture: 'Recapture template',
       color: 'Pick screen color',
     },
@@ -3757,6 +3782,8 @@ export default {
       template_save: 'Optionally drag a crop; save the full capture when no region is selected',
       workflow_resource:
         'Save the capture only in this workflow without creating a local-library asset',
+      workflow_resource_version:
+        'Update this workflow resource with a new capture without creating another resource',
       template_recapture:
         'Save a new resolution variant of the same asset; references follow automatically',
       color: 'Click for a single color or drag to analyze a target-color region',
@@ -3778,6 +3805,9 @@ export default {
       tags_placeholder: 'Enter a tag and press Enter',
       remove_tag: 'Remove tag “{tag}”',
       crop_hint: 'Save the full capture, or drag on the canvas first to crop it.',
+    },
+    version: {
+      default_name: 'Resource version',
     },
   },
   floatingLauncher: {
@@ -4070,6 +4100,11 @@ export default {
       openai_responses: 'OpenAI Responses',
       openai_chat_completions: 'OpenAI Chat Completions',
       anthropic_messages: 'Anthropic Messages',
+      codex_subscription: 'Codex (ChatGPT subscription)',
+    },
+    codex: {
+      title: 'Use the local Codex sign-in',
+      hint: 'Yotta calls Codex app-server with your ChatGPT subscription and never reads or stores Codex tokens. Sign in from a terminal first.',
     },
     profiles: {
       title: 'Installed models',

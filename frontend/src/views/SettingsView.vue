@@ -130,6 +130,7 @@ import SettingsHotkeys from './SettingsHotkeys.vue'
 import SettingsInput from './SettingsInput.vue'
 import SettingsLauncher from './SettingsLauncher.vue'
 import SettingsAI from './SettingsAI.vue'
+import SettingsMCP from './SettingsMCP.vue'
 import SettingsNetwork from './SettingsNetwork.vue'
 import SettingsApplications from './SettingsApplications.vue'
 import SettingsAutomation from './SettingsAutomation.vue'
@@ -153,6 +154,7 @@ const componentByTheme = {
   input: SettingsInput,
   launcher: SettingsLauncher,
   ai: SettingsAI,
+  mcp: SettingsMCP,
   network: SettingsNetwork,
   applications: SettingsApplications,
   automation: SettingsAutomation,

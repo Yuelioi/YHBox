@@ -105,6 +105,18 @@ func TestServiceOpenScreenPicker_ResolvesTargetKindAndRoutes(t *testing.T) {
 	}
 }
 
+func TestServiceOpenScreenPicker_AcceptsWorkflowResourceVersion(t *testing.T) {
+	adapter := &recordingPickerAdapter{}
+	svc := NewService(fakeTargetResolver{target: target.Target{Kind: target.KindAndroidADB}}, nil)
+	svc.targetTools = newTargetToolRouter(map[string]TargetToolAdapter{target.KindAndroidADB: adapter})
+	if err := svc.OpenScreenPicker("workflow_resource_version", "req-version", "editor", "", ""); err != nil {
+		t.Fatal(err)
+	}
+	if len(adapter.pickerCalls) != 1 || adapter.pickerCalls[0].Mode != "workflow_resource_version" {
+		t.Fatalf("picker calls = %+v", adapter.pickerCalls)
+	}
+}
+
 func TestServicePixelAt_ResolvesTargetKindAndRoutes(t *testing.T) {
 	androidAdapter := &recordingPickerAdapter{pixel: PixelInfo{OK: true, ClientX: 12}}
 	svc := NewService(fakeTargetResolver{target: target.Target{Kind: target.KindAndroidADB}}, nil)

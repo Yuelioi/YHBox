@@ -445,6 +445,7 @@ const mode = computed(
       | 'rect'
       | 'template_save'
       | 'workflow_resource'
+      | 'workflow_resource_version'
       | 'template_recapture'
       | 'color',
 )
@@ -459,6 +460,7 @@ const pickerAccent = computed<'primary' | 'success' | 'warning'>(() => {
   if (
     mode.value === 'template_save' ||
     mode.value === 'workflow_resource' ||
+    mode.value === 'workflow_resource_version' ||
     mode.value === 'template_recapture'
   )
     return 'success'
@@ -598,6 +600,7 @@ const canConfirm = computed(() => {
   if (mode.value === 'rect') return !!rectSelNat.value
   if (mode.value === 'template_save' || mode.value === 'workflow_resource')
     return !!tplName.value.trim()
+  if (mode.value === 'workflow_resource_version') return !!dataURL.value
   // 重拍: 资产已有 name, 不用填; 有截图即可 (region 可选).
   if (mode.value === 'template_recapture') return !!dataURL.value
   // color mode 自动提取 (pointerup 触发), 不走 confirm 按钮
@@ -607,7 +610,7 @@ const confirmLabel = computed(() => {
   if (mode.value === 'template_save' || mode.value === 'workflow_resource') {
     return t(rectSelNat.value ? 'screenPicker.save_crop' : 'screenPicker.save_full')
   }
-  if (mode.value === 'template_recapture') {
+  if (mode.value === 'template_recapture' || mode.value === 'workflow_resource_version') {
     return t(rectSelNat.value ? 'screenPicker.recapture_crop' : 'screenPicker.recapture_full')
   }
   return t('common.confirm')
@@ -878,6 +881,7 @@ async function confirm() {
     if (
       mode.value === 'template_save' ||
       mode.value === 'workflow_resource' ||
+      mode.value === 'workflow_resource_version' ||
       mode.value === 'template_recapture'
     ) {
       const png = await cropToDataURL()
@@ -912,10 +916,13 @@ async function confirm() {
         await emitResult({ guid: guid as string })
       } else {
         const resource = await backend.workflowResources.createImage({
-          name: tplName.value.trim(),
+          name:
+            mode.value === 'workflow_resource_version'
+              ? t('screenPicker.version.default_name')
+              : tplName.value.trim(),
           description: '',
-          category: tplCategory.value.trim(),
-          tags: tplTags.value,
+          category: mode.value === 'workflow_resource_version' ? '' : tplCategory.value.trim(),
+          tags: mode.value === 'workflow_resource_version' ? [] : tplTags.value,
           dataURL: png,
           resolution: [natW.value, natH.value],
           region,

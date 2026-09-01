@@ -58,9 +58,12 @@ func (s *AIService) ProposeWorkflow(slot, workflowID string, baseRevision int64,
 	if !profile.Machine().Capabilities.ToolCalling {
 		return aiauthoring.Review{}, errors.New("AI profile does not support native tool calling")
 	}
-	credential, err := s.secrets.Get(ai.CredentialBindingID(slot))
-	if err != nil || credential == "" {
-		return aiauthoring.Review{}, errors.New("AI credential is unavailable")
+	credential := "codex-subscription"
+	if profile.Machine().Provider != ai.ProviderCodexSubscription {
+		credential, err = s.secrets.Get(ai.CredentialBindingID(slot))
+		if err != nil || credential == "" {
+			return aiauthoring.Review{}, errors.New("AI credential is unavailable")
+		}
 	}
 	provider, err := s.newNative(profile)
 	if err != nil {
@@ -123,12 +126,15 @@ func (s *AIService) TestProfile(request TestProfileRequest) TestProfileResult {
 	if err != nil {
 		return aiTestFailure(err)
 	}
-	if s.secrets == nil {
+	if s.secrets == nil && profile.Machine().Provider != ai.ProviderCodexSubscription {
 		return aiTestFailure(errors.New("AI credential is unavailable"))
 	}
-	credential, err := s.secrets.Get(ai.CredentialBindingID(request.Profile.Slot))
-	if err != nil || credential == "" {
-		return aiTestFailure(errors.New("AI credential is unavailable"))
+	credential := "codex-subscription"
+	if profile.Machine().Provider != ai.ProviderCodexSubscription {
+		credential, err = s.secrets.Get(ai.CredentialBindingID(request.Profile.Slot))
+		if err != nil || credential == "" {
+			return aiTestFailure(errors.New("AI credential is unavailable"))
+		}
 	}
 	provider, err := s.newNative(profile)
 	if err != nil {

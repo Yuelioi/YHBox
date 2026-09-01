@@ -101,7 +101,7 @@
               </UFormField>
             </div>
 
-            <div class="settings-inset">
+            <div v-if="profile.provider !== 'codex-subscription'" class="settings-inset">
               <UFormField
                 :label="t('settingsAI.profiles.endpoint_label')"
                 :description="t('settingsAI.profiles.endpoint_hint')"
@@ -150,6 +150,17 @@
                 <p class="mt-2 text-xs leading-relaxed text-error">
                   {{ t('settingsAI.profiles.local_http_warning') }}
                 </p>
+              </div>
+            </div>
+
+            <div v-if="profile.provider === 'codex-subscription'" class="settings-inset">
+              <div class="flex items-start gap-3">
+                <UIcon name="i-tabler-brand-openai" class="mt-0.5 size-4 shrink-0 text-primary" />
+                <div class="min-w-0">
+                  <p class="settings-detail__label">{{ t('settingsAI.codex.title') }}</p>
+                  <p class="settings-detail__hint">{{ t('settingsAI.codex.hint') }}</p>
+                  <code class="mt-2 block text-xs text-toned">codex login</code>
+                </div>
               </div>
             </div>
 
@@ -271,6 +282,7 @@
             </div>
 
             <UFormField
+              v-if="profile.provider !== 'codex-subscription'"
               :label="t('settingsAI.profiles.apikey_label')"
               :description="t('settingsAI.profiles.apikey_hint')"
             >
@@ -417,6 +429,7 @@ const apiKeys = reactive<Record<string, string>>({})
 const endpointValidationVisible = reactive<Record<string, boolean>>({})
 const previousOutputTokenLimits = reactive<Record<string, number>>({})
 const providerItems = computed(() => [
+  { label: t('settingsAI.provider.codex_subscription'), value: 'codex-subscription' },
   { label: t('settingsAI.provider.openai_responses'), value: 'openai-responses' },
   { label: t('settingsAI.provider.openai_chat_completions'), value: 'openai-chat-completions' },
   { label: t('settingsAI.provider.anthropic_messages'), value: 'anthropic-messages' },
@@ -481,6 +494,8 @@ const providerName = (provider: AIProviderKind) => {
       return t('settingsAI.provider.openai_chat_completions')
     case 'anthropic-messages':
       return t('settingsAI.provider.anthropic_messages')
+    case 'codex-subscription':
+      return t('settingsAI.provider.codex_subscription')
   }
 }
 const providerIcon = (provider: AIProviderKind) =>
@@ -570,6 +585,7 @@ function profileRequiredFieldsComplete(profile: AIModelProfileDraft): boolean {
 }
 
 function endpointIssue(profile: AIModelProfileDraft) {
+  if (profile.provider === 'codex-subscription') return undefined
   return aiProviderEndpointIssue(profile.endpoint, profile.allowLocalHttp)
 }
 
@@ -595,6 +611,15 @@ async function onProvider(index: number, provider: AIProviderKind): Promise<void
   if (provider === 'openai-chat-completions') {
     profile.capabilities.toolCalling = false
     profile.capabilities.parallelTools = false
+  }
+  if (provider === 'codex-subscription') {
+    profile.endpoint = defaultProviderEndpoint(provider)
+    profile.allowLocalHttp = false
+    profile.capabilities.structuredOutput = true
+    profile.capabilities.toolCalling = true
+    profile.capabilities.parallelTools = true
+    profile.capabilities.background = false
+    profile.capabilities.zeroRetention = false
   }
   await commit()
 }
@@ -631,6 +656,8 @@ function defaultProviderEndpoint(provider: AIProviderKind): string {
       return 'https://api.openai.com/v1'
     case 'anthropic-messages':
       return 'https://api.anthropic.com/v1/messages'
+    case 'codex-subscription':
+      return 'codex://subscription'
   }
 }
 

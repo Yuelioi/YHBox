@@ -208,6 +208,8 @@
             :locate-request="resourceLocateRequest"
             @start-recording="openRecordingStart"
             @capture-template="openTemplateCapture"
+            @recapture-workflow-resource="openTemplateCapture($event, 'replace')"
+            @create-workflow-resource-variant="openTemplateCapture($event, 'append')"
             @open-library="router.push('/assets')"
             @edit="openMacroEditor"
             @edit-workflow-resource="openWorkflowResourceEditor"
@@ -907,7 +909,13 @@
 
     <BaseModal
       v-model:open="templateCaptureOpen"
-      :title="t('assets.templates.capture')"
+      :title="
+        templateCaptureIntent?.mode === 'replace'
+          ? t('workflow.resources.recapture')
+          : templateCaptureIntent?.mode === 'append'
+            ? t('workflow.resources.create_version')
+            : t('assets.templates.capture')
+      "
       icon="i-tabler-camera-plus"
       size="md"
     >
@@ -933,7 +941,13 @@
           :loading="templateCaptureBusy"
           @click="captureWorkspaceTemplate"
         >
-          {{ t('assets.templates.capture') }}
+          {{
+            templateCaptureIntent?.mode === 'replace'
+              ? t('workflow.resources.recapture')
+              : templateCaptureIntent?.mode === 'append'
+                ? t('workflow.resources.create_version')
+                : t('assets.templates.capture')
+          }}
         </UButton>
       </template>
     </BaseModal>
@@ -1302,6 +1316,7 @@ import { createEditorWorkflowMetadataController } from '@/app/editor/EditorWorkf
 import type { EditorToolbarCommand, EditorToolbarContext } from '@/app/editor/editorToolbarModel'
 import type { WorkflowWorkspacePanel } from '@/app/editor/workspacePanel'
 import { parseWorkspaceResource, RESOURCE_DRAG_FORMAT } from '@/app/editor/resourceDrag'
+import { applyCapturedImageVersion } from '@/app/editor/workflowResourceVersions'
 import { snapshotGlobalAssetByID } from '@/app/editor/workflowResourceSnapshot'
 import type {
   ResourceLocateRequest,
@@ -1603,6 +1618,10 @@ const macroMetadataTags = computed(() =>
 const templateCaptureOpen = ref(false)
 const captureTargetSlot = ref('')
 const templateCaptureBusy = ref(false)
+const templateCaptureIntent = ref<{
+  mode: 'replace' | 'append'
+  resource: WorkflowResource
+} | null>(null)
 const snippetModalOpen = ref(false)
 const snippetSaveBusy = ref(false)
 const snippetDraft = ref<WorkflowSnippet | null>(null)
@@ -2259,7 +2278,7 @@ function openRecordingStart(mode: RecordingMode): void {
   void editorRecording.execute({ kind: 'open-start', mode })
 }
 
-function openTemplateCapture(): void {
+function openTemplateCapture(resource?: WorkflowResource, mode?: 'replace' | 'append'): void {
   const targets = recordingTargetItems.value
   if (!targets.length) {
     showError(t('assets.templates.capture_failed'), t('workflow.inspector.no_installed_target'))
@@ -2270,6 +2289,7 @@ function openTemplateCapture(): void {
     typeof selectedSlot === 'string' && targets.some((item) => item.value === selectedSlot)
       ? selectedSlot
       : workflowDefaultTargetSlot.value || captureTargetSlot.value || targets[0]?.value || ''
+  templateCaptureIntent.value = resource && mode ? { resource: plainCopy(resource), mode } : null
   templateCaptureOpen.value = true
 }
 
@@ -2287,16 +2307,32 @@ async function captureWorkspaceTemplate(): Promise<void> {
       id: string
       payload?: { cancelled?: boolean; resource?: WorkflowResource }
     }>('tools:picker-result', (payload) => payload?.id === id)
-    await backend.tools.openScreenPicker('workflow_resource', id, captureTargetSlot.value)
+    await backend.tools.openScreenPicker(
+      templateCaptureIntent.value ? 'workflow_resource_version' : 'workflow_resource',
+      id,
+      captureTargetSlot.value,
+    )
     templateCaptureOpen.value = false
     const result = await resultPromise
     const resource = result.payload?.resource
     if (!resource || result.payload?.cancelled) return
-    importWorkflowResource(resource)
+    const intent = templateCaptureIntent.value
+    if (!intent) {
+      importWorkflowResource(resource)
+      return
+    }
+    const captured = resource.image?.variants[0]
+    if (!captured) throw new Error(t('workflow.resources.capture_failed'))
+    session.apply({
+      kind: 'replace-resource',
+      resourceId: intent.resource.id,
+      resource: applyCapturedImageVersion(intent.resource, captured, intent.mode),
+    })
   } catch (error) {
     showError(t('assets.templates.capture_failed'), error)
   } finally {
     templateCaptureBusy.value = false
+    templateCaptureIntent.value = null
   }
 }
 
