@@ -7,6 +7,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/admission"
 	run "github.com/yottaapp/yotta/internal/run"
+	"github.com/yottaapp/yotta/internal/runprepare"
 	"github.com/yottaapp/yotta/internal/targetruntime"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
@@ -46,6 +47,7 @@ func (a *Application) admitRun(
 	program compiler.ProgramSnapshot,
 	principal string,
 	selection admission.Selection,
+	leased leasedAdmission,
 ) (_ leasedAdmission, resultErr error) {
 	if !program.Valid() {
 		return leasedAdmission{}, errors.New("run admission requires a valid Program")
@@ -54,13 +56,24 @@ func (a *Application) admitRun(
 		return leasedAdmission{}, fmt.Errorf("persist Program before admission: %w", err)
 	}
 
+	admitted, err := a.admitter.Admit(ctx, admission.Request{
+		Program: program, Principal: principal, Selection: selection,
+	})
+	if err != nil {
+		return leasedAdmission{record: admitted.Record}, err
+	}
+	leased.record = admitted.Record
+	return leased, nil
+}
+
+func (a *Application) leaseRunTargets() (leasedAdmission, error) {
 	a.admissionMu.RLock()
 	defer a.admissionMu.RUnlock()
-	release := func() {}
 	targets, err := targetruntime.NewSnapshot(nil)
 	if err != nil {
 		return leasedAdmission{}, fmt.Errorf("create empty configured target snapshot: %w", err)
 	}
+	release := func() {}
 	if a.targetSnapshot != nil {
 		targets, release, err = a.targetSnapshot()
 		if err != nil {
@@ -70,18 +83,26 @@ func (a *Application) admitRun(
 			return leasedAdmission{}, errors.New("execution environment returned an invalid configured target snapshot")
 		}
 	}
-	defer func() {
-		if resultErr != nil {
-			release()
-		}
-	}()
-	admitted, err := a.admitter.Admit(ctx, admission.Request{
-		Program: program, Principal: principal, Selection: selection,
-	})
-	if err != nil {
-		return leasedAdmission{record: admitted.Record}, err
+	return leasedAdmission{providers: a.providers, targets: targets, release: release}, nil
+}
+
+func (a *Application) prepareRunImages(ctx context.Context, sourceJSON []byte, targets targetruntime.Snapshot) (runprepare.PreparedImages, error) {
+	if a.runImagePlanner == nil {
+		return runprepare.PreparedImages{}, nil
 	}
-	return leasedAdmission{record: admitted.Record, providers: a.providers, targets: targets, release: release}, nil
+	slots, err := runprepare.ReferencedTargetSlots(sourceJSON)
+	if err != nil {
+		return runprepare.PreparedImages{}, err
+	}
+	resolutions := make(map[string][2]int, len(slots))
+	for _, slot := range slots {
+		description, err := targets.Describe(ctx, slot)
+		if err != nil {
+			return runprepare.PreparedImages{}, fmt.Errorf("describe configured target %q for Run images: %w", slot, err)
+		}
+		resolutions[slot] = [2]int{description.Width, description.Height}
+	}
+	return a.runImagePlanner.Prepare(ctx, sourceJSON, resolutions)
 }
 
 func cloneProviderSnapshot(source map[string]run.InstalledProvider) (map[string]run.InstalledProvider, error) {

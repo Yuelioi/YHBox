@@ -28,9 +28,22 @@ describe('workflow image versions', () => {
     expect(result.image?.variants[0]?.blob.digest).toBe('sha256:new')
   })
 
+  it('re-records the selected variant instead of implicitly replacing the first one', () => {
+    const result = applyCapturedImageVersion(resource(), captured, 'replace', 'z')
+    expect(result.image?.variants.map((variant) => variant.id)).toEqual(['a', 'z'])
+    expect(result.image?.variants[0]?.blob.digest).toBe('sha256:old')
+    expect(result.image?.variants[1]?.blob.digest).toBe('sha256:new')
+  })
+
   it('appends and sorts a new version without changing existing versions', () => {
     const result = applyCapturedImageVersion(resource(), captured, 'append')
     expect(result.image?.variants.map((variant) => variant.id)).toEqual(['a', 'captured', 'z'])
     expect(result.image?.variants[0]?.blob.digest).toBe('sha256:old')
+  })
+
+  it('rejects a missing replacement target', () => {
+    expect(() => applyCapturedImageVersion(resource(), captured, 'replace', 'missing')).toThrow(
+      'image resource variant missing does not exist',
+    )
   })
 })

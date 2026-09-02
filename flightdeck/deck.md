@@ -2,7 +2,8 @@
 
 ## Open Work
 
-- **Focus:** [V4 发布兼容性封板](work/v4-release-compatibility-floor/index.md)
+- [V4 发布兼容性封板](work/v4-release-compatibility-floor/index.md)
+- **Focus:** [图片录制与分辨率自适应 Run](work/image-resolution-adaptive-run/index.md)
 
 ## Project links
 

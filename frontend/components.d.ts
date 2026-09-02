@@ -30,6 +30,7 @@ declare module 'vue' {
     HudStatePanel: typeof import('./src/components/tools/HudStatePanel.vue')['default']
     IconBadge: typeof import('./src/components/common/IconBadge.vue')['default']
     IconPicker: typeof import('./src/components/common/IconPicker.vue')['default']
+    ImageVariantManagerModal: typeof import('./src/components/assets/ImageVariantManagerModal.vue')['default']
     InfoTile: typeof import('./src/components/common/InfoTile.vue')['default']
     LauncherSurface: typeof import('./src/components/launcher/LauncherSurface.vue')['default']
     LibrarySelectionToolbar: typeof import('./src/components/library/LibrarySelectionToolbar.vue')['default']

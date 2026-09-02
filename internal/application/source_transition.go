@@ -18,8 +18,12 @@ import (
 // These private methods own command reduction, state-migration safety,
 // candidate sealing, and revision/hash CAS for Application.
 func (a *Application) compileDraft(ctx context.Context, sourceJSON []byte) (compiler.CompileResult, error) {
+	return a.compileDraftWithOverrides(ctx, sourceJSON, nil)
+}
+
+func (a *Application) compileDraftWithOverrides(ctx context.Context, sourceJSON []byte, overrides []compiler.ResourceOverride) (compiler.CompileResult, error) {
 	return a.compiler.CompileDraft(ctx, compiler.CompileRequest{
-		SourceJSON: sourceJSON, Catalog: a.catalog, BlobVerifier: a.blobVerifier,
+		SourceJSON: sourceJSON, Catalog: a.catalog, BlobVerifier: a.blobVerifier, ResourceOverrides: overrides,
 	})
 }
 

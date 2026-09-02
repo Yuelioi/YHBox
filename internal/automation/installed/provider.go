@@ -22,6 +22,7 @@ import (
 	"github.com/yottaapp/yotta/internal/automation/pointermotion"
 	"github.com/yottaapp/yotta/internal/automation/target"
 	"github.com/yottaapp/yotta/internal/resource"
+	"github.com/yottaapp/yotta/internal/targetruntime"
 )
 
 const (
@@ -348,6 +349,14 @@ func (p *provider) supports(operation string) bool {
 	// Direct provider fixtures predate the adapter registry. Production
 	// providers always carry an explicit operation set.
 	return len(p.operations) == 0 || slices.Contains(p.operations, operation)
+}
+
+func (p *provider) DescribeTarget(ctx context.Context, _ string) (targetruntime.Description, error) {
+	resolved, err := p.driver.ResolveTarget(ctx)
+	if err != nil {
+		return targetruntime.Description{}, err
+	}
+	return targetruntime.Description{Width: resolved.Resolution.W, Height: resolved.Resolution.H}, nil
 }
 
 func newProvider(profile Profile, manifest InstallationManifest, registry adapterRegistry) (*provider, error) {

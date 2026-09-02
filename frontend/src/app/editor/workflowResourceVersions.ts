@@ -6,16 +6,22 @@ export function applyCapturedImageVersion(
   resource: WorkflowResource,
   captured: ImageVariant,
   mode: 'replace' | 'append',
+  replaceVariantId?: string,
 ): WorkflowResource {
   const existing = resource.image?.variants
   if (!existing?.length) throw new Error('image resource has no current version')
 
   let variants: ImageVariant[]
   if (mode === 'replace') {
-    variants = [
-      { ...structuredClone(captured), id: existing[0].id },
-      ...structuredClone(existing.slice(1)),
-    ]
+    const targetId = replaceVariantId ?? existing[0].id
+    if (!existing.some((variant) => variant.id === targetId)) {
+      throw new Error(`image resource variant ${targetId} does not exist`)
+    }
+    variants = existing.map((variant) =>
+      variant.id === targetId
+        ? { ...structuredClone(captured), id: targetId }
+        : structuredClone(variant),
+    )
   } else {
     const ids = new Set(existing.map((variant) => variant.id))
     let id = captured.id

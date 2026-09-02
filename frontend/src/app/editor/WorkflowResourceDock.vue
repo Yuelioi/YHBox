@@ -314,6 +314,29 @@
     </footer>
   </section>
 
+  <ImageVariantManagerModal
+    :open="!!variantResource"
+    :title="
+      variantResource
+        ? t('assets.templates.manage_title', { name: variantResource.name })
+        : t('assets.templates.manage_variants')
+    "
+    :variants="variantResource?.image?.variants ?? []"
+    :busy="busy"
+    @update:open="(open) => !open && (variantResourceId = null)"
+    @add="variantResource && emit('create-workflow-resource-variant', variantResource)"
+    @recapture="
+      (variant) =>
+        variantResource && emit('recapture-workflow-resource', variantResource, variant.id ?? '')
+    "
+    @remove="
+      (variant) =>
+        variantResource &&
+        emit('remove-workflow-resource-variant', variantResource, variant.id ?? '')
+    "
+    @remove-blocked="showFeedback('warning', t('assets.templates.last_variant_blocked'))"
+  />
+
   <BaseModal
     :open="!!editing"
     :title="t('assets.edit_title')"
@@ -383,6 +406,7 @@ import AssetLibraryList, {
 } from '@/components/assets/AssetLibraryList.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import ImageVariantManagerModal from '@/components/assets/ImageVariantManagerModal.vue'
 import { backend, type AssetSummary } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
 import { useConfirm } from '@/composables/useConfirm'
@@ -415,8 +439,9 @@ const props = defineProps<{
 const emit = defineEmits<{
   'start-recording': [mode: 'simple' | 'precise']
   'capture-template': []
-  'recapture-workflow-resource': [resource: WorkflowResource]
+  'recapture-workflow-resource': [resource: WorkflowResource, variantId: string]
   'create-workflow-resource-variant': [resource: WorkflowResource]
+  'remove-workflow-resource-variant': [resource: WorkflowResource, variantId: string]
   'open-library': []
   edit: [asset: AssetSummary]
   use: [selection: AssetPickerSelection]
@@ -440,6 +465,7 @@ const { confirm } = useConfirm()
 const assets = useAssetsStore()
 const allCategoriesValue = '__yotta_all_categories__'
 const scope = ref<ResourceScope>('workflow')
+const variantResourceId = ref<string | null>(null)
 const searchInput = ref('')
 const search = ref('')
 const category = ref(allCategoriesValue)
@@ -493,6 +519,9 @@ const workflowResourceKind = computed(() =>
 )
 const workflowResources = computed(() =>
   props.source.resources.filter((resource) => resource.kind === workflowResourceKind.value),
+)
+const variantResource = computed(
+  () => workflowResources.value.find((resource) => resource.id === variantResourceId.value) ?? null,
 )
 const workflowPage = computed(() =>
   projectWorkflowResourcePage(workflowResources.value, {
@@ -774,14 +803,9 @@ function itemMenu(id: string) {
             ...(value.kind === 'image'
               ? [
                   {
-                    label: t('workflow.resources.recapture'),
-                    icon: 'i-tabler-camera-rotate',
-                    onSelect: () => emit('recapture-workflow-resource', value),
-                  },
-                  {
-                    label: t('workflow.resources.create_version'),
-                    icon: 'i-tabler-versions',
-                    onSelect: () => emit('create-workflow-resource-variant', value),
+                    label: t('assets.templates.manage_variants'),
+                    icon: 'i-tabler-photo-cog',
+                    onSelect: () => (variantResourceId.value = value.id),
                   },
                 ]
               : []),

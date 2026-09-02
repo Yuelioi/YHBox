@@ -113,13 +113,15 @@ describe('workflow authoring foundations', () => {
     expect(editor).toContain('@capture-template="openTemplateCapture"')
     expect(editor).toContain("? 'workflow_resource_version' : 'workflow_resource'")
     expect(editor).toContain("'workflow_resource_version'")
-    expect(editor).toContain(
-      '@recapture-workflow-resource="openTemplateCapture($event, \'replace\')"',
-    )
+    expect(editor).toContain('@recapture-workflow-resource="openTemplateRecapture"')
     expect(editor).toContain(
       '@create-workflow-resource-variant="openTemplateCapture($event, \'append\')"',
     )
-    expect(editor).toContain('applyCapturedImageVersion(intent.resource, captured, intent.mode)')
+    expect(editor).toContain(
+      'applyCapturedImageVersion(intent.resource, captured, intent.mode, intent.variantId)',
+    )
+    expect(dock).toContain("label: t('assets.templates.manage_variants')")
+    expect(dock).not.toContain("label: t('workflow.resources.create_version')")
     expect(recordingController).toContain("destination: 'workflow-resource'")
     expect(editor).toContain('snapshotGlobalAssetByID(guid)')
     expect(editor).toContain('@use="useWorkspaceResource"')
@@ -145,8 +147,8 @@ describe('workflow authoring foundations', () => {
     expect(dock).toContain("t('workflow.resources.promoted'")
     expect(dock).toContain('backend.workflowResources.duplicate(resource)')
     expect(dock).toContain("emit('edit-workflow-resource', value)")
-    expect(dock).toContain("t('workflow.resources.recapture')")
-    expect(dock).toContain("t('workflow.resources.create_version')")
+    expect(dock).toContain("t('assets.templates.manage_variants')")
+    expect(dock).not.toContain("t('workflow.resources.create_version')")
     expect(dock).toContain("t('workflow.resources.input_clip_summary'")
     expect(editor).toContain('@edit="openMacroEditor"')
     expect(editor).toContain('createEditorResourceController({')

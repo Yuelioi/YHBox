@@ -61,9 +61,16 @@ func (verify BlobVerifierFunc) Verify(ctx context.Context, ref blob.BlobRef) err
 }
 
 type CompileRequest struct {
-	SourceJSON   []byte
-	Catalog      nodecatalog.Snapshot
-	BlobVerifier BlobVerifier
+	SourceJSON        []byte
+	Catalog           nodecatalog.Snapshot
+	BlobVerifier      BlobVerifier
+	ResourceOverrides []ResourceOverride
+}
+
+type ResourceOverride struct {
+	ResourceID string
+	TargetSlot string
+	Blob       blob.BlobRef
 }
 
 type CompileResult struct {
@@ -106,6 +113,10 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 		result.Diagnostics = []Diagnostic{diagnostic(CodeInvalidCatalog, nil, "")}
 		return result, nil
 	}
+	overrides, err := resourceOverrideIndex(request.ResourceOverrides)
+	if err != nil {
+		return result, err
+	}
 	result.Diagnostics = append(result.Diagnostics, validateInstructionPlacement(source, request.Catalog)...)
 
 	body := programBody{
@@ -126,7 +137,7 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 		return result, expandErr
 	}
 	result.Diagnostics = append(result.Diagnostics, expansionDiagnostics...)
-	compiled, graphDiagnostics, compileErr := compileGraph(ctx, expanded.graph, 0, source.Resources, source.TargetDefaults, request.Catalog, c.validators, stateByName, request.BlobVerifier)
+	compiled, graphDiagnostics, compileErr := compileGraph(ctx, expanded.graph, 0, source.Resources, source.TargetDefaults, request.Catalog, c.validators, stateByName, request.BlobVerifier, overrides)
 	if compileErr != nil {
 		return CompileResult{}, compileErr
 	}
@@ -309,7 +320,7 @@ func resolveDeclaredStateType(expression datatype.TypeExpression, catalog nodeca
 	}
 }
 
-func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, resources []schema.WorkflowResource, targetDefaults []schema.TargetDefault, catalog nodecatalog.Snapshot, configValidators configvalidator.Registry, state map[string]programStateSlot, blobVerifier BlobVerifier) (programGraph, []Diagnostic, error) {
+func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, resources []schema.WorkflowResource, targetDefaults []schema.TargetDefault, catalog nodecatalog.Snapshot, configValidators configvalidator.Registry, state map[string]programStateSlot, blobVerifier BlobVerifier, resourceOverrides map[string]blob.BlobRef) (programGraph, []Diagnostic, error) {
 	compiled := programGraph{ID: graph.ID, Nodes: []programNode{}, SignalRoutes: []programSignalRoute{}, DataOrder: []string{}}
 	var diagnostics []Diagnostic
 	nodes := make(map[string]int, len(graph.Nodes))
@@ -431,7 +442,11 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, resou
 					diagnostics = append(diagnostics, diagnosticAtNode(CodeInvalidBinding, append(path, "bindings", portID), graph.ID, sourceNode.ID))
 					continue
 				}
-				ref, err := schema.ResolveResourceBinding(resources, *binding.Resource)
+				ref, overridden := resourceOverrides[resourceOverrideKey(binding.Resource.ResourceID, configTargetSlot(effectiveConfig))]
+				var err error
+				if !overridden {
+					ref, err = schema.ResolveResourceBinding(resources, *binding.Resource)
+				}
 				if err != nil {
 					diagnostic := diagnosticAtNode(CodeInvalidBinding, append(path, "bindings", portID), graph.ID, sourceNode.ID)
 					diagnostic.Params["reason"] = err.Error()
@@ -629,6 +644,30 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, resou
 		compiled = retainActiveProgramNodes(compiled, active)
 	}
 	return compiled, diagnostics, nil
+}
+
+func resourceOverrideIndex(overrides []ResourceOverride) (map[string]blob.BlobRef, error) {
+	result := make(map[string]blob.BlobRef, len(overrides))
+	for _, override := range overrides {
+		if override.ResourceID == "" || override.TargetSlot == "" || override.Blob.Validate() != nil {
+			return nil, errors.New("resource override is invalid")
+		}
+		key := resourceOverrideKey(override.ResourceID, override.TargetSlot)
+		if _, exists := result[key]; exists {
+			return nil, errors.New("resource override is duplicated")
+		}
+		result[key] = override.Blob
+	}
+	return result, nil
+}
+
+func resourceOverrideKey(resourceID, targetSlot string) string {
+	return resourceID + "\x00" + targetSlot
+}
+
+func configTargetSlot(config map[string]any) string {
+	value, _ := config["slot"].(string)
+	return value
 }
 
 func retainActiveProgramNodes(graph programGraph, active map[string]bool) programGraph {

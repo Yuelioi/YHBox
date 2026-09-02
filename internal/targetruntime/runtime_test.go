@@ -14,6 +14,13 @@ type testProvider struct {
 	closed int
 }
 
+func (provider *testProvider) DescribeTarget(_ context.Context, targetID string) (targetruntime.Description, error) {
+	if targetID != "target/editor" {
+		return targetruntime.Description{}, errors.New("unexpected target")
+	}
+	return targetruntime.Description{Width: 2560, Height: 1440}, nil
+}
+
 func (provider *testProvider) Open(_ context.Context, request resource.ProviderOpenRequest) (any, error) {
 	if request.TargetID != "target/editor" || request.Kind != "automation/input-session" ||
 		len(request.Operations) != 1 || request.Operations[0] != "click" ||
@@ -63,5 +70,22 @@ func TestConfiguredTargetRunHasNoGrantScopeOrExpiration(t *testing.T) {
 	}
 	if provider.opened != 1 || provider.closed != 1 {
 		t.Fatalf("provider opens/closes = %d/%d", provider.opened, provider.closed)
+	}
+}
+
+func TestSnapshotDescribesTargetWithoutOpeningRunSession(t *testing.T) {
+	provider := &testProvider{}
+	snapshot, err := targetruntime.NewSnapshot([]targetruntime.Installation{{
+		Slot: "editor", TargetID: "target/editor", Provider: provider,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	description, err := snapshot.Describe(context.Background(), "editor")
+	if err != nil || description != (targetruntime.Description{Width: 2560, Height: 1440}) {
+		t.Fatalf("description=%+v err=%v", description, err)
+	}
+	if provider.opened != 0 {
+		t.Fatalf("description opened %d Run sessions", provider.opened)
 	}
 }

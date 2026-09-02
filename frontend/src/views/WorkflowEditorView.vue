@@ -208,8 +208,9 @@
             :locate-request="resourceLocateRequest"
             @start-recording="openRecordingStart"
             @capture-template="openTemplateCapture"
-            @recapture-workflow-resource="openTemplateCapture($event, 'replace')"
+            @recapture-workflow-resource="openTemplateRecapture"
             @create-workflow-resource-variant="openTemplateCapture($event, 'append')"
+            @remove-workflow-resource-variant="removeWorkflowResourceVariant"
             @open-library="router.push('/assets')"
             @edit="openMacroEditor"
             @edit-workflow-resource="openWorkflowResourceEditor"
@@ -1621,6 +1622,7 @@ const templateCaptureBusy = ref(false)
 const templateCaptureIntent = ref<{
   mode: 'replace' | 'append'
   resource: WorkflowResource
+  variantId?: string
 } | null>(null)
 const snippetModalOpen = ref(false)
 const snippetSaveBusy = ref(false)
@@ -2278,7 +2280,11 @@ function openRecordingStart(mode: RecordingMode): void {
   void editorRecording.execute({ kind: 'open-start', mode })
 }
 
-function openTemplateCapture(resource?: WorkflowResource, mode?: 'replace' | 'append'): void {
+function openTemplateCapture(
+  resource?: WorkflowResource,
+  mode?: 'replace' | 'append',
+  variantId?: string,
+): void {
   const targets = recordingTargetItems.value
   if (!targets.length) {
     showError(t('assets.templates.capture_failed'), t('workflow.inspector.no_installed_target'))
@@ -2289,8 +2295,13 @@ function openTemplateCapture(resource?: WorkflowResource, mode?: 'replace' | 'ap
     typeof selectedSlot === 'string' && targets.some((item) => item.value === selectedSlot)
       ? selectedSlot
       : workflowDefaultTargetSlot.value || captureTargetSlot.value || targets[0]?.value || ''
-  templateCaptureIntent.value = resource && mode ? { resource: plainCopy(resource), mode } : null
+  templateCaptureIntent.value =
+    resource && mode ? { resource: plainCopy(resource), mode, variantId } : null
   templateCaptureOpen.value = true
+}
+
+function openTemplateRecapture(resource: WorkflowResource, variantId: string): void {
+  openTemplateCapture(resource, 'replace', variantId)
 }
 
 function captureTemplateForNode(nodeId: string): void {
@@ -2326,13 +2337,33 @@ async function captureWorkspaceTemplate(): Promise<void> {
     session.apply({
       kind: 'replace-resource',
       resourceId: intent.resource.id,
-      resource: applyCapturedImageVersion(intent.resource, captured, intent.mode),
+      resource: applyCapturedImageVersion(intent.resource, captured, intent.mode, intent.variantId),
     })
   } catch (error) {
     showError(t('assets.templates.capture_failed'), error)
   } finally {
     templateCaptureBusy.value = false
     templateCaptureIntent.value = null
+  }
+}
+
+function removeWorkflowResourceVariant(resource: WorkflowResource, variantId: string): void {
+  const variants = resource.image?.variants ?? []
+  if (variants.length <= 1 || !variantId) return
+  const remaining = variants.filter((variant) => variant.id !== variantId)
+  const first = remaining[0]
+  if (!first || remaining.length === variants.length) return
+  try {
+    session.apply({
+      kind: 'replace-resource',
+      resourceId: resource.id,
+      resource: {
+        ...plainCopy(resource),
+        image: { variants: [first, ...remaining.slice(1)] },
+      },
+    })
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
   }
 }
 

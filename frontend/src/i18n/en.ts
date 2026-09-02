@@ -3393,13 +3393,15 @@ export default {
       capture_failed: 'Could not create the visual template',
       meta: '{count} resolution variants',
       manage_variants: 'Manage resolution variants',
+      manage_title: 'Image variants · {name}',
       recapture: 'Add or recapture this resolution',
+      add_current_resolution: 'Add current resolution',
+      recapture_variant: 'Recapture {resolution}',
       remove_variant: 'Delete this resolution variant',
       remove_variant_title: 'Delete the {resolution} variant?',
       remove_variant_description:
         'Only this variant is removed. Immutable Blob references already pinned in workflows are unaffected.',
-      last_variant_hint:
-        'The final variant cannot be removed alone. Delete the whole asset if it is no longer needed.',
+      last_variant_blocked: 'An image needs at least one variant',
     },
   },
   assetPicker: {

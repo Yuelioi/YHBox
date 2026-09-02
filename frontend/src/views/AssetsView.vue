@@ -646,58 +646,24 @@
     </template>
   </BaseModal>
 
-  <BaseModal
+  <ImageVariantManagerModal
     :open="!!variantAsset"
-    :title="variantAsset?.name ?? t('assets.templates.manage_variants')"
-    icon="i-tabler-photo-cog"
-    size="lg"
+    :title="
+      variantAsset
+        ? t('assets.templates.manage_title', { name: variantAsset.name })
+        : t('assets.templates.manage_variants')
+    "
+    :variants="variantAsset?.variants ?? []"
+    :busy="variantBusy"
+    :add-disabled="!selectedTargetSlot"
     @update:open="(open) => !open && (variantAsset = null)"
-  >
-    <div v-if="variantAsset" class="space-y-3">
-      <div
-        v-for="variant in variantAsset.variants"
-        :key="`${variant.resolution[0]}x${variant.resolution[1]}`"
-        class="flex items-center gap-3 rounded-lg border border-default p-3"
-      >
-        <BlobPreview
-          :blob="variant.blob"
-          :alt="variantAsset.name"
-          expandable
-          class="size-14 shrink-0"
-        />
-        <div class="min-w-0 flex-1">
-          <p class="font-mono text-sm text-highlighted">
-            {{ variant.resolution[0] }}×{{ variant.resolution[1] }}
-          </p>
-          <p class="truncate font-mono text-[10px] text-dimmed">{{ variant.blob.digest }}</p>
-        </div>
-        <UButton
-          color="error"
-          variant="ghost"
-          icon="i-tabler-trash"
-          :disabled="variantAsset.variantCount <= 1 || variantBusy"
-          :aria-label="t('assets.templates.remove_variant')"
-          @click="removeVariant(variantAsset, variant.resolution)"
-        />
-      </div>
-    </div>
-    <template #footer>
-      <span v-if="variantAsset?.variantCount === 1" class="mr-auto text-xs text-muted">
-        {{ t('assets.templates.last_variant_hint') }}
-      </span>
-      <UButton color="neutral" variant="ghost" @click="variantAsset = null">
-        {{ t('common.close') }}
-      </UButton>
-      <UButton
-        icon="i-tabler-camera-plus"
-        :loading="variantBusy"
-        :disabled="!selectedTargetSlot"
-        @click="recaptureVariant"
-      >
-        {{ t('assets.templates.recapture') }}
-      </UButton>
-    </template>
-  </BaseModal>
+    @add="recaptureVariant"
+    @recapture="recaptureVariant"
+    @remove="(variant) => variantAsset && removeVariant(variantAsset, variant.resolution)"
+    @remove-blocked="
+      libraryFeedback = { tone: 'warning', message: t('assets.templates.last_variant_blocked') }
+    "
+  />
 
   <BaseModal
     :open="!!editingItem"
@@ -880,6 +846,7 @@ import { useRecordingStartFeedback } from '@/composables/useRecordingStartFeedba
 import BaseModal from '@/components/common/BaseModal.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import AssetLibraryList from '@/components/assets/AssetLibraryList.vue'
+import ImageVariantManagerModal from '@/components/assets/ImageVariantManagerModal.vue'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import MacroActionEditor from '@/components/recording/MacroActionEditor.vue'
 import PreciseRecordingWorkbench from '@/components/recording/PreciseRecordingWorkbench.vue'
@@ -1815,15 +1782,6 @@ async function performRecaptureVariant(): Promise<void> {
 
 async function removeVariant(asset: AssetSummary, resolution: [number, number]): Promise<void> {
   if (asset.variantCount <= 1 || variantBusy.value) return
-  const accepted = await confirm({
-    title: t('assets.templates.remove_variant_title', {
-      resolution: `${resolution[0]}×${resolution[1]}`,
-    }),
-    description: t('assets.templates.remove_variant_description'),
-    confirmText: t('common.delete'),
-    color: 'error',
-  })
-  if (accepted !== true) return
   variantBusy.value = true
   try {
     await backend.assets.removeVariant(asset.guid, resolution[0], resolution[1])

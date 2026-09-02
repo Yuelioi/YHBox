@@ -23,6 +23,17 @@ type Installation struct {
 	Provider resource.Provider
 }
 
+type Description struct {
+	Width  int
+	Height int
+}
+
+type Describer interface {
+	DescribeTarget(context.Context, string) (Description, error)
+}
+
+var ErrDescriptionUnavailable = errors.New("configured target description is unavailable")
+
 type snapshotState struct {
 	bySlot map[string]Installation
 }
@@ -59,6 +70,31 @@ func (snapshot Snapshot) Slots() []string {
 	}
 	sort.Strings(slots)
 	return slots
+}
+
+func (snapshot Snapshot) Describe(ctx context.Context, slot string) (Description, error) {
+	if ctx == nil {
+		return Description{}, errors.New("configured target description context is required")
+	}
+	if !snapshot.Valid() {
+		return Description{}, errors.New("configured target snapshot is unavailable")
+	}
+	installation, ok := snapshot.state.bySlot[slot]
+	if !ok {
+		return Description{}, fmt.Errorf("configured target slot %q does not exist", slot)
+	}
+	describer, ok := installation.Provider.(Describer)
+	if !ok {
+		return Description{}, ErrDescriptionUnavailable
+	}
+	description, err := describer.DescribeTarget(ctx, installation.TargetID)
+	if err != nil {
+		return Description{}, err
+	}
+	if description.Width <= 0 || description.Height <= 0 {
+		return Description{}, errors.New("configured target description has invalid dimensions")
+	}
+	return description, nil
 }
 
 func (snapshot Snapshot) NewRun() (*Run, error) {

@@ -23,6 +23,7 @@ import (
 	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/resource"
 	run "github.com/yottaapp/yotta/internal/run"
+	"github.com/yottaapp/yotta/internal/runprepare"
 	"github.com/yottaapp/yotta/internal/targetruntime"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
@@ -41,6 +42,7 @@ type Config struct {
 	CompilerBuild     artifact.Digest
 	ConfigValidators  configvalidator.Registry
 	BlobVerifier      compiler.BlobVerifier
+	RunImagePlanner   *runprepare.Planner
 	Sources           *workflowstore.SourceStore
 	Programs          *workflowstore.ProgramStore
 	Runs              *run.Store
@@ -194,6 +196,7 @@ type Application struct {
 	authoringEngine   *authoring.Engine
 	compiler          *compiler.Compiler
 	blobVerifier      compiler.BlobVerifier
+	runImagePlanner   *runprepare.Planner
 	sources           *workflowstore.SourceStore
 	programs          *workflowstore.ProgramStore
 	runs              *run.Store
@@ -256,7 +259,8 @@ func New(config Config) (*Application, error) {
 	return &Application{
 		catalog: config.Catalog, authoring: config.Authoring, authoringEngine: authoringEngine,
 		compiler: compiler.New(config.CompilerBuild, config.ConfigValidators), blobVerifier: config.BlobVerifier,
-		sources: config.Sources, programs: config.Programs, runs: config.Runs,
+		runImagePlanner: config.RunImagePlanner,
+		sources:         config.Sources, programs: config.Programs, runs: config.Runs,
 		admitter: config.Admitter, providers: providers, targetSnapshot: config.TargetSnapshot, executor: config.Executor,
 		resourceOptions: config.ResourceOptions, ownerCloseTimeout: config.OwnerCloseTimeout,
 		onRunEvent: config.OnRunEvent, onDebugEvent: config.OnDebugEvent,
@@ -469,7 +473,26 @@ func (a *Application) startRunArtifact(
 	if err := a.requireRunning(); err != nil {
 		return StartRunResult{}, err
 	}
-	compiled, err := a.compileDraft(ctx, sourceArtifact)
+	leased, err := a.leaseRunTargets()
+	if err != nil {
+		return StartRunResult{}, err
+	}
+	leasePublished := false
+	defer func() {
+		if !leasePublished && leased.release != nil {
+			leased.release()
+		}
+	}()
+	preparedImages, err := a.prepareRunImages(ctx, sourceArtifact, leased.targets)
+	if err != nil {
+		return StartRunResult{}, err
+	}
+	originalRelease := leased.release
+	leased.release = func() {
+		preparedImages.Release()
+		originalRelease()
+	}
+	compiled, err := a.compileDraftWithOverrides(ctx, sourceArtifact, preparedImages.Overrides)
 	result := StartRunResult{SourceHash: compiled.SourceHash, Diagnostics: append([]schema.Diagnostic(nil), compiled.Diagnostics...)}
 	if err != nil || schema.HasErrors(compiled.Diagnostics) {
 		return result, err
@@ -479,15 +502,9 @@ func (a *Application) startRunArtifact(
 		return result, errors.New("compiler returned no Program without diagnostics")
 	}
 	result.ProgramHash = program.Hash()
-	admitted, err := a.admitRun(ctx, program, principal, selection)
+	admitted, err := a.admitRun(ctx, program, principal, selection, leased)
 	result.Record = admitted.record
 	releaseProviders := admitted.release
-	leasePublished := false
-	defer func() {
-		if !leasePublished && releaseProviders != nil {
-			releaseProviders()
-		}
-	}()
 	if err != nil {
 		return result, err
 	}

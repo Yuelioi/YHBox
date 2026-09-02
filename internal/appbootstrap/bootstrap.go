@@ -31,6 +31,7 @@ import (
 	"github.com/yottaapp/yotta/internal/pluginhost"
 	"github.com/yottaapp/yotta/internal/resource"
 	run "github.com/yottaapp/yotta/internal/run"
+	"github.com/yottaapp/yotta/internal/runprepare"
 	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/storage/catalog"
 	"github.com/yottaapp/yotta/internal/stream"
@@ -284,10 +285,15 @@ func Build(config Config) (*Runtime, error) {
 		}
 	}
 	executor := compiler.NewExecutor(catalog, adapters, compiler.ExecutorOptions{Now: config.Now})
+	runImagePlanner, err := runprepare.New(blobStore)
+	if err != nil {
+		return nil, err
+	}
 	application, err := appcore.New(appcore.Config{
 		Catalog: catalog, Authoring: authoringProjection, CompilerBuild: build, ConfigValidators: builtins.ConfigValidators,
-		BlobVerifier: blobStore,
-		Sources:      sources, Programs: programs, Runs: runs,
+		BlobVerifier:    blobStore,
+		RunImagePlanner: runImagePlanner,
+		Sources:         sources, Programs: programs, Runs: runs,
 		Admitter: admitter, Executor: executor,
 		Providers: environment.providers, TargetSnapshot: environment.acquire,
 		ResourceOptions: resource.Options{
