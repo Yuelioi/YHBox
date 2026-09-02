@@ -161,8 +161,8 @@ function commitJson(): void {
   try {
     emit('update:modelValue', JSON.parse(jsonText.value))
     jsonError.value = ''
-  } catch (error) {
-    jsonError.value = error instanceof Error ? error.message : String(error)
+  } catch {
+    jsonError.value = t('workflow.inspector.invalid_json')
   }
 }
 

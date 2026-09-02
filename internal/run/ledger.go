@@ -23,6 +23,9 @@ type ledgerSummaryDocument struct {
 	Format               string          `json:"format"`
 	Version              string          `json:"version"`
 	RunID                string          `json:"runId"`
+	WorkflowID           string          `json:"workflowId,omitempty"`
+	SourceHash           artifact.Digest `json:"sourceHash,omitempty"`
+	SourceRevision       int64           `json:"sourceRevision,omitempty"`
 	ProgramHash          artifact.Digest `json:"programHash"`
 	CatalogHash          artifact.Digest `json:"catalogHash"`
 	CapabilityPlanDigest artifact.Digest `json:"capabilityPlanDigest"`
@@ -83,7 +86,8 @@ func ledgerSummary(record Record) (catalog.RunSummaryRecord, error) {
 	document := record.state.document
 	artifactBytes, err := artifact.Marshal(ledgerSummaryDocument{
 		Format: LedgerSummaryFormat, Version: LedgerSummaryVersion,
-		RunID: document.RunID, ProgramHash: document.ProgramHash,
+		RunID: document.RunID, WorkflowID: document.WorkflowID, SourceHash: document.SourceHash, SourceRevision: document.SourceRevision,
+		ProgramHash: document.ProgramHash,
 		CatalogHash: document.CatalogHash, CapabilityPlanDigest: document.CapabilityPlanDigest,
 		GrantDigest: document.GrantDigest, GrantArtifact: document.GrantArtifact,
 		PolicyGeneration: document.PolicyGeneration, Principal: document.Principal,
@@ -203,7 +207,8 @@ func openLedgerSummary(record catalog.RunSummaryRecord) (Summary, error) {
 	}
 	return Summary{
 		Admission: Admission{
-			RunID: document.RunID, ProgramHash: document.ProgramHash,
+			RunID: document.RunID, WorkflowID: document.WorkflowID, SourceHash: document.SourceHash, SourceRevision: document.SourceRevision,
+			ProgramHash: document.ProgramHash,
 			CatalogHash: document.CatalogHash, CapabilityPlanDigest: document.CapabilityPlanDigest,
 			GrantDigest: document.GrantDigest, PolicyGeneration: document.PolicyGeneration,
 			Principal: document.Principal, QueuedAt: document.QueuedAt,
@@ -275,7 +280,8 @@ func (d ledgerSummaryDocument) recordDocument(
 ) recordDocument {
 	return recordDocument{
 		Format: RecordFormat, Version: RecordVersion, RecordDigest: digest,
-		RunID: d.RunID, Generation: generation, ProgramHash: d.ProgramHash,
+		RunID: d.RunID, WorkflowID: d.WorkflowID, SourceHash: d.SourceHash, SourceRevision: d.SourceRevision,
+		Generation: generation, ProgramHash: d.ProgramHash,
 		CatalogHash: d.CatalogHash, CapabilityPlanDigest: d.CapabilityPlanDigest,
 		GrantDigest: d.GrantDigest, GrantArtifact: append([]byte(nil), d.GrantArtifact...),
 		PolicyGeneration: d.PolicyGeneration, Principal: d.Principal,
@@ -301,6 +307,7 @@ func journalEntryView(entry journalEntry) JournalEntry {
 		Action: entry.Action, AttemptOutcome: entry.AttemptOutcome,
 		ActionOutcome: entry.ActionOutcome, OccurredAt: entry.OccurredAt,
 		ErrorCode: entry.ErrorCode, StatusCode: entry.StatusCode,
+		ErrorParams:    append(json.RawMessage(nil), entry.ErrorParams...),
 		StatusCategory: entry.StatusCategory,
 		Summary: RedactedSummaryView{
 			Code: entry.Summary.Code, Counters: counters, Facts: facts,
@@ -321,6 +328,7 @@ func cloneRunError(value *RunError) *RunError {
 		return nil
 	}
 	copy := *value
+	copy.Params = append(json.RawMessage(nil), value.Params...)
 	return &copy
 }
 

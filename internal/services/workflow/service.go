@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/yottaapp/yotta/internal/apperr"
 	appcore "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/durablefs"
@@ -118,9 +119,9 @@ type BatchUpdateSourceMetadataRequest struct {
 }
 
 type BatchUpdateSourceMetadataResult struct {
-	WorkflowID string `json:"workflowId"`
-	Updated    bool   `json:"updated"`
-	Error      string `json:"error,omitempty"`
+	WorkflowID string           `json:"workflowId"`
+	Updated    bool             `json:"updated"`
+	Problem    *apperr.Envelope `json:"problem,omitempty"`
 }
 
 type SourceRecoveryView struct {
@@ -152,7 +153,7 @@ type DeleteSourceResult struct {
 	WorkflowID string            `json:"workflowId"`
 	Deleted    bool              `json:"deleted"`
 	References []SourceReference `json:"references"`
-	Error      string            `json:"error,omitempty"`
+	Problem    *apperr.Envelope  `json:"problem,omitempty"`
 }
 
 type BundleInfoView struct {
@@ -165,10 +166,10 @@ type BundleInfoView struct {
 }
 
 type BundleExportResult struct {
-	WorkflowID string `json:"workflowId"`
-	Path       string `json:"path,omitempty"`
-	Exported   bool   `json:"exported"`
-	Error      string `json:"error,omitempty"`
+	WorkflowID string           `json:"workflowId"`
+	Path       string           `json:"path,omitempty"`
+	Exported   bool             `json:"exported"`
+	Problem    *apperr.Envelope `json:"problem,omitempty"`
 }
 
 type CompileView struct {
@@ -178,17 +179,20 @@ type CompileView struct {
 }
 
 type RunView struct {
-	RunID         string          `json:"runId"`
-	Status        string          `json:"status"`
-	Generation    uint64          `json:"generation"`
-	RecordDigest  artifact.Digest `json:"recordDigest"`
-	ProgramHash   artifact.Digest `json:"programHash"`
-	QueuedAt      string          `json:"queuedAt"`
-	Failure       *FailureView    `json:"failure,omitempty"`
-	Timeline      []TimelineEntry `json:"timeline"`
-	TimelinePage  int             `json:"timelinePage"`
-	TimelinePages int             `json:"timelinePages"`
-	TimelineTotal int             `json:"timelineTotal"`
+	RunID          string          `json:"runId"`
+	WorkflowID     string          `json:"workflowId,omitempty"`
+	SourceHash     artifact.Digest `json:"sourceHash,omitempty"`
+	SourceRevision int64           `json:"sourceRevision,omitempty"`
+	Status         string          `json:"status"`
+	Generation     uint64          `json:"generation"`
+	RecordDigest   artifact.Digest `json:"recordDigest"`
+	ProgramHash    artifact.Digest `json:"programHash"`
+	QueuedAt       string          `json:"queuedAt"`
+	Failure        *FailureView    `json:"failure,omitempty"`
+	Timeline       []TimelineEntry `json:"timeline"`
+	TimelinePage   int             `json:"timelinePage"`
+	TimelinePages  int             `json:"timelinePages"`
+	TimelineTotal  int             `json:"timelineTotal"`
 }
 
 type RunTimelineExportResult struct {
@@ -197,12 +201,13 @@ type RunTimelineExportResult struct {
 }
 
 type FailureView struct {
-	Code      string `json:"code"`
-	Category  string `json:"category"`
-	Retryable bool   `json:"retryable"`
-	GraphID   string `json:"graphId,omitempty"`
-	NodeID    string `json:"nodeId,omitempty"`
-	Attempt   int    `json:"attempt,omitempty"`
+	Code      string         `json:"code"`
+	Params    map[string]any `json:"params,omitempty"`
+	Category  string         `json:"category"`
+	Retryable bool           `json:"retryable"`
+	GraphID   string         `json:"graphId,omitempty"`
+	NodeID    string         `json:"nodeId,omitempty"`
+	Attempt   int            `json:"attempt,omitempty"`
 }
 
 type SummaryView struct {
@@ -212,20 +217,21 @@ type SummaryView struct {
 }
 
 type TimelineEntry struct {
-	Sequence       uint64      `json:"sequence"`
-	Kind           string      `json:"kind"`
-	GraphPath      []string    `json:"graphPath"`
-	NodeID         string      `json:"nodeId"`
-	EffectID       string      `json:"effectId,omitempty"`
-	Attempt        int         `json:"attempt"`
-	Action         string      `json:"action,omitempty"`
-	AttemptOutcome string      `json:"attemptOutcome,omitempty"`
-	ActionOutcome  string      `json:"actionOutcome,omitempty"`
-	OccurredAt     string      `json:"occurredAt"`
-	ErrorCode      string      `json:"errorCode,omitempty"`
-	StatusCode     string      `json:"statusCode,omitempty"`
-	StatusCategory string      `json:"statusCategory,omitempty"`
-	Summary        SummaryView `json:"summary"`
+	Sequence       uint64         `json:"sequence"`
+	Kind           string         `json:"kind"`
+	GraphPath      []string       `json:"graphPath"`
+	NodeID         string         `json:"nodeId"`
+	EffectID       string         `json:"effectId,omitempty"`
+	Attempt        int            `json:"attempt"`
+	Action         string         `json:"action,omitempty"`
+	AttemptOutcome string         `json:"attemptOutcome,omitempty"`
+	ActionOutcome  string         `json:"actionOutcome,omitempty"`
+	OccurredAt     string         `json:"occurredAt"`
+	ErrorCode      string         `json:"errorCode,omitempty"`
+	ErrorParams    map[string]any `json:"errorParams,omitempty"`
+	StatusCode     string         `json:"statusCode,omitempty"`
+	StatusCategory string         `json:"statusCategory,omitempty"`
+	Summary        SummaryView    `json:"summary"`
 }
 
 type StartRunView struct {
@@ -260,6 +266,9 @@ func (s *Service) ApplyPatch(workflowID string, baseRevision int64, commands []a
 		WorkflowID: workflowID, BaseRevision: baseRevision, Commands: commands,
 	})
 	if err != nil {
+		if errors.Is(err, workflowstore.ErrSourceConflict) {
+			return PatchView{}, apperr.New("workflow.revision.conflict", map[string]any{"baseRevision": baseRevision})
+		}
 		return PatchView{}, err
 	}
 	view, err := sourceView(result.Source, true)
@@ -588,13 +597,18 @@ func runViewPage(record run.Record, page, pageSize int) RunView {
 	entries := record.Journal()
 	pageEntries, currentPage, pages := timelinePage(entries, page, pageSize)
 	view := RunView{
-		RunID: admission.RunID, Status: string(record.Status()), Generation: record.Generation(), RecordDigest: record.Digest(),
+		RunID: admission.RunID, WorkflowID: admission.WorkflowID, SourceHash: admission.SourceHash, SourceRevision: admission.SourceRevision,
+		Status: string(record.Status()), Generation: record.Generation(), RecordDigest: record.Digest(),
 		ProgramHash: admission.ProgramHash, QueuedAt: admission.QueuedAt.Format("2006-01-02T15:04:05.999999999Z07:00"),
 		Timeline: timelineView(pageEntries), TimelinePage: currentPage, TimelinePages: pages, TimelineTotal: len(entries),
 	}
 	if failure, ok := record.Failure(); ok {
+		var params map[string]any
+		if len(failure.Params) != 0 {
+			_ = json.Unmarshal(failure.Params, &params)
+		}
 		view.Failure = &FailureView{
-			Code: failure.Code, Category: failure.Category, Retryable: failure.Retryable,
+			Code: failure.Code, Params: params, Category: failure.Category, Retryable: failure.Retryable,
 			GraphID: failure.GraphID, NodeID: failure.NodeID, Attempt: failure.Attempt,
 		}
 	}
@@ -605,7 +619,8 @@ func runTimelinePageView(timeline run.TimelinePage) RunView {
 	summary := timeline.Summary
 	admission := summary.Admission
 	view := RunView{
-		RunID: admission.RunID, Status: string(summary.Status),
+		RunID: admission.RunID, WorkflowID: admission.WorkflowID, SourceHash: admission.SourceHash, SourceRevision: admission.SourceRevision,
+		Status:     string(summary.Status),
 		Generation: summary.Generation, RecordDigest: summary.Digest,
 		ProgramHash: admission.ProgramHash,
 		QueuedAt:    admission.QueuedAt.Format("2006-01-02T15:04:05.999999999Z07:00"),
@@ -614,8 +629,12 @@ func runTimelinePageView(timeline run.TimelinePage) RunView {
 	}
 	if summary.Failure != nil {
 		failure := summary.Failure
+		var params map[string]any
+		if len(failure.Params) != 0 {
+			_ = json.Unmarshal(failure.Params, &params)
+		}
 		view.Failure = &FailureView{
-			Code: failure.Code, Category: failure.Category, Retryable: failure.Retryable,
+			Code: failure.Code, Params: params, Category: failure.Category, Retryable: failure.Retryable,
 			GraphID: failure.GraphID, NodeID: failure.NodeID, Attempt: failure.Attempt,
 		}
 	}
@@ -653,12 +672,17 @@ func timelinePage(entries []run.JournalEntry, page, pageSize int) ([]run.Journal
 func timelineView(entries []run.JournalEntry) []TimelineEntry {
 	result := make([]TimelineEntry, 0, len(entries))
 	for _, entry := range entries {
+		var errorParams map[string]any
+		if len(entry.ErrorParams) != 0 {
+			_ = json.Unmarshal(entry.ErrorParams, &errorParams)
+		}
 		result = append(result, TimelineEntry{
 			Sequence: entry.Sequence, Kind: string(entry.Kind), GraphPath: append([]string(nil), entry.GraphPath...),
 			NodeID: entry.NodeID, EffectID: entry.EffectID, Attempt: entry.Attempt, Action: entry.Action,
 			AttemptOutcome: string(entry.AttemptOutcome), ActionOutcome: string(entry.ActionOutcome),
 			OccurredAt: entry.OccurredAt.Format("2006-01-02T15:04:05.999999999Z07:00"), ErrorCode: entry.ErrorCode,
-			StatusCode: entry.StatusCode, StatusCategory: string(entry.StatusCategory),
+			ErrorParams: errorParams,
+			StatusCode:  entry.StatusCode, StatusCategory: string(entry.StatusCategory),
 			Summary: SummaryView{
 				Code: entry.Summary.Code, Counters: entry.Summary.Counters, Facts: entry.Summary.Facts,
 			},

@@ -36,11 +36,23 @@ const (
 )
 
 var (
-	ErrReviewNotFound = errors.New("AI authoring review not found")
-	ErrReviewTerminal = errors.New("AI authoring review is already terminal")
-	ErrReviewCapacity = errors.New("AI authoring review capacity exhausted")
-	ErrNoProposal     = errors.New("AI authoring completed without an exact patch proposal")
+	ErrReviewNotFound                = errors.New("AI authoring review not found")
+	ErrReviewTerminal                = errors.New("AI authoring review is already terminal")
+	ErrReviewCapacity                = errors.New("AI authoring review capacity exhausted")
+	ErrNoProposal                    = errors.New("AI authoring completed without an exact patch proposal")
+	ErrDiagnosticRunUnavailable      = errors.New("AI diagnostic Run is unavailable")
+	ErrDiagnosticRunWorkflowMismatch = errors.New("AI diagnostic Run belongs to another Workflow")
 )
+
+type ToolInputError struct {
+	Tool  string
+	Cause error
+}
+
+func (e *ToolInputError) Error() string {
+	return fmt.Sprintf("AI tool %s input is invalid: %v", e.Tool, e.Cause)
+}
+func (e *ToolInputError) Unwrap() error { return e.Cause }
 
 type Runtime struct {
 	Profile    ai.ModelProfile
@@ -49,10 +61,31 @@ type Runtime struct {
 }
 
 type ProposeRequest struct {
-	WorkflowID   string `json:"workflowId"`
-	BaseRevision int64  `json:"baseRevision"`
-	Instruction  string `json:"instruction"`
-	TrustClass   string `json:"trustClass"`
+	WorkflowID      string                     `json:"workflowId"`
+	RunID           string                     `json:"runId,omitempty"`
+	BaseRevision    int64                      `json:"baseRevision"`
+	Instruction     string                     `json:"instruction"`
+	TrustClass      string                     `json:"trustClass"`
+	History         []ConversationMessage      `json:"-"`
+	Progress        func(ConversationProgress) `json:"-"`
+	AllowAnswerOnly bool                       `json:"-"`
+}
+
+type ConversationProgress struct {
+	ConversationID string            `json:"conversationId"`
+	TurnID         string            `json:"turnId"`
+	Kind           string            `json:"kind"`
+	Facts          map[string]string `json:"facts,omitempty"`
+}
+
+type ConversationTurnRequest struct {
+	ConversationID string
+	WorkflowID     string
+	RunID          string
+	BaseRevision   int64
+	Instruction    string
+	TrustClass     string
+	Progress       func(ConversationProgress)
 }
 
 type InputFingerprint struct {
@@ -126,14 +159,15 @@ type reviewState struct {
 }
 
 type Manager struct {
-	application *appcore.Application
-	projection  nodeauthoring.Snapshot
-	prompt      ai.PromptManifest
-	tools       ai.ToolSet
-	now         func() time.Time
-	mu          sync.RWMutex
-	reviews     map[string]*reviewState
-	inflight    int
+	application   *appcore.Application
+	projection    nodeauthoring.Snapshot
+	prompt        ai.PromptManifest
+	tools         ai.ToolSet
+	now           func() time.Time
+	mu            sync.RWMutex
+	reviews       map[string]*reviewState
+	inflight      int
+	conversations *ConversationStore
 }
 
 func NewManager(application *appcore.Application, builtins nodes.Builtins, now func() time.Time) (*Manager, error) {
@@ -148,6 +182,136 @@ func NewManager(application *appcore.Application, builtins nodes.Builtins, now f
 		now = time.Now
 	}
 	return &Manager{application: application, projection: projection, prompt: builtins.AIAuthoringPrompt, tools: builtins.AIAuthoringToolSet, now: now, reviews: make(map[string]*reviewState)}, nil
+}
+
+func (m *Manager) AttachConversationStore(store *ConversationStore) error {
+	if store == nil {
+		return errors.New("AI authoring conversation store is unavailable")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.conversations != nil {
+		return errors.New("AI authoring conversation store is already attached")
+	}
+	m.conversations = store
+	return nil
+}
+
+func (m *Manager) CreateConversation(workflowID string) (Conversation, error) {
+	if m.conversations == nil {
+		return Conversation{}, errors.New("AI authoring conversation store is unavailable")
+	}
+	return m.conversations.Create(workflowID)
+}
+
+func (m *Manager) ListConversations(workflowID string) ([]ConversationSummary, error) {
+	if m.conversations == nil {
+		return nil, errors.New("AI authoring conversation store is unavailable")
+	}
+	return m.conversations.List(workflowID)
+}
+
+func (m *Manager) GetConversation(workflowID, conversationID string) (Conversation, error) {
+	if m.conversations == nil {
+		return Conversation{}, errors.New("AI authoring conversation store is unavailable")
+	}
+	return m.conversations.Get(workflowID, conversationID)
+}
+
+func (m *Manager) DeleteConversation(workflowID, conversationID string) error {
+	if m.conversations == nil {
+		return errors.New("AI authoring conversation store is unavailable")
+	}
+	return m.conversations.Delete(workflowID, conversationID)
+}
+
+func (m *Manager) RecordFailedTurn(workflowID, conversationID, instruction, problemID string, operationID ...string) (Conversation, error) {
+	if m.conversations == nil {
+		return Conversation{}, errors.New("AI authoring conversation store is unavailable")
+	}
+	userID, err := runid.New()
+	if err != nil {
+		return Conversation{}, err
+	}
+	if _, err := m.conversations.Append(workflowID, conversationID, ConversationMessage{ID: userID, Role: "user", Content: instruction, CreatedAt: m.now().UTC()}); err != nil {
+		return Conversation{}, err
+	}
+	return m.RecordFailure(workflowID, conversationID, problemID, operationID...)
+}
+
+func (m *Manager) RecordFailure(workflowID, conversationID, problemID string, operationID ...string) (Conversation, error) {
+	if m.conversations == nil {
+		return Conversation{}, errors.New("AI authoring conversation store is unavailable")
+	}
+	responseID, err := runid.New()
+	if err != nil {
+		return Conversation{}, err
+	}
+	if problemID == "" {
+		problemID = "ai.authoring.failed"
+	}
+	operation := ""
+	if len(operationID) != 0 {
+		operation = operationID[0]
+	}
+	return m.conversations.Append(workflowID, conversationID, ConversationMessage{ID: responseID, Role: "assistant", Content: problemID, ProblemID: problemID, OperationID: operation, CreatedAt: m.now().UTC()})
+}
+
+func (m *Manager) ProposeTurn(ctx context.Context, runtime Runtime, request ConversationTurnRequest) (Conversation, Review, error) {
+	if m.conversations == nil {
+		return Conversation{}, Review{}, errors.New("AI authoring conversation store is unavailable")
+	}
+	conversation, err := m.conversations.Get(request.WorkflowID, request.ConversationID)
+	if err != nil {
+		return Conversation{}, Review{}, err
+	}
+	messageID, err := runid.New()
+	if err != nil {
+		return Conversation{}, Review{}, err
+	}
+	prior := append([]ConversationMessage(nil), conversation.Messages...)
+	conversation, err = m.conversations.Append(request.WorkflowID, request.ConversationID, ConversationMessage{ID: messageID, Role: "user", Content: request.Instruction, CreatedAt: m.now().UTC()})
+	if err != nil {
+		return Conversation{}, Review{}, err
+	}
+	turnID, err := runid.New()
+	if err != nil {
+		return conversation, Review{}, err
+	}
+	emit := func(kind string, facts map[string]string) {
+		if request.Progress != nil {
+			request.Progress(ConversationProgress{ConversationID: request.ConversationID, TurnID: turnID, Kind: kind, Facts: facts})
+		}
+	}
+	emit("started", nil)
+	review, err := m.Propose(ctx, runtime, ProposeRequest{
+		WorkflowID: request.WorkflowID, RunID: request.RunID, BaseRevision: request.BaseRevision,
+		Instruction: request.Instruction, TrustClass: request.TrustClass, History: prior, AllowAnswerOnly: true,
+		Progress: func(event ConversationProgress) {
+			event.ConversationID, event.TurnID = request.ConversationID, turnID
+			if request.Progress != nil {
+				request.Progress(event)
+			}
+		},
+	})
+	if err != nil {
+		emit("failed", nil)
+		return conversation, Review{}, err
+	}
+	responseID, err := runid.New()
+	if err != nil {
+		return conversation, Review{}, err
+	}
+	message := ConversationMessage{ID: responseID, Role: "assistant", Content: review.Summary, CreatedAt: m.now().UTC()}
+	if review.ReviewID != "" {
+		message.ReviewID, message.Review = review.ReviewID, &review
+	}
+	conversation, err = m.conversations.Append(request.WorkflowID, request.ConversationID, message)
+	if err != nil {
+		return conversation, Review{}, err
+	}
+	emit("completed", map[string]string{"reviewId": review.ReviewID})
+	return conversation, review, nil
 }
 
 func (m *Manager) Propose(ctx context.Context, runtime Runtime, request ProposeRequest) (Review, error) {
@@ -178,7 +342,16 @@ func (m *Manager) Propose(ctx context.Context, runtime Runtime, request ProposeR
 	if err != nil {
 		return Review{}, err
 	}
-	state := &proposalState{manager: m, workflowID: request.WorkflowID, baseRevision: request.BaseRevision, basePlan: []capability.PlanEntry{}}
+	state := &proposalState{manager: m, workflowID: request.WorkflowID, runID: request.RunID, baseRevision: request.BaseRevision, basePlan: []capability.PlanEntry{}, progress: request.Progress}
+	if request.RunID != "" {
+		record, runErr := m.application.GetRun(request.RunID)
+		if runErr != nil {
+			return Review{}, fmt.Errorf("%w: %v", ErrDiagnosticRunUnavailable, runErr)
+		}
+		if record.Admission().WorkflowID != request.WorkflowID {
+			return Review{}, ErrDiagnosticRunWorkflowMismatch
+		}
+	}
 	if preview, previewErr := m.application.PreviewRun(ctx, request.WorkflowID); previewErr == nil {
 		state.basePlan = preview.CapabilityPlan
 	}
@@ -207,7 +380,11 @@ func (m *Manager) Propose(ctx context.Context, runtime Runtime, request ProposeR
 	state.addTrace("model", "", map[string]string{"provider": string(profileDraft.Provider), "model": profileDraft.Model, "profile_subject": profileSubject.String()})
 	state.addTrace("prompt", "", map[string]string{"manifest": m.prompt.Digest().String(), "input_digest": inputDigest.String(), "input_bytes": fmt.Sprint(len(request.Instruction)), "trust_class": request.TrustClass})
 	state.addTrace("tool-authority", "", map[string]string{"tool_set": m.tools.Digest().String(), "authority": "pure", "approval": "host-builtin"})
-	contextBlock, _ := artifact.Marshal(map[string]any{"workflowId": request.WorkflowID, "baseRevision": request.BaseRevision})
+	history := boundedConversationHistory(request.History)
+	contextBlock, _ := artifact.Marshal(map[string]any{
+		"workflowId": request.WorkflowID, "baseRevision": request.BaseRevision, "runId": request.RunID,
+		"conversation": history,
+	})
 	rendered, err := ai.RenderPrompt(m.prompt, []ai.PromptBlock{{Kind: ai.PromptBlockUser, Content: request.Instruction}, {Kind: ai.PromptBlockContext, Content: string(contextBlock)}})
 	if err != nil {
 		return Review{}, err
@@ -246,7 +423,14 @@ func (m *Manager) Propose(ctx context.Context, runtime Runtime, request ProposeR
 		}
 		if outcome.Finish.Kind == ai.FinishCompleted {
 			if !state.prepared.Valid() || !state.compileChecked || !state.previewChecked {
-				return Review{}, ErrNoProposal
+				if !request.AllowAnswerOnly {
+					return Review{}, ErrNoProposal
+				}
+				review.ReviewID = ""
+				review.Status = ""
+				review.Summary = outcomeText(outcome)
+				review.Usage = tracker.Usage()
+				return review, nil
 			}
 			review.Summary = outcomeText(outcome)
 			break
@@ -287,6 +471,27 @@ func (m *Manager) Propose(ctx context.Context, runtime Runtime, request ProposeR
 	return cloneReview(review), nil
 }
 
+func boundedConversationHistory(messages []ConversationMessage) []map[string]string {
+	const historyBudget = 128 << 10
+	result := make([]map[string]string, 0, len(messages))
+	used := 0
+	for index := len(messages) - 1; index >= 0; index-- {
+		message := messages[index]
+		if message.ProblemID != "" || (message.Role != "user" && message.Role != "assistant") {
+			continue
+		}
+		if used+len(message.Content) > historyBudget {
+			break
+		}
+		used += len(message.Content)
+		result = append(result, map[string]string{"role": message.Role, "content": message.Content})
+	}
+	for left, right := 0, len(result)-1; left < right; left, right = left+1, right-1 {
+		result[left], result[right] = result[right], result[left]
+	}
+	return result
+}
+
 func (m *Manager) Accept(ctx context.Context, reviewID string) (Review, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -305,6 +510,9 @@ func (m *Manager) Accept(ctx context.Context, reviewID string) (Review, error) {
 			appendTrace(&state.review.Trace, m.now(), "approval", "", map[string]string{"decision": "stale", "reason": "revision-conflict"})
 			state.prepared = appcore.PreparedPatch{}
 			state.terminalAt = m.now()
+			if m.conversations != nil {
+				_ = m.conversations.UpdateReview(state.review)
+			}
 		}
 		return cloneReview(state.review), err
 	}
@@ -313,6 +521,9 @@ func (m *Manager) Accept(ctx context.Context, reviewID string) (Review, error) {
 	appendTrace(&state.review.Trace, m.now(), "approval", "", map[string]string{"decision": "accepted", "source_hash": committed.Source.Hash().String()})
 	state.prepared = appcore.PreparedPatch{}
 	state.terminalAt = m.now()
+	if m.conversations != nil {
+		_ = m.conversations.UpdateReview(state.review)
+	}
 	return cloneReview(state.review), nil
 }
 
@@ -331,6 +542,9 @@ func (m *Manager) Reject(reviewID string) (Review, error) {
 	appendTrace(&state.review.Trace, m.now(), "approval", "", map[string]string{"decision": "rejected"})
 	state.prepared = appcore.PreparedPatch{}
 	state.terminalAt = m.now()
+	if m.conversations != nil {
+		_ = m.conversations.UpdateReview(state.review)
+	}
 	return cloneReview(state.review), nil
 }
 
@@ -379,6 +593,7 @@ func (m *Manager) pruneReviewsLocked(now time.Time) {
 type proposalState struct {
 	manager           *Manager
 	workflowID        string
+	runID             string
 	baseRevision      int64
 	basePlan          []capability.PlanEntry
 	candidatePlan     []capability.PlanEntry
@@ -386,11 +601,14 @@ type proposalState struct {
 	changes           []Change
 	diagnostics       []schema.Diagnostic
 	permissions       PermissionDelta
+	commands          []authoring.Command
+	nodeAliases       map[string]string
 	compileChecked    bool
 	previewChecked    bool
 	diagnosticKey     string
 	diagnosticRepeats int
 	trace             *[]TraceEvent
+	progress          func(ConversationProgress)
 }
 
 func (s *proposalState) executor() (ai.ToolExecutor, error) {
@@ -398,6 +616,11 @@ func (s *proposalState) executor() (ai.ToolExecutor, error) {
 		{Name: "catalog_search", Handler: s.catalogSearch},
 		{Name: "catalog_describe", Handler: s.catalogDescribe},
 		{Name: "workflow_inspect", Handler: s.workflowInspect},
+		{Name: "run_get", Handler: s.runGet},
+		{Name: "workflow_add_node", Handler: s.workflowAddNode},
+		{Name: "workflow_connect", Handler: s.workflowConnect},
+		{Name: "workflow_set_numeric_input", Handler: s.workflowSetNumericInput},
+		{Name: "workflow_set_input_json", Handler: s.workflowSetInputJSON},
 		{Name: "workflow_propose_patch", Handler: s.workflowProposePatch},
 		{Name: "workflow_compile", Handler: s.workflowCompile},
 		{Name: "workflow_preview", Handler: s.workflowPreview},
@@ -478,6 +701,37 @@ func (s *proposalState) workflowInspect(_ context.Context, raw json.RawMessage) 
 	return json.Marshal(map[string]any{"revision": snapshot.Revision(), "sourceHash": snapshot.Hash().String(), "sourceJson": string(snapshot.Artifact())})
 }
 
+func (s *proposalState) runGet(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
+	var input struct{}
+	if err := decodeExact(raw, &input); err != nil {
+		return nil, err
+	}
+	if s.runID == "" {
+		return nil, errors.New("AI authoring review has no diagnostic Run")
+	}
+	timeline, err := s.manager.application.GetRunTimelinePage(ctx, s.runID, 1, 500)
+	if err != nil {
+		return nil, err
+	}
+	record, err := s.manager.application.GetRun(s.runID)
+	if err != nil {
+		return nil, err
+	}
+	admission := record.Admission()
+	evidence, err := artifact.Marshal(map[string]any{
+		"runId": admission.RunID, "workflowId": admission.WorkflowID,
+		"sourceHash": admission.SourceHash, "sourceRevision": admission.SourceRevision,
+		"programHash": admission.ProgramHash, "status": record.Status(),
+		"timelinePage": timeline.Page, "timelinePages": timeline.Pages, "timelineTotal": timeline.Total,
+		"timeline": timeline.Entries,
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.addToolTrace("run_get", raw, evidence)
+	return json.Marshal(map[string]string{"evidenceJson": string(evidence)})
+}
+
 func (s *proposalState) workflowProposePatch(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
 	var input struct {
 		CommandsJSON string `json:"commandsJson"`
@@ -489,24 +743,217 @@ func (s *proposalState) workflowProposePatch(ctx context.Context, raw json.RawMe
 		return nil, errors.New("AI authoring command batch exceeds byte budget")
 	}
 	var commands []authoring.Command
-	if err := decodeExact([]byte(input.CommandsJSON), &commands); err != nil {
-		return nil, fmt.Errorf("decode typed authoring commands: %w", err)
+	if err := decodeAuthoringCommands([]byte(input.CommandsJSON), &commands); err != nil {
+		return nil, &ToolInputError{Tool: "workflow_propose_patch", Cause: err}
 	}
-	prepared, err := s.manager.application.PreparePatch(ctx, authoring.PatchRequest{WorkflowID: s.workflowID, BaseRevision: s.baseRevision, Commands: commands})
+	return s.prepareCommands(ctx, "workflow_propose_patch", raw, commands)
+}
+
+func (s *proposalState) workflowSetNumericInput(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
+	var input struct {
+		GraphID string  `json:"graphId"`
+		NodeID  string  `json:"nodeId"`
+		InputID string  `json:"inputId"`
+		Value   float64 `json:"value"`
+	}
+	if err := decodeExact(raw, &input); err != nil {
+		return nil, &ToolInputError{Tool: "workflow_set_numeric_input", Cause: err}
+	}
+	command := authoring.Command{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{
+		GraphID: input.GraphID, NodeID: input.NodeID, PortID: input.InputID, Value: input.Value,
+	}}
+	return s.prepareCommands(ctx, "workflow_set_numeric_input", raw, []authoring.Command{command})
+}
+
+func (s *proposalState) workflowAddNode(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
+	var input struct {
+		GraphID    string  `json:"graphId"`
+		NodeTypeID string  `json:"nodeTypeId"`
+		Handle     string  `json:"handle"`
+		X          float64 `json:"x"`
+		Y          float64 `json:"y"`
+	}
+	if err := decodeExact(raw, &input); err != nil {
+		return nil, &ToolInputError{Tool: "workflow_add_node", Cause: err}
+	}
+	command := authoring.Command{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{
+		GraphID: input.GraphID, NodeTypeID: input.NodeTypeID, Handle: input.Handle,
+		Position: schema.Position{X: input.X, Y: input.Y},
+	}}
+	return s.prepareCommands(ctx, "workflow_add_node", raw, []authoring.Command{command})
+}
+
+func (s *proposalState) workflowConnect(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
+	var input struct {
+		GraphID    string `json:"graphId"`
+		Channel    string `json:"channel"`
+		FromNodeID string `json:"fromNodeId"`
+		FromPortID string `json:"fromPortId"`
+		ToNodeID   string `json:"toNodeId"`
+		ToPortID   string `json:"toPortId"`
+	}
+	if err := decodeExact(raw, &input); err != nil {
+		return nil, &ToolInputError{Tool: "workflow_connect", Cause: err}
+	}
+	command := authoring.Command{Kind: authoring.CommandConnect, Connect: &authoring.EdgeCommand{
+		GraphID: input.GraphID, Edge: authoring.PatchEdge{Channel: schema.EdgeChannel(input.Channel),
+			From: authoring.PatchEndpoint{NodeID: authoring.PatchNodeReference(input.FromNodeID), PortID: input.FromPortID},
+			To:   authoring.PatchEndpoint{NodeID: authoring.PatchNodeReference(input.ToNodeID), PortID: input.ToPortID}},
+	}}
+	return s.prepareCommands(ctx, "workflow_connect", raw, []authoring.Command{command})
+}
+
+func (s *proposalState) workflowSetInputJSON(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
+	var input struct {
+		GraphID   string `json:"graphId"`
+		NodeID    string `json:"nodeId"`
+		InputID   string `json:"inputId"`
+		ValueJSON string `json:"valueJson"`
+	}
+	if err := decodeExact(raw, &input); err != nil {
+		return nil, &ToolInputError{Tool: "workflow_set_input_json", Cause: err}
+	}
+	if len(input.ValueJSON) == 0 || len(input.ValueJSON) > 64<<10 {
+		return nil, &ToolInputError{Tool: "workflow_set_input_json", Cause: errors.New("valueJson exceeds byte budget")}
+	}
+	var value any
+	if err := decodeExact([]byte(input.ValueJSON), &value); err != nil {
+		return nil, &ToolInputError{Tool: "workflow_set_input_json", Cause: err}
+	}
+	command := authoring.Command{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{
+		GraphID: input.GraphID, NodeID: input.NodeID, PortID: input.InputID, Value: value,
+	}}
+	return s.prepareCommands(ctx, "workflow_set_input_json", raw, []authoring.Command{command})
+}
+
+func (s *proposalState) prepareCommands(ctx context.Context, toolName string, raw json.RawMessage, commands []authoring.Command) (json.RawMessage, error) {
+	handles := map[string]struct{}{}
+	for _, command := range append(append([]authoring.Command(nil), s.commands...), commands...) {
+		if command.AddNode != nil && command.AddNode.Handle != "" {
+			handles[command.AddNode.Handle] = struct{}{}
+		}
+	}
+	normalizeCandidateNodeReferences(commands, handles, s.nodeAliases)
+	combined := append(append([]authoring.Command(nil), s.commands...), commands...)
+	prepared, err := s.manager.application.PreparePatch(ctx, authoring.PatchRequest{WorkflowID: s.workflowID, BaseRevision: s.baseRevision, Commands: combined})
 	if err != nil {
 		return nil, err
 	}
 	s.prepared = prepared.Patch
-	s.changes = normalizeChanges(commands)
+	s.commands = combined
+	if s.nodeAliases == nil {
+		s.nodeAliases = map[string]string{}
+	}
+	for _, generated := range prepared.Patch.GeneratedNodes() {
+		if generated.Handle != "" {
+			s.nodeAliases[generated.NodeID] = "$" + generated.Handle
+		}
+	}
+	s.changes = normalizeChanges(combined)
 	s.diagnostics = append([]schema.Diagnostic(nil), prepared.Diagnostics...)
 	s.candidatePlan = append([]capability.PlanEntry(nil), prepared.CapabilityPlan...)
 	s.compileChecked = false
 	s.previewChecked = false
 	s.permissions = permissionDelta(s.basePlan, s.candidatePlan)
-	s.addToolTrace("workflow_propose_patch", raw, prepared.Patch.CandidateArtifact())
-	s.addTrace("patch", "", map[string]string{"base_revision": fmt.Sprint(s.baseRevision), "new_revision": fmt.Sprint(s.baseRevision + 1), "base_hash": prepared.Patch.BaseHash().String(), "candidate_hash": prepared.Patch.CandidateHash().String(), "commands": fmt.Sprint(len(commands))})
+	s.addToolTrace(toolName, raw, prepared.Patch.CandidateArtifact())
+	s.addTrace("patch", "", map[string]string{"base_revision": fmt.Sprint(s.baseRevision), "new_revision": fmt.Sprint(s.baseRevision + 1), "base_hash": prepared.Patch.BaseHash().String(), "candidate_hash": prepared.Patch.CandidateHash().String(), "commands": fmt.Sprint(len(combined))})
 	diagnostics, _ := artifact.Marshal(prepared.Diagnostics)
 	return json.Marshal(map[string]any{"candidateHash": prepared.Patch.CandidateHash().String(), "newRevision": s.baseRevision + 1, "diagnosticsJson": string(diagnostics)})
+}
+
+func normalizeCandidateNodeReferences(commands []authoring.Command, handles map[string]struct{}, aliases map[string]string) {
+	normalize := func(value authoring.PatchNodeReference) authoring.PatchNodeReference {
+		if alias := aliases[string(value)]; alias != "" {
+			return authoring.PatchNodeReference(alias)
+		}
+		if _, ok := handles[string(value)]; ok {
+			return authoring.PatchNodeReference("$" + string(value))
+		}
+		return value
+	}
+	for index := range commands {
+		command := &commands[index]
+		if command.Connect != nil {
+			command.Connect.Edge.From.NodeID = normalize(command.Connect.Edge.From.NodeID)
+			command.Connect.Edge.To.NodeID = normalize(command.Connect.Edge.To.NodeID)
+		}
+		if command.BindValue != nil {
+			command.BindValue.NodeID = string(normalize(authoring.PatchNodeReference(command.BindValue.NodeID)))
+		}
+		if command.BindDefault != nil {
+			command.BindDefault.NodeID = string(normalize(authoring.PatchNodeReference(command.BindDefault.NodeID)))
+		}
+	}
+}
+
+func decodeAuthoringCommands(raw []byte, commands *[]authoring.Command) error {
+	if commands == nil {
+		return errors.New("authoring command target is nil")
+	}
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 {
+		return errors.New("authoring command batch is empty")
+	}
+	var encoded []json.RawMessage
+	if trimmed[0] == '[' {
+		if err := decodeExact(trimmed, &encoded); err != nil {
+			return err
+		}
+	} else {
+		var envelope struct {
+			WorkflowID   string            `json:"workflowId,omitempty"`
+			BaseRevision *int64            `json:"baseRevision,omitempty"`
+			GraphID      string            `json:"graphId,omitempty"`
+			Commands     []json.RawMessage `json:"commands"`
+		}
+		if err := decodeExact(trimmed, &envelope); err != nil {
+			return err
+		}
+		if len(envelope.Commands) == 0 {
+			return errors.New("authoring command envelope is empty")
+		}
+		encoded = envelope.Commands
+	}
+	decoded := make([]authoring.Command, 0, len(encoded))
+	for _, item := range encoded {
+		var command authoring.Command
+		if err := decodeExact(item, &command); err == nil {
+			decoded = append(decoded, command)
+			continue
+		}
+		var flat struct {
+			Kind    string `json:"kind"`
+			GraphID string `json:"graphId"`
+			NodeID  string `json:"nodeId"`
+			PortID  string `json:"portId"`
+			InputID string `json:"inputId"`
+			Binding struct {
+				Kind  string `json:"kind"`
+				Value any    `json:"value,omitempty"`
+			} `json:"binding"`
+		}
+		if err := decodeExact(item, &flat); err != nil {
+			return err
+		}
+		if flat.Kind != "set-node-binding" {
+			return fmt.Errorf("unsupported flat authoring command kind %q", flat.Kind)
+		}
+		portID := flat.PortID
+		if portID == "" {
+			portID = flat.InputID
+		}
+		switch flat.Binding.Kind {
+		case "value":
+			command = authoring.Command{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{GraphID: flat.GraphID, NodeID: flat.NodeID, PortID: portID, Value: flat.Binding.Value}}
+		case "default":
+			command = authoring.Command{Kind: authoring.CommandBindDefault, BindDefault: &authoring.PortCommand{GraphID: flat.GraphID, NodeID: flat.NodeID, PortID: portID}}
+		default:
+			return fmt.Errorf("unsupported flat binding kind %q", flat.Binding.Kind)
+		}
+		decoded = append(decoded, command)
+	}
+	*commands = decoded
+	return nil
 }
 
 func (s *proposalState) workflowCompile(_ context.Context, raw json.RawMessage) (json.RawMessage, error) {
@@ -571,6 +1018,9 @@ func (s *proposalState) addToolTrace(name string, input, output []byte) {
 
 func (s *proposalState) addTrace(kind, requestID string, facts map[string]string) {
 	appendTrace(s.trace, s.manager.now(), kind, requestID, facts)
+	if s.progress != nil {
+		s.progress(ConversationProgress{Kind: kind, Facts: facts})
+	}
 }
 
 func appendTrace(target *[]TraceEvent, now time.Time, kind, requestID string, facts map[string]string) {

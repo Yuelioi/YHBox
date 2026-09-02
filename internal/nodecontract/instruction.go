@@ -18,6 +18,11 @@ const (
 	InstructionRetry       InstructionKind = "retry"
 )
 
+const (
+	RetryAttemptStatusID   = "control.retry.attempt"
+	RetryExhaustedStatusID = "control.retry.exhausted"
+)
+
 // InstructionSpec is the compiler-facing tagged instruction union. It makes
 // host-lowered control semantics part of the semantic digest instead of
 // relying on node type IDs or adapter-side conventions.

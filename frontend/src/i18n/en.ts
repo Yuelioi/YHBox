@@ -1961,8 +1961,60 @@ export default {
     RECORDING_SESSION_BUSY: 'Finish or discard the current recording before starting another one',
     ASSET_QUERY_INVALID: 'The asset query is invalid; try again',
     UNKNOWN_ERROR: 'An unknown error occurred',
-    UNEXPECTED_CODE:
-      'The operation did not complete. Try again; if it continues, open diagnostics (code: {code}).',
+    'system.unexpected': 'The operation did not complete. Try again.',
+    'transport.unstructured_failure':
+      'The {operation} call returned no valid error result. Try again or restart Yotta.',
+    'ai.authoring.unavailable': 'AI proposals are unavailable. Restart Yotta and try again.',
+    'ai.authoring.profile_not_found':
+      'Model profile {slot} was not found. Choose the AI proposal model again.',
+    'ai.authoring.tool_calling_required':
+      'Model {slot} does not have Tool Calling enabled. Enable it in AI settings.',
+    'ai.authoring.credential_unavailable':
+      'The login or credential for model {slot} is unavailable. Check it in AI settings.',
+    'ai.authoring.agent_unsupported':
+      'Model {slot} does not support continuous tool conversations. Choose another model.',
+    'ai.authoring.provider_failed':
+      'The model failed during {stage} ({class}). Check the Codex login or model connection and retry.',
+    'ai.authoring.failed':
+      'This turn did not complete. Review the error above, then continue or retry.',
+    'ai.authoring.profile_invalid':
+      'Model profile {slot} cannot be used for AI proposals. Save the profile again.',
+    'ai.authoring.provider_unavailable':
+      'Could not start model {slot} ({provider}). For Codex, ensure the Codex CLI is available on Yotta’s PATH.',
+    'ai.authoring.run_unavailable':
+      'The Run to diagnose could not be found. Select it again from this workflow’s timeline.',
+    'ai.authoring.run_workflow_mismatch':
+      'The selected Run belongs to another workflow. Start AI diagnosis again from this workflow’s timeline.',
+    'ai.authoring.tool_input_invalid':
+      'The model generated invalid arguments for {tool}, so no proposal was created. Try again.',
+    'ai.authoring.conversation_not_found':
+      'This AI conversation no longer exists. Create a new conversation.',
+    'ai.authoring.conversation_capacity':
+      'This conversation reached its history limit. Create a new conversation to continue.',
+    'workflow.revision.conflict':
+      'Another operation updated this workflow. Reload the latest revision before editing.',
+    'automation.health.ready': 'The target identity and automation runtime are ready.',
+    'automation.health.unavailable': 'Automation health checks are currently unavailable.',
+    'automation.health.invalid_profile':
+      'Automation target {slot} has an invalid profile. Review and save its settings.',
+    'automation.health.not_found':
+      'Automation target {slot} was not found. Check the target-slot binding.',
+    'asset.batch.duplicate': 'The asset batch contains a duplicate item.',
+    'asset.not_found': 'Asset {guid} was not found.',
+    'workflow.batch.duplicate': 'The Workflow batch contains a duplicate item.',
+    'workflow.bundle.unavailable': 'Workflow export is currently unavailable.',
+    'workflow.bundle.directory_required': 'Choose a Workflow export directory.',
+    'workflow.bundle.destination_exists':
+      'The export destination already exists. Choose another directory or filename.',
+    'workflow.source.referenced':
+      'The Workflow is still referenced by {references} local configurations and cannot be deleted.',
+    'workflow.connection.invalid':
+      'This connection cannot be created. Check port direction, channel, and data type.',
+    'snippet.store.unavailable': 'Snippet storage is currently unavailable.',
+    'snippet.load.invalid': 'Snippet file {file} could not be read.',
+    'snippet.load.identity_mismatch':
+      'Snippet file {file} has an identity that does not match its filename.',
+    UNEXPECTED_CODE: 'The operation did not complete. Try again (code: {code}).',
     TRANSPORT_TIMEOUT: 'The request timed out; try again',
     TRANSPORT_UNAVAILABLE: 'The backend connection is unavailable; restart Yotta',
     math: {
@@ -2288,10 +2340,8 @@ export default {
         node_input:
           'Node input “{input}” has an invalid value or connection. Locate the node, change it, and try again.',
         node: 'A recently changed node cannot be saved. Locate it, check its settings, and try again.',
-        internal:
-          'An internal save error occurred ({code}). Your changes are still here; retry, and open diagnostics if it continues.',
-        unknown:
-          'An unknown save error occurred. Your changes are still here; retry, and open diagnostics if it continues.',
+        internal: 'Save failed ({code}). Your changes are still here; try again.',
+        unknown: 'Save failed. Your changes are still here; try again.',
       },
       node_catalog: 'Node catalog',
       catalog_description: 'Click a node, or drag it onto the canvas.',
@@ -2607,8 +2657,61 @@ export default {
       request: 'Requested change',
       request_help: 'Describe the outcome. Inspected workflow data remains untrusted to the model.',
       request_placeholder: 'Add a text node, connect it, and keep existing nodes unchanged.',
+      diagnose_instruction:
+        'Diagnose this Run, explain failed or unmet node conditions, and prepare the smallest verifiable repair proposal.',
       save_first: 'Save or discard local edits before starting an AI proposal.',
-      no_profile: 'No evaluated tool-calling profile is available. Configure one in AI settings.',
+      no_profile: 'No tool-calling profile is available. Configure one in AI settings.',
+      profile_unavailable: {
+        'no-profiles': 'No AI model is installed. Add a model profile in AI settings.',
+        'tool-calling-required':
+          'None of the installed models has Tool Calling enabled, so they cannot inspect or modify Workflows.',
+        'evaluation-required': 'Tool-calling models can be used directly for AI proposals.',
+        ready: '',
+      },
+      configure_profile: 'Open AI settings',
+      conversation_title: 'AI proposals',
+      workflow_isolation: 'Conversations are saved separately for this workflow',
+      new_conversation: 'New conversation',
+      delete_conversation: 'Delete conversation',
+      delete_conversation_title: 'Delete “{title}”?',
+      delete_conversation_hint:
+        'This deletes the local AI conversation and proposal history for this workflow. It does not modify the workflow.',
+      conversation_history: 'Conversation history',
+      loading_conversation: 'Restoring conversation…',
+      empty_title: 'Start with this workflow',
+      empty_hint:
+        'Ask AI to inspect nodes, explain a Run, or prepare a reviewable change proposal.',
+      you: 'You',
+      conversation_placeholder: 'Ask a question or describe the change you want…',
+      send_hint: 'Enter to send · Shift+Enter for a new line',
+      send: 'Send',
+      change_count: '{n} changes',
+      review_details: 'View changes and execution details',
+      no_changes: 'No structured changes were generated',
+      errors: {
+        load: 'Could not load AI conversation history for this workflow. Reopen the sidebar, or restart Yotta if it persists.',
+        create: 'Could not create an AI conversation. Reopen the sidebar and try again.',
+        send: 'The AI message returned no structured result. The failure occurred between the frontend and backend call. Reopen the sidebar and retry.',
+        accept:
+          'Could not accept the proposal. The workflow may have changed; reload it and review the proposal again.',
+        reject: 'Could not reject the proposal. Reopen this conversation and try again.',
+        delete: 'Could not delete the conversation. Reopen the sidebar and try again.',
+      },
+      progress: {
+        started: 'Understanding your request…',
+        'resolving-profile': 'Starting the proposal model',
+        model: 'Model connected',
+        prompt: 'Preparing workflow context',
+        'tool-authority': 'Restricted to Yotta workflow tools',
+        'provider-response': 'The model is analyzing',
+        patch: 'Candidate changes prepared',
+        compiler: 'Checking the workflow',
+        'run-preview': 'Previewing runtime impact',
+        completed: 'Proposal ready',
+        failed: 'This turn did not complete',
+        tool: 'Calling {name}',
+        working: 'AI is working…',
+      },
       propose: 'Prepare proposal',
       retry: 'Prepare another proposal',
       review: 'Review candidate',
@@ -2958,6 +3061,7 @@ export default {
       pick_point: 'Pick from target',
       pick_region: 'Frame on target',
       pick_failed: 'Screen picking failed',
+      invalid_json: 'Enter a valid JSON value',
       picker_target_required:
         'Choose the workflow default target to pick from screen, or enter a value manually.',
       region_width: 'Width',
@@ -3023,11 +3127,26 @@ export default {
       timeout_budget: 'timeout {value}',
       since_start: '{value} after Run start',
       occurred_at: 'Occurred at {value}',
+      source_revision: 'Source revision {revision}',
+      locate_node: 'Locate node',
+      ai_diagnose: 'AI diagnose',
       unhandled_route: 'The “{route}” output is not connected; this Run ends here',
+      template_evidence:
+        'Best match {best}% / threshold {threshold}%, candidate ({x}, {y}), size {width}×{height}',
       status: {
         'automation.template.waiting': 'Waiting for a template match',
         'automation.template.matched': 'Template matched',
         'automation.template.timeout': 'Template wait timed out',
+        'automation.observation.waiting': 'Waiting for the frame condition',
+        'automation.observation.changed': 'Frame change detected',
+        'automation.observation.stable': 'Frame remained stable',
+        'automation.observation.timeout': 'Frame-condition wait timed out',
+        'automation.window.waiting': 'Waiting for the window condition',
+        'automation.window.found': 'Window found',
+        'automation.window.gone': 'Window disappeared',
+        'automation.window.timeout': 'Window-condition wait timed out',
+        'control.retry.attempt': 'Running retry attempt',
+        'control.retry.exhausted': 'Retry attempts exhausted',
       },
     },
     workbench: {
@@ -4097,6 +4216,20 @@ export default {
     security: {
       title: 'Credentials and model configuration are stored separately',
       hint: 'API keys are stored in the system credential store, not settings.json, and are not displayed again.',
+    },
+    roles: {
+      title: 'AI proposal model',
+      hint: 'Choose the default model for AI proposals and Run diagnostics.',
+      diagnostics_placeholder: 'Choose AI proposal model',
+      none: 'Not assigned',
+      clear: 'Clear',
+      unavailable: {
+        'no-profiles': 'No AI model is installed. Add a model profile first.',
+        'tool-calling-required':
+          'No model has Tool Calling enabled, so AI proposals are unavailable.',
+        'evaluation-required': 'Tool-calling models can be used directly for AI proposals.',
+        ready: '',
+      },
     },
     provider: {
       openai_responses: 'OpenAI Responses',

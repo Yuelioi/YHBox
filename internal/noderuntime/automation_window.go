@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/automation/installed"
@@ -79,6 +80,9 @@ func automationWindow(nodeID, operation, effectID, actionName string) nodeadapte
 		}
 		if wait, ok := request.(installed.WaitWindowRequest); ok {
 			action.Counters["timeout_ms"] = wait.TimeoutMilliseconds
+			if err := emitAutomationWindowStatus(ctx, invocation, nodes.WindowWaitingStatus, action.Counters); err != nil {
+				return nodeadapter.AdapterResult{}, err
+			}
 		}
 		payload, err := artifact.Marshal(request)
 		if err != nil {
@@ -89,7 +93,9 @@ func automationWindow(nodeID, operation, effectID, actionName string) nodeadapte
 			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}
 		defer func() { runErr = errors.Join(runErr, invocation.Targets.Drop(context.WithoutCancel(ctx), handle)) }()
+		invokeStarted := time.Now()
 		raw, err := invocation.Targets.Invoke(ctx, handle, operation, payload)
+		action.Counters["elapsed_ms"] = time.Since(invokeStarted).Milliseconds()
 		if err != nil {
 			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 		}
@@ -99,10 +105,19 @@ func automationWindow(nodeID, operation, effectID, actionName string) nodeadapte
 				return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
 			}
 			if !response.Matched {
+				if err := emitAutomationWindowStatus(ctx, invocation, nodes.WindowTimeoutStatus, action.Counters); err != nil {
+					return nodeadapter.AdapterResult{}, err
+				}
 				return nodeadapter.AdapterResult{ExecOutputs: []string{"timeout"}}, nil
 			}
 			if operation == installed.OperationWaitWindowGone {
+				if err := emitAutomationWindowStatus(ctx, invocation, nodes.WindowGoneStatus, action.Counters); err != nil {
+					return nodeadapter.AdapterResult{}, err
+				}
 				return nodeadapter.AdapterResult{ExecOutputs: []string{"gone"}}, nil
+			}
+			if err := emitAutomationWindowStatus(ctx, invocation, nodes.WindowFoundStatus, action.Counters); err != nil {
+				return nodeadapter.AdapterResult{}, err
 			}
 			return nodeadapter.AdapterResult{ExecOutputs: []string{"found"}}, nil
 		}
@@ -111,6 +126,17 @@ func automationWindow(nodeID, operation, effectID, actionName string) nodeadapte
 		}
 		return nodeadapter.AdapterResult{ExecOutputs: []string{"completed"}}, nil
 	}
+}
+
+func emitAutomationWindowStatus(ctx context.Context, invocation nodeadapter.Invocation, code string, counters map[string]int64) error {
+	if invocation.EmitStatus == nil {
+		return errors.New("automation window status emitter is missing")
+	}
+	copy := make(map[string]int64, len(counters))
+	for name, value := range counters {
+		copy[name] = value
+	}
+	return invocation.EmitStatus(ctx, code, copy)
 }
 
 func automationWindowRequest(invocation nodeadapter.Invocation, nodeID, operation string) (any, error) {

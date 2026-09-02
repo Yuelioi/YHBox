@@ -94,6 +94,7 @@
         @cancel="emit('cancel')"
         @refresh="emit('refresh')"
         @export="emit('export-timeline')"
+        @diagnose="emit('diagnose-run')"
         @page="emit('page', $event)"
         @focus-node="(path, nodeId) => emit('focus-node', path, nodeId)"
       />
@@ -148,6 +149,7 @@ const emit = defineEmits<{
   refresh: []
   page: [page: number]
   'export-timeline': []
+  'diagnose-run': []
   continue: []
   pause: []
   step: []

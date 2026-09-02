@@ -41,14 +41,11 @@ export function describeWorkflowSaveError(
   commands: readonly WorkflowPatchCommand[] = [],
 ): WorkflowSaveError {
   const normalized = normalizeError(error)
-  const rawMessage = normalized.message?.trim() ?? ''
-  const details = asRecord(normalized.details)
-  const code = firstErrorCode(normalized, rawMessage, details)
-  const commandIndex = typeof details?.commandIndex === 'number' ? details.commandIndex : undefined
+  const params = normalized.params
+  const code = firstErrorCode(normalized, params)
+  const commandIndex = typeof params?.commandIndex === 'number' ? params.commandIndex : undefined
   const target = commandIndex !== undefined ? targetFromCommand(commands[commandIndex]) : undefined
-  const lowered = `${code} ${rawMessage}`.toLocaleLowerCase()
-
-  if (lowered.includes('revision conflict')) {
+  if (normalized.id === 'workflow.revision.conflict') {
     return { kind: 'revision', message: i18n.global.t('workflow.editor.revision_conflict') }
   }
 
@@ -79,15 +76,12 @@ export function describeWorkflowSaveError(
 
 function firstErrorCode(
   normalized: ReturnType<typeof normalizeError>,
-  rawMessage: string,
-  details: Record<string, unknown> | undefined,
+  params: Record<string, unknown> | undefined,
 ): string {
   const diagnosticCode = normalized.errors?.[0]?.code
   if (diagnosticCode) return diagnosticCode
-  if (typeof details?.code === 'string' && details.code) return details.code
-  if (normalized.code && normalized.code !== 'rpc.unclassified') return normalized.code
-  const match = rawMessage.match(/\b[A-Z][A-Z0-9_]{2,}\b/)
-  return match?.[0] ?? ''
+  if (typeof params?.code === 'string' && params.code) return params.code
+  return normalized.id ?? ''
 }
 
 function targetMessage(target: WorkflowSaveErrorTarget): string {

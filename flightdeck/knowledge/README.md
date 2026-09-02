@@ -11,6 +11,7 @@ Knowledge 只保存可跨 Work 复用的项目操作指南。先按要修改的�
 | 新增/修改 Data Type、Node Contract 或 adapter | [节点开发](nodes/development.md) |
 | 修改 Target、输入、捕获、录制或鼠标/键盘语义 | [自动化输入与捕获](automation/input-and-capture.md) |
 | 新增 Go service、RPC、event 或 frontend transport | [Wails services](wails/services.md) |
+| 新增或修改错误 ID、params、RPC/Run/异步失败反馈 | [错误契约](errors/error-contract.md) |
 | 修改 Settings installation、运行环境代或后台生命周期 | [配置与生命周期](runtime/configuration-and-lifecycle.md) |
 | 修改 profile、durable store、schema、backup 或 migration | [存储与迁移](storage/migrations.md) |
 | 新增或更新 README、docs、Knowledge 与链接 | [文档维护](documentation/maintenance.md) |

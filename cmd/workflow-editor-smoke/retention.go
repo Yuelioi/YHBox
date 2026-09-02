@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
@@ -53,12 +54,54 @@ func seedRecoveryFixture(ctx context.Context, root, retentionSource, retentionBl
 	}); err != nil {
 		return fmt.Errorf("seed workflow recovery fixture: %w", err)
 	}
-	if retentionSource != "" {
+	if retentionSource == "" {
+		if err := seedAuthoringFixture(ctx, foundation); err != nil {
+			return err
+		}
+	} else {
 		if err := seedRetentionFixture(
 			ctx, profile.Roots, foundation, retentionSource, retentionBlobs,
 		); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func seedAuthoringFixture(ctx context.Context, foundation *catalog.Foundation) error {
+	builtins, err := nodes.Build()
+	if err != nil {
+		return fmt.Errorf("build smoke node catalog: %w", err)
+	}
+	runStarted, ok := builtins.Definition(nodes.RunStartedNodeID)
+	if !ok {
+		return errors.New("smoke node catalog omitted RunStarted")
+	}
+	store, err := workflowstore.OpenSourceStore(foundation.Workflows(), workflowstore.SourceStoreOptions{MaxSources: 16, Now: time.Now})
+	if err != nil {
+		return fmt.Errorf("open smoke Workflow Source store: %w", err)
+	}
+	source := schema.WorkflowSource{
+		Format: schema.Format, Version: schema.Version,
+		Workflow: schema.Workflow{ID: uuid.NewString(), Name: "Visual acceptance"},
+		Revision: 0, EntryGraph: "main",
+		Graphs: []schema.Graph{{
+			ID: "main", Kind: schema.GraphKindMain,
+			Nodes: []schema.Node{{
+				ID: "run-started", NodeRef: runStarted.Contract.NodeRef(), Position: schema.Position{X: 120, Y: 160},
+				Config: map[string]any{}, Bindings: map[string]schema.InputBinding{},
+			}},
+			Edges: []schema.Edge{}, Inputs: []schema.GraphPort{}, Outputs: []schema.GraphPort{},
+		}},
+		Resources: []schema.WorkflowResource{}, TargetProfileDefinitions: []schema.TargetProfileDefinition{},
+		CredentialRequirements: []schema.CredentialRequirement{}, Dependencies: []schema.NodePackageDependency{}, Variables: []schema.Variable{},
+	}
+	raw, err := artifact.Marshal(source)
+	if err != nil {
+		return err
+	}
+	if _, err := store.Save(ctx, raw, -1); err != nil {
+		return fmt.Errorf("seed smoke Workflow Source: %w", err)
 	}
 	return nil
 }

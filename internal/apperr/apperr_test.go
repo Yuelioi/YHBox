@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -20,15 +21,15 @@ func TestError_AsRecoversType(t *testing.T) {
 	if !errors.As(wrapped, &ae) {
 		t.Fatal("errors.As should recover *apperr.Error")
 	}
-	if ae.Code != "WAILS_NOT_READY" {
-		t.Fatalf("Code = %q", ae.Code)
+	if ae.ID != "WAILS_NOT_READY" {
+		t.Fatalf("ID = %q", ae.ID)
 	}
 }
 
 func TestError_MarshalsLowercaseFields(t *testing.T) {
 	b, _ := json.Marshal(New("FOO", map[string]any{"k": 1}))
 	got := string(b)
-	want := `{"code":"FOO","params":{"k":1}}`
+	want := `{"id":"FOO","params":{"k":1}}`
 	if got != want {
 		t.Fatalf("marshal = %s, want %s", got, want)
 	}
@@ -39,12 +40,12 @@ func TestMarshalUsesStableEnvelopeForApplicationError(t *testing.T) {
 	if err := json.Unmarshal(Marshal(New("WAILS_NOT_READY", map[string]any{"window": "main"})), &got); err != nil {
 		t.Fatal(err)
 	}
-	if got.Code != "WAILS_NOT_READY" || got.Category != CategoryDomain || got.Message != "WAILS_NOT_READY" || got.OperationID == "" || got.Retryable {
+	if got.ID != "WAILS_NOT_READY" || got.Category != CategoryDomain || got.OperationID == "" || got.Retryable {
 		t.Fatalf("unexpected envelope: %#v", got)
 	}
-	details, ok := got.Details.(map[string]any)
+	details, ok := got.Params.(map[string]any)
 	if !ok || details["window"] != "main" {
-		t.Fatalf("details = %#v", got.Details)
+		t.Fatalf("params = %#v", got.Params)
 	}
 }
 
@@ -53,7 +54,7 @@ func TestMarshalNormalizesUnclassifiedAndRetryableErrors(t *testing.T) {
 	if err := json.Unmarshal(Marshal(context.DeadlineExceeded), &got); err != nil {
 		t.Fatal(err)
 	}
-	if got.Code != CodeUnclassified || got.Category != CategoryInfrastructure || got.OperationID == "" || !got.Retryable {
+	if got.ID != IDUnexpected || got.Category != CategoryInfrastructure || got.OperationID == "" || !got.Retryable {
 		t.Fatalf("unexpected envelope: %#v", got)
 	}
 }
@@ -62,7 +63,7 @@ type testEnvelopeError struct{}
 
 func (testEnvelopeError) Error() string { return "wrapped" }
 func (testEnvelopeError) RPCErrorEnvelope() Envelope {
-	return Envelope{Code: "test.failed", Category: CategoryAdapter, Message: "test failed", RunID: "run-1", Retryable: true}
+	return Envelope{ID: "test.failed", Category: CategoryAdapter, RunID: "run-1", Retryable: true}
 }
 
 func TestMarshalFindsWrappedEnvelopeProvider(t *testing.T) {
@@ -70,7 +71,27 @@ func TestMarshalFindsWrappedEnvelopeProvider(t *testing.T) {
 	if err := json.Unmarshal(Marshal(errors.Join(errors.New("outer"), testEnvelopeError{})), &got); err != nil {
 		t.Fatal(err)
 	}
-	if got.Code != "test.failed" || got.RunID != "run-1" || !got.Retryable {
+	if got.ID != "test.failed" || got.RunID != "run-1" || !got.Retryable {
 		t.Fatalf("unexpected envelope: %#v", got)
+	}
+}
+
+func TestMarshalDoesNotExposeUnclassifiedCause(t *testing.T) {
+	const privateCause = `adapter win32 failed at C:\\Users\\private\\target.exe`
+	encoded := string(Marshal(errors.New(privateCause)))
+	if strings.Contains(encoded, "adapter") || strings.Contains(encoded, "private") || strings.Contains(encoded, "target.exe") {
+		t.Fatalf("unclassified cause crossed the Wails seam: %s", encoded)
+	}
+}
+
+func TestMarshalCorrelatesUnclassifiedCauseWithObserver(t *testing.T) {
+	cause := errors.New("private implementation detail")
+	var observed Envelope
+	var observedCause error
+	restore := SetObserver(func(envelope Envelope, err error) { observed, observedCause = envelope, err })
+	t.Cleanup(restore)
+	_ = Marshal(cause)
+	if observed.ID != IDUnexpected || observed.OperationID == "" || !errors.Is(observedCause, cause) {
+		t.Fatalf("observer = %#v / %v", observed, observedCause)
 	}
 }

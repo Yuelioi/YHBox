@@ -116,7 +116,7 @@ func desktopWindowOperationsSource(builtins nodes.Builtins, slot string) []byte 
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"move","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{"slot":%q},"bindings":{"x":{"kind":"value","value":10},"y":{"kind":"value","value":20},"width":{"kind":"value","value":800},"height":{"kind":"value","value":600}}},
 			{"id":"state","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":2,"y":0},"config":{"slot":%q},"bindings":{}},
-			{"id":"wait","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":3,"y":0},"config":{"slot":%q},"bindings":{"timeout":{"kind":"value","value":250}}},
+			{"id":"wait","nodeRef":{"nodeTypeId":%q,"version":"1.1.0","semanticDigest":%q},"position":{"x":3,"y":0},"config":{"slot":%q},"bindings":{"timeout":{"kind":"value","value":250}}},
 			{"id":"minimize","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":4,"y":0},"config":{"slot":%q},"bindings":{}},
 			{"id":"close","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":5,"y":0},"config":{"slot":%q},"bindings":{}}
 		],"edges":[

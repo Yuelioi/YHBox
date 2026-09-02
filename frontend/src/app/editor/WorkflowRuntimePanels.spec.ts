@@ -117,6 +117,11 @@ describe('workflow runtime inspection UI', () => {
     expect(workbench).toContain(':node-labels="nodeLabels"')
     expect(workbench).toContain(':unhandled-routes="unhandledRoutes"')
     expect(timeline).toContain('workflow.timeline.unhandled_route')
+    expect(timeline).toContain('templateMatchEvidence(entry)')
+    expect(timeline).toContain('workflow.timeline.locate_node')
+    expect(timeline).toContain("emit('diagnose')")
+    expect(workbench).toContain("emit('diagnose-run')")
+    expect(editor).toContain('@diagnose-run="openAIDiagnosis"')
     expect(runController).toContain("dependencies.openWorkbench('timeline')")
   })
 

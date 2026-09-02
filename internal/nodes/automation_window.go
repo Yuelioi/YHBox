@@ -30,6 +30,10 @@ const (
 	GetWindowStateEffectID   = "https://schemas.yotta.dev/effects/automation/get-window-state/v1"
 	WaitWindowEffectID       = "https://schemas.yotta.dev/effects/automation/wait-window/v1"
 	WaitWindowGoneEffectID   = "https://schemas.yotta.dev/effects/automation/wait-window-gone/v1"
+	WindowWaitingStatus      = "automation.window.waiting"
+	WindowFoundStatus        = "automation.window.found"
+	WindowGoneStatus         = "automation.window.gone"
+	WindowTimeoutStatus      = "automation.window.timeout"
 )
 
 func defineActivateWindowNode() (BuiltinDefinition, nodecontract.Contract, error) {
@@ -97,7 +101,20 @@ func sealAutomationWindowContract(nodeID, effectID, operation, titleKey, icon st
 	for _, id := range execOutputIDs {
 		execOutputs = append(execOutputs, nodecontract.SignalPort{ID: id})
 	}
-	return nodecontract.Seal(nodecontract.Draft{Version: BuiltinNodeVersion,
+	statuses := []nodecontract.StatusEventSpec{}
+	if operation == installed.OperationWaitWindow || operation == installed.OperationWaitWindowGone {
+		statuses = []nodecontract.StatusEventSpec{
+			{Code: WindowFoundStatus, Category: nodecontract.StatusProgress},
+			{Code: WindowGoneStatus, Category: nodecontract.StatusProgress},
+			{Code: WindowTimeoutStatus, Category: nodecontract.StatusProgress},
+			{Code: WindowWaitingStatus, Category: nodecontract.StatusWaiting},
+		}
+	}
+	version := BuiltinNodeVersion
+	if operation == installed.OperationWaitWindow || operation == installed.OperationWaitWindowGone {
+		version = "1.1.0"
+	}
+	return nodecontract.Seal(nodecontract.Draft{Version: version,
 		NodeTypeID: nodeID, ConfigSchemaRoot: schemaID,
 		ConfigSchemaBundle: []datatype.SchemaResource{{ID: schemaID, Schema: json.RawMessage(fmt.Sprintf(`{
 			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
@@ -123,6 +140,7 @@ func sealAutomationWindowContract(nodeID, effectID, operation, titleKey, icon st
 			{Code: installed.CodeUnsupportedHost, Category: "automation", RetryHint: false},
 			{Code: installed.CodeContractViolation, Category: "automation", RetryHint: false},
 		},
+		StatusEvents:      statuses,
 		ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 		Authoring: nodecontract.Authoring{
 			TitleKey: titleKey + ".title", DescriptionKey: titleKey + ".description", Category: "automation",

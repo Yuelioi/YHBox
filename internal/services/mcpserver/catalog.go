@@ -1,9 +1,9 @@
 package mcpserver
 
 import (
-	"fmt"
 	"strings"
 
+	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 )
@@ -81,7 +81,7 @@ func searchCatalog(projection nodeauthoring.Snapshot, request CatalogSearchReque
 func describeCatalog(projection nodeauthoring.Snapshot, request CatalogDescribeRequest) (CatalogDescribeResult, error) {
 	projected, ok := projection.Node(request.NodeTypeID)
 	if !ok {
-		return CatalogDescribeResult{}, fmt.Errorf("UNKNOWN_NODE_TYPE: %s", request.NodeTypeID)
+		return CatalogDescribeResult{}, apperr.New("catalog.node.unknown", map[string]any{"nodeTypeId": request.NodeTypeID})
 	}
 	return CatalogDescribeResult{
 		Format: CatalogDescriptionFormat, Version: CatalogDescriptionVersion, ProjectionDigest: projection.Digest(),

@@ -90,8 +90,10 @@ export function unhandledExecRouteKeys(source: YottaWorkflowSource): ReadonlySet
         .map((edge) => `${edge.from.nodeId}\u0000${edge.from.portId}`),
     )
     for (const node of graph.nodes) {
-      if (!connected.has(`${node.id}\u0000timeout`)) {
-        result.add(runRouteKey([graph.id], node.id, 'timeout'))
+      for (const route of ['timeout', 'exhausted']) {
+        if (!connected.has(`${node.id}\u0000${route}`)) {
+          result.add(runRouteKey([graph.id], node.id, route))
+        }
       }
     }
   }
@@ -103,7 +105,14 @@ export function runRouteKey(graphPath: string[], nodeId: string, portId: string)
 }
 
 export function statusRoutePort(statusCode: string | undefined): string | undefined {
-  return statusCode === 'automation.template.timeout' ? 'timeout' : undefined
+  if (statusCode === 'control.retry.exhausted') return 'exhausted'
+  return [
+    'automation.template.timeout',
+    'automation.observation.timeout',
+    'automation.window.timeout',
+  ].includes(statusCode ?? '')
+    ? 'timeout'
+    : undefined
 }
 
 function attemptKey(graphPath: string[], nodeId: string, attempt: number): string {

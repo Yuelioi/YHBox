@@ -13,6 +13,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
+	"github.com/yottaapp/yotta/internal/apperr"
 	appcore "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
@@ -49,7 +50,7 @@ func newRegistrar(application *appcore.Application) (*registrar, error) {
 	if !projection.Valid() {
 		return nil, errors.New("MCP server requires trusted Authoring Projection")
 	}
-	schemas := make(map[string]toolSchemas, 9)
+	schemas := make(map[string]toolSchemas, 12)
 	builders := []func(map[string]toolSchemas) error{
 		schemaBuilder[CatalogSearchRequest, CatalogSearchResult]("catalog_search"),
 		schemaBuilder[CatalogDescribeRequest, CatalogDescribeResult]("catalog_describe"),
@@ -57,9 +58,12 @@ func newRegistrar(application *appcore.Application) (*registrar, error) {
 		schemaBuilder[WorkflowCreateRequest, WorkflowSummary]("workflow_create"),
 		schemaBuilder[WorkflowInspectRequest, WorkflowInspectResult]("workflow_inspect"),
 		schemaBuilder[WorkflowApplyPatchRequest, WorkflowApplyPatchResult]("workflow_apply_patch"),
+		schemaBuilder[WorkflowSetInputValueRequest, WorkflowApplyPatchResult]("workflow_set_input_value"),
 		schemaBuilder[WorkflowIDRequest, WorkflowCompileResult]("workflow_compile"),
 		schemaBuilder[WorkflowIDRequest, WorkflowRunPreviewResult]("workflow_run_preview"),
 		schemaBuilder[ExplainDiagnosticRequest, ExplainDiagnosticResult]("workflow_explain_diagnostic"),
+		schemaBuilder[RunListRequest, RunListResult]("run_list"),
+		schemaBuilder[RunGetRequest, RunEvidenceResult]("run_get"),
 	}
 	for _, build := range builders {
 		if err := build(schemas); err != nil {
@@ -92,56 +96,104 @@ func (s *registrar) protocol() *server.MCPServer {
 func (s *registrar) register(protocol *server.MCPServer) {
 	protocol.AddTool(s.tool(
 		"catalog_search", "Search the admitted Yotta node catalog without loading the full projection."),
-		mcp.NewStructuredToolHandler(func(_ context.Context, _ mcp.CallToolRequest, request CatalogSearchRequest) (CatalogSearchResult, error) {
+		structuredToolHandler(func(_ context.Context, _ mcp.CallToolRequest, request CatalogSearchRequest) (CatalogSearchResult, error) {
 			return searchCatalog(s.projection, request)
 		}),
 	)
 	protocol.AddTool(s.tool(
 		"catalog_describe", "Describe one exact Node Contract with typed channel-separated ports and authoring constraints."),
-		mcp.NewStructuredToolHandler(func(_ context.Context, _ mcp.CallToolRequest, request CatalogDescribeRequest) (CatalogDescribeResult, error) {
+		structuredToolHandler(func(_ context.Context, _ mcp.CallToolRequest, request CatalogDescribeRequest) (CatalogDescribeResult, error) {
 			return describeCatalog(s.projection, request)
 		}),
 	)
 	protocol.AddTool(s.tool(
 		"workflow_list", "List durable Workflow Sources as bounded metadata."),
-		mcp.NewStructuredToolHandler(func(_ context.Context, _ mcp.CallToolRequest, request PageRequest) (WorkflowListResult, error) {
+		structuredToolHandler(func(_ context.Context, _ mcp.CallToolRequest, request PageRequest) (WorkflowListResult, error) {
 			return listWorkflows(s.application, request)
 		}),
 	)
 	protocol.AddTool(s.mutationTool("workflow_create", "Create the host-owned empty Workflow root."),
-		mcp.NewStructuredToolHandler(func(ctx context.Context, _ mcp.CallToolRequest, request WorkflowCreateRequest) (WorkflowSummary, error) {
+		structuredToolHandler(func(ctx context.Context, _ mcp.CallToolRequest, request WorkflowCreateRequest) (WorkflowSummary, error) {
 			return createWorkflow(ctx, s.application, request)
 		}),
 	)
 	protocol.AddTool(s.tool(
 		"workflow_inspect", "Inspect one graph page from a durable Workflow revision."),
-		mcp.NewStructuredToolHandler(func(_ context.Context, _ mcp.CallToolRequest, request WorkflowInspectRequest) (WorkflowInspectResult, error) {
+		structuredToolHandler(func(_ context.Context, _ mcp.CallToolRequest, request WorkflowInspectRequest) (WorkflowInspectResult, error) {
 			return inspectWorkflow(s.application, request)
 		}),
 	)
 	protocol.AddTool(s.mutationTool("workflow_apply_patch", "Atomically apply typed domain commands with exact baseRevision CAS; IDs and defaults are host-owned."),
-		mcp.NewStructuredToolHandler(func(ctx context.Context, _ mcp.CallToolRequest, request WorkflowApplyPatchRequest) (WorkflowApplyPatchResult, error) {
+		structuredToolHandler(func(ctx context.Context, _ mcp.CallToolRequest, request WorkflowApplyPatchRequest) (WorkflowApplyPatchResult, error) {
 			return applyWorkflowPatch(ctx, s.application, request)
+		}),
+	)
+	protocol.AddTool(s.mutationTool("workflow_set_input_value", "Atomically set one existing node input value without requiring the full authoring command schema."),
+		structuredToolHandler(func(ctx context.Context, _ mcp.CallToolRequest, request WorkflowSetInputValueRequest) (WorkflowApplyPatchResult, error) {
+			return setWorkflowInputValue(ctx, s.application, request)
 		}),
 	)
 	protocol.AddTool(s.tool(
 		"workflow_compile", "Strictly compile the current durable Workflow revision and return stable diagnostics."),
-		mcp.NewStructuredToolHandler(func(ctx context.Context, _ mcp.CallToolRequest, request WorkflowIDRequest) (WorkflowCompileResult, error) {
+		structuredToolHandler(func(ctx context.Context, _ mcp.CallToolRequest, request WorkflowIDRequest) (WorkflowCompileResult, error) {
 			return compileWorkflow(ctx, s.application, request)
 		}),
 	)
 	protocol.AddTool(s.tool(
 		"workflow_run_preview", "Compile the durable revision and show the exact capability plan without admission or effects."),
-		mcp.NewStructuredToolHandler(func(ctx context.Context, _ mcp.CallToolRequest, request WorkflowIDRequest) (WorkflowRunPreviewResult, error) {
+		structuredToolHandler(func(ctx context.Context, _ mcp.CallToolRequest, request WorkflowIDRequest) (WorkflowRunPreviewResult, error) {
 			return previewWorkflowRun(ctx, s.application, request)
 		}),
 	)
 	protocol.AddTool(s.tool(
 		"workflow_explain_diagnostic", "Explain one stable compiler diagnostic code and bounded repair choices."),
-		mcp.NewStructuredToolHandler(func(_ context.Context, _ mcp.CallToolRequest, request ExplainDiagnosticRequest) (ExplainDiagnosticResult, error) {
+		structuredToolHandler(func(_ context.Context, _ mcp.CallToolRequest, request ExplainDiagnosticRequest) (ExplainDiagnosticResult, error) {
 			return explainDiagnostic(request)
 		}),
 	)
+	protocol.AddTool(s.tool(
+		"run_list", "List bounded Run summaries with exact Workflow Source attribution."),
+		structuredToolHandler(func(_ context.Context, _ mcp.CallToolRequest, request RunListRequest) (RunListResult, error) {
+			return listRuns(s.application, request)
+		}),
+	)
+	protocol.AddTool(s.tool(
+		"run_get", "Read bounded structured Run evidence for diagnosis without exposing process logs or raw causes."),
+		structuredToolHandler(func(ctx context.Context, _ mcp.CallToolRequest, request RunGetRequest) (RunEvidenceResult, error) {
+			return getRunEvidence(ctx, s.application, request)
+		}),
+	)
+}
+
+type toolProblem struct {
+	ID          string `json:"id"`
+	Category    string `json:"category"`
+	Params      any    `json:"params,omitempty"`
+	Retryable   bool   `json:"retryable"`
+	OperationID string `json:"operationId"`
+}
+
+func structuredToolHandler[TArgs any, TResult any](handler func(context.Context, mcp.CallToolRequest, TArgs) (TResult, error)) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		var args TArgs
+		if err := request.BindArguments(&args); err != nil {
+			return toolProblemResult(apperr.Envelope{ID: "mcp.invalid_arguments", Category: apperr.CategoryValidation}), nil
+		}
+		result, err := handler(ctx, request, args)
+		if err != nil {
+			return toolProblemResult(apperr.From(err)), nil
+		}
+		return mcp.NewToolResultStructuredOnly(result), nil
+	}
+}
+
+func toolProblemResult(envelope apperr.Envelope) *mcp.CallToolResult {
+	result := mcp.NewToolResultStructuredOnly(toolProblem{
+		ID: envelope.ID, Category: envelope.Category, Params: envelope.Params,
+		Retryable: envelope.Retryable, OperationID: envelope.OperationID,
+	})
+	result.IsError = true
+	return result
 }
 
 func (s *registrar) tool(name, description string) mcp.Tool {

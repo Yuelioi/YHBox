@@ -22,13 +22,14 @@ Compiler 保留原 SourceHash 但让 Program 固定消费派生 Blob。派生物
 64 MiB/256 项；逐帧模板匹配路径没有新增选档、缩放、map 或 mutex 查询。
 
 定向组件、Compiler override、target describe、Planner 缓存/比例保护和相关 Application/Bootstrap 测试均通过；
-Planner race、Impeccable 检测和仓库 `task check` 通过。尚未用真实 2K 游戏完成 1080p-only 工作流 smoke；此前
-隔离 WebView smoke 的 fixture 没有生成工作流行，无法作为本轮截图验收信号。正式 Windows `task build`
-已经通过，`bin/Yotta.exe` 为可供重启后真机复测的 4.0.1 构建。
+Planner race、Impeccable 检测和仓库 `task check` 通过。真实 2K“异环 看电影”已证明 1080p→2K 派生链路
+生效：失败节点消费与现场诊断一致的 2934-byte、120×33 派生模板；但小型文字模板“弗罗斯特”在 2K
+重新栅格化后比缩放模板更锐利，最高匹配分 0.824802，低于默认阈值 0.85，因此超时。已新增只读真机
+模板诊断脚本保存当前帧、原模板、派生模板和分数证据；隔离 WebView smoke 的空 fixture 问题仍待处理。
 
 ## Next
 
-1. 用真实 2K configured target 运行仅含 1080p 变体的工作流，核对匹配、点击坐标和 Run 时间线。
+1. 用真机诊断脚本比较一组可匹配/不可匹配模板，决定小型文字模板的恢复策略并建立回归。
 2. 用同时含 1080p/2K 的资源复测精确 2K 优先，并检查重复 Run 不再执行图片 resize。
 3. 修复或绕开隔离 smoke fixture 的空工作流问题，完成 [实施计划](plan.md) 的桌面截图验收。
 
@@ -40,6 +41,9 @@ Planner race、Impeccable 检测和仓库 `task check` 通过。尚未用真实 
 - 2026-09-02 用组件红绿回归修复双 Modal 遮罩阻断；新增 Run 图片准备深 module、target snapshot 描述 seam
   和 Compiler resource override，使精确选档或同比例一次缩放发生在 Run 建立阶段。33 个受影响 Go package、
   前端 495 项测试、Planner race、文档、UI 检测、正式 Windows build 与桌面启动 smoke 通过。
+- 2026-09-02 新增真机模板诊断入口并在真实 2560×1440“异环”画面复现指定资源：原 90×25 模板得分
+  0.280410，派生 120×33 模板得分 0.824802，低于 0.85；确认派生生效且失配来自小型文字在目标分辨率
+  重新栅格化后的像素差异，而非选档或目标解析失败。
 
 ## References
 

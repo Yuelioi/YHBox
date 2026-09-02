@@ -77,6 +77,15 @@ func Run(config Config) error {
 	// 日志栈：zerolog process/Workflow diagnostics → LogSink → 单一 log:batch 事件 + 可选 JSONL.
 	logSink := services.NewLogSink(nil) // emit 在 wailsApp 构造后装配
 	rootLog := zerolog.New(logSink).With().Timestamp().Logger()
+	restoreProblemObserver := apperr.SetObserver(func(problem apperr.Envelope, cause error) {
+		rootLog.Error().
+			Str("tag", "SYSTEM").
+			Str("problemId", problem.ID).
+			Str("operationId", problem.OperationID).
+			Str("errorType", reflect.TypeOf(cause).String()).
+			Msg("unclassified RPC problem")
+	})
+	defer restoreProblemObserver()
 	aiSecrets := services.NewAISecrets(securestore.New())
 	executable, err := os.Executable()
 	if err != nil {
@@ -267,6 +276,13 @@ func Run(config Config) error {
 	aiAuthoring, err := aiauthoring.NewManager(workflowRuntime.Application, workflowRuntime.Builtins, time.Now)
 	if err != nil {
 		return fmt.Errorf("initialize AI authoring: %w", err)
+	}
+	aiConversations, err := aiauthoring.NewConversationStore(filepath.Join(roots.Data, "ai-conversations"), time.Now)
+	if err != nil {
+		return fmt.Errorf("initialize AI conversation store: %w", err)
+	}
+	if err := aiAuthoring.AttachConversationStore(aiConversations); err != nil {
+		return fmt.Errorf("attach AI conversation store: %w", err)
 	}
 
 	// ---- HotkeyRegistry：所有热键的中央 manifest ----

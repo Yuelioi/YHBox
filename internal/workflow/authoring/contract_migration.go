@@ -20,6 +20,11 @@ const (
 	playInputClipNodeTypeID    = "https://schemas.yotta.dev/nodes/automation/play-input-clip"
 	waitTemplateNodeTypeID     = "https://schemas.yotta.dev/nodes/automation/wait-template"
 	waitTemplateGoneNodeTypeID = "https://schemas.yotta.dev/nodes/automation/wait-template-gone"
+	waitChangeNodeTypeID       = "https://schemas.yotta.dev/nodes/automation/wait-change"
+	waitStableNodeTypeID       = "https://schemas.yotta.dev/nodes/automation/wait-stable"
+	waitWindowNodeTypeID       = "https://schemas.yotta.dev/nodes/automation/wait-window"
+	waitWindowGoneNodeTypeID   = "https://schemas.yotta.dev/nodes/automation/wait-window-gone"
+	retryNodeTypeID            = "https://schemas.yotta.dev/nodes/control/retry"
 	currentNodeContractV100    = "1.0.0"
 	currentNodeContractV110    = "1.1.0"
 	legacyNodeContractV100     = "1.0.0"
@@ -48,6 +53,11 @@ type nodeContractMigration struct {
 // digest or non-adjacent version is unsupported until its migration is added
 // with a frozen regression fixture.
 var nodeContractMigrations = [...]nodeContractMigration{
+	{nodeTypeID: waitChangeNodeTypeID, from: legacyNodeContractV100, fromDigest: "sha256:432e584966b1e6b8b34eb79ac1c53106abba50f71a789cc3cce2b0d94052843a", to: currentNodeContractV110, toDigest: "sha256:1ccfedf422c5e9245916a0c9d0f86710f9fd6046b6f8fd85f0c2df78f08c399a", kind: nodeContractMigrationShapeCompatible},
+	{nodeTypeID: waitStableNodeTypeID, from: legacyNodeContractV100, fromDigest: "sha256:dfc129479fa4c8d2c63411070d6fc54be971e43488330383a3c5f7a5ad76087a", to: currentNodeContractV110, toDigest: "sha256:cafd06f6193933bac354ee995f9766d5bf7ff4fb3e55de33e5e3c7dbfde09cf6", kind: nodeContractMigrationShapeCompatible},
+	{nodeTypeID: waitWindowNodeTypeID, from: legacyNodeContractV100, fromDigest: "sha256:8ff0677fa53934626b1c2f01f620bd7385073273aac27553d320551b7807b5af", to: currentNodeContractV110, toDigest: "sha256:1662e4ee4b3d8b49d127dd3c25f4d82e218ae2d99d5f3ca45eb5522282b2d895", kind: nodeContractMigrationShapeCompatible},
+	{nodeTypeID: waitWindowGoneNodeTypeID, from: legacyNodeContractV100, fromDigest: "sha256:29a57cf1301409914bb6948f2f257ee2ce9cb983b2f4e8337b38761a53caafb2", to: currentNodeContractV110, toDigest: "sha256:91b3e42d77c56a1a5d0e4f2c350df9c11bc70b59ec67ab1487cd38ec8549bd16", kind: nodeContractMigrationShapeCompatible},
+	{nodeTypeID: retryNodeTypeID, from: legacyNodeContractV100, fromDigest: "sha256:48867401d7ca214276ec32171de668e4ffbd7751663c6859c6afbbe0df41ffa2", to: currentNodeContractV110, toDigest: "sha256:61043a9e31514bb01c165bb5d64693b170818448c5aca266699892debaaf4ff7", kind: nodeContractMigrationShapeCompatible},
 	{
 		nodeTypeID: clickTemplateNodeTypeID,
 		from:       legacyNodeContractV100,

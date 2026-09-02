@@ -9,6 +9,39 @@
     </div>
 
     <SettingsSection
+      :title="t('settingsAI.roles.title')"
+      :description="t('settingsAI.roles.hint')"
+      icon="i-tabler-stethoscope"
+    >
+      <div v-if="diagnosticProfileOptions.length" class="flex flex-wrap items-center gap-2">
+        <AdaptiveSelect
+          data-testid="settings-ai-diagnostic-profile"
+          :model-value="diagnosticSlot"
+          :items="diagnosticProfileOptions"
+          value-key="value"
+          label-key="label"
+          :placeholder="t('settingsAI.roles.diagnostics_placeholder')"
+          @update:model-value="setDiagnosticSlot"
+        />
+        <UButton
+          v-if="diagnosticSlot"
+          size="xs"
+          color="neutral"
+          variant="ghost"
+          :label="t('settingsAI.roles.clear')"
+          @click="setDiagnosticSlot('')"
+        />
+      </div>
+      <p
+        v-else
+        data-testid="settings-ai-diagnostic-profile-unavailable"
+        class="text-xs leading-5 text-muted"
+      >
+        {{ t(diagnosticProfileUnavailableKey) }}
+      </p>
+    </SettingsSection>
+
+    <SettingsSection
       :title="t('settingsAI.profiles.title')"
       :description="t('settingsAI.profiles.hint')"
       icon="i-tabler-brain"
@@ -407,6 +440,10 @@ import SettingsSection from '@/components/settings/SettingsSection.vue'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import { errorMessage } from '@/lib/invoke'
 import { aiProviderEndpointIssue } from '@/settings/aiProviderEndpoint'
+import {
+  eligibleDiagnosticProfiles,
+  explainAIProfileEligibility,
+} from '@/app/editor/aiProfileEligibility'
 
 interface AIModelProfileDraft extends AIModelProfile {
   persisted: boolean
@@ -418,8 +455,18 @@ const { t } = useI18n()
 const toast = useToast()
 const { confirm } = useConfirm()
 const store = useSettingsStore()
-const profiles = computed<AIModelProfile[]>(() => store.data?.ai.profiles ?? [])
 const draft = ref<AIModelProfileDraft[]>([])
+const profiles = computed<AIModelProfile[]>(() => store.data?.ai.profiles ?? [])
+const diagnosticSlot = computed(() => store.data?.ai.roles?.diagnostics ?? '')
+const diagnosticProfileOptions = computed(() =>
+  eligibleDiagnosticProfiles(draft.value).map((profile) => ({
+    label: `${profile.label} (${profile.model})`,
+    value: profile.slot,
+  })),
+)
+const diagnosticProfileUnavailableKey = computed(
+  () => `settingsAI.roles.unavailable.${explainAIProfileEligibility(draft.value)}`,
+)
 const expandedSlot = ref('')
 const testing = reactive<Record<string, boolean>>({})
 const results = reactive<Record<string, AIProfileTestResult>>({})
@@ -502,6 +549,10 @@ const providerIcon = (provider: AIProviderKind) =>
   provider === 'anthropic-messages' ? 'i-tabler-letter-a' : 'i-tabler-brand-openai'
 const toggleExpanded = (slot: string) =>
   (expandedSlot.value = expandedSlot.value === slot ? '' : slot)
+
+function setDiagnosticSlot(value: string): void {
+  void store.patchAIRoles({ diagnostics: value })
+}
 
 function uniqueSlot(): string {
   const taken = new Set([

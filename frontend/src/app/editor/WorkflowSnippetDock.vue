@@ -38,7 +38,7 @@
         <p>{{ t('workflow.snippets.corrupt', { count: store.warnings.length }) }}</p>
         <ul class="mt-1 space-y-0.5 font-mono text-[9px]">
           <li v-for="warning in store.warnings.slice(0, 3)" :key="warning.file" class="truncate">
-            {{ warning.file }} · {{ warning.error }}
+            {{ warning.file }} · {{ errorMessage(warning.problem) }}
           </li>
         </ul>
         <p class="mt-1 text-muted">{{ t('workflow.snippets.corrupt_hint') }}</p>

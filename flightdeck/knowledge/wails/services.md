@@ -22,6 +22,8 @@ Wails-specific composition、window 和 event wiring 位于 `internal/desktopapp
 
 ## Error and event contract
 
+完整的 domain → service → Wails → frontend → durable evidence 规则见[错误契约](../errors/error-contract.md)。
+
 - Go `func Command(...) error` 成功对应 resolved `Promise<void>`，失败必须 rejected typed RPC error。wrapper
   不得 catch 后返回 `undefined`、`false` 或 toast；否则 void success 与 failure 无法区分。
 - `frontend/src/lib/invoke.ts` 统一处理 native 与 dev fetch transport 的 error envelope 并 rethrow；domain

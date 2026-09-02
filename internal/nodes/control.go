@@ -140,12 +140,20 @@ func defineControlNodes(types primitiveTypes, durationRef datatype.TypeRef) ([]B
 					AttemptsInput: "attempts", AttemptOutput: "attempt", OrdinalType: types.integerRef, MaxAttempts: MaxRetryAttempts,
 				},
 			},
+			statuses: []nodecontract.StatusEventSpec{
+				{Code: nodecontract.RetryAttemptStatusID, Category: nodecontract.StatusProgress},
+				{Code: nodecontract.RetryExhaustedStatusID, Category: nodecontract.StatusProgress},
+			},
 		},
 	}
 	definitions := make([]BuiltinDefinition, 0, len(nodes))
 	for _, item := range nodes {
 		configID := item.id + "/config"
-		contract, err := nodecontract.Seal(nodecontract.Draft{Version: BuiltinNodeVersion,
+		version := BuiltinNodeVersion
+		if item.id == RetryNodeID {
+			version = "1.1.0"
+		}
+		contract, err := nodecontract.Seal(nodecontract.Draft{Version: version,
 			NodeTypeID: item.id, ConfigSchemaRoot: configID, ConfigSchemaBundle: emptyConfigSchema(configID),
 			Ports: item.ports, Execution: item.execution, Instruction: item.instruction, CapabilityRequirements: []capability.Requirement{},
 			Errors: item.errors, StatusEvents: item.statuses,

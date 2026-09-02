@@ -58,6 +58,15 @@ func automationObservation(builtins nodes.Builtins, nodeTypeID string) nodeadapt
 		if invocation.Wait == nil {
 			return nodeadapter.AdapterResult{}, observationFailure(installed.CodeContractViolation, errors.New("frame observation scheduler is missing"))
 		}
+		counters["threshold_ppm"] = scorePPM(threshold)
+		counters["timeout_ms"] = timeout.Milliseconds()
+		counters["poll_ms"] = poll.Milliseconds()
+		counters["stable_duration_ms"] = stableDuration.Milliseconds()
+		counters["grid_size"] = gridSize
+		counters["cell_delta"] = cellDelta
+		if err := emitObservationStatus(ctx, invocation, nodes.ObservationWaitingStatus, counters); err != nil {
+			return nodeadapter.AdapterResult{}, err
+		}
 		captureHandle, err := openConfiguredTarget(ctx, invocation, installed.KindCapture, installed.CaptureOperations())
 		if err != nil {
 			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
@@ -79,8 +88,30 @@ func automationObservation(builtins nodes.Builtins, nodeTypeID string) nodeadapt
 			}
 			return nodeadapter.AdapterResult{}, observationNodeFailure(err)
 		}
+		counters["last_changed_ratio_ppm"] = scorePPM(difference.changedRatio)
+		counters["last_mean_difference_ppm"] = scorePPM(difference.meanDifference)
+		statusCode := nodes.ObservationTimeoutStatus
+		if output == "changed" {
+			statusCode = nodes.ObservationChangedStatus
+		} else if output == "stable" {
+			statusCode = nodes.ObservationStableStatus
+		}
+		if err := emitObservationStatus(ctx, invocation, statusCode, counters); err != nil {
+			return nodeadapter.AdapterResult{}, err
+		}
 		return observationResult(builtins, invocation, difference, output)
 	}
+}
+
+func emitObservationStatus(ctx context.Context, invocation nodeadapter.Invocation, code string, counters map[string]int64) error {
+	if invocation.EmitStatus == nil {
+		return errors.New("frame observation status emitter is missing")
+	}
+	copy := make(map[string]int64, len(counters))
+	for name, value := range counters {
+		copy[name] = value
+	}
+	return invocation.EmitStatus(ctx, code, copy)
 }
 
 func pollFrameObservationWithClock(

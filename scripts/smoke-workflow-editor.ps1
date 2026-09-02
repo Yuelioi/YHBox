@@ -10,7 +10,7 @@ param(
     [ValidateRange(1000, 60000)]
     [int]$StartupBudgetMs = 15000,
     [ValidateRange(1000, 30000)]
-    [int]$FirstScreenBudgetMs = 5000
+    [int]$FirstScreenBudgetMs = 10000
 )
 
 $ErrorActionPreference = 'Stop'

@@ -141,7 +141,13 @@ export interface AssetBatchResult {
   guid: string
   updated?: boolean
   deleted?: boolean
-  error?: string
+  problem?: {
+    id: string
+    category: string
+    params?: Record<string, unknown>
+    operationId?: string
+    retryable: boolean
+  }
 }
 
 export interface AssetCleanupPreview {
@@ -318,7 +324,10 @@ export interface WorkflowSnippetSummary {
 
 export interface WorkflowSnippetListResult {
   items: WorkflowSnippetSummary[]
-  warnings: Array<{ file: string; error: string }>
+  warnings: Array<{
+    file: string
+    problem: { id: string; category: string; operationId?: string; retryable: boolean }
+  }>
 }
 
 export interface BlobPreview {
@@ -378,7 +387,13 @@ export interface AIProfileTestResult {
   finish: string
   failureClass?: string
   httpStatus?: number
-  error?: string
+  problem?: {
+    id: string
+    category: string
+    params?: Record<string, unknown>
+    operationId?: string
+    retryable: boolean
+  }
 }
 
 export interface AIWorkflowChange {
@@ -437,6 +452,44 @@ export interface AIWorkflowReview {
     maxParallelism: number
   }
   trace: AIWorkflowTraceEvent[]
+}
+
+export interface AIConversationMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  createdAt: string
+  reviewId?: string
+  review?: AIWorkflowReview
+  problemId?: string
+  operationId?: string
+}
+
+export interface AIConversation {
+  format: string
+  version: number
+  id: string
+  workflowId: string
+  title: string
+  createdAt: string
+  updatedAt: string
+  messages: AIConversationMessage[]
+}
+
+export interface AIConversationSummary {
+  id: string
+  workflowId: string
+  title: string
+  createdAt: string
+  updatedAt: string
+  messageCount: number
+}
+
+export interface AIConversationProgress {
+  conversationId: string
+  turnId: string
+  kind: string
+  facts?: Record<string, string>
 }
 
 export interface HTTPOriginProfile {
@@ -522,8 +575,8 @@ export interface BrowserTargetDescriptor {
 
 export interface AutomationTargetHealth {
   ok: boolean
-  code: string
-  message: string
+  id: string
+  params?: Record<string, unknown>
 }
 
 export interface AutomationResourceDescriptor {
@@ -591,6 +644,7 @@ export const backend = {
       workflowId: string,
       baseRevision: number,
       instruction: string,
+      runId = '',
     ) =>
       invoke(
         AIService.ProposeWorkflow,
@@ -598,6 +652,7 @@ export const backend = {
         workflowId,
         baseRevision,
         instruction,
+        runId,
       ) as Promise<AIWorkflowReview>,
     acceptWorkflowProposal: (reviewId: string) =>
       invoke(AIService.AcceptWorkflowProposal, reviewId) as Promise<AIWorkflowReview>,
@@ -605,6 +660,35 @@ export const backend = {
       invoke(AIService.RejectWorkflowProposal, reviewId) as Promise<AIWorkflowReview>,
     getWorkflowProposal: (reviewId: string) =>
       invoke(AIService.GetWorkflowProposal, reviewId) as Promise<AIWorkflowReview>,
+    listConversations: (workflowId: string) =>
+      invoke(AIService.ListWorkflowAIConversations, workflowId) as Promise<AIConversationSummary[]>,
+    createConversation: (workflowId: string) =>
+      invoke(AIService.CreateWorkflowAIConversation, workflowId) as Promise<AIConversation>,
+    getConversation: (workflowId: string, conversationId: string) =>
+      invoke(
+        AIService.GetWorkflowAIConversation,
+        workflowId,
+        conversationId,
+      ) as Promise<AIConversation>,
+    deleteConversation: (workflowId: string, conversationId: string) =>
+      invoke(AIService.DeleteWorkflowAIConversation, workflowId, conversationId),
+    sendConversationMessage: (
+      slot: string,
+      workflowId: string,
+      conversationId: string,
+      baseRevision: number,
+      instruction: string,
+      runId = '',
+    ) =>
+      invoke(
+        AIService.SendWorkflowAIMessage,
+        slot,
+        workflowId,
+        conversationId,
+        baseRevision,
+        instruction,
+        runId,
+      ) as Promise<AIConversation>,
   },
   applications: {
     pickExecutable: (title: string) =>
@@ -891,6 +975,11 @@ export const backend = {
       Events.On(E.EVENT_LOG_BATCH, (e: any) => cb(e?.data?.[0] ?? e?.data ?? e)),
     onHotkeyChanged: (cb: () => void) => Events.On('hotkey:changed', () => cb()),
     onSettingsChanged: (cb: () => void) => Events.On('settings:changed', () => cb()),
+    onAIConversationProgress: (cb: (event: AIConversationProgress) => void) =>
+      Events.On('ai:conversation-progress', (event: { data?: unknown }) => {
+        const payload = event?.data
+        cb((Array.isArray(payload) ? payload[0] : payload) as AIConversationProgress)
+      }),
     onMainNavigate: (cb: (target: { path: string; section?: string }) => void) =>
       Events.On('main:navigate', (event: { data?: unknown }) => {
         const payload = Array.isArray(event.data) ? event.data[0] : event.data

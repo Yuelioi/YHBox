@@ -287,9 +287,47 @@ function checkProjectedNodeErrorMessages() {
   return false
 }
 
+function checkProjectedNodeOutcomes() {
+  let projection
+  try {
+    projection = JSON.parse(fs.readFileSync(NODE_PROJECTION, 'utf8'))
+  } catch (error) {
+    console.error('[node-outcomes] FAIL 无法读取当前节点投影: ' + error.message)
+    return false
+  }
+  const failures = []
+  for (const node of projection?.body?.nodes ?? []) {
+    const outcomes = (node.signals ?? [])
+      .filter(
+        (signal) =>
+          signal.channel === 'exec' &&
+          signal.direction === 'output' &&
+          ['timeout', 'exhausted'].includes(signal.id),
+      )
+      .map((signal) => signal.id)
+    const statuses = node.statusEvents ?? []
+    for (const outcome of outcomes) {
+      if (!statuses.some((status) => status.code.endsWith(`.${outcome}`))) {
+        failures.push(`${node.nodeRef.nodeTypeId} output ${outcome} lacks terminal status evidence`)
+      }
+      if (outcome === 'timeout' && !statuses.some((status) => status.category === 'waiting')) {
+        failures.push(`${node.nodeRef.nodeTypeId} timeout lacks waiting status evidence`)
+      }
+    }
+  }
+  if (failures.length === 0) {
+    console.log('[node-outcomes] OK timeout/exhausted outputs declare status evidence')
+    return true
+  }
+  console.error(`[node-outcomes] FAIL ${failures.length} outcome contract gaps:`)
+  failures.forEach((failure) => console.error('  - ' + failure))
+  return false
+}
+
 const parityOK = checkKeyParity()
 const compileOK = checkMessageCompile()
 const residueOK = checkResidueLiterals()
 const refsOK = checkStaticKeyReferences()
 const nodeErrorsOK = checkProjectedNodeErrorMessages()
-process.exit(parityOK && compileOK && residueOK && refsOK && nodeErrorsOK ? 0 : 1)
+const nodeOutcomesOK = checkProjectedNodeOutcomes()
+process.exit(parityOK && compileOK && residueOK && refsOK && nodeErrorsOK && nodeOutcomesOK ? 0 : 1)

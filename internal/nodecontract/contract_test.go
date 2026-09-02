@@ -71,6 +71,29 @@ func TestSealConcatContractHasOnlyDataPortsAndStableIdentity(t *testing.T) {
 	}
 }
 
+func TestOpenReadsV1EnvelopeAndNormalizesToCurrent(t *testing.T) {
+	contract, err := Seal(concatContractDraftForTest())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err := json.Unmarshal(contract.Bytes(), &document); err != nil {
+		t.Fatal(err)
+	}
+	document["version"] = "1"
+	legacy, err := artifact.Marshal(document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	opened, err := Open(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !opened.Valid() || opened.NodeRef() != contract.NodeRef() || bytes.Equal(opened.Bytes(), legacy) {
+		t.Fatalf("opened legacy contract = %#v", opened.NodeRef())
+	}
+}
+
 func TestSemanticArtifactExcludesAuthoringAndCanBeReopened(t *testing.T) {
 	left := concatContractDraftForTest()
 	left.Authoring = Authoring{TitleKey: "node.concat.title", Tags: []string{"text"}}

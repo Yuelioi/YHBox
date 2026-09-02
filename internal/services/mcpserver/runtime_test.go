@@ -46,7 +46,7 @@ func TestRuntimeHotStartsLoopbackStreamableHTTP(t *testing.T) {
 	if _, err := protocolClient.Initialize(context.Background(), request); err != nil {
 		t.Fatal(err)
 	}
-	if tools, err := protocolClient.ListTools(context.Background(), mcp.ListToolsRequest{}); err != nil || len(tools.Tools) != 9 {
+	if tools, err := protocolClient.ListTools(context.Background(), mcp.ListToolsRequest{}); err != nil || len(tools.Tools) != 12 {
 		t.Fatalf("tools = %#v, err = %v", tools, err)
 	}
 }

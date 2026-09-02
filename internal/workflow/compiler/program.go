@@ -511,6 +511,27 @@ func (p ProgramSnapshot) CatalogHash() artifact.Digest {
 	return p.state.document.Body.CatalogHash
 }
 
+func (p ProgramSnapshot) WorkflowID() string {
+	if !p.Valid() {
+		return ""
+	}
+	return p.state.document.Body.WorkflowID
+}
+
+func (p ProgramSnapshot) SourceHash() artifact.Digest {
+	if !p.Valid() {
+		return ""
+	}
+	return p.state.document.Body.SourceHash
+}
+
+func (p ProgramSnapshot) SourceRevision() int64 {
+	if !p.Valid() {
+		return -1
+	}
+	return p.state.document.Body.Revision
+}
+
 func (p ProgramSnapshot) Artifact() []byte {
 	if !p.Valid() {
 		return nil

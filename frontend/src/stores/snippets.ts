@@ -4,7 +4,12 @@ import { backend, type WorkflowSnippet, type WorkflowSnippetSummary } from '@/li
 
 export const useSnippetsStore = defineStore('workflow-snippets', () => {
   const items = ref<WorkflowSnippetSummary[]>([])
-  const warnings = ref<Array<{ file: string; error: string }>>([])
+  const warnings = ref<
+    Array<{
+      file: string
+      problem: { id: string; category: string; operationId?: string; retryable: boolean }
+    }>
+  >([])
   const loading = ref(false)
   const loaded = ref(false)
 

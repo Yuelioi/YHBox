@@ -67,6 +67,9 @@ export interface Settings {
   }
   ai: {
     profiles: AIModelProfile[]
+    roles: {
+      diagnostics: string
+    }
   }
   mcp: {
     enabled: boolean
@@ -151,7 +154,19 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   async function patchAIProfiles(profiles: AIModelProfile[]) {
-    return patch({ ai: { profiles } })
+    const diagnostics = data.value?.ai.roles?.diagnostics ?? ''
+    return patch({
+      ai: {
+        profiles,
+        ...(diagnostics && !profiles.some((profile) => profile.slot === diagnostics)
+          ? { roles: { diagnostics: '' } }
+          : {}),
+      },
+    })
+  }
+
+  async function patchAIRoles(roles: { diagnostics: string }) {
+    return patch({ ai: { roles } })
   }
 
   async function patchHTTPOrigins(httpOrigins: HTTPOriginProfile[]) {
@@ -192,6 +207,7 @@ export const useSettingsStore = defineStore('settings', () => {
     load,
     patch,
     patchAIProfiles,
+    patchAIRoles,
     patchHTTPOrigins,
     patchApplicationProfiles,
     patchAutomationTargets,

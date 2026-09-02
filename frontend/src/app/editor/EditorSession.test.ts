@@ -338,7 +338,14 @@ describe('EditorSession', () => {
       .mockResolvedValueOnce(sourceView(latest))
     transport.applyPatch = vi
       .fn()
-      .mockRejectedValueOnce(new Error('workflow source revision conflict'))
+      .mockRejectedValueOnce(
+        new RPCError(
+          { id: 'workflow.revision.conflict' },
+          'workflow.applyPatch',
+          'op-conflict',
+          null,
+        ),
+      )
       .mockImplementationOnce(async (_workflowId, baseRevision) => {
         const persisted = structuredClone(latest)
         persisted.workflow.name = 'local edit'
@@ -366,7 +373,12 @@ describe('EditorSession', () => {
     const source = emptySource()
     const transport = mockTransport(sourceView(source), runView('QUEUED'))
     transport.applyPatch = vi.fn(async () => {
-      throw new Error('INVALID_FIELD')
+      throw new RPCError(
+        { id: 'INVALID_FIELD', category: 'validation' },
+        'workflow.applyPatch',
+        'op-invalid',
+        null,
+      )
     })
     const session = new EditorSession(transport)
     await session.load(source.workflow.id)
@@ -395,9 +407,9 @@ describe('EditorSession', () => {
     transport.applyPatch = vi.fn(async () => {
       throw new RPCError(
         {
-          code: 'INVALID_CONFIG_VALUE',
+          id: 'INVALID_CONFIG_VALUE',
           category: 'validation',
-          details: { commandIndex: 0 },
+          params: { commandIndex: 0 },
         },
         'workflow.applyPatch',
         'op-1',
@@ -427,7 +439,12 @@ describe('EditorSession', () => {
     const source = emptySource()
     const transport = mockTransport(sourceView(source), runView('QUEUED'))
     transport.applyPatch = vi.fn(async () => {
-      throw new Error('INVALID_FIELD')
+      throw new RPCError(
+        { id: 'INVALID_FIELD', category: 'validation' },
+        'workflow.applyPatch',
+        'op-invalid',
+        null,
+      )
     })
     const session = new EditorSession(transport)
     await session.load(source.workflow.id)

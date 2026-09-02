@@ -188,7 +188,7 @@ async function onClose(): Promise<void> {
   if (closeRequestPending.value) return
   closeRequestPending.value = true
   try {
-    await requestMainWindowClose(route.name, router, closeImmediate)
+    await requestMainWindowClose(closeImmediate)
   } finally {
     closeRequestPending.value = false
   }

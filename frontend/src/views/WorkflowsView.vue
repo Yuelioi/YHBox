@@ -1030,7 +1030,9 @@ async function saveBatchMetadata(): Promise<void> {
         updated: results.length - failed.length,
         failed: failed.length,
       }),
-      details: failed.map((result) => `${selectedName(result.workflowId)}: ${result.error ?? ''}`),
+      details: failed.map(
+        (result) => `${selectedName(result.workflowId)}: ${errorMessage(result.problem)}`,
+      ),
     }
     batchEditing.value = false
     await load()
@@ -1360,7 +1362,9 @@ async function exportSelected(): Promise<void> {
         exported: exported.length,
         failed: failed.length,
       }),
-      details: failed.map((result) => `${selectedName(result.workflowId)}: ${result.error ?? ''}`),
+      details: failed.map(
+        (result) => `${selectedName(result.workflowId)}: ${errorMessage(result.problem)}`,
+      ),
     }
   } catch (error) {
     portabilityFeedback.value = { tone: 'error', message: errorText(error), details: [] }
@@ -1475,7 +1479,8 @@ async function requestDelete(rows: SelectedSource[]): Promise<void> {
             details: [
               ...details,
               ...failed.map(
-                (result) => `${sourceName(result.workflowId, previews)}: ${result.error ?? ''}`,
+                (result) =>
+                  `${sourceName(result.workflowId, previews)}: ${errorMessage(result.problem)}`,
               ),
             ],
           }

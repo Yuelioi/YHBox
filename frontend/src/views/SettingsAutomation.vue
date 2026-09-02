@@ -270,10 +270,10 @@
                   size="sm"
                   variant="subtle"
                 >
-                  {{ health[target.slot]?.code }}
+                  {{ health[target.slot]?.id }}
                 </UBadge>
-                <p v-if="health[target.slot]?.message" class="min-w-0 flex-1 text-xs text-dimmed">
-                  {{ health[target.slot]?.message }}
+                <p v-if="health[target.slot]" class="min-w-0 flex-1 text-xs text-dimmed">
+                  {{ healthMessage(health[target.slot]) }}
                 </p>
               </div>
             </template>
@@ -366,7 +366,7 @@
                       size="sm"
                       variant="subtle"
                     >
-                      {{ health[target.slot]?.code ?? t('settingsAutomation.android.not_checked') }}
+                      {{ health[target.slot]?.id ?? t('settingsAutomation.android.not_checked') }}
                     </UBadge>
                     <UButton
                       size="xs"
@@ -378,8 +378,8 @@
                       {{ t('settingsAutomation.android.check_health') }}
                     </UButton>
                   </div>
-                  <p v-if="health[target.slot]?.message" class="mt-1 text-xs text-dimmed">
-                    {{ health[target.slot]?.message }}
+                  <p v-if="health[target.slot]" class="mt-1 text-xs text-dimmed">
+                    {{ healthMessage(health[target.slot]) }}
                   </p>
                 </UFormField>
               </div>
@@ -461,7 +461,7 @@
                       size="sm"
                       variant="subtle"
                     >
-                      {{ health[target.slot]?.code ?? t('settingsAutomation.browser.not_checked') }}
+                      {{ health[target.slot]?.id ?? t('settingsAutomation.browser.not_checked') }}
                     </UBadge>
                     <UButton
                       size="xs"
@@ -473,8 +473,8 @@
                       {{ t('settingsAutomation.browser.check_health') }}
                     </UButton>
                   </div>
-                  <p v-if="health[target.slot]?.message" class="mt-1 text-xs text-dimmed">
-                    {{ health[target.slot]?.message }}
+                  <p v-if="health[target.slot]" class="mt-1 text-xs text-dimmed">
+                    {{ healthMessage(health[target.slot]) }}
                   </p>
                 </UFormField>
               </div>
@@ -1301,8 +1301,8 @@ async function checkHealth(target: AutomationTargetDraft): Promise<void> {
   healthLoading[target.slot] = true
   try {
     health[target.slot] = await backend.automation.checkTargetHealth(target.slot)
-  } catch (error) {
-    health[target.slot] = { ok: false, code: 'unavailable', message: errorText(error) }
+  } catch {
+    health[target.slot] = { ok: false, id: 'system.unexpected' }
   } finally {
     healthLoading[target.slot] = false
   }
@@ -1479,5 +1479,9 @@ function resetCapture(): void {
 
 function errorText(error: unknown): string {
   return errorMessage(error)
+}
+
+function healthMessage(value: AutomationTargetHealth | undefined): string {
+  return value ? errorMessage({ id: value.id, params: value.params }) : ''
 }
 </script>

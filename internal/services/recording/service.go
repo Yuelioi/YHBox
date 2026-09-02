@@ -218,7 +218,7 @@ func (s *Service) ValidateTarget(targetSlot string) error {
 	}
 	_, _, release, err := s.targets.AcquireRecordingTarget(context.Background(), targetSlot)
 	if err != nil {
-		return apperr.New(apperr.CodeRecordingTargetUnavailable, map[string]any{"targetSlot": targetSlot, "cause": err.Error()})
+		return apperr.New(apperr.CodeRecordingTargetUnavailable, map[string]any{"targetSlot": targetSlot})
 	}
 	if release == nil {
 		return errors.New("installed target resolver returned no recording lease")
@@ -267,7 +267,7 @@ func (s *Service) Start(args StartArgs) (string, error) {
 	}
 	wh, targetCounts360, release, err := s.targets.AcquireRecordingTarget(context.Background(), args.TargetSlot)
 	if err != nil {
-		return "", apperr.New(apperr.CodeRecordingTargetUnavailable, map[string]any{"targetSlot": args.TargetSlot, "cause": err.Error()})
+		return "", apperr.New(apperr.CodeRecordingTargetUnavailable, map[string]any{"targetSlot": args.TargetSlot})
 	}
 	if release == nil {
 		return "", errors.New("installed target resolver returned no recording lease")

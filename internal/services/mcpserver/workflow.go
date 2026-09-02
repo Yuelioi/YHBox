@@ -3,9 +3,9 @@ package mcpserver
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
+	"github.com/yottaapp/yotta/internal/apperr"
 	appcore "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/capability"
@@ -100,6 +100,15 @@ type WorkflowInspectResult struct {
 
 type WorkflowApplyPatchRequest = authoring.PatchRequest
 
+type WorkflowSetInputValueRequest struct {
+	WorkflowID   string `json:"workflowId" jsonschema:"required"`
+	BaseRevision int64  `json:"baseRevision" jsonschema:"required,minimum=0"`
+	GraphID      string `json:"graphId" jsonschema:"required"`
+	NodeID       string `json:"nodeId" jsonschema:"required"`
+	InputID      string `json:"inputId" jsonschema:"required"`
+	Value        any    `json:"value" jsonschema:"required"`
+}
+
 type WorkflowApplyPatchResult struct {
 	Workflow       WorkflowSummary           `json:"workflow"`
 	GeneratedNodes []authoring.GeneratedNode `json:"generatedNodes"`
@@ -168,7 +177,7 @@ func inspectWorkflow(application *appcore.Application, request WorkflowInspectRe
 		limit = 50
 	}
 	if limit < 1 || limit > maxInspectPage {
-		return WorkflowInspectResult{}, fmt.Errorf("limit must be between 1 and %d", maxInspectPage)
+		return WorkflowInspectResult{}, apperr.New("mcp.page.invalid", map[string]any{"maximum": maxInspectPage})
 	}
 	snapshot, err := application.GetSource(request.WorkflowID)
 	if err != nil {
@@ -190,7 +199,7 @@ func inspectWorkflow(application *appcore.Application, request WorkflowInspectRe
 		}
 	}
 	if graph == nil {
-		return WorkflowInspectResult{}, fmt.Errorf("UNKNOWN_GRAPH: %s", graphID)
+		return WorkflowInspectResult{}, apperr.New("workflow.graph.unknown", map[string]any{"graphId": graphID})
 	}
 	summary, err := summarizeSource(snapshot)
 	if err != nil {
@@ -216,6 +225,15 @@ func applyWorkflowPatch(ctx context.Context, application *appcore.Application, r
 	return WorkflowApplyPatchResult{
 		Workflow: summary, GeneratedNodes: append([]authoring.GeneratedNode{}, result.GeneratedNodes...),
 	}, nil
+}
+
+func setWorkflowInputValue(ctx context.Context, application *appcore.Application, request WorkflowSetInputValueRequest) (WorkflowApplyPatchResult, error) {
+	return applyWorkflowPatch(ctx, application, authoring.PatchRequest{
+		WorkflowID: request.WorkflowID, BaseRevision: request.BaseRevision,
+		Commands: []authoring.Command{{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{
+			GraphID: request.GraphID, NodeID: request.NodeID, PortID: request.InputID, Value: request.Value,
+		}}},
+	})
 }
 
 func compileWorkflow(ctx context.Context, application *appcore.Application, request WorkflowIDRequest) (WorkflowCompileResult, error) {
@@ -256,7 +274,7 @@ func explainDiagnostic(request ExplainDiagnosticRequest) (ExplainDiagnosticResul
 	}
 	result, ok := explanations[code]
 	if !ok {
-		return ExplainDiagnosticResult{}, fmt.Errorf("UNKNOWN_DIAGNOSTIC: %s", code)
+		return ExplainDiagnosticResult{}, apperr.New("workflow.diagnostic.unknown", map[string]any{"diagnosticId": code})
 	}
 	result.Code = code
 	return result, nil
@@ -295,7 +313,7 @@ func boundedPage(offset, limit int) (int, int, error) {
 		limit = 50
 	}
 	if limit < 1 || limit > maxInspectPage {
-		return 0, 0, fmt.Errorf("limit must be between 1 and %d", maxInspectPage)
+		return 0, 0, apperr.New("mcp.page.invalid", map[string]any{"maximum": maxInspectPage})
 	}
 	return offset, limit, nil
 }

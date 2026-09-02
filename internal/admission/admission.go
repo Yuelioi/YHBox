@@ -50,7 +50,7 @@ func (e *Error) Unwrap() error { return e.Cause }
 
 func (e *Error) RPCErrorEnvelope() apperr.Envelope {
 	if e == nil {
-		return apperr.Envelope{Code: apperr.CodeUnclassified, Category: apperr.CategoryInfrastructure, Message: "unknown admission error"}
+		return apperr.Envelope{ID: apperr.IDUnexpected, Category: apperr.CategoryInfrastructure}
 	}
 	details := map[string]any{}
 	if e.GraphID != "" {
@@ -77,7 +77,7 @@ func (e *Error) RPCErrorEnvelope() apperr.Envelope {
 		category = apperr.CategoryInfrastructure
 		retryable = true
 	}
-	return apperr.Envelope{Code: e.Code, Category: category, Message: e.Code, Details: details, Retryable: retryable}
+	return apperr.Envelope{ID: e.Code, Category: category, Params: details, Retryable: retryable}
 }
 
 type Selection struct {
@@ -232,6 +232,7 @@ func (a *Admitter) Admit(ctx context.Context, request Request) (Result, error) {
 		return Result{}, &Error{Code: CodePolicyInvalid, Cause: err}
 	}
 	record, err := run.NewQueuedRecord(run.QueueRequest{
+		WorkflowID: request.Program.WorkflowID(), SourceHash: request.Program.SourceHash(), SourceRevision: request.Program.SourceRevision(),
 		ProgramHash: request.Program.Hash(), CatalogHash: a.catalog.Hash(), CapabilityPlanDigest: request.Program.CapabilityPlan().Digest(),
 		Grant: grant, QueuedAt: now,
 	})

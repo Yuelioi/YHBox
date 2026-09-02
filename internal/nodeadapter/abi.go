@@ -8,6 +8,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
+	"github.com/yottaapp/yotta/internal/problem"
 	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/targetruntime"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
@@ -23,6 +24,7 @@ type AdapterResult struct {
 type NodeFailure struct {
 	Code   string
 	Output string
+	Params problem.Params
 	Cause  error
 }
 
@@ -50,6 +52,7 @@ type RoutedFailure struct {
 	SourceNodeID string
 	SourcePortID string
 	Attempt      int
+	Params       problem.Params
 }
 
 type SignalTrigger struct {

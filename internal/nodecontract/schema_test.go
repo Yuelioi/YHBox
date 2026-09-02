@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestGeneratedMetaSchemaPins31AndRequiresExplicitPortArrays(t *testing.T) {
+func TestGeneratedMetaSchemaPinsCurrentVersionAndRequiresExplicitPortArrays(t *testing.T) {
 	raw, err := GenerateSchema()
 	if err != nil {
 		t.Fatal(err)

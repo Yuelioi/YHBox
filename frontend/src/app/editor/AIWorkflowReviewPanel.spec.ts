@@ -6,20 +6,34 @@ const panel = readFileSync(join(process.cwd(), 'src/app/editor/AIWorkflowReviewP
 const editor = readFileSync(join(process.cwd(), 'src/views/WorkflowEditorView.vue'), 'utf8')
 
 describe('AI workflow authoring review boundary', () => {
-  it('keeps proposal, acceptance, rejection, and trace recovery as separate calls', () => {
-    expect(panel).toContain('backend.ai.proposeWorkflow')
+  it('keeps conversation send, acceptance, rejection, and history recovery as separate calls', () => {
+    expect(panel).toContain('backend.ai.sendConversationMessage')
+    expect(panel).toContain('backend.ai.listConversations')
+    expect(panel).toContain('backend.ai.createConversation')
+    expect(panel).toContain('backend.ai.getConversation')
     expect(panel).toContain('backend.ai.acceptWorkflowProposal')
     expect(panel).toContain('backend.ai.rejectWorkflowProposal')
-    expect(panel).toContain('getWorkflowProposal')
   })
 
-  it('blocks proposals over unsaved editor state and renders exact review facts', () => {
+  it('blocks conversation sends over unsaved editor state and renders review facts', () => {
     expect(panel).toContain('!props.dirty')
-    expect(panel).toContain('review.candidateHash')
     expect(panel).toContain('review.permissions.added')
-    expect(panel).toContain('review.diagnostics')
-    expect(panel).toContain('review.trace')
-    expect(panel).toContain("review.status === 'proposed'")
+    expect(panel).toContain("message.review.status === 'proposed'")
+    expect(panel).toContain('message.review.changes')
+  })
+
+  it('does not render an interactive model select when no profile is eligible', () => {
+    expect(panel).toContain('v-if="profileOptions.length"')
+    expect(panel).toContain('workflow.ai.configure_profile')
+  })
+
+  it('keeps conversations isolated by workflow and exposes live progress', () => {
+    expect(panel).toContain('props.workflowId')
+    expect(panel).toContain('ai-conversation-select')
+    expect(panel).toContain('ai-conversation-new')
+    expect(panel).toContain('ai-conversation-delete')
+    expect(panel).toContain('backend.ai.deleteConversation')
+    expect(panel).toContain('onAIConversationProgress')
   })
 
   it('reloads the durable source only after the accepted event', () => {

@@ -12,6 +12,7 @@ import (
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodecontract"
+	"github.com/yottaapp/yotta/internal/problem"
 	"github.com/yottaapp/yotta/internal/resource"
 	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/runid"
@@ -77,7 +78,7 @@ func TestExecutorRoutesStructuredNodeFailureAndFailsWhenUnhandled(t *testing.T) 
 			handled := false
 			adapters := schedulerAdapters(locks, map[string]Adapter{
 				"source": func(context.Context, Invocation) (AdapterResult, error) {
-					return AdapterResult{}, &NodeFailure{Code: "test.event-failed", Output: "failed", Cause: errors.New("provider detail")}
+					return AdapterResult{}, &NodeFailure{Code: "test.event-failed", Output: "failed", Params: problem.Must(map[string]any{"reason": "fixture"}), Cause: errors.New("provider detail")}
 				},
 				"left":  emptyAdapter,
 				"right": emptyAdapter,
@@ -85,7 +86,7 @@ func TestExecutorRoutesStructuredNodeFailureAndFailsWhenUnhandled(t *testing.T) 
 					handled = true
 					failure := invocation.Trigger.Failure
 					if invocation.Trigger.Channel != schema.EdgeError || invocation.Trigger.InputPort != "in" || failure == nil ||
-						failure.Code != "test.event-failed" || failure.Category != "test" || failure.SourceNodeID != "source" || failure.SourcePortID != "failed" || failure.Attempt != 1 {
+						failure.Code != "test.event-failed" || failure.Category != "test" || failure.SourceNodeID != "source" || failure.SourcePortID != "failed" || failure.Attempt != 1 || string(failure.Params.Bytes()) != `{"reason":"fixture"}` {
 						t.Fatalf("routed failure = %#v", invocation.Trigger)
 					}
 					return AdapterResult{}, nil
@@ -98,7 +99,7 @@ func TestExecutorRoutesStructuredNodeFailureAndFailsWhenUnhandled(t *testing.T) 
 					t.Fatalf("routed Run: err=%v handled=%t status=%s", runErr, handled, journal.Current().Status())
 				}
 				facts := journal.Current().Journal()
-				if len(facts) != 4 || facts[1].AttemptOutcome != run.AttemptRouted || facts[1].ErrorCode != "test.event-failed" {
+				if len(facts) != 4 || facts[1].AttemptOutcome != run.AttemptRouted || facts[1].ErrorCode != "test.event-failed" || string(facts[1].ErrorParams) != `{"reason":"fixture"}` {
 					t.Fatalf("routed journal = %#v", facts)
 				}
 			} else if runErr == nil || handled || journal.Current().Status() != run.StatusFailed {
@@ -154,7 +155,7 @@ func schedulerCatalogForTest(t *testing.T) (nodecatalog.Snapshot, map[string]nod
 	t.Helper()
 	contracts := map[string]nodecontract.Contract{
 		"source": schedulerContractForTest(t, "source", nodecontract.ExecutionEvent, nil, []string{"left", "right"}, []string{"failed"},
-			[]nodecontract.ErrorSpec{{Code: "test.event-failed", Category: "test", RetryHint: false}},
+			[]nodecontract.ErrorSpec{{Code: "test.event-failed", Category: "test", RetryHint: false, Params: []nodecontract.ProblemParamSpec{{Name: "reason", Type: nodecontract.ProblemParamString, Required: true}}}},
 			[]nodecontract.StatusEventSpec{{Code: "test.progress", Category: nodecontract.StatusProgress}}),
 		"left":    schedulerContractForTest(t, "left", nodecontract.ExecutionControl, []string{"in"}, nil, nil, nil, nil),
 		"right":   schedulerContractForTest(t, "right", nodecontract.ExecutionControl, []string{"in"}, nil, nil, nil, nil),

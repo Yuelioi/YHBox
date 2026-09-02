@@ -2,6 +2,7 @@ package run
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -12,6 +13,7 @@ import (
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/durablefs"
 	"github.com/yottaapp/yotta/internal/nodecontract"
+	"github.com/yottaapp/yotta/internal/problem"
 )
 
 const (
@@ -104,13 +106,14 @@ func NewRedactedSummary(code string, counters map[string]int64, facts map[string
 }
 
 type NodeAttemptInput struct {
-	GraphPath  []string
-	NodeID     string
-	Attempt    int
-	Outcome    AttemptOutcome
-	OccurredAt time.Time
-	ErrorCode  string
-	Summary    RedactedSummary
+	GraphPath   []string
+	NodeID      string
+	Attempt     int
+	Outcome     AttemptOutcome
+	OccurredAt  time.Time
+	ErrorCode   string
+	ErrorParams problem.Params
+	Summary     RedactedSummary
 }
 
 type AdapterActionInput struct {
@@ -147,6 +150,7 @@ type journalEntry struct {
 	ActionOutcome  ActionOutcome               `json:"actionOutcome,omitempty"`
 	OccurredAt     time.Time                   `json:"occurredAt"`
 	ErrorCode      string                      `json:"errorCode,omitempty"`
+	ErrorParams    json.RawMessage             `json:"errorParams,omitempty"`
 	StatusCode     string                      `json:"statusCode,omitempty"`
 	StatusCategory nodecontract.StatusCategory `json:"statusCategory,omitempty"`
 	Summary        redactedSummaryDocument     `json:"summary"`
@@ -166,6 +170,7 @@ type JournalEntry struct {
 	ActionOutcome  ActionOutcome
 	OccurredAt     time.Time
 	ErrorCode      string
+	ErrorParams    json.RawMessage
 	StatusCode     string
 	StatusCategory nodecontract.StatusCategory
 	Summary        RedactedSummaryView
@@ -267,7 +272,7 @@ func (w *JournalWriter) commitLocked(ctx context.Context, next Record) (Record, 
 func NewNodeAttemptFact(input NodeAttemptInput) (JournalFact, error) {
 	entry := journalEntry{Kind: JournalNodeAttempt, GraphPath: append([]string(nil), input.GraphPath...), NodeID: input.NodeID,
 		Attempt: input.Attempt, AttemptOutcome: input.Outcome, OccurredAt: input.OccurredAt, ErrorCode: input.ErrorCode,
-		Summary: cloneSummary(input.Summary.document)}
+		ErrorParams: input.ErrorParams.Bytes(), Summary: cloneSummary(input.Summary.document)}
 	if err := validateJournalFact(entry); err != nil {
 		return JournalFact{}, err
 	}
@@ -311,16 +316,20 @@ func validateJournalFact(entry journalEntry) error {
 	switch entry.Kind {
 	case JournalNodeAttempt:
 		if entry.EffectID != "" || entry.Action != "" || entry.ActionOutcome != "" || entry.StatusCode != "" || entry.StatusCategory != "" ||
-			!validAttemptOutcome(entry.AttemptOutcome) || !validOutcomeError(string(entry.AttemptOutcome), entry.ErrorCode) {
+			!validAttemptOutcome(entry.AttemptOutcome) || !validOutcomeError(string(entry.AttemptOutcome), entry.ErrorCode) ||
+			len(entry.ErrorParams) != 0 && entry.ErrorCode == "" {
 			return errors.New("invalid NodeAttempt fact")
 		}
+		if _, err := problem.Open(entry.ErrorParams); err != nil {
+			return errors.New("invalid NodeAttempt problem parameters")
+		}
 	case JournalAdapterAction:
-		if !validAttribution(entry.EffectID) || !runFieldPattern.MatchString(entry.Action) || entry.AttemptOutcome != "" || entry.StatusCode != "" || entry.StatusCategory != "" ||
+		if len(entry.ErrorParams) != 0 || !validAttribution(entry.EffectID) || !runFieldPattern.MatchString(entry.Action) || entry.AttemptOutcome != "" || entry.StatusCode != "" || entry.StatusCategory != "" ||
 			!validActionOutcome(entry.ActionOutcome) || !validOutcomeError(string(entry.ActionOutcome), entry.ErrorCode) {
 			return errors.New("invalid AdapterAction fact")
 		}
 	case JournalNodeStatus:
-		if entry.EffectID != "" || entry.Action != "" || entry.AttemptOutcome != "" || entry.ActionOutcome != "" || entry.ErrorCode != "" ||
+		if len(entry.ErrorParams) != 0 || entry.EffectID != "" || entry.Action != "" || entry.AttemptOutcome != "" || entry.ActionOutcome != "" || entry.ErrorCode != "" ||
 			!errorCodePattern.MatchString(entry.StatusCode) || !validStatusCategory(entry.StatusCategory) {
 			return errors.New("invalid NodeStatus fact")
 		}

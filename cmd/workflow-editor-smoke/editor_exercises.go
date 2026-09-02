@@ -104,42 +104,11 @@ func exerciseMultigraph(ctx context.Context, client *browsercdp.WebSocketClient,
 	if err := waitUntil(ctx, client, func(current pageState) bool { return current.Reroutes > 0 }); err != nil {
 		return fmt.Errorf("add edge reroute: %w", err)
 	}
-	if err := clickRequired(ctx, client, "workflow-canvas-add-more"); err != nil {
-		return err
-	}
-	if err := waitUntilJS(ctx, client, 5*time.Second, `(() => {
-		/* canvas add menu ready */
-		return Boolean(document.querySelector('[data-testid="workflow-graph-add-call"]'));
-	})()`); err != nil {
-		return fmt.Errorf("open canvas add menu: %w", err)
-	}
-	if err := clickRequired(ctx, client, "workflow-graph-add-call"); err != nil {
-		return err
-	}
-	if err := waitUntilJS(ctx, client, 5*time.Second, `(() => {
-		/* callable subgraph item ready */
-		return Boolean(document.querySelector('[data-testid^="workflow-graph-call-option-"]'));
-	})()`); err != nil {
-		return fmt.Errorf("open callable subgraph menu: %w", err)
-	}
-	if err := eval(ctx, client, `(() => {
-		const item = document.querySelector('[data-testid^="workflow-graph-call-option-"]');
-		if (!item) throw new Error('callable subgraph menu item not found');
-		item.click();
-	})()`); err != nil {
+	if err := clickRequired(ctx, client, "workflow-graph-insert-call"); err != nil {
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool { return current.GraphCalls == 1 }); err != nil {
 		return fmt.Errorf("insert graph call: %w", err)
-	}
-	if err := clickRequired(ctx, client, "workflow-canvas-add-more"); err != nil {
-		return err
-	}
-	if err := waitUntilJS(ctx, client, 5*time.Second, `(() => {
-		/* annotation action ready */
-		return Boolean(document.querySelector('[data-testid="workflow-annotation-add"]'));
-	})()`); err != nil {
-		return fmt.Errorf("open annotation action: %w", err)
 	}
 	if err := clickRequired(ctx, client, "workflow-annotation-add"); err != nil {
 		return err
@@ -516,9 +485,7 @@ func exerciseQuickAdd(ctx context.Context, client *browsercdp.WebSocketClient, s
 	if err := evalJSON(ctx, client, `(() => {
 		const inserted = document.querySelector('.workflow-node[data-node-type-id="https://schemas.yotta.dev/nodes/automation/click-template"]');
 		if (!inserted) throw new Error('quick-added click template node not found for cleanup');
-		const header = inserted.querySelector('.workflow-node-drag-handle');
-		if (!header) throw new Error('quick-added click template node header not found for cleanup');
-		const rect = header.getBoundingClientRect();
+		const rect = inserted.getBoundingClientRect();
 		return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
 	})()`, &point); err != nil {
 		return fmt.Errorf("locate quick-added node: %w", err)
@@ -572,6 +539,7 @@ func verifyEditorToolbarConsolidation(ctx context.Context, client *browsercdp.We
 			'[data-testid="workflow-find-node"]',
 			'[data-testid="workflow-run-timeline"]',
 			'[data-testid="workflow-save"]',
+			'[data-testid="ai-workflow-review-open"]',
 			'[data-testid="workflow-editor-tools"]'
 		];
 		for (const selector of requiredSelectors) {
@@ -581,12 +549,21 @@ func verifyEditorToolbarConsolidation(ctx context.Context, client *browsercdp.We
 			}
 		}
 		const addNode = document.querySelector('[data-testid="workflow-canvas-add-node"]');
-		const addMore = document.querySelector('[data-testid="workflow-canvas-add-more"]');
-		if (!addNode || !addMore || toolbar.contains(addNode) || toolbar.contains(addMore)) {
+		if (!addNode || toolbar.contains(addNode)) {
 			throw new Error('canvas creation actions are not isolated from the editor toolbar');
 		}
 		if (document.querySelector('[data-testid="workflow-graph-infer-interface"]')) {
 			throw new Error('subgraph interface inference leaked into the main graph toolbar');
+		}
+		const editing = document.querySelector('[data-testid="workflow-editor-editing"]');
+		const actions = document.querySelector('[data-testid="workflow-editor-actions"]');
+		if (!editing || !actions || editing.compareDocumentPosition(actions) !== Node.DOCUMENT_POSITION_FOLLOWING) {
+			throw new Error('editing commands are not placed on the left of workflow actions');
+		}
+		const ai = document.querySelector('[data-testid="ai-workflow-review-open"]');
+		const tools = document.querySelector('[data-testid="workflow-editor-tools"]');
+		if (!ai || !tools || ai.compareDocumentPosition(tools) !== Node.DOCUMENT_POSITION_FOLLOWING) {
+			throw new Error('AI proposal action is not placed before tools');
 		}
 		const previousStyle = toolbar.getAttribute('style');
 		toolbar.style.width = '900px';

@@ -327,7 +327,7 @@ func TestServiceQueryAndBatchManagement(t *testing.T) {
 		t.Fatalf("updated QueryAssets() = %#v, %v", shared, err)
 	}
 	deleted := service.BatchDelete([]string{alpha, "missing", beta})
-	if len(deleted) != 3 || !deleted[0].Deleted || deleted[1].Error == "" || !deleted[2].Deleted {
+	if len(deleted) != 3 || !deleted[0].Deleted || deleted[1].Problem == nil || !deleted[2].Deleted {
 		t.Fatalf("BatchDelete() = %#v", deleted)
 	}
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeError, errorMessage, friendlyRawErrorMessage, invoke, RPCError } from './invoke'
+import { normalizeError, errorMessage, invoke, RPCError } from './invoke'
 
 describe('normalizeError', () => {
   it('通道A validation: cause.Errors 大写', () => {
@@ -10,20 +10,40 @@ describe('normalizeError', () => {
     }
     expect(normalizeError(e)).toEqual({ errors: [{ code: 'MISSING_ENTRY_GRAPH', params: {} }] })
   })
-  it('通道A apperr: cause.code 小写', () => {
-    const e = { message: 'WAILS_NOT_READY', cause: { code: 'WAILS_NOT_READY', params: { x: 1 } } }
-    expect(normalizeError(e)).toEqual({ code: 'WAILS_NOT_READY', params: { x: 1 } })
+  it('通道A apperr: cause.id', () => {
+    const e = { message: 'opaque', cause: { id: 'WAILS_NOT_READY', params: { x: 1 } } }
+    expect(normalizeError(e)).toEqual({ id: 'WAILS_NOT_READY', params: { x: 1 } })
+  })
+  it('native transport: MarshalError cause is a JSON string', () => {
+    const e = {
+      name: 'RuntimeError',
+      message: 'method returned an error',
+      cause: JSON.stringify({
+        id: 'ai.authoring.provider_failed',
+        category: 'adapter',
+        params: { stage: 'transport', class: 'timeout' },
+        operationId: 'backend-42',
+        retryable: true,
+      }),
+    }
+    expect(normalizeError(e)).toEqual({
+      id: 'ai.authoring.provider_failed',
+      category: 'adapter',
+      params: { stage: 'transport', class: 'timeout' },
+      operationId: 'backend-42',
+      retryable: true,
+    })
   })
   it('通道B worker 信封 errors 小写', () => {
     const e = { errors: [{ code: 'MISSING_ENTRY_GRAPH' }] }
     expect(normalizeError(e)).toEqual({ errors: [{ code: 'MISSING_ENTRY_GRAPH' }] })
   })
-  it('通道B worker 信封 code', () => {
-    const e = { code: 'WAILS_NOT_READY', params: { x: 1 } }
-    expect(normalizeError(e)).toEqual({ code: 'WAILS_NOT_READY', params: { x: 1 } })
+  it('通道B worker 信封 id', () => {
+    const e = { id: 'WAILS_NOT_READY', params: { x: 1 } }
+    expect(normalizeError(e)).toEqual({ id: 'WAILS_NOT_READY', params: { x: 1 } })
   })
-  it('裸 message 回落', () => {
-    expect(normalizeError(new Error('boom'))).toEqual({ message: 'boom' })
+  it('裸 message 不进入产品错误契约', () => {
+    expect(normalizeError(new Error('boom'))).toEqual({})
   })
   it('空/未知 → {}', () => {
     expect(normalizeError({})).toEqual({})
@@ -44,41 +64,59 @@ describe('normalizeError', () => {
       errors: [{ severity: 'error', code: 'UNKNOWN_NODE_TYPE', graphPath: ['main'] }],
     })
   })
-  it('dev-fetch transport: 信封塞进 Error.message (apperr code)', () => {
+  it('dev-fetch transport: 信封塞进 Error.message (apperr id)', () => {
     const e = new Error(
       JSON.stringify({
-        message: 'WAILS_NOT_READY',
-        cause: { code: 'WAILS_NOT_READY', params: { x: 1 } },
+        message: 'opaque',
+        cause: { id: 'WAILS_NOT_READY', params: { x: 1 } },
         kind: 'RuntimeError',
       }),
     )
-    expect(normalizeError(e)).toEqual({ code: 'WAILS_NOT_READY', params: { x: 1 } })
+    expect(normalizeError(e)).toEqual({ id: 'WAILS_NOT_READY', params: { x: 1 } })
   })
   it('dev-fetch transport: e 本身是 JSON 字符串', () => {
     const e = JSON.stringify({ cause: { Errors: [{ code: 'MISSING_ENTRY_GRAPH' }] } })
     expect(normalizeError(e)).toEqual({ errors: [{ code: 'MISSING_ENTRY_GRAPH' }] })
   })
-  it('typed envelope: preserves category, details, correlation and retryability', () => {
+  it('typed envelope: preserves id, params, correlation and retryability', () => {
     const e = {
       cause: {
-        code: 'recording.finalize_failed',
+        id: 'recording.finalize_failed',
         category: 'domain',
-        message: 'finalize failed',
-        details: { pendingId: 'p1' },
+        params: { pendingId: 'p1' },
         operationId: 'backend-1',
         runId: 'run-1',
         retryable: true,
       },
     }
     expect(normalizeError(e)).toEqual({
-      code: 'recording.finalize_failed',
+      id: 'recording.finalize_failed',
       category: 'domain',
       params: { pendingId: 'p1' },
-      message: 'finalize failed',
-      details: { pendingId: 'p1' },
       operationId: 'backend-1',
       runId: 'run-1',
       retryable: true,
+    })
+  })
+  it('preserves an already-normalized RPCError instead of decoding its opaque cause again', () => {
+    const error = new RPCError(
+      {
+        id: 'ai.authoring.provider_failed',
+        category: 'adapter',
+        params: { stage: 'transport', class: 'unknown' },
+        operationId: 'backend-op',
+        retryable: false,
+      },
+      'SendWorkflowAIMessage',
+      'frontend-op',
+      new Error('opaque transport cause'),
+    )
+    expect(normalizeError(error)).toEqual({
+      id: 'ai.authoring.provider_failed',
+      category: 'adapter',
+      params: { stage: 'transport', class: 'unknown' },
+      operationId: 'backend-op',
+      retryable: false,
     })
   })
 })
@@ -93,7 +131,7 @@ describe('errorMessage', () => {
     expect(msg).toMatch(/1/)
   })
   it('缺 i18n key → 给出处理建议而不是裸错误码', () => {
-    const message = errorMessage({ cause: { code: 'FOO_BAR' } })
+    const message = errorMessage({ cause: { id: 'FOO_BAR' } })
     expect(message).toContain('重试')
     expect(message).toContain('FOO_BAR')
     expect(message).not.toBe('FOO_BAR')
@@ -104,19 +142,8 @@ describe('errorMessage', () => {
     expect(message).toContain('UNKNOWN_VALIDATION_CODE')
     expect(message).not.toBe('UNKNOWN_VALIDATION_CODE')
   })
-  it('裸 message 直接显示', () => {
-    expect(errorMessage(new Error('boom'))).toBe('boom')
-  })
-  it('Wails 只返回错误码 message 时仍本地化', () => {
-    const message = errorMessage(new Error('RECORDING_CALIBRATION_REQUIRED'))
-    expect(message).toContain('精准相对录制')
-    expect(message).not.toContain('RECORDING_CALIBRATION_REQUIRED')
-  })
-  it('未知裸错误码也不会直接展示', () => {
-    const message = errorMessage(new Error('UNMAPPED_FAILURE'))
-    expect(message).toContain('重试')
-    expect(message).toContain('UNMAPPED_FAILURE')
-    expect(message).not.toBe('UNMAPPED_FAILURE')
+  it('裸 message 使用安全 fallback', () => {
+    expect(errorMessage(new Error('boom'))).toContain('未知错误')
   })
   it('{} → UNKNOWN_ERROR 文案', () => {
     const msg = errorMessage({})
@@ -138,30 +165,36 @@ describe('errorMessage', () => {
   })
 })
 
-describe('friendlyRawErrorMessage', () => {
-  it('turns a transport timeout into an actionable message', () => {
-    const msg = friendlyRawErrorMessage('context deadline exceeded')
-    expect(msg).toContain('超时')
-    expect(msg).toContain('重试')
-    expect(msg).not.toContain('deadline')
-  })
-
-  it('keeps unknown technical messages intact for diagnosis', () => {
-    expect(friendlyRawErrorMessage('boom')).toBe('boom')
-  })
-})
-
 describe('invoke', () => {
   it('returns only on success and rethrows a typed RPCError without automatic toast', async () => {
     await expect(invoke(async () => undefined)).resolves.toBeUndefined()
     const rejected = invoke(async function SaveSettings() {
-      throw { cause: { code: 'settings.save_failed', category: 'domain', message: 'save failed' } }
+      throw { cause: { id: 'settings.save_failed', category: 'domain' } }
     })
     await expect(rejected).rejects.toMatchObject({
       name: 'RPCError',
-      code: 'settings.save_failed',
+      id: 'settings.save_failed',
       category: 'domain',
       operation: 'SaveSettings',
+    })
+  })
+
+  it('preserves validation arrays after converting to RPCError', async () => {
+    const rejected = invoke(async function ApplyPatch() {
+      throw { cause: { errors: [{ code: 'INVALID_FIELD', params: { commandIndex: 0 } }] } }
+    })
+    await expect(rejected).rejects.toMatchObject({
+      errors: [{ code: 'INVALID_FIELD', params: { commandIndex: 0 } }],
+    })
+  })
+
+  it('classifies an unstructured transport rejection instead of calling it system unexpected', async () => {
+    const rejected = invoke(async function ApplyPatch() {
+      throw new Error('opaque transport rejection')
+    })
+    await expect(rejected).rejects.toMatchObject({
+      id: 'transport.unstructured_failure',
+      params: { operation: 'ApplyPatch' },
     })
   })
 

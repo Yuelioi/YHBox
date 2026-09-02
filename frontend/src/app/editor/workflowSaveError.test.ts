@@ -4,7 +4,9 @@ import { describeWorkflowSaveError } from './workflowSaveError'
 
 describe('workflow save errors', () => {
   it('turns a raw validation code into an actionable save message', () => {
-    const failure = describeWorkflowSaveError(new Error('INVALID_FIELD'))
+    const failure = describeWorkflowSaveError({
+      cause: { id: 'INVALID_FIELD', category: 'validation' },
+    })
 
     expect(failure.kind).toBe('validation')
     expect(failure.message).toContain('节点参数或连线')
@@ -13,16 +15,18 @@ describe('workflow save errors', () => {
 
   it('keeps an unknown internal code as supporting context instead of the whole message', () => {
     const failure = describeWorkflowSaveError(
-      new RPCError({ code: 'PATCH_STORAGE_FAILED' }, 'workflow.applyPatch', 'op-1', null),
+      new RPCError({ id: 'PATCH_STORAGE_FAILED' }, 'workflow.applyPatch', 'op-1', null),
     )
 
     expect(failure.kind).toBe('unknown')
-    expect(failure.message).toContain('保存时发生内部错误')
+    expect(failure.message).toContain('保存失败')
     expect(failure.message).toContain('PATCH_STORAGE_FAILED')
   })
 
   it('identifies revision conflicts without relying on the rendered banner text', () => {
-    const failure = describeWorkflowSaveError(new Error('workflow source revision conflict'))
+    const failure = describeWorkflowSaveError(
+      new RPCError({ id: 'workflow.revision.conflict' }, 'workflow.applyPatch', 'op-1', null),
+    )
 
     expect(failure.kind).toBe('revision')
     expect(failure.message).toContain('重新加载')
@@ -32,10 +36,9 @@ describe('workflow save errors', () => {
     const failure = describeWorkflowSaveError(
       new RPCError(
         {
-          code: 'INVALID_CONFIG_VALUE',
+          id: 'INVALID_CONFIG_VALUE',
           category: 'validation',
-          message: 'value does not satisfy the node contract',
-          details: { commandIndex: 0 },
+          params: { commandIndex: 0 },
         },
         'workflow.applyPatch',
         'op-1',

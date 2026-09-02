@@ -106,10 +106,10 @@ type BatchMetaRequest struct {
 }
 
 type BatchResult struct {
-	GUID    string `json:"guid"`
-	Updated bool   `json:"updated,omitempty"`
-	Deleted bool   `json:"deleted,omitempty"`
-	Error   string `json:"error,omitempty"`
+	GUID    string           `json:"guid"`
+	Updated bool             `json:"updated,omitempty"`
+	Deleted bool             `json:"deleted,omitempty"`
+	Problem *apperr.Envelope `json:"problem,omitempty"`
 }
 
 // Service owns global asset metadata and installed-target authoring capture.
@@ -310,16 +310,16 @@ func (s *Service) BatchUpdateMeta(requests []BatchMetaRequest) []BatchResult {
 	for _, request := range requests {
 		result := BatchResult{GUID: request.GUID}
 		if _, duplicate := seen[request.GUID]; duplicate {
-			result.Error = "duplicate asset update request"
+			result.Problem = assetBatchProblem("asset.batch.duplicate", map[string]any{"operation": "update"})
 		} else {
 			seen[request.GUID] = struct{}{}
 			record, ok, err := s.store.Record(request.GUID)
 			if err != nil {
-				result.Error = err.Error()
+				result.Problem = assetBatchProblemFrom(err)
 			} else if !ok {
-				result.Error = "asset not found"
+				result.Problem = assetBatchProblem("asset.not_found", map[string]any{"guid": request.GUID})
 			} else if err := s.store.PutRecordMeta(record.GUID, record.Name, record.Description, strings.TrimSpace(request.Category), cleanTags(request.Tags)); err != nil {
-				result.Error = err.Error()
+				result.Problem = assetBatchProblemFrom(err)
 			} else {
 				result.Updated = true
 			}
@@ -337,15 +337,15 @@ func (s *Service) BatchDelete(guids []string) []BatchResult {
 	for _, guid := range guids {
 		result := BatchResult{GUID: guid}
 		if _, duplicate := seen[guid]; duplicate {
-			result.Error = "duplicate asset delete request"
+			result.Problem = assetBatchProblem("asset.batch.duplicate", map[string]any{"operation": "delete"})
 		} else {
 			seen[guid] = struct{}{}
 			if _, ok, err := s.store.Record(guid); err != nil {
-				result.Error = err.Error()
+				result.Problem = assetBatchProblemFrom(err)
 			} else if !ok {
-				result.Error = "asset not found"
+				result.Problem = assetBatchProblem("asset.not_found", map[string]any{"guid": guid})
 			} else if err := s.store.DeleteRecord(guid); err != nil {
-				result.Error = err.Error()
+				result.Problem = assetBatchProblemFrom(err)
 			} else {
 				result.Deleted = true
 			}
@@ -354,6 +354,16 @@ func (s *Service) BatchDelete(guids []string) []BatchResult {
 	}
 	s.emitChangedSince(before, guids...)
 	return results
+}
+
+func assetBatchProblem(id string, params map[string]any) *apperr.Envelope {
+	envelope := apperr.From(apperr.New(id, params))
+	return &envelope
+}
+
+func assetBatchProblemFrom(err error) *apperr.Envelope {
+	envelope := apperr.From(err)
+	return &envelope
 }
 
 // Get 返单条记录.

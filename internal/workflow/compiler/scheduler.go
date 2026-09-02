@@ -614,7 +614,7 @@ func (s *scheduler) routeFailure(ctx context.Context, node programNode, machine 
 		return errors.Join(errors.New("node failure returned outputs, exec signals, or invalid status"), statusErr, journalErr)
 	}
 	spec, declared := declaredNodeError(machine.Errors, failure.Code)
-	if !declared || (failure.Output != "" && !signalPortExists(machine.Ports.ErrorOutputs, failure.Output)) {
+	if !declared || spec.ValidateParams(failure.Params) != nil || (failure.Output != "" && !signalPortExists(machine.Ports.ErrorOutputs, failure.Output)) {
 		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, node.GraphPath, node.SourceNodeID, attempt, "runtime.failure_invalid", summary)
 		return errors.Join(errors.New("adapter returned an undeclared node failure"), journalErr)
 	}
@@ -629,7 +629,7 @@ func (s *scheduler) routeFailure(ctx context.Context, node programNode, machine 
 	}
 	fact, err := run.NewNodeAttemptFact(run.NodeAttemptInput{
 		GraphPath: append([]string(nil), node.GraphPath...), NodeID: node.SourceNodeID, Attempt: attempt, Outcome: terminal,
-		OccurredAt: s.executor.now().UTC(), ErrorCode: failure.Code, Summary: summary,
+		OccurredAt: s.executor.now().UTC(), ErrorCode: failure.Code, ErrorParams: failure.Params, Summary: summary,
 	})
 	if err != nil {
 		return err
@@ -642,7 +642,7 @@ func (s *scheduler) routeFailure(ctx context.Context, node programNode, machine 
 	}
 	routed := &nodeadapter.RoutedFailure{
 		Code: failure.Code, Category: spec.Category, RetryHint: spec.RetryHint,
-		SourceNodeID: node.SourceNodeID, SourcePortID: failure.Output, Attempt: attempt,
+		SourceNodeID: node.SourceNodeID, SourcePortID: failure.Output, Attempt: attempt, Params: failure.Params,
 	}
 	for _, route := range routes {
 		s.queue = append(s.queue, scheduledInvocation{nodeID: route.To.NodeID, trigger: &nodeadapter.SignalTrigger{

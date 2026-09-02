@@ -78,6 +78,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { errorMessage } from '@/lib/invoke'
 import { useToast } from '@nuxt/ui/composables'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import { pickTargetValue, type TargetColorRange } from './useTargetPicker'
@@ -162,7 +163,7 @@ async function pickColor(): Promise<void> {
   } catch (error) {
     toast.add({
       title: t('workflow.inspector.pick_failed'),
-      description: error instanceof Error ? error.message : String(error),
+      description: errorMessage(error),
       color: 'error',
     })
   } finally {

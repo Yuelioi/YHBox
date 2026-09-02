@@ -98,9 +98,10 @@ type Summary struct {
 }
 
 type Issue struct {
-	Index   int    `json:"index"`
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Index   int            `json:"index"`
+	Code    string         `json:"code"`
+	Params  map[string]any `json:"params,omitempty"`
+	Message string         `json:"-"`
 }
 
 type HeldState struct {

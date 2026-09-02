@@ -17,11 +17,12 @@ import (
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/contractschema"
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/problem"
 )
 
 const (
 	Format            = "yotta.node-contract"
-	Version           = "1"
+	Version           = "2"
 	SchemaPathVersion = "v" + Version
 
 	semanticDigestDomain = "yotta/node-contract-semantic/v1"
@@ -213,9 +214,72 @@ type ExecutionSpec struct {
 }
 
 type ErrorSpec struct {
-	Code      string `json:"code" jsonschema:"required,minLength=1,maxLength=256"`
-	Category  string `json:"category" jsonschema:"required,minLength=1,maxLength=256"`
-	RetryHint bool   `json:"retryHint" jsonschema:"required"`
+	Code      string             `json:"code" jsonschema:"required,minLength=1,maxLength=256"`
+	Category  string             `json:"category" jsonschema:"required,minLength=1,maxLength=256"`
+	RetryHint bool               `json:"retryHint" jsonschema:"required"`
+	Params    []ProblemParamSpec `json:"params,omitempty" jsonschema:"maxItems=32"`
+}
+
+type ProblemParamType string
+
+const (
+	ProblemParamString  ProblemParamType = "string"
+	ProblemParamInteger ProblemParamType = "integer"
+	ProblemParamNumber  ProblemParamType = "number"
+	ProblemParamBoolean ProblemParamType = "boolean"
+)
+
+type ProblemParamSpec struct {
+	Name     string           `json:"name" jsonschema:"required,pattern=^[A-Za-z][A-Za-z0-9._-]{0,127}$"`
+	Type     ProblemParamType `json:"type" jsonschema:"required,enum=string,enum=integer,enum=number,enum=boolean"`
+	Required bool             `json:"required" jsonschema:"required"`
+}
+
+func (spec ErrorSpec) ValidateParams(params problem.Params) error {
+	values := params.Values()
+	declared := make(map[string]ProblemParamSpec, len(spec.Params))
+	for _, field := range spec.Params {
+		declared[field.Name] = field
+	}
+	for name, value := range values {
+		field, ok := declared[name]
+		if !ok || !matchesProblemParamType(value, field.Type) {
+			return errors.New("node problem parameters do not satisfy the declared schema")
+		}
+	}
+	for _, field := range spec.Params {
+		if _, ok := values[field.Name]; field.Required && !ok {
+			return errors.New("node problem parameters omit a required field")
+		}
+	}
+	return nil
+}
+
+func matchesProblemParamType(value any, kind ProblemParamType) bool {
+	switch kind {
+	case ProblemParamString:
+		_, ok := value.(string)
+		return ok
+	case ProblemParamBoolean:
+		_, ok := value.(bool)
+		return ok
+	case ProblemParamInteger:
+		number, ok := value.(json.Number)
+		if !ok {
+			return false
+		}
+		_, err := number.Int64()
+		return err == nil
+	case ProblemParamNumber:
+		number, ok := value.(json.Number)
+		if !ok {
+			return false
+		}
+		_, err := number.Float64()
+		return err == nil
+	default:
+		return false
+	}
 }
 
 type InstanceResolver struct {
@@ -336,7 +400,7 @@ type MachineContract struct {
 
 type document struct {
 	Format    string          `json:"format" jsonschema:"required,enum=yotta.node-contract"`
-	Version   string          `json:"version" jsonschema:"required,enum=1"`
+	Version   string          `json:"version" jsonschema:"required,enum=2"`
 	NodeRef   NodeRef         `json:"nodeRef" jsonschema:"required"`
 	Semantic  MachineContract `json:"semantic" jsonschema:"required"`
 	Authoring Authoring       `json:"authoring" jsonschema:"required"`
@@ -389,7 +453,8 @@ func Open(raw []byte) (Contract, error) {
 	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
 		return Contract{}, errors.New("node contract contains trailing JSON values")
 	}
-	if decoded.Format != Format || decoded.Version != Version {
+	legacyV1 := decoded.Version == "1"
+	if decoded.Format != Format || decoded.Version != Version && !legacyV1 {
 		return Contract{}, errors.New("unsupported node contract format")
 	}
 	normalized, err := normalizeSemantic(Draft{
@@ -426,7 +491,7 @@ func Open(raw []byte) (Contract, error) {
 	if decoded.NodeRef.NodeTypeID != normalized.NodeTypeID || decoded.NodeRef.Version != normalized.Version || decoded.NodeRef != sealed.NodeRef() {
 		return Contract{}, errors.New("node contract semantic digest mismatch")
 	}
-	if !bytes.Equal(sealed.Bytes(), raw) {
+	if !legacyV1 && !bytes.Equal(sealed.Bytes(), raw) {
 		return Contract{}, errors.New("node contract is not normalized")
 	}
 	return sealed, nil
@@ -652,9 +717,9 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 	if err != nil {
 		return MachineContract{}, err
 	}
-	if instruction.Kind != InstructionInvoke && (len(requirements) != 0 || len(configuredTargets) != 0 || len(errorsList) != 0 || len(statusEvents) != 0 ||
+	if instruction.Kind != InstructionInvoke && (len(requirements) != 0 || len(configuredTargets) != 0 || len(errorsList) != 0 ||
 		len(stateAccesses) != 0 || len(configValidators) != 0 || resolver != nil || conversion != nil) {
-		return MachineContract{}, errors.New("host-lowered instruction cannot declare adapter capabilities, errors, status, state, or instance resolution")
+		return MachineContract{}, errors.New("host-lowered instruction cannot declare adapter capabilities, errors, state, or instance resolution")
 	}
 	abis, err := normalizeABIs(draft.ImplementationABI)
 	if err != nil {
@@ -1079,13 +1144,29 @@ func normalizeErrors(source []ErrorSpec) ([]ErrorSpec, error) {
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].Code < result[j].Code })
 	previous := ""
-	for _, item := range result {
+	for index, item := range result {
 		if !errorCodePattern.MatchString(item.Code) || item.Category == "" || len(item.Code) > MaxIdentifierBytes || item.Code <= previous {
 			return nil, errors.New("invalid or duplicate node error declaration")
 		}
+		params := append([]ProblemParamSpec(nil), item.Params...)
+		sort.Slice(params, func(i, j int) bool { return params[i].Name < params[j].Name })
+		previousParam := ""
+		for _, field := range params {
+			if !paramNamePattern.MatchString(field.Name) || !validProblemParamType(field.Type) || field.Name <= previousParam {
+				return nil, errors.New("invalid or duplicate node problem parameter declaration")
+			}
+			previousParam = field.Name
+		}
+		result[index].Params = params
 		previous = item.Code
 	}
 	return result, nil
+}
+
+var paramNamePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9._-]{0,127}$`)
+
+func validProblemParamType(value ProblemParamType) bool {
+	return value == ProblemParamString || value == ProblemParamInteger || value == ProblemParamNumber || value == ProblemParamBoolean
 }
 
 func normalizeResolver(source *InstanceResolver) (*InstanceResolver, error) {

@@ -381,7 +381,7 @@ func inventoryRows(product productVersion) []inventoryRow {
 		versionRow(workflowbundle.Format, strconv.Itoa(workflowbundle.Version), "portable"),
 		versionRow(datatype.Format, datatype.Version, "contract"),
 		versionRow(datatype.ValueEnvelopeFormat, datatype.ValueEnvelopeVersion, "durable-value"),
-		versionRow(nodecontract.Format, nodecontract.Version, "contract"),
+		versionRow(nodecontract.Format, nodecontract.Version, "contract", "1", nodecontract.Version),
 		versionRow(nodeauthoring.Format, nodeauthoring.Version, "derived"),
 		versionRow(nodecatalog.Format, nodecatalog.Version, "contract"),
 		versionRow("builtin-node-generator", nodes.GeneratorVersion, "generator"),

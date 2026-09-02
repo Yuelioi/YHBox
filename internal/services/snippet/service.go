@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	workflowauthoring "github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
@@ -37,7 +38,8 @@ func NewServiceWithAuthoring(store *Store, authoring nodeauthoring.Snapshot, emi
 
 func (s *Service) List() ListResult {
 	if s.store == nil {
-		return ListResult{Items: []Summary{}, Warnings: []LoadWarning{{Error: "snippet store is unavailable"}}}
+		envelope := apperr.From(apperr.New("snippet.store.unavailable", nil))
+		return ListResult{Items: []Summary{}, Warnings: []LoadWarning{{Problem: &envelope}}}
 	}
 	return s.store.List()
 }

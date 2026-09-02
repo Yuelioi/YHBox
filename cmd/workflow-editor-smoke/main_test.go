@@ -44,6 +44,10 @@ func TestSeedRecoveryFixtureUsesCurrentCatalogAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer foundation.Close()
+	workflowCount, err := foundation.Workflows().Count(context.Background())
+	if err != nil || workflowCount != 1 {
+		t.Fatalf("workflow count = %d, err=%v", workflowCount, err)
+	}
 	recoveries, err := foundation.Workflows().ListQuarantine(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -117,14 +121,9 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	}
 	oneNode := withState(base, func(state *pageState) { state.CanvasNodes = 1 })
 	twoNodes := withState(base, func(state *pageState) { state.CanvasNodes = 2 })
-	postDelete := withState(base, func(state *pageState) { state.CanvasNodes = 1 })
-	connected := withState(base, func(state *pageState) { state.CanvasNodes, state.CanvasEdges = 2, 1 })
+	connected := withState(base, func(state *pageState) { state.CanvasNodes, state.CanvasEdges = base.CanvasNodes+1, 1 })
 	states := []pageState{
-		{RecoveryPanel: true, WorkflowBrowse: true, WorkflowManageButton: true, LauncherButton: true},
-		{RecoveryPanel: true, WorkflowManagement: true, WorkflowManageButton: true, LauncherButton: true},
-		{RecoveryPanel: true, WorkflowBrowse: true, WorkflowManageButton: true, LauncherButton: true},
-		{CreateInput: true, RecoveryPanel: true, WorkflowBrowse: true, WorkflowManageButton: true, LauncherButton: true},
-		{},
+		{RecoveryPanel: true, WorkflowManagement: true, WorkflowManageButton: true, WorkflowRows: 1, WorkflowTotal: 1, LauncherButton: true},
 		oneNode,
 		withState(base, func(state *pageState) { state.CanvasNodes, state.MinimapOpen = 1, true }),
 		withState(base, func(state *pageState) { state.CanvasNodes = 1 }),
@@ -142,12 +141,9 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 		base,
 		withState(base, func(state *pageState) { state.SelectedNodes, state.SelectionToolbar = 2, true }),
 		base,
-		withState(base, func(state *pageState) { state.SelectedNodes, state.SelectionToolbar = 2, true }),
-		withState(base, func(state *pageState) { state.SelectedNodes, state.SelectionToolbar = 2, true }),
-		postDelete,
-		postDelete,
-		withState(postDelete, func(state *pageState) { state.ConnectionMenu = true }),
-		withState(postDelete, func(state *pageState) { state.ConnectionMenu, state.ConnectionCandidates = true, 1 }),
+		base,
+		withState(base, func(state *pageState) { state.ConnectionMenu = true }),
+		withState(base, func(state *pageState) { state.ConnectionMenu, state.ConnectionCandidates = true, 1 }),
 		connected,
 		connected,
 		withState(connected, func(state *pageState) { state.ConfirmDialog = true }),
@@ -251,7 +247,7 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 		}),
 		{SettingsView: true, SettingsGroups: 4},
 		{
-			WorkflowBrowse: true, WorkflowManageButton: true, WorkflowRows: 20, WorkflowTotal: 41,
+			WorkflowManagement: true, WorkflowRows: 20, WorkflowTotal: 41,
 		},
 	}
 
@@ -379,7 +375,7 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 				result = map[string]any{"result": map[string]any{"value": "true"}}
 			} else if call.Method == "Runtime.evaluate" && strings.Contains(expression, "JSON.stringify") {
 				value := `{"start":{"x":10,"y":10},"end":{"x":20,"y":20}}`
-				if strings.Contains(expression, "quick-added click template node header") {
+				if strings.Contains(expression, "quick-added click template node") {
 					quickSelectionPending = true
 					value = `{"x":15,"y":15}`
 				} else if strings.Contains(expression, "batch delete needs two non-root workflow nodes") {

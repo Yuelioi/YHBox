@@ -10,9 +10,7 @@ export function useRecordingStartFeedback() {
 
   function show(title: string, error: unknown): void {
     const normalized = normalizeError(error)
-    const calibrationRequired =
-      normalized.code === 'RECORDING_CALIBRATION_REQUIRED' ||
-      normalized.message?.trim() === 'RECORDING_CALIBRATION_REQUIRED'
+    const calibrationRequired = normalized.id === 'RECORDING_CALIBRATION_REQUIRED'
     toast.add({
       title,
       description: errorMessage(error),

@@ -444,16 +444,14 @@ func (e *PatchError) Error() string {
 func (e *PatchError) RPCErrorEnvelope() apperr.Envelope {
 	if e == nil {
 		return apperr.Envelope{
-			Code:     apperr.CodeUnclassified,
+			ID:       apperr.IDUnexpected,
 			Category: apperr.CategoryInfrastructure,
-			Message:  "unknown workflow patch error",
 		}
 	}
 	return apperr.Envelope{
-		Code:     e.Code,
+		ID:       e.Code,
 		Category: apperr.CategoryValidation,
-		Message:  e.Message,
-		Details: map[string]any{
+		Params: map[string]any{
 			"commandIndex": e.CommandIndex,
 		},
 	}

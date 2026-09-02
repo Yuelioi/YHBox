@@ -38,10 +38,10 @@ describe('editor toolbar command hierarchy', () => {
     expect(commands(model.editing)).toEqual(['undo', 'redo', 'find-node'])
     expect(commands(model.contextual)).toEqual([])
     expect(commands(model.primary)).toEqual(['run', 'save'])
+    expect(model.ai?.command).toBe('toggle-ai')
     expect(model.tools.flatMap((group) => commands(group))).toEqual([
       'toggle-inspector',
       'toggle-state',
-      'toggle-ai',
       'check-workflow',
       'start-debug',
       'settings',

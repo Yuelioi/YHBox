@@ -8,6 +8,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/aiauthoring"
+	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/runid"
 )
@@ -35,47 +36,132 @@ func NewAIService(app *App, secrets *AISecrets, authoring ...*aiauthoring.Manage
 	return service
 }
 
-func (s *AIService) ProposeWorkflow(slot, workflowID string, baseRevision int64, instruction string) (aiauthoring.Review, error) {
-	if s.authoring == nil || s.app == nil || s.secrets == nil {
-		return aiauthoring.Review{}, errors.New("AI workflow authoring is unavailable")
+func (s *AIService) ProposeWorkflow(slot, workflowID string, baseRevision int64, instruction, runID string) (aiauthoring.Review, error) {
+	runtime, err := s.authoringRuntime(slot)
+	if err != nil {
+		return aiauthoring.Review{}, err
 	}
-	settings := s.app.Settings()
-	configured := findAIProfile(settings, slot)
+	review, err := s.authoring.Propose(context.Background(), runtime, aiauthoring.ProposeRequest{
+		WorkflowID: workflowID, RunID: runID, BaseRevision: baseRevision, Instruction: instruction, TrustClass: "user-authored",
+	})
+	return review, projectAIAuthoringError(err)
+}
+
+func (s *AIService) ListWorkflowAIConversations(workflowID string) ([]aiauthoring.ConversationSummary, error) {
+	if s.authoring == nil {
+		return nil, apperr.New("ai.authoring.unavailable", nil)
+	}
+	items, err := s.authoring.ListConversations(workflowID)
+	return items, projectAIAuthoringError(err)
+}
+
+func (s *AIService) CreateWorkflowAIConversation(workflowID string) (aiauthoring.Conversation, error) {
+	if s.authoring == nil {
+		return aiauthoring.Conversation{}, apperr.New("ai.authoring.unavailable", nil)
+	}
+	conversation, err := s.authoring.CreateConversation(workflowID)
+	return conversation, projectAIAuthoringError(err)
+}
+
+func (s *AIService) GetWorkflowAIConversation(workflowID, conversationID string) (aiauthoring.Conversation, error) {
+	if s.authoring == nil {
+		return aiauthoring.Conversation{}, apperr.New("ai.authoring.unavailable", nil)
+	}
+	conversation, err := s.authoring.GetConversation(workflowID, conversationID)
+	return conversation, projectAIAuthoringError(err)
+}
+
+func (s *AIService) DeleteWorkflowAIConversation(workflowID, conversationID string) error {
+	if s.authoring == nil {
+		return apperr.New("ai.authoring.unavailable", nil)
+	}
+	return projectAIAuthoringError(s.authoring.DeleteConversation(workflowID, conversationID))
+}
+
+func (s *AIService) SendWorkflowAIMessage(slot, workflowID, conversationID string, baseRevision int64, instruction, runID string) (aiauthoring.Conversation, error) {
+	runtime, err := s.authoringRuntime(slot)
+	if err != nil {
+		if s.authoring != nil {
+			envelope := apperr.From(err)
+			_, _ = s.authoring.RecordFailedTurn(workflowID, conversationID, instruction, envelope.ID, envelope.OperationID)
+		}
+		return aiauthoring.Conversation{}, err
+	}
+	conversation, _, err := s.authoring.ProposeTurn(context.Background(), runtime, aiauthoring.ConversationTurnRequest{
+		ConversationID: conversationID, WorkflowID: workflowID, RunID: runID, BaseRevision: baseRevision,
+		Instruction: instruction, TrustClass: "user-authored",
+		Progress: func(progress aiauthoring.ConversationProgress) { s.app.Emit("ai:conversation-progress", progress) },
+	})
+	projected := projectAIAuthoringError(err)
+	if projected != nil {
+		envelope := apperr.From(projected)
+		conversation, _ = s.authoring.RecordFailure(workflowID, conversationID, envelope.ID, envelope.OperationID)
+	}
+	return conversation, projected
+}
+
+func (s *AIService) authoringRuntime(slot string) (aiauthoring.Runtime, error) {
+	if s.authoring == nil || s.app == nil || s.secrets == nil {
+		return aiauthoring.Runtime{}, apperr.New("ai.authoring.unavailable", nil)
+	}
+	configured := findAIProfile(s.app.Settings(), slot)
 	if configured == nil {
-		return aiauthoring.Review{}, fmt.Errorf("AI profile slot %q is not configured", slot)
+		return aiauthoring.Runtime{}, apperr.New("ai.authoring.profile_not_found", map[string]any{"slot": slot})
 	}
 	profile, err := ai.SealModelProfile(configured.profileDraft())
 	if err != nil {
-		return aiauthoring.Review{}, err
-	}
-	builtins, err := nodes.Build()
-	if err != nil {
-		return aiauthoring.Review{}, err
-	}
-	if err := ai.ValidateEvaluationCandidate(profile, configured.EvaluationReport, builtins.AIEvaluationArtifacts()); err != nil {
-		return aiauthoring.Review{}, err
+		return aiauthoring.Runtime{}, fmt.Errorf("%w: %v", apperr.New("ai.authoring.profile_invalid", map[string]any{"slot": slot}), err)
 	}
 	if !profile.Machine().Capabilities.ToolCalling {
-		return aiauthoring.Review{}, errors.New("AI profile does not support native tool calling")
+		return aiauthoring.Runtime{}, apperr.New("ai.authoring.tool_calling_required", map[string]any{"slot": slot})
 	}
 	credential := "codex-subscription"
 	if profile.Machine().Provider != ai.ProviderCodexSubscription {
 		credential, err = s.secrets.Get(ai.CredentialBindingID(slot))
 		if err != nil || credential == "" {
-			return aiauthoring.Review{}, errors.New("AI credential is unavailable")
+			return aiauthoring.Runtime{}, apperr.New("ai.authoring.credential_unavailable", map[string]any{"slot": slot})
 		}
 	}
 	provider, err := s.newNative(profile)
 	if err != nil {
-		return aiauthoring.Review{}, err
+		return aiauthoring.Runtime{}, fmt.Errorf("%w: %v", apperr.New("ai.authoring.provider_unavailable", map[string]any{"slot": slot, "provider": profile.Machine().Provider}), err)
 	}
 	agent, ok := provider.(ai.AgentProvider)
 	if !ok {
-		return aiauthoring.Review{}, errors.New("AI provider does not support native agent continuation")
+		return aiauthoring.Runtime{}, apperr.New("ai.authoring.agent_unsupported", map[string]any{"slot": slot})
 	}
-	return s.authoring.Propose(context.Background(), aiauthoring.Runtime{Profile: profile, Provider: agent, Credential: credential}, aiauthoring.ProposeRequest{
-		WorkflowID: workflowID, BaseRevision: baseRevision, Instruction: instruction, TrustClass: "user-authored",
-	})
+	return aiauthoring.Runtime{Profile: profile, Provider: agent, Credential: credential}, nil
+}
+
+func projectAIAuthoringError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var failure *ai.ProviderFailure
+	if errors.As(err, &failure) {
+		return fmt.Errorf("%w: %v", apperr.New("ai.authoring.provider_failed", map[string]any{"stage": failure.Stage, "class": failure.Class, "retry": failure.Retry}), err)
+	}
+	var toolInput *aiauthoring.ToolInputError
+	if errors.As(err, &toolInput) {
+		return fmt.Errorf("%w: %v", apperr.New("ai.authoring.tool_input_invalid", map[string]any{"tool": toolInput.Tool}), err)
+	}
+	var envelopeProvider apperr.EnvelopeProvider
+	if errors.As(err, &envelopeProvider) {
+		return err
+	}
+	if errors.Is(err, aiauthoring.ErrConversationNotFound) {
+		return fmt.Errorf("%w: %v", apperr.New("ai.authoring.conversation_not_found", nil), err)
+	}
+	if errors.Is(err, aiauthoring.ErrConversationCapacity) {
+		return fmt.Errorf("%w: %v", apperr.New("ai.authoring.conversation_capacity", nil), err)
+	}
+	if errors.Is(err, aiauthoring.ErrDiagnosticRunUnavailable) {
+		return fmt.Errorf("%w: %v", apperr.New("ai.authoring.run_unavailable", nil), err)
+	}
+	if errors.Is(err, aiauthoring.ErrDiagnosticRunWorkflowMismatch) {
+		return fmt.Errorf("%w: %v", apperr.New("ai.authoring.run_workflow_mismatch", nil), err)
+	}
+	return fmt.Errorf("%w: %v", apperr.New("ai.authoring.failed", nil), err)
 }
 
 func (s *AIService) AcceptWorkflowProposal(reviewID string) (aiauthoring.Review, error) {
@@ -108,14 +194,14 @@ type TestProfileRequest struct {
 }
 
 type TestProfileResult struct {
-	Ok             bool            `json:"ok"`
-	Provider       ai.ProviderKind `json:"provider"`
-	RequestedModel string          `json:"requestedModel"`
-	ResolvedModel  string          `json:"resolvedModel"`
-	Finish         ai.FinishKind   `json:"finish"`
-	FailureClass   ai.FailureClass `json:"failureClass,omitempty"`
-	HTTPStatus     int             `json:"httpStatus,omitempty"`
-	Error          string          `json:"error,omitempty"`
+	Ok             bool             `json:"ok"`
+	Provider       ai.ProviderKind  `json:"provider"`
+	RequestedModel string           `json:"requestedModel"`
+	ResolvedModel  string           `json:"resolvedModel"`
+	Finish         ai.FinishKind    `json:"finish"`
+	FailureClass   ai.FailureClass  `json:"failureClass,omitempty"`
+	HTTPStatus     int              `json:"httpStatus,omitempty"`
+	Problem        *apperr.Envelope `json:"problem,omitempty"`
 }
 
 // TestProfile performs one explicit provider-native generation against the
@@ -175,10 +261,13 @@ func (s *AIService) TestProfile(request TestProfileRequest) TestProfileResult {
 }
 
 func aiTestFailure(err error) TestProfileResult {
-	result := TestProfileResult{Error: err.Error()}
+	envelope := apperr.From(err)
+	result := TestProfileResult{Problem: &envelope}
 	var failure *ai.ProviderFailure
 	if errors.As(err, &failure) {
 		result.FailureClass = failure.Class
+		result.Problem.ID = "ai.provider." + string(failure.Class)
+		result.Problem.Category = apperr.CategoryAdapter
 		if failure.HTTPStatus != nil {
 			result.HTTPStatus = *failure.HTTPStatus
 		}

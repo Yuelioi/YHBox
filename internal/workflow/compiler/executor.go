@@ -215,7 +215,7 @@ func runErrorForExecution(executionErr error, journal []run.JournalEntry) run.Ru
 				}
 			}
 			return run.RunError{
-				Code: entry.ErrorCode, Category: category, GraphID: entry.GraphPath[len(entry.GraphPath)-1],
+				Code: entry.ErrorCode, Params: append(json.RawMessage(nil), entry.ErrorParams...), Category: category, GraphID: entry.GraphPath[len(entry.GraphPath)-1],
 				NodeID: entry.NodeID, Attempt: entry.Attempt,
 			}
 		}

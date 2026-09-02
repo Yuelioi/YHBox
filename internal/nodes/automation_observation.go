@@ -10,12 +10,17 @@ import (
 )
 
 const (
-	WaitStableNodeID = "https://schemas.yotta.dev/nodes/automation/wait-stable"
-	WaitChangeNodeID = "https://schemas.yotta.dev/nodes/automation/wait-change"
+	AutomationObservationNodeVersion = "1.1.0"
+	WaitStableNodeID                 = "https://schemas.yotta.dev/nodes/automation/wait-stable"
+	WaitChangeNodeID                 = "https://schemas.yotta.dev/nodes/automation/wait-change"
 
-	WaitStableEffectID    = "https://schemas.yotta.dev/effects/automation/wait-stable/v1"
-	WaitChangeEffectID    = "https://schemas.yotta.dev/effects/automation/wait-change/v1"
-	ObservationFailedCode = "automation.observation_failed"
+	WaitStableEffectID       = "https://schemas.yotta.dev/effects/automation/wait-stable/v1"
+	WaitChangeEffectID       = "https://schemas.yotta.dev/effects/automation/wait-change/v1"
+	ObservationFailedCode    = "automation.observation_failed"
+	ObservationWaitingStatus = "automation.observation.waiting"
+	ObservationChangedStatus = "automation.observation.changed"
+	ObservationStableStatus  = "automation.observation.stable"
+	ObservationTimeoutStatus = "automation.observation.timeout"
 )
 
 func defineAutomationObservationNodes(types automationTemplateTypes) ([]BuiltinDefinition, error) {
@@ -55,7 +60,7 @@ func defineAutomationObservationNodes(types automationTemplateTypes) ([]BuiltinD
 		outputs := []nodecontract.DataOutputPort{{ID: "changed-ratio", Type: numberType}, {ID: "mean-difference", Type: numberType}}
 		schemaID := item.id + "/config"
 		contract, err := nodecontract.Seal(nodecontract.Draft{
-			Version: BuiltinNodeVersion, NodeTypeID: item.id, ConfigSchemaRoot: schemaID,
+			Version: AutomationObservationNodeVersion, NodeTypeID: item.id, ConfigSchemaRoot: schemaID,
 			ConfigSchemaBundle: []datatype.SchemaResource{{ID: schemaID, Schema: json.RawMessage(fmt.Sprintf(`{
 				"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
 				"properties":{"slot":{"type":"string","minLength":1,"maxLength":128,"pattern":"^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
@@ -74,7 +79,12 @@ func defineAutomationObservationNodes(types automationTemplateTypes) ([]BuiltinD
 			},
 			Instruction:       nodecontract.Invoke(),
 			ConfiguredTargets: automationTargetSpec("capture-target", installed.TargetKindDesktopWindow, installed.TargetKindAndroidDevice, installed.TargetKindBrowserCDP),
-			Errors:            automationObservationErrors(), StatusEvents: []nodecontract.StatusEventSpec{},
+			Errors:            automationObservationErrors(), StatusEvents: []nodecontract.StatusEventSpec{
+				{Code: ObservationChangedStatus, Category: nodecontract.StatusProgress},
+				{Code: ObservationStableStatus, Category: nodecontract.StatusProgress},
+				{Code: ObservationTimeoutStatus, Category: nodecontract.StatusProgress},
+				{Code: ObservationWaitingStatus, Category: nodecontract.StatusWaiting},
+			},
 			ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 			Authoring: nodecontract.Authoring{
 				TitleKey: item.key + ".title", DescriptionKey: item.key + ".description", Category: "automation",

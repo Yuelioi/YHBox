@@ -12,7 +12,20 @@
           </h2>
         </div>
         <p class="mt-0.5 truncate font-mono text-[10px] text-dimmed">{{ run.runId }}</p>
+        <p v-if="run.workflowId" class="mt-0.5 truncate font-mono text-[10px] text-dimmed">
+          {{ t('workflow.timeline.source_revision', { revision: run.sourceRevision }) }} ·
+          {{ run.workflowId }}
+        </p>
       </div>
+      <UButton
+        v-if="run.workflowId"
+        :label="t('workflow.timeline.ai_diagnose')"
+        icon="i-tabler-sparkles"
+        color="primary"
+        variant="soft"
+        size="xs"
+        @click="emit('diagnose')"
+      />
       <UButton
         v-if="canCancel"
         :label="t('workflow.action.stop')"
@@ -140,7 +153,10 @@
                 v-if="isUnhandledRoute(entry)"
                 class="mt-1 block text-[10px] font-medium text-warning"
               >
-                {{ t('workflow.timeline.unhandled_route', { route: 'timeout' }) }}
+                {{ t('workflow.timeline.unhandled_route', { route: unhandledRoute(entry) }) }}
+              </span>
+              <span v-if="templateMatchEvidence(entry)" class="mt-1 block text-[10px] text-muted">
+                {{ templateMatchEvidence(entry) }}
               </span>
             </span>
             <span class="text-right font-mono text-[10px]">
@@ -168,6 +184,9 @@
               </time>
               <span v-if="entry.attempt > 0" class="mt-0.5 block text-dimmed">
                 {{ t('workflow.timeline.attempt', { n: entry.attempt }) }}
+              </span>
+              <span v-if="entry.nodeId" class="mt-1 block text-primary">
+                {{ t('workflow.timeline.locate_node') }}
               </span>
             </span>
           </UButton>
@@ -199,6 +218,7 @@ const emit = defineEmits<{
   'focus-node': [graphPath: string[], nodeId: string]
   page: [page: number]
   export: []
+  diagnose: []
 }>()
 const { t, te } = useI18n()
 const now = useNow({ interval: 1000 })
@@ -224,7 +244,7 @@ const canCancel = computed(() => ['QUEUED', 'RUNNING'].includes(props.run.status
 const failureMessage = computed(() => {
   if (!props.run.failure) return ''
   const key = `error.${props.run.failure.code}`
-  return te(key) ? t(key) : props.run.failure.code
+  return te(key) ? t(key, props.run.failure.params ?? {}) : props.run.failure.code
 })
 const statusColor = computed(() => {
   switch (props.run.status.toUpperCase()) {
@@ -253,5 +273,29 @@ function isUnhandledRoute(entry: RunView['timeline'][number]): boolean {
     entry.nodeId &&
     unhandledRouteSet.value.has(runRouteKey(entry.graphPath, entry.nodeId, port)),
   )
+}
+
+function unhandledRoute(entry: RunView['timeline'][number]): string {
+  return statusRoutePort(entry.statusCode) ?? ''
+}
+
+function templateMatchEvidence(entry: RunView['timeline'][number]): string {
+  if (
+    entry.statusCode !== 'automation.template.timeout' &&
+    entry.statusCode !== 'automation.template.matched'
+  )
+    return ''
+  const counters = entry.summary.counters
+  const best = counters.best_score_ppm
+  const threshold = counters.threshold_ppm
+  if (typeof best !== 'number' || typeof threshold !== 'number') return ''
+  return t('workflow.timeline.template_evidence', {
+    best: (best / 10_000).toFixed(2),
+    threshold: (threshold / 10_000).toFixed(2),
+    x: counters.best_x ?? 0,
+    y: counters.best_y ?? 0,
+    width: counters.best_width ?? 0,
+    height: counters.best_height ?? 0,
+  })
 }
 </script>

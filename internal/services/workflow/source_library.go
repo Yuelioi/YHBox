@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflowbundle"
 )
@@ -107,7 +108,7 @@ func (s *Service) BatchUpdateSourceMetadata(requests []BatchUpdateSourceMetadata
 	for _, request := range requests {
 		result := BatchUpdateSourceMetadataResult{WorkflowID: request.WorkflowID}
 		if _, duplicate := seen[request.WorkflowID]; duplicate {
-			result.Error = "duplicate workflow source metadata request"
+			result.Problem = workflowProblem("workflow.batch.duplicate", map[string]any{"operation": "metadata"})
 			results = append(results, result)
 			continue
 		}
@@ -130,7 +131,7 @@ func (s *Service) BatchUpdateSourceMetadata(requests []BatchUpdateSourceMetadata
 			})
 		}
 		if err != nil {
-			result.Error = err.Error()
+			result.Problem = workflowProblemFrom(err)
 		} else {
 			result.Updated = true
 		}
@@ -145,20 +146,20 @@ func (s *Service) ExportSourceBundles(workflowIDs []string, directory string) []
 	for _, workflowID := range workflowIDs {
 		result := BundleExportResult{WorkflowID: workflowID}
 		if s.bundles == nil {
-			result.Error = "workflow source portability is unavailable"
+			result.Problem = workflowProblem("workflow.bundle.unavailable", nil)
 		} else if strings.TrimSpace(directory) == "" {
-			result.Error = "workflow source export directory is required"
+			result.Problem = workflowProblem("workflow.bundle.directory_required", nil)
 		} else if _, duplicate := seen[workflowID]; duplicate {
-			result.Error = "duplicate workflow source export request"
+			result.Problem = workflowProblem("workflow.batch.duplicate", map[string]any{"operation": "export"})
 		} else {
 			seen[workflowID] = struct{}{}
 			destination := filepath.Join(directory, workflowID+workflowbundle.Extension)
 			if _, err := os.Lstat(destination); err == nil {
-				result.Error = "destination already exists"
+				result.Problem = workflowProblem("workflow.bundle.destination_exists", map[string]any{"workflowId": workflowID})
 			} else if !errors.Is(err, os.ErrNotExist) {
-				result.Error = err.Error()
+				result.Problem = workflowProblemFrom(err)
 			} else if exported, err := s.bundles.Export(context.Background(), workflowID, destination); err != nil {
-				result.Error = err.Error()
+				result.Problem = workflowProblemFrom(err)
 			} else {
 				result.Exported = true
 				result.Path = exported.Path
@@ -199,19 +200,19 @@ func (s *Service) DeleteSources(requests []DeleteSourceRequest) []DeleteSourceRe
 	for _, request := range requests {
 		result := DeleteSourceResult{WorkflowID: request.WorkflowID}
 		if _, duplicate := seen[request.WorkflowID]; duplicate {
-			result.Error = "duplicate workflow source delete request"
+			result.Problem = workflowProblem("workflow.batch.duplicate", map[string]any{"operation": "delete"})
 			results = append(results, result)
 			continue
 		}
 		seen[request.WorkflowID] = struct{}{}
 		result.References = s.sourceReferences(request.WorkflowID)
 		if len(result.References) != 0 {
-			result.Error = "workflow source is referenced"
+			result.Problem = workflowProblem("workflow.source.referenced", map[string]any{"references": len(result.References)})
 			results = append(results, result)
 			continue
 		}
 		if err := s.application.DeleteSource(context.Background(), request.WorkflowID, request.Revision, request.SourceHash); err != nil {
-			result.Error = err.Error()
+			result.Problem = workflowProblemFrom(err)
 		} else {
 			result.Deleted = true
 		}
@@ -340,4 +341,14 @@ func containsEverySourceTag(tags, wanted []string) bool {
 		}
 	}
 	return true
+}
+
+func workflowProblem(id string, params map[string]any) *apperr.Envelope {
+	envelope := apperr.From(apperr.New(id, params))
+	return &envelope
+}
+
+func workflowProblemFrom(err error) *apperr.Envelope {
+	envelope := apperr.From(err)
+	return &envelope
 }

@@ -27,6 +27,10 @@ _Avoid_: Artifact、Blob
 Workflow 的一次执行及其状态、时间线和结果。
 _Avoid_: Execution installation、运行实例对象
 
+**Run Evidence**:
+一次 Run 已发生事实的有界、结构化记录，包含稳定来源与节点定位，可供用户、工具或 AI 解释运行结果。
+_Avoid_: Debug log、完整运行上下文、诊断结论
+
 ## Authoring language
 
 **Graph**:
@@ -81,5 +85,5 @@ _Avoid_: Embedded secret、workflow credential
 _Avoid_: Release payload、installation source
 
 **Diagnostic**:
-创作或运行前发现的问题，包含问题位置和用户可采取的修复动作。
+根据 Workflow Source、Node Contract 或 Run Evidence 得出的可操作问题说明，包含问题位置和用户可采取的修复动作。
 _Avoid_: Admission verdict、policy result

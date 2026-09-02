@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 16,
-    "methods": 142,
-    "models": 230
+    "methods": 147,
+    "models": 235
   },
   "services": [
     {
@@ -125,6 +125,18 @@
           "returns": "$CancellablePromise<void>"
         },
         {
+          "name": "CreateWorkflowAIConversation",
+          "bindingId": "107127660",
+          "parameters": [
+            {
+              "name": "workflowID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<aiauthoring$0.Conversation>"
+        },
+        {
           "name": "DeleteAPIKey",
           "bindingId": "3519466312",
           "parameters": [
@@ -137,6 +149,40 @@
           "returns": "$CancellablePromise<void>"
         },
         {
+          "name": "DeleteWorkflowAIConversation",
+          "bindingId": "536220111",
+          "parameters": [
+            {
+              "name": "workflowID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "conversationID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "GetWorkflowAIConversation",
+          "bindingId": "1140421620",
+          "parameters": [
+            {
+              "name": "workflowID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "conversationID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<aiauthoring$0.Conversation>"
+        },
+        {
           "name": "GetWorkflowProposal",
           "bindingId": "3355843683",
           "parameters": [
@@ -147,6 +193,18 @@
             }
           ],
           "returns": "$CancellablePromise<aiauthoring$0.Review>"
+        },
+        {
+          "name": "ListWorkflowAIConversations",
+          "bindingId": "3675457649",
+          "parameters": [
+            {
+              "name": "workflowID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<aiauthoring$0.ConversationSummary[]>"
         },
         {
           "name": "ProposeWorkflow",
@@ -169,6 +227,11 @@
             },
             {
               "name": "instruction",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "runID",
               "optional": false,
               "type": "string"
             }
@@ -210,6 +273,43 @@
             }
           ],
           "returns": "$CancellablePromise<{ [_ in string]?: boolean }>"
+        },
+        {
+          "name": "SendWorkflowAIMessage",
+          "bindingId": "3027263800",
+          "parameters": [
+            {
+              "name": "slot",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "workflowID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "conversationID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "baseRevision",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "instruction",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "runID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<aiauthoring$0.Conversation>"
         },
         {
           "name": "SetAPIKey",
@@ -2185,6 +2285,134 @@
         },
         {
           "kind": "class",
+          "name": "Conversation",
+          "fields": [
+            {
+              "name": "\"format\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"version\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"workflowId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"title\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"createdAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"updatedAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"messages\"",
+              "optional": false,
+              "type": "ConversationMessage[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "ConversationMessage",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"role\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"content\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"createdAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"reviewId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"review\"",
+              "optional": true,
+              "type": "Review | null"
+            },
+            {
+              "name": "\"problemId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"operationId\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "ConversationSummary",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"workflowId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"title\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"createdAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"updatedAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"messageCount\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "InputFingerprint",
           "fields": [
             {
@@ -2370,6 +2598,47 @@
               "name": "\"facts\"",
               "optional": false,
               "type": "{ [_ in string]?: string }"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/apperr/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "Envelope",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"params\"",
+              "optional": true,
+              "type": "any"
+            },
+            {
+              "name": "\"operationId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"runId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"retryable\"",
+              "optional": false,
+              "type": "boolean"
             }
           ]
         }
@@ -3372,9 +3641,9 @@
               "type": "boolean"
             },
             {
-              "name": "\"error\"",
+              "name": "\"problem\"",
               "optional": true,
-              "type": "string"
+              "type": "apperr$0.Envelope | null"
             }
           ]
         },
@@ -4048,9 +4317,9 @@
               "type": "string"
             },
             {
-              "name": "\"message\"",
-              "optional": false,
-              "type": "string"
+              "name": "\"params\"",
+              "optional": true,
+              "type": "{ [_ in string]?: any }"
             }
           ]
         },
@@ -4256,12 +4525,28 @@
         },
         {
           "kind": "class",
+          "name": "AIRoleSettings",
+          "fields": [
+            {
+              "name": "\"diagnostics\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "AISettings",
           "fields": [
             {
               "name": "\"profiles\"",
               "optional": false,
               "type": "AIModelSettings[]"
+            },
+            {
+              "name": "\"roles\"",
+              "optional": false,
+              "type": "AIRoleSettings"
             }
           ]
         },
@@ -4328,14 +4613,14 @@
               "type": "boolean"
             },
             {
-              "name": "\"code\"",
+              "name": "\"id\"",
               "optional": false,
               "type": "string"
             },
             {
-              "name": "\"message\"",
-              "optional": false,
-              "type": "string"
+              "name": "\"params\"",
+              "optional": true,
+              "type": "{ [_ in string]?: any }"
             }
           ]
         },
@@ -4752,9 +5037,9 @@
               "type": "number"
             },
             {
-              "name": "\"error\"",
+              "name": "\"problem\"",
               "optional": true,
-              "type": "string"
+              "type": "apperr$0.Envelope | null"
             }
           ]
         },
@@ -5833,9 +6118,9 @@
               "type": "string"
             },
             {
-              "name": "\"error\"",
+              "name": "\"problem\"",
               "optional": false,
-              "type": "string"
+              "type": "apperr$0.Envelope | null"
             }
           ]
         },
@@ -6192,9 +6477,9 @@
               "type": "boolean"
             },
             {
-              "name": "\"error\"",
+              "name": "\"problem\"",
               "optional": true,
-              "type": "string"
+              "type": "apperr$0.Envelope | null"
             }
           ]
         },
@@ -6218,9 +6503,9 @@
               "type": "boolean"
             },
             {
-              "name": "\"error\"",
+              "name": "\"problem\"",
               "optional": true,
-              "type": "string"
+              "type": "apperr$0.Envelope | null"
             }
           ]
         },
@@ -6369,9 +6654,9 @@
               "type": "SourceReference[]"
             },
             {
-              "name": "\"error\"",
+              "name": "\"problem\"",
               "optional": true,
-              "type": "string"
+              "type": "apperr$0.Envelope | null"
             }
           ]
         },
@@ -6399,6 +6684,11 @@
               "name": "\"code\"",
               "optional": false,
               "type": "string"
+            },
+            {
+              "name": "\"params\"",
+              "optional": true,
+              "type": "{ [_ in string]?: any }"
             },
             {
               "name": "\"category\"",
@@ -6523,6 +6813,21 @@
               "name": "\"runId\"",
               "optional": false,
               "type": "string"
+            },
+            {
+              "name": "\"workflowId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"sourceHash\"",
+              "optional": true,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"sourceRevision\"",
+              "optional": true,
+              "type": "number"
             },
             {
               "name": "\"status\"",
@@ -6881,6 +7186,11 @@
               "name": "\"errorCode\"",
               "optional": true,
               "type": "string"
+            },
+            {
+              "name": "\"errorParams\"",
+              "optional": true,
+              "type": "{ [_ in string]?: any }"
             },
             {
               "name": "\"statusCode\"",

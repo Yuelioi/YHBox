@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/yottaapp/yotta/internal/automation/browsercdp"
@@ -16,9 +15,9 @@ import (
 type AutomationService struct{ app *App }
 
 type AutomationTargetHealth struct {
-	OK      bool   `json:"ok"`
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	OK     bool           `json:"ok"`
+	ID     string         `json:"id"`
+	Params map[string]any `json:"params,omitempty"`
 }
 
 func NewAutomationService(app *App) *AutomationService { return &AutomationService{app: app} }
@@ -47,7 +46,7 @@ func (service *AutomationService) ListBrowserTargets(endpoint string) ([]browser
 
 func (service *AutomationService) CheckTargetHealth(slot string) AutomationTargetHealth {
 	if service == nil || service.app == nil {
-		return AutomationTargetHealth{Code: "unavailable", Message: "automation service is unavailable"}
+		return AutomationTargetHealth{ID: "automation.health.unavailable"}
 	}
 	settings := service.app.Settings()
 	applications := make(map[string]InstalledApplicationSettings, len(settings.Applications.Profiles))
@@ -60,13 +59,13 @@ func (service *AutomationService) CheckTargetHealth(slot string) AutomationTarge
 		}
 		draft, err := configured.profileDraft(applications[configured.applicationSlot()])
 		if err != nil {
-			return AutomationTargetHealth{Code: "invalid-profile", Message: err.Error()}
+			return AutomationTargetHealth{ID: "automation.health.invalid_profile", Params: map[string]any{"slot": slot}}
 		}
 		installations, err := automationinstalled.Install([]automationinstalled.InstallationDraft{{
 			Slot: configured.Slot, Label: configured.Label, Profile: draft,
 		}})
 		if err != nil {
-			return AutomationTargetHealth{Code: "invalid-profile", Message: err.Error()}
+			return AutomationTargetHealth{ID: "automation.health.invalid_profile", Params: map[string]any{"slot": slot}}
 		}
 		defer installations.Close()
 		installed := installations.Entries()[0]
@@ -76,9 +75,9 @@ func (service *AutomationService) CheckTargetHealth(slot string) AutomationTarge
 		if err != nil {
 			return automationHealthFailure(err)
 		}
-		return AutomationTargetHealth{OK: true, Code: "ready", Message: "target identity and adapter runtime are ready"}
+		return AutomationTargetHealth{OK: true, ID: "automation.health.ready", Params: map[string]any{"slot": slot}}
 	}
-	return AutomationTargetHealth{Code: "not-found", Message: fmt.Sprintf("automation target slot %q is not installed", slot)}
+	return AutomationTargetHealth{ID: "automation.health.not_found", Params: map[string]any{"slot": slot}}
 }
 
 func automationHealthFailure(err error) AutomationTargetHealth {
@@ -87,5 +86,5 @@ func automationHealthFailure(err error) AutomationTargetHealth {
 	if errors.As(err, &classified) {
 		code = classified.Code
 	}
-	return AutomationTargetHealth{Code: code, Message: err.Error()}
+	return AutomationTargetHealth{ID: code}
 }

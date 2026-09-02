@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => ({
     finish: '',
     failureClass: 'not-found',
     httpStatus: 404,
-    error: 'AI provider failure: not-found',
+    problem: { id: 'ai.provider.not-found', category: 'adapter', retryable: false },
   })),
 }))
 
@@ -79,7 +79,7 @@ beforeEach(() => {
     finish: '',
     failureClass: 'not-found',
     httpStatus: 404,
-    error: 'AI provider failure: not-found',
+    problem: { id: 'ai.provider.not-found', category: 'adapter', retryable: false },
   })
 })
 
@@ -149,6 +149,11 @@ async function runConfiguredProfileTest(root: HTMLElement): Promise<void> {
 }
 
 describe('SettingsAI model draft', () => {
+  it('explains why the diagnostic model selector has no usable options', async () => {
+    const root = await mountConfiguredAIProfile()
+    expect(root.textContent).toContain('settingsAI.roles.unavailable.tool-calling-required')
+  })
+
   it('explains a Responses 404 and points to Chat Completions', async () => {
     const root = await mountConfiguredAIProfile()
     await runConfiguredProfileTest(root)
@@ -167,7 +172,7 @@ describe('SettingsAI model draft', () => {
       finish: '',
       failureClass: 'invalid-response',
       httpStatus: 200,
-      error: 'AI provider failure: invalid-response',
+      problem: { id: 'ai.provider.invalid-response', category: 'adapter', retryable: false },
     })
     const root = await mountConfiguredAIProfile()
     await runConfiguredProfileTest(root)

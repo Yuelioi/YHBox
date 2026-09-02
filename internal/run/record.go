@@ -16,6 +16,7 @@ import (
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/problem"
 	"github.com/yottaapp/yotta/internal/runid"
 )
 
@@ -45,6 +46,9 @@ const (
 
 type Admission struct {
 	RunID                string
+	WorkflowID           string
+	SourceHash           artifact.Digest
+	SourceRevision       int64
 	ProgramHash          artifact.Digest
 	CatalogHash          artifact.Digest
 	CapabilityPlanDigest artifact.Digest
@@ -55,6 +59,9 @@ type Admission struct {
 }
 
 type QueueRequest struct {
+	WorkflowID           string
+	SourceHash           artifact.Digest
+	SourceRevision       int64
 	ProgramHash          artifact.Digest
 	CatalogHash          artifact.Digest
 	CapabilityPlanDigest artifact.Digest
@@ -63,12 +70,13 @@ type QueueRequest struct {
 }
 
 type RunError struct {
-	Code      string `json:"code"`
-	Category  string `json:"category"`
-	Retryable bool   `json:"retryable"`
-	GraphID   string `json:"graphId,omitempty"`
-	NodeID    string `json:"nodeId,omitempty"`
-	Attempt   int    `json:"attempt,omitempty"`
+	Code      string          `json:"code"`
+	Params    json.RawMessage `json:"params,omitempty"`
+	Category  string          `json:"category"`
+	Retryable bool            `json:"retryable"`
+	GraphID   string          `json:"graphId,omitempty"`
+	NodeID    string          `json:"nodeId,omitempty"`
+	Attempt   int             `json:"attempt,omitempty"`
 }
 
 const (
@@ -102,6 +110,9 @@ type recordDocument struct {
 	Version              string          `json:"version"`
 	RecordDigest         artifact.Digest `json:"recordDigest"`
 	RunID                string          `json:"runId"`
+	WorkflowID           string          `json:"workflowId,omitempty"`
+	SourceHash           artifact.Digest `json:"sourceHash,omitempty"`
+	SourceRevision       int64           `json:"sourceRevision,omitempty"`
 	Generation           uint64          `json:"generation"`
 	ProgramHash          artifact.Digest `json:"programHash"`
 	CatalogHash          artifact.Digest `json:"catalogHash"`
@@ -132,6 +143,7 @@ func NewQueuedRecord(request QueueRequest) (Record, error) {
 	}
 	document := recordDocument{
 		Format: RecordFormat, Version: RecordVersion, RunID: request.Grant.RunID(), Generation: 1,
+		WorkflowID: request.WorkflowID, SourceHash: request.SourceHash, SourceRevision: request.SourceRevision,
 		ProgramHash: request.ProgramHash, CatalogHash: request.CatalogHash,
 		CapabilityPlanDigest: request.CapabilityPlanDigest, GrantDigest: request.Grant.Digest(), GrantArtifact: request.Grant.Bytes(),
 		PolicyGeneration: request.Grant.PolicyGeneration(), Principal: request.Grant.Principal(),
@@ -206,6 +218,10 @@ func validateRecord(document recordDocument, catalog datatype.ValueTypeCatalog) 
 		grant.PolicyGeneration != document.PolicyGeneration || grant.Principal != document.Principal || document.QueuedAt.Before(grant.IssuedAt) {
 		return errors.New("invalid RunRecord identity")
 	}
+	hasSourceIdentity := document.WorkflowID != "" || document.SourceHash != "" || document.SourceRevision != 0
+	if hasSourceIdentity && (document.WorkflowID == "" || !document.SourceHash.Valid() || document.SourceRevision < 0) {
+		return errors.New("invalid RunRecord Source identity")
+	}
 	if catalog == nil && len(document.Values) != 0 {
 		return errors.New("trusted type catalog required for Run values")
 	}
@@ -267,6 +283,9 @@ func validTerminalTimes(document recordDocument) bool {
 }
 func validRunError(value RunError) bool {
 	if !errorCodePattern.MatchString(value.Code) || !validErrorCategory(value.Category) || value.Attempt < 0 {
+		return false
+	}
+	if _, err := problem.Open(value.Params); err != nil {
 		return false
 	}
 	if value.GraphID == "" && value.NodeID == "" {
@@ -423,7 +442,8 @@ func (r Record) Admission() Admission {
 	}
 	document := r.state.document
 	return Admission{
-		RunID: document.RunID, ProgramHash: document.ProgramHash, CatalogHash: document.CatalogHash,
+		RunID: document.RunID, WorkflowID: document.WorkflowID, SourceHash: document.SourceHash, SourceRevision: document.SourceRevision,
+		ProgramHash: document.ProgramHash, CatalogHash: document.CatalogHash,
 		CapabilityPlanDigest: document.CapabilityPlanDigest, GrantDigest: document.GrantDigest,
 		PolicyGeneration: document.PolicyGeneration, Principal: document.Principal, QueuedAt: document.QueuedAt,
 	}

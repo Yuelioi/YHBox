@@ -169,6 +169,13 @@ func (p PreparedPatch) CandidateArtifact() []byte {
 	return append([]byte(nil), p.state.candidate...)
 }
 
+func (p PreparedPatch) GeneratedNodes() []authoring.GeneratedNode {
+	if !p.Valid() {
+		return nil
+	}
+	return append([]authoring.GeneratedNode(nil), p.state.generated...)
+}
+
 type PreparePatchResult struct {
 	Patch          PreparedPatch
 	Diagnostics    []schema.Diagnostic
@@ -530,6 +537,8 @@ func (a *Application) startRunArtifact(
 }
 
 func (a *Application) GetRun(runID string) (run.Record, error) { return a.runs.Load(runID) }
+
+func (a *Application) ListRuns() ([]run.Record, error) { return a.runs.List() }
 
 func (a *Application) GetRunTimelinePage(ctx context.Context, runID string, page, pageSize int) (run.TimelinePage, error) {
 	return a.runs.TimelinePage(ctx, runID, page, pageSize)

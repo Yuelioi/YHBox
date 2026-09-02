@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"math"
 	"time"
 
 	"github.com/yottaapp/yotta/internal/artifact"
@@ -57,6 +58,9 @@ func automationTemplate(builtins nodes.Builtins, nodeTypeID string) nodeadapter.
 		if err != nil {
 			return nodeadapter.AdapterResult{}, templateNodeFailure(err)
 		}
+		counters["threshold_ppm"] = scorePPM(threshold)
+		counters["template_width"] = int64(preparedTemplate.template.W)
+		counters["template_height"] = int64(preparedTemplate.template.H)
 		var sourceFrame *image.RGBA
 		if nodeTypeID == nodes.ClickTemplateNodeID {
 			if _, supplied := invocation.Inputs["image"]; supplied {
@@ -101,6 +105,9 @@ func automationTemplate(builtins nodes.Builtins, nodeTypeID string) nodeadapter.
 			matchStarted := time.Now()
 			match, err = matchPreparedTemplateFrame(sourceFrame, preparedTemplate, region, threshold)
 			counters["match_ms"] = time.Since(matchStarted).Milliseconds()
+			if err == nil {
+				recordTemplateMatchEvidence(counters, match)
+			}
 		} else {
 			match, captures, err = waitForTemplateState(ctx, invocation, captureHandle, preparedTemplate, region, threshold, timeout, poll, wantPresent, counters)
 		}
@@ -301,8 +308,31 @@ func captureAndMatch(ctx context.Context, invocation nodeadapter.Invocation, cap
 		match.Center.Y += float64(captured.OriginY)
 		match.Bounds.X += float64(captured.OriginX)
 		match.Bounds.Y += float64(captured.OriginY)
+		recordTemplateMatchEvidence(counters, match)
 	}
 	return match, captureBytes, err
+}
+
+func recordTemplateMatchEvidence(counters map[string]int64, match visionMatchResult) {
+	score := scorePPM(match.Score)
+	counters["last_score_ppm"] = score
+	counters["frame_width"] = int64(match.FrameWidth)
+	counters["frame_height"] = int64(match.FrameHeight)
+	counters["search_pixels"] = match.SearchPixels
+	counters["template_pixels"] = match.TemplatePixels
+	best, exists := counters["best_score_ppm"]
+	if exists && score <= best {
+		return
+	}
+	counters["best_score_ppm"] = score
+	counters["best_x"] = int64(math.Round(match.Bounds.X))
+	counters["best_y"] = int64(math.Round(match.Bounds.Y))
+	counters["best_width"] = int64(math.Round(match.Bounds.Width))
+	counters["best_height"] = int64(math.Round(match.Bounds.Height))
+}
+
+func scorePPM(score float64) int64 {
+	return int64(math.Round(max(0, min(1, score)) * 1_000_000))
 }
 
 type capturedTemplateFrame struct {

@@ -18,7 +18,9 @@ func CommandContext(ctx context.Context, args ...string) (*exec.Cmd, error) {
 	if err != nil {
 		return nil, err
 	}
-	return exec.CommandContext(ctx, program, append(prefix, args...)...), nil
+	command := exec.CommandContext(ctx, program, append(prefix, args...)...)
+	configureCommand(command)
+	return command, nil
 }
 
 func resolve() (string, []string, error) {

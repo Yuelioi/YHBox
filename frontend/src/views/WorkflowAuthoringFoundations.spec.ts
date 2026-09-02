@@ -293,6 +293,14 @@ describe('workflow authoring foundations', () => {
 
     expect(toolbar).toContain('<slot name="breadcrumbs" />')
     expect(toolbar).toContain('<slot name="target" />')
+    expect(toolbar).toContain('data-testid="workflow-editor-editing"')
+    expect(toolbar).toContain(':data-testid="model.ai.testId"')
+    expect(toolbar.indexOf('data-testid="workflow-editor-editing"')).toBeLessThan(
+      toolbar.indexOf('data-testid="workflow-editor-actions"'),
+    )
+    expect(toolbar.indexOf(':data-testid="model.ai.testId"')).toBeLessThan(
+      toolbar.indexOf('data-testid="workflow-editor-tools"'),
+    )
     expect(editor).toContain('<template #breadcrumbs>')
     expect(editor).toContain('<template #target>')
     expect(editor).toContain('data-testid="workflow-annotation-add"')

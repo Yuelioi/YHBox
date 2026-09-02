@@ -1,36 +1,34 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { registerMainWindowCloseGuard } from './mainWindowCloseGuard'
 import { requestMainWindowClose } from './requestMainWindowClose'
 
+let cleanup: (() => void) | undefined
+
+afterEach(() => cleanup?.())
+
 describe('requestMainWindowClose', () => {
-  it('keeps the window open when a dirty workflow aborts route leave', async () => {
-    const push = vi.fn(async () => ({ type: 'aborted' }))
+  it('keeps the window open when the active editor guard refuses', async () => {
+    cleanup = registerMainWindowCloseGuard(async () => false)
     const close = vi.fn()
 
-    const closed = await requestMainWindowClose('workflow-edit', { push }, close)
-
-    expect(push).toHaveBeenCalledWith({ name: 'workflows' })
+    expect(await requestMainWindowClose(close)).toBe(false)
     expect(close).not.toHaveBeenCalled()
-    expect(closed).toBe(false)
   })
 
-  it('closes after the workflow route accepts save or discard', async () => {
-    const push = vi.fn(async () => undefined)
+  it('closes directly after the active editor guard accepts', async () => {
+    const guard = vi.fn(async () => true)
+    cleanup = registerMainWindowCloseGuard(guard)
     const close = vi.fn()
 
-    const closed = await requestMainWindowClose('workflow-edit', { push }, close)
-
+    expect(await requestMainWindowClose(close)).toBe(true)
+    expect(guard).toHaveBeenCalledOnce()
     expect(close).toHaveBeenCalledOnce()
-    expect(closed).toBe(true)
   })
 
-  it('closes immediately outside the workflow editor', async () => {
-    const push = vi.fn()
+  it('closes immediately when no guarded surface is active', async () => {
     const close = vi.fn()
 
-    const closed = await requestMainWindowClose('settings', { push }, close)
-
-    expect(push).not.toHaveBeenCalled()
+    expect(await requestMainWindowClose(close)).toBe(true)
     expect(close).toHaveBeenCalledOnce()
-    expect(closed).toBe(true)
   })
 })

@@ -1,1 +1,1 @@
-export * from '../v1/authoring-projection'
+export * from '../v2/authoring-projection'

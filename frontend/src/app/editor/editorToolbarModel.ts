@@ -64,6 +64,7 @@ export interface EditorToolbarModel {
   editing: EditorToolbarAction[]
   contextual: EditorToolbarAction[]
   primary: EditorToolbarAction[]
+  ai: EditorToolbarAction
   tools: EditorToolbarAction[][]
   recordingStatusKey?: string
   toolsNeedAttention: boolean
@@ -259,11 +260,15 @@ export function buildEditorToolbarModel(context: EditorToolbarContext): EditorTo
         disabled: !context.dirty,
       }),
     ],
+    ai: action('toggle-ai', {
+      color: 'primary',
+      variant: context.aiPanelOpen ? 'soft' : 'ghost',
+      active: context.aiPanelOpen,
+    }),
     tools: [
       [
         action('toggle-inspector', { active: context.inspectorOpen }),
         action('toggle-state', { active: context.statePanelOpen }),
-        action('toggle-ai', { active: context.aiPanelOpen }),
       ],
       executionTools,
       [action('settings'), action('reload')],

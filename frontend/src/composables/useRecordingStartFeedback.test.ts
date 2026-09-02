@@ -21,8 +21,7 @@ describe('useRecordingStartFeedback', () => {
     const { show } = useRecordingStartFeedback()
 
     show('workflow.recording.start_failed', {
-      code: 'RECORDING_CALIBRATION_REQUIRED',
-      message: 'calibration required',
+      id: 'RECORDING_CALIBRATION_REQUIRED',
     })
 
     const toast = mocks.add.mock.calls[0]?.[0]
@@ -34,14 +33,14 @@ describe('useRecordingStartFeedback', () => {
     expect(mocks.push).toHaveBeenCalledWith({ path: '/settings', query: { section: 'input' } })
   })
 
-  it('recognizes the Wails error shape that only carries the calibration code as its message', () => {
+  it('does not infer calibration recovery from a raw transport message', () => {
     const { show } = useRecordingStartFeedback()
 
     show('workflow.recording.start_failed', new Error('RECORDING_CALIBRATION_REQUIRED'))
 
     expect(mocks.add).toHaveBeenCalledWith(
       expect.objectContaining({
-        actions: [expect.objectContaining({ label: 'workflow.recording.open_calibration' })],
+        actions: undefined,
       }),
     )
   })
@@ -49,7 +48,7 @@ describe('useRecordingStartFeedback', () => {
   it('keeps unrelated recording failures as plain errors', () => {
     const { show } = useRecordingStartFeedback()
 
-    show('workflow.recording.start_failed', { code: 'RECORDING_TARGET_UNAVAILABLE' })
+    show('workflow.recording.start_failed', { id: 'RECORDING_TARGET_UNAVAILABLE' })
 
     expect(mocks.add).toHaveBeenCalledWith(
       expect.objectContaining({ actions: undefined, color: 'error' }),

@@ -79,3 +79,15 @@ func TestAISettingsPinProviderNativeProfile(t *testing.T) {
 		t.Fatal("accepted an emulated provider protocol")
 	}
 }
+
+func TestAISettingsAllowUnverifiedToolCallingDiagnosticProfile(t *testing.T) {
+	settings := defaultSettings()
+	configured := modelSettingsForTest("diagnostic", "Diagnostic")
+	configured.Capabilities.ToolCalling = true
+	configured.Pricing = ai.TokenPricing{InputMicrounitsPerMillion: 1, OutputMicrounitsPerMillion: 1}
+	settings.AI.Profiles = []AIModelSettings{configured}
+	settings.AI.Roles.Diagnostics = configured.Slot
+	if err := settings.Validate(); err != nil {
+		t.Fatalf("unverified tool-calling diagnostic profile rejected: %v", err)
+	}
+}

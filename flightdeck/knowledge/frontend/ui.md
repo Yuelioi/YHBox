@@ -27,12 +27,15 @@
 
 ## Feedback and errors
 
+错误 ID、params、transport fallback 和持久证据的完整规则见[错误契约](../errors/error-contract.md)。
+
 一个事件只拥有一个主要反馈表面：
 
 - 字段错误放字段旁，保留输入；当前区域可恢复错误使用 inline alert。
 - 操作结果在当前视野已经可见时不额外 toast；复制/保存优先在触发按钮原地短暂确认。
 - 后台、跨窗口或触发点消失的结果才使用 toast；首次加载无法继续使用 page failure state。
 - 只有必须阻止继续且需要用户选择时才用 modal。
+- 恢复建议只能指向当前产品中真实存在、用户可找到的入口；不存在诊断页面时不能写“打开诊断信息”。
 - RPC transport 只 normalize/rethrow typed error，不自动 toast；domain action 决定最终反馈表面，不能吞错后
   以 `undefined`/`false` 冒充成功。
 

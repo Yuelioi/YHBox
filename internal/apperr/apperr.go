@@ -7,8 +7,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sync"
 
 	"github.com/google/uuid"
+)
+
+var (
+	observerMu sync.RWMutex
+	observer   func(Envelope, error)
 )
 
 const (
@@ -18,18 +24,16 @@ const (
 	CategoryAdapter        = "adapter"
 	CategoryInfrastructure = "infrastructure"
 
-	CodeUnclassified = "rpc.unclassified"
+	IDUnexpected = "system.unexpected"
 )
 
-// Envelope is the only error representation allowed across the Wails seam.
-// Message is locale-free diagnostic text; the frontend localises Code when a
-// matching message exists. Details must not contain credentials or ambient
-// host authority.
+// Envelope is the only problem representation allowed across the Wails seam.
+// ID and Params are locale-free. Params must not contain credentials, raw
+// implementation errors, private paths, or ambient host authority.
 type Envelope struct {
-	Code        string `json:"code"`
+	ID          string `json:"id"`
 	Category    string `json:"category"`
-	Message     string `json:"message"`
-	Details     any    `json:"details,omitempty"`
+	Params      any    `json:"params,omitempty"`
 	OperationID string `json:"operationId,omitempty"`
 	RunID       string `json:"runId,omitempty"`
 	Retryable   bool   `json:"retryable"`
@@ -43,24 +47,25 @@ type EnvelopeProvider interface {
 
 // Error 携带一个 i18n code 与可选插值参数。
 type Error struct {
-	Code   string         `json:"code"`
+	ID     string         `json:"id"`
 	Params map[string]any `json:"params,omitempty"`
 }
 
-// Error 只返 Code (供后端 log/debug)。要 params 走结构化日志字段, 不进 Error()。
-func (e *Error) Error() string { return e.Code }
+// Error only returns the stable ID. Params remain structured and Cause belongs
+// to domain errors that wrap this problem; neither becomes product text.
+func (e *Error) Error() string { return e.ID }
 
 // New 构造一个 *Error。params 可为 nil。
-func New(code string, params map[string]any) *Error {
-	return &Error{Code: code, Params: params}
+func New(id string, params map[string]any) *Error {
+	return &Error{ID: id, Params: params}
 }
 
 func (e *Error) RPCErrorEnvelope() Envelope {
 	if e == nil {
-		return Envelope{Code: CodeUnclassified, Category: CategoryInfrastructure, Message: "unknown error"}
+		return Envelope{ID: IDUnexpected, Category: CategoryInfrastructure}
 	}
 	return Envelope{
-		Code: e.Code, Category: CategoryDomain, Message: e.Code, Details: cloneParams(e.Params),
+		ID: e.ID, Category: CategoryDomain, Params: cloneParams(e.Params),
 	}
 }
 
@@ -70,27 +75,54 @@ func (e *Error) RPCErrorEnvelope() Envelope {
 // object, a validation struct, or a raw message.
 func Marshal(err error) []byte {
 	envelope := From(err)
+	observe(envelope, err)
 	encoded, marshalErr := json.Marshal(envelope)
 	if marshalErr == nil {
 		return encoded
 	}
-	return []byte(`{"code":"rpc.unclassified","category":"infrastructure","message":"error envelope serialization failed","retryable":false}`)
+	return []byte(`{"id":"system.unexpected","category":"infrastructure","retryable":false}`)
+}
+
+// SetObserver installs the process composition's safe correlation sink. The
+// observer receives the process-local cause, but product transports never do.
+func SetObserver(next func(Envelope, error)) func() {
+	observerMu.Lock()
+	previous := observer
+	observer = next
+	observerMu.Unlock()
+	return func() {
+		observerMu.Lock()
+		observer = previous
+		observerMu.Unlock()
+	}
+}
+
+func observe(envelope Envelope, err error) {
+	if envelope.ID != IDUnexpected || err == nil {
+		return
+	}
+	observerMu.RLock()
+	current := observer
+	observerMu.RUnlock()
+	if current != nil {
+		current(envelope, err)
+	}
 }
 
 func From(err error) Envelope {
 	if err == nil {
-		return completeEnvelope(Envelope{Code: CodeUnclassified, Category: CategoryInfrastructure, Message: "unknown error"})
+		return completeEnvelope(Envelope{ID: IDUnexpected, Category: CategoryInfrastructure})
 	}
 	var provider EnvelopeProvider
 	if errors.As(err, &provider) {
 		envelope := provider.RPCErrorEnvelope()
-		if envelope.Code != "" && envelope.Category != "" && envelope.Message != "" {
+		if envelope.ID != "" && envelope.Category != "" {
 			return completeEnvelope(envelope)
 		}
 	}
 	return completeEnvelope(Envelope{
-		Code: CodeUnclassified, Category: CategoryInfrastructure, Message: err.Error(),
-		Details:   marshalConcreteDetails(err),
+		ID:        IDUnexpected,
+		Category:  CategoryInfrastructure,
 		Retryable: errors.Is(err, context.DeadlineExceeded),
 	})
 }
@@ -100,18 +132,6 @@ func completeEnvelope(envelope Envelope) Envelope {
 		envelope.OperationID = uuid.NewString()
 	}
 	return envelope
-}
-
-func marshalConcreteDetails(err error) any {
-	encoded, marshalErr := json.Marshal(err)
-	if marshalErr != nil || string(encoded) == "{}" || string(encoded) == "null" {
-		return nil
-	}
-	var details any
-	if json.Unmarshal(encoded, &details) != nil {
-		return nil
-	}
-	return details
 }
 
 func cloneParams(params map[string]any) map[string]any {

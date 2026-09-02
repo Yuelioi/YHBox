@@ -231,6 +231,10 @@ func (s *scheduler) executeRetry(ctx context.Context, node programNode, trigger 
 	}
 	var lastFailure *nodeadapter.RoutedFailure
 	for current := int64(1); current <= limit; current++ {
+		if err := s.recordInstructionStatus(ctx, node, attempt, nodecontract.RetryAttemptStatusID,
+			map[string]int64{"attempt": current, "max_attempts": limit}, nil); err != nil {
+			return err
+		}
 		if err := s.setInstructionIntegerOutput(node, spec.AttemptOutput, current, attempt); err != nil {
 			return err
 		}
@@ -249,12 +253,36 @@ func (s *scheduler) executeRetry(ctx context.Context, node programNode, trigger 
 		}
 		lastFailure = signal.failure
 	}
+	facts := map[string]string{}
+	if lastFailure != nil {
+		facts["last_problem_id"] = lastFailure.Code
+	}
+	if err := s.recordInstructionStatus(ctx, node, attempt, nodecontract.RetryExhaustedStatusID,
+		map[string]int64{"attempts": limit, "max_attempts": limit}, facts); err != nil {
+		return err
+	}
 	if err := s.finishInstruction(ctx, node, attempt, summary); err != nil {
 		return err
 	}
 	closed = true
 	s.enqueueInstructionOutput(node.ID, spec.ExhaustedOutput, lastFailure)
 	return nil
+}
+
+func (s *scheduler) recordInstructionStatus(ctx context.Context, node programNode, attempt int, code string, counters map[string]int64, facts map[string]string) error {
+	summary, err := run.NewRedactedSummary(code, counters, facts)
+	if err != nil {
+		return err
+	}
+	fact, err := run.NewNodeStatusFact(run.NodeStatusInput{
+		GraphPath: append([]string(nil), node.GraphPath...), NodeID: node.SourceNodeID, Attempt: attempt,
+		Code: code, Category: nodecontract.StatusProgress, OccurredAt: s.executor.now().UTC(), Summary: summary,
+	})
+	if err != nil {
+		return err
+	}
+	_, err = s.journal.Append(context.WithoutCancel(ctx), fact)
+	return err
 }
 
 func (s *scheduler) runActivation(ctx context.Context, queue []scheduledInvocation) error {

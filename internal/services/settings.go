@@ -29,6 +29,11 @@ type Settings struct {
 
 type AISettings struct {
 	Profiles []AIModelSettings `json:"profiles"`
+	Roles    AIRoleSettings    `json:"roles"`
+}
+
+type AIRoleSettings struct {
+	Diagnostics string `json:"diagnostics"`
 }
 
 // MCPSettings controls the local, loopback-only Streamable HTTP endpoint.
@@ -342,7 +347,7 @@ func defaultSettings() *Settings {
 		// 默认 auto：启动期 main.go 看 OS build 决定 Win10 走 GDI / Win11+ 走 WGC。
 		// 用户嫌弃自动选的可以去设置硬切 gdi/wgc/mock。
 		Capture:      CaptureSettings{Method: "auto", DumpDebug: false},
-		AI:           AISettings{Profiles: []AIModelSettings{}},
+		AI:           AISettings{Profiles: []AIModelSettings{}, Roles: AIRoleSettings{}},
 		MCP:          MCPSettings{Enabled: false, Port: 39271},
 		Network:      NetworkSettings{HTTPOrigins: []HTTPOriginSettings{}},
 		Applications: ApplicationSettings{Profiles: []InstalledApplicationSettings{}},
@@ -458,6 +463,18 @@ func (settings *AISettings) validate() error {
 		evaluationErr := ai.ValidateEvaluation(profile, configured.EvaluationReport)
 		if evaluationErr != nil && !errors.Is(evaluationErr, ai.ErrEvaluationNotApproved) {
 			return fmt.Errorf("ai.profiles[%s]: %w", configured.Slot, evaluationErr)
+		}
+	}
+	if settings.Roles.Diagnostics != "" {
+		var selected *AIModelSettings
+		for index := range settings.Profiles {
+			if settings.Profiles[index].Slot == settings.Roles.Diagnostics {
+				selected = &settings.Profiles[index]
+				break
+			}
+		}
+		if selected == nil || !selected.Capabilities.ToolCalling {
+			return errors.New("ai.roles.diagnostics must reference a tool-calling AI profile")
 		}
 	}
 	return nil

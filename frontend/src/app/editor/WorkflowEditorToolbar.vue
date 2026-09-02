@@ -16,22 +16,45 @@
 
     <div
       data-testid="workflow-editor-context"
-      class="flex min-w-0 flex-1 items-center gap-1 overflow-hidden"
+      class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden"
     >
-      <span class="min-w-0 max-w-56 truncate text-sm font-medium text-highlighted">
-        {{ name }}
-      </span>
-      <slot name="breadcrumbs" />
-      <span class="hidden shrink-0 font-mono text-[10px] text-dimmed min-[1180px]:inline">
-        {{ t('workflow.editor.revision', { n: revision }) }}
-      </span>
-      <span
-        v-if="dirty"
-        data-testid="workflow-unsaved"
-        class="shrink-0 text-[11px] font-medium text-warning"
+      <div class="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
+        <span class="min-w-0 max-w-56 truncate text-sm font-medium text-highlighted">
+          {{ name }}
+        </span>
+        <slot name="breadcrumbs" />
+        <span class="hidden shrink-0 font-mono text-[10px] text-dimmed min-[1180px]:inline">
+          {{ t('workflow.editor.revision', { n: revision }) }}
+        </span>
+        <span
+          v-if="dirty"
+          data-testid="workflow-unsaved"
+          class="shrink-0 text-[11px] font-medium text-warning"
+        >
+          {{ t('workflow.editor.unsaved') }}
+        </span>
+      </div>
+      <div
+        data-testid="workflow-editor-editing"
+        class="flex shrink-0 items-center gap-0.5 border-l border-default pl-2"
       >
-        {{ t('workflow.editor.unsaved') }}
-      </span>
+        <UButton
+          v-for="item in model.editing"
+          :key="item.command"
+          :data-testid="item.testId"
+          class="shrink-0"
+          :icon="item.icon"
+          color="neutral"
+          variant="ghost"
+          size="xs"
+          :disabled="item.disabled"
+          :aria-label="t(item.labelKey)"
+          :title="
+            item.command === 'find-node' ? t('workflow.node_search.shortcut') : t(item.labelKey)
+          "
+          @click="emit('command', item.command)"
+        />
+      </div>
     </div>
 
     <div data-testid="workflow-editor-actions" class="flex shrink-0 items-center gap-1">
@@ -61,23 +84,6 @@
       />
 
       <div class="mx-1 h-5 w-px shrink-0 bg-default" />
-      <UButton
-        v-for="item in model.editing"
-        :key="item.command"
-        :data-testid="item.testId"
-        class="shrink-0"
-        :icon="item.icon"
-        color="neutral"
-        variant="ghost"
-        size="xs"
-        :disabled="item.disabled"
-        :aria-label="t(item.labelKey)"
-        :title="
-          item.command === 'find-node' ? t('workflow.node_search.shortcut') : t(item.labelKey)
-        "
-        @click="emit('command', item.command)"
-      />
-
       <div class="flex shrink-0 items-center">
         <slot name="target" />
       </div>
@@ -95,6 +101,18 @@
         :disabled="item.disabled"
         :loading="item.loading"
         @click="emit('command', item.command)"
+      />
+
+      <UButton
+        :data-testid="model.ai.testId"
+        class="shrink-0"
+        :label="t(model.ai.labelKey)"
+        :icon="model.ai.icon"
+        :color="model.ai.color ?? 'primary'"
+        :variant="model.ai.variant ?? 'ghost'"
+        size="xs"
+        :aria-pressed="model.ai.active"
+        @click="emit('command', model.ai.command)"
       />
 
       <UDropdownMenu :items="toolItems">

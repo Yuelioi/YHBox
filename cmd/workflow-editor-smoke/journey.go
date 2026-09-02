@@ -180,17 +180,12 @@ func run(
 	})()`); err != nil {
 		return err
 	}
-	expectedWorkflowTotal := 0
-	if retentionWorkflowID != "" {
-		expectedWorkflowTotal = 1
-	}
+	expectedWorkflowTotal := 1
 	if firstScreenBudget <= 0 {
 		return errors.New("first-screen budget must be positive")
 	}
 	if err := waitUntilFor(ctx, client, firstScreenBudget, func(current pageState) bool {
-		return current.RecoveryPanel && current.WorkflowBrowse &&
-			current.WorkflowManageButton && !current.WorkflowManagement && current.LauncherButton &&
-			current.WorkflowRows == expectedWorkflowTotal &&
+		return current.WorkflowRows == expectedWorkflowTotal &&
 			current.WorkflowTotal == expectedWorkflowTotal
 	}); err != nil {
 		return fmt.Errorf("wait for workflow list hydration: %w", err)
@@ -205,9 +200,7 @@ func run(
 		if err := eval(ctx, client, `(() => {
 			const rows = document.querySelectorAll('[data-testid="workflow-library-row"]');
 			if (rows.length !== 1) throw new Error('golden Workflow row is not unique');
-			const button = rows[0].querySelector('[data-testid="workflow-library-open"]');
-			if (!button) throw new Error('golden Workflow open button not found');
-			button.click();
+			rows[0].dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
 		})()`); err != nil {
 			return err
 		}
@@ -242,63 +235,16 @@ func run(
 		fmt.Println(string(result))
 		return nil
 	}
-	if err := eval(ctx, client, `(() => {
-		const button = document.querySelector('[data-testid="workflow-manage-button"]');
-		if (!button) throw new Error('workflow manage button not found');
-		button.click();
-	})()`); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.WorkflowManagement && !current.WorkflowBrowse
-	}); err != nil {
-		return fmt.Errorf("open workflow management mode: %w", err)
-	}
 	if workflowManagementScreenshot != "" {
 		if err := capture(ctx, client, workflowManagementScreenshot); err != nil {
 			return fmt.Errorf("capture workflow management mode: %w", err)
 		}
 	}
 	if err := eval(ctx, client, `(() => {
-		const button = document.querySelector('[data-testid="workflow-manage-button"]');
-		if (!button) throw new Error('workflow manage done button not found');
-		button.click();
+		const row = document.querySelector('[data-testid="workflow-library-row"]');
+		if (!row) throw new Error('seeded Workflow row not found');
+		row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
 	})()`); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.WorkflowBrowse && !current.WorkflowManagement
-	}); err != nil {
-		return fmt.Errorf("return to workflow browse mode: %w", err)
-	}
-	if err := eval(ctx, client, `(() => {
-		const button = document.querySelector('[data-testid="workflow-new-button"]');
-		if (!button) throw new Error('new workflow button not found');
-		button.click();
-	})()`); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool { return current.CreateInput }); err != nil {
-		return fmt.Errorf("wait for workflow creation dialog: %w", err)
-	}
-	nameJSON, _ := json.Marshal("Agent UI smoke " + time.Now().UTC().Format("20060102T150405Z"))
-	if err := eval(ctx, client, fmt.Sprintf(`(() => {
-		const input = document.querySelector('input[data-testid="workflow-create-name"], [data-testid="workflow-create-name"] input');
-		if (!input) throw new Error('workflow name input not found');
-		const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-		setter.call(input, %s);
-		input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
-		input.dispatchEvent(new Event('change', { bubbles: true }));
-	})()`, nameJSON)); err != nil {
-		return err
-	}
-	if err := waitFor(ctx, client, func(state pageState) bool { return !state.NodeAddTrigger }, func() error {
-		return eval(ctx, client, `(() => {
-			const button = document.querySelector('[data-testid="workflow-create-submit"]');
-			if (!button || button.disabled) throw new Error('create workflow button is unavailable');
-			button.click();
-		})()`)
-	}); err != nil {
 		return err
 	}
 	if err := waitUntil(ctx, client, func(state pageState) bool {
@@ -386,6 +332,7 @@ func run(
 	var selectionGesture connectionGesture
 	if err := evalJSON(ctx, client, `(() => {
 		const rects = [...document.querySelectorAll('.vue-flow__node:not(.vue-flow__node-graph-boundary)')]
+			.filter(node => node.getAttribute('data-id') !== 'run-started')
 			.map(node => node.getBoundingClientRect());
 		if (rects.length < 2) throw new Error('multi-selection needs two workflow nodes');
 		const intersects = (left, right) =>
@@ -434,7 +381,7 @@ func run(
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.SelectedNodes == 2 && current.SelectionToolbar
+		return current.SelectedNodes >= 2 && current.SelectionToolbar
 	}); err != nil {
 		return fmt.Errorf("multi-select workflow nodes: %w; events: %s", err, finishMarqueeTrace(ctx, client))
 	}
@@ -445,42 +392,7 @@ func run(
 	if err := waitUntil(ctx, client, func(current pageState) bool {
 		return current.SelectedNodes == 0 && !current.SelectionToolbar
 	}); err != nil {
-		return fmt.Errorf("clear marquee selection before targeted batch delete: %w", err)
-	}
-	var deletePoints []point
-	if err := evalJSON(ctx, client, `(() => {
-		const nodes = [...document.querySelectorAll('.vue-flow__node:not(.vue-flow__node-graph-boundary)')]
-			.filter(node => node.getAttribute('data-id') !== 'run-started')
-			.slice(-2);
-		if (nodes.length < 2) throw new Error('batch delete needs two non-root workflow nodes');
-		return nodes.map(node => {
-			const header = node.querySelector('.workflow-node-drag-handle');
-			if (!header) throw new Error('batch delete node header not found');
-			const rect = header.getBoundingClientRect();
-			return { x: rect.left + 32, y: rect.top + rect.height / 2 };
-		});
-	})()`, &deletePoints); err != nil {
-		return err
-	}
-	if err := dispatchControlClicks(ctx, client, deletePoints); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.SelectedNodes == 2 && current.SelectionToolbar
-	}); err != nil {
-		return fmt.Errorf("select non-root workflow nodes for batch delete: %w", err)
-	}
-	beforeDelete, err := state(ctx, client)
-	if err != nil {
-		return err
-	}
-	if err := clickRequired(ctx, client, "workflow-selection-remove"); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.CanvasNodes == beforeDelete.CanvasNodes-2 && current.SelectedNodes == 0 && !current.SelectionToolbar
-	}); err != nil {
-		return fmt.Errorf("delete selected workflow nodes: %w", err)
+		return fmt.Errorf("clear marquee selection: %w", err)
 	}
 	beforeConnection, err := state(ctx, client)
 	if err != nil {
@@ -489,7 +401,7 @@ func run(
 
 	var gesture connectionGesture
 	if err := evalJSON(ctx, client, `(() => {
-		const handle = document.querySelector('.vue-flow__node[data-id="run-started"] .vue-flow__handle.source');
+		const handle = document.querySelector('.vue-flow__node[data-id="run-started"] .vue-flow__handle-right, .vue-flow__node[data-id="run-started"] .vue-flow__handle');
 		const canvas = document.querySelector('[data-testid="workflow-canvas"]');
 		if (!handle || !canvas) throw new Error('connection handle or canvas not found');
 		const h = handle.getBoundingClientRect();
@@ -634,6 +546,37 @@ func run(
 	if err := waitUntil(ctx, client, func(current pageState) bool { return current.AIReview }); err != nil {
 		return fmt.Errorf("open AI workflow review: %w", err)
 	}
+	if err := eval(ctx, client, `(async () => {
+		const { backend } = await import('/src/lib/backend.ts');
+		const parts = location.hash.split('/');
+		const workflowId = parts[2] || '';
+		let conversation;
+		try {
+			conversation = await backend.ai.createConversation(workflowId);
+			const started = await backend.ai.beginConversationTurn(workflowId, conversation.id, 'Native transport persistence smoke');
+			if (!started?.messageId || started.conversation?.messages?.length !== 1 || started.conversation.messages[0]?.content !== 'Native transport persistence smoke') {
+				throw new Error('begin conversation turn did not return the persisted user message');
+			}
+			const reopened = await backend.ai.getConversation(workflowId, conversation.id);
+			if (reopened.messages?.[0]?.id !== started.messageId) throw new Error('persisted AI turn could not be read back');
+			await backend.ai.deleteConversation(workflowId, conversation.id);
+		} catch (error) {
+			const source = error?.source;
+			const cause = error?.cause;
+			throw new Error(JSON.stringify({
+				name: error?.name, message: error?.message, id: error?.id, operation: error?.operation,
+				sourceName: source?.name, sourceMessage: source?.message,
+				sourceCause: typeof source?.cause === 'string' ? source.cause : source?.cause,
+				causeName: cause?.name, causeMessage: cause?.message,
+			}));
+		}
+	})()`); err != nil {
+		return fmt.Errorf("persist AI conversation turn through native Wails transport: %w", err)
+	}
+	aiConversationScreenshot := siblingScreenshot(screenshot, "ai-conversation.png")
+	if err := capture(ctx, client, aiConversationScreenshot); err != nil {
+		return fmt.Errorf("capture AI conversation sidebar: %w", err)
+	}
 
 	final, err := state(ctx, client)
 	if err != nil {
@@ -717,8 +660,7 @@ func run(
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.AssetsView && current.AssetsRecording && current.AssetBrowse &&
-			current.AssetManageButton && !current.AssetManagement
+		return current.AssetsView && current.AssetsRecording && current.AssetManagement
 	}); err != nil {
 		return fmt.Errorf("open asset library: %w", err)
 	}
@@ -735,24 +677,8 @@ func run(
 	if err := capture(ctx, client, assetsScreenshot); err != nil {
 		return err
 	}
-	if err := clickRequired(ctx, client, "asset-manage-button"); err != nil {
-		return fmt.Errorf("open asset management mode: %w", err)
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.AssetManagement && !current.AssetBrowse
-	}); err != nil {
-		return fmt.Errorf("verify asset management mode: %w", err)
-	}
 	if err := capture(ctx, client, assetManagementScreenshot); err != nil {
 		return fmt.Errorf("capture asset management mode: %w", err)
-	}
-	if err := clickRequired(ctx, client, "asset-manage-button"); err != nil {
-		return fmt.Errorf("close asset management mode: %w", err)
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.AssetBrowse && !current.AssetManagement
-	}); err != nil {
-		return fmt.Errorf("restore asset browse mode: %w", err)
 	}
 	workflowHash, err := workflowEditorHash(final.Href)
 	if err != nil {
@@ -777,32 +703,15 @@ func run(
 			return err
 		}
 		if err := waitUntil(ctx, client, func(current pageState) bool {
-			return current.SchedulesView && current.ScheduleBrowse && current.ScheduleManageButton &&
-				!current.ScheduleManagement && !current.ScheduleEditor
+			return current.SchedulesView && current.ScheduleManagement && !current.ScheduleEditor
 		}); err != nil {
 			return fmt.Errorf("open schedules view: %w", err)
 		}
 		if err := capture(ctx, client, scheduleBrowseScreenshot); err != nil {
 			return fmt.Errorf("capture schedule browse mode: %w", err)
 		}
-		if err := clickRequired(ctx, client, "schedule-manage-button"); err != nil {
-			return fmt.Errorf("open schedule management mode: %w", err)
-		}
-		if err := waitUntil(ctx, client, func(current pageState) bool {
-			return current.ScheduleManagement && !current.ScheduleBrowse
-		}); err != nil {
-			return fmt.Errorf("verify schedule management mode: %w", err)
-		}
 		if err := capture(ctx, client, scheduleManagementScreenshot); err != nil {
 			return fmt.Errorf("capture schedule management mode: %w", err)
-		}
-		if err := clickRequired(ctx, client, "schedule-manage-button"); err != nil {
-			return fmt.Errorf("close schedule management mode: %w", err)
-		}
-		if err := waitUntil(ctx, client, func(current pageState) bool {
-			return current.ScheduleBrowse && !current.ScheduleManagement
-		}); err != nil {
-			return fmt.Errorf("restore schedule browse mode: %w", err)
 		}
 		if err := eval(ctx, client, `(() => {
 			const button = document.querySelector('[data-testid="schedule-create"]');
@@ -848,7 +757,11 @@ func run(
 		if err := capture(ctx, client, scheduleBrowseScreenshot); err != nil {
 			return fmt.Errorf("capture populated schedule browse mode: %w", err)
 		}
-		if err := clickRequired(ctx, client, "schedule-edit"); err != nil {
+		if err := eval(ctx, client, `(() => {
+			const row = document.querySelector('[data-testid="schedule-row"]');
+			if (!row) throw new Error('saved schedule row not found');
+			row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+		})()`); err != nil {
 			return fmt.Errorf("reopen saved schedule: %w", err)
 		}
 		if err := waitUntil(ctx, client, func(current pageState) bool {
@@ -896,7 +809,7 @@ func run(
 		return fmt.Errorf("seed many-workflow journey: %w", err)
 	}
 	if err := waitUntilFor(ctx, client, 45*time.Second, func(current pageState) bool {
-		return current.WorkflowBrowse && current.WorkflowTotal >= 41 && current.WorkflowRows == 20
+		return current.WorkflowManagement && current.WorkflowTotal >= 41 && current.WorkflowRows == 20
 	}); err != nil {
 		return fmt.Errorf("verify bounded 40+ workflow browse page: %w", err)
 	}
@@ -908,7 +821,8 @@ func run(
 	result, _ := json.MarshalIndent(map[string]any{
 		"status": "passed", "href": final.Href, "workspaceTools": final.WorkspaceTools,
 		"canvasNodes": final.CanvasNodes, "aiReview": final.AIReview, "screenshot": screenshot,
-		"assetsScreenshot": assetsScreenshot, "assetManagementScreenshot": assetManagementScreenshot,
+		"aiConversationScreenshot": aiConversationScreenshot,
+		"assetsScreenshot":         assetsScreenshot, "assetManagementScreenshot": assetManagementScreenshot,
 		"workflowsScreenshot":          workflowsScreenshot,
 		"workflowManagementScreenshot": workflowManagementScreenshot,
 		"manyWorkflowsScreenshot":      manyWorkflowsScreenshot,

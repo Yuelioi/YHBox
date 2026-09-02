@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/durablefs"
 )
 
@@ -46,12 +47,14 @@ func (s *Store) load() error {
 		}
 		value, err := readSnippet(filepath.Join(s.root, entry.Name()))
 		if err != nil {
-			s.warnings = append(s.warnings, LoadWarning{File: entry.Name(), Error: err.Error()})
+			envelope := apperr.From(apperr.New("snippet.load.invalid", map[string]any{"file": entry.Name()}))
+			s.warnings = append(s.warnings, LoadWarning{File: entry.Name(), Problem: &envelope})
 			continue
 		}
 		fileID := strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name()))
 		if value.ID != fileID {
-			s.warnings = append(s.warnings, LoadWarning{File: entry.Name(), Error: "snippet id does not match its filename"})
+			envelope := apperr.From(apperr.New("snippet.load.identity_mismatch", map[string]any{"file": entry.Name()}))
+			s.warnings = append(s.warnings, LoadWarning{File: entry.Name(), Problem: &envelope})
 			continue
 		}
 		s.byID[value.ID] = value

@@ -1,6 +1,8 @@
 package services
 
 import (
+	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -40,14 +42,10 @@ func TestConfiguredAutomationTargetIsImmediatelyUsableAndEditable(t *testing.T) 
 		t.Fatal(err)
 	}
 	app := newTestApp(t, filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
-	application := InstalledApplicationSettings{
-		Slot: "editor", Label: "Editor", Executable: path,
-		Arguments: []string{"--fixed-launch-argument"},
-	}
+	application := InstalledApplicationSettings{Slot: "editor", Label: "Editor", Executable: path, Arguments: []string{"--fixed-launch-argument"}}
 	target := InstalledAutomationTargetSettings{
-		Slot: "editor-input", Label: "Editor input",
-		TargetKind: automationinstalled.TargetKindDesktopWindow, AdapterKind: automationinstalled.AdapterKindWin32,
-		ProfileVersion: automationinstalled.ProfileVersionV1,
+		Slot: "editor-input", Label: "Editor input", TargetKind: automationinstalled.TargetKindDesktopWindow,
+		AdapterKind: automationinstalled.AdapterKindWin32, ProfileVersion: automationinstalled.ProfileVersionV1,
 		Profile: automationTargetProfile(DesktopAutomationTargetSettings{
 			ApplicationSlot: application.Slot, WindowTitle: "^Editor\\s*$", WindowTitleMatch: "regex", WindowSelection: "unique",
 			WindowClass: "EditorWindow", InputBackend: "postmessage", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
@@ -90,17 +88,13 @@ func TestConfiguredAutomationTargetIsImmediatelyUsableAndEditable(t *testing.T) 
 
 func TestAutomationTargetTypesExposeSemanticKindAndNativeAdapter(t *testing.T) {
 	types := NewAutomationService(nil).ListTargetTypes()
-	if len(types) != 3 || types[0].TargetKind != automationinstalled.TargetKindDesktopWindow ||
-		types[0].AdapterKind != automationinstalled.AdapterKindWin32 || len(types[0].Operations) == 0 ||
-		types[0].ProfileVersion == "" || len(types[0].Resources) == 0 || len(types[0].Fields) == 0 {
+	if len(types) != 3 || types[0].TargetKind != automationinstalled.TargetKindDesktopWindow || types[0].AdapterKind != automationinstalled.AdapterKindWin32 || len(types[0].Operations) == 0 || types[0].ProfileVersion == "" || len(types[0].Resources) == 0 || len(types[0].Fields) == 0 {
 		t.Fatalf("target types = %#v", types)
 	}
-	if types[1].TargetKind != automationinstalled.TargetKindAndroidDevice || types[1].AdapterKind != automationinstalled.AdapterKindAndroidADB ||
-		len(types[1].Operations) == 0 {
+	if types[1].TargetKind != automationinstalled.TargetKindAndroidDevice || types[1].AdapterKind != automationinstalled.AdapterKindAndroidADB || len(types[1].Operations) == 0 {
 		t.Fatalf("Android target type = %#v", types[1])
 	}
-	if types[2].TargetKind != automationinstalled.TargetKindBrowserCDP || types[2].AdapterKind != automationinstalled.AdapterKindBrowserCDP ||
-		len(types[2].Operations) == 0 {
+	if types[2].TargetKind != automationinstalled.TargetKindBrowserCDP || types[2].AdapterKind != automationinstalled.AdapterKindBrowserCDP || len(types[2].Operations) == 0 {
 		t.Fatalf("browser target type = %#v", types[2])
 	}
 }
@@ -110,11 +104,7 @@ func TestBrowserAutomationTargetInstallsWithoutDesktopApplication(t *testing.T) 
 	target := InstalledAutomationTargetSettings{
 		Slot: "browser", Label: "Browser page", TargetKind: automationinstalled.TargetKindBrowserCDP, AdapterKind: automationinstalled.AdapterKindBrowserCDP,
 		ProfileVersion: automationinstalled.ProfileVersionV1,
-		Profile: automationTargetProfile(BrowserAutomationTargetSettings{
-			BrowserEndpoint: "http://127.0.0.1:9222", BrowserTargetID: "page-1",
-			BrowserWebSocketURL: "ws://127.0.0.1:9222/devtools/page/page-1", BrowserTitle: "Fixture", BrowserURL: "https://example.test/",
-			ResolveTimeoutMilliseconds: 1000,
-		}),
+		Profile:        automationTargetProfile(BrowserAutomationTargetSettings{BrowserEndpoint: "http://127.0.0.1:9222", BrowserTargetID: "page-1", BrowserWebSocketURL: "ws://127.0.0.1:9222/devtools/page/page-1", BrowserTitle: "Fixture", BrowserURL: "https://example.test/", ResolveTimeoutMilliseconds: 1000}),
 	}
 	if _, _, err := app.MutateSettings(func(settings *Settings) error {
 		settings.Automation.Targets = []InstalledAutomationTargetSettings{target}
@@ -138,10 +128,7 @@ func TestAndroidAutomationTargetInstallsWithoutDesktopApplication(t *testing.T) 
 	target := InstalledAutomationTargetSettings{
 		Slot: "android", Label: "Android emulator", TargetKind: automationinstalled.TargetKindAndroidDevice, AdapterKind: automationinstalled.AdapterKindAndroidADB,
 		ProfileVersion: automationinstalled.ProfileVersionV1,
-		Profile: automationTargetProfile(AndroidAutomationTargetSettings{
-			ADBSerial: "emulator-5554", ADBProduct: "sdk_gphone64_x86_64", ADBModel: "sdk_gphone64_x86_64", ADBDevice: "emu64xa",
-			AndroidPackage: "dev.yotta.fixture", ResolveTimeoutMilliseconds: 1000,
-		}),
+		Profile:        automationTargetProfile(AndroidAutomationTargetSettings{ADBSerial: "emulator-5554", ADBProduct: "sdk_gphone64_x86_64", ADBModel: "sdk_gphone64_x86_64", ADBDevice: "emu64xa", AndroidPackage: "dev.yotta.fixture", ResolveTimeoutMilliseconds: 1000}),
 	}
 	if _, _, err := app.MutateSettings(func(settings *Settings) error {
 		settings.Automation.Targets = []InstalledAutomationTargetSettings{target}
@@ -163,31 +150,33 @@ func TestAndroidAutomationTargetInstallsWithoutDesktopApplication(t *testing.T) 
 func TestSettingsRejectAutomationTargetWithUnknownApplicationOrSharedSlot(t *testing.T) {
 	settings := defaultSettings()
 	settings.Automation.Targets = []InstalledAutomationTargetSettings{{
-		Slot: "input", Label: "Input",
-		TargetKind: automationinstalled.TargetKindDesktopWindow, AdapterKind: automationinstalled.AdapterKindWin32,
+		Slot: "input", Label: "Input", TargetKind: automationinstalled.TargetKindDesktopWindow, AdapterKind: automationinstalled.AdapterKindWin32,
 		ProfileVersion: automationinstalled.ProfileVersionV1,
-		Profile: automationTargetProfile(DesktopAutomationTargetSettings{
-			ApplicationSlot: "missing", WindowTitle: "Editor", WindowTitleMatch: "exact", WindowSelection: "unique",
-			InputBackend: "sendinput", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
-		}),
+		Profile:        automationTargetProfile(DesktopAutomationTargetSettings{ApplicationSlot: "missing", WindowTitle: "Editor", WindowTitleMatch: "exact", WindowSelection: "unique", InputBackend: "sendinput", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500}),
 	}}
 	if err := settings.Validate(); err == nil {
 		t.Fatal("accepted automation target with unknown installed application")
 	}
-
 	path := filepath.Join(t.TempDir(), "Editor.exe")
 	if err := os.WriteFile(path, []byte("editor"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	settings.Applications.Profiles = []InstalledApplicationSettings{{
-		Slot: "editor", Label: "Editor", Executable: path, Arguments: []string{},
-	}}
-	settings.Automation.Targets[0].Profile = automationTargetProfile(DesktopAutomationTargetSettings{
-		ApplicationSlot: "editor", WindowTitle: "Editor", WindowTitleMatch: "exact", WindowSelection: "unique",
-		InputBackend: "sendinput", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
-	})
+	settings.Applications.Profiles = []InstalledApplicationSettings{{Slot: "editor", Label: "Editor", Executable: path, Arguments: []string{}}}
+	settings.Automation.Targets[0].Profile = automationTargetProfile(DesktopAutomationTargetSettings{ApplicationSlot: "editor", WindowTitle: "Editor", WindowTitleMatch: "exact", WindowSelection: "unique", InputBackend: "sendinput", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500})
 	settings.Automation.Targets[0].Slot = "editor"
 	if err := settings.Validate(); err == nil {
 		t.Fatal("accepted one logical slot for application and automation targets")
+	}
+}
+
+func TestAutomationHealthFailureDoesNotExposeAdapterCause(t *testing.T) {
+	health := automationHealthFailure(&automationinstalled.Failure{Code: automationinstalled.CodeCaptureFailed, Cause: errors.New(`PrintWindow denied C:\\Users\\private\\game.exe`)})
+	encoded, err := json.Marshal(health)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(encoded)
+	if health.ID != automationinstalled.CodeCaptureFailed || strings.Contains(text, "PrintWindow") || strings.Contains(text, "private") || strings.Contains(text, "game.exe") {
+		t.Fatalf("health leaked adapter cause: %s", text)
 	}
 }

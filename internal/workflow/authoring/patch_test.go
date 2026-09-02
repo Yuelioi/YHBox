@@ -481,12 +481,12 @@ func TestEngineRejectsMismatchedUnionAndPublishesNothing(t *testing.T) {
 		t.Fatalf("failed patch mutated input: %#v", source)
 	}
 	envelope := apperr.From(err)
-	if envelope.Code != "INVALID_COMMAND" || envelope.Category != apperr.CategoryValidation {
+	if envelope.ID != "INVALID_COMMAND" || envelope.Category != apperr.CategoryValidation {
 		t.Fatalf("error envelope = %#v", envelope)
 	}
-	details, ok := envelope.Details.(map[string]any)
+	details, ok := envelope.Params.(map[string]any)
 	if !ok || details["commandIndex"] != 0 {
-		t.Fatalf("error details = %#v", envelope.Details)
+		t.Fatalf("error params = %#v", envelope.Params)
 	}
 }
 

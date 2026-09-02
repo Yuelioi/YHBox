@@ -33,7 +33,8 @@ func TestProtocolRegistersOnlyBoundedWorkflow31Tools(t *testing.T) {
 	tools := protocol.ListTools()
 	want := []string{
 		"catalog_search", "catalog_describe", "workflow_list", "workflow_create", "workflow_inspect",
-		"workflow_apply_patch", "workflow_compile", "workflow_run_preview", "workflow_explain_diagnostic",
+		"workflow_apply_patch", "workflow_set_input_value", "workflow_compile", "workflow_run_preview", "workflow_explain_diagnostic",
+		"run_list", "run_get",
 	}
 	if len(tools) != len(want) {
 		t.Fatalf("tools = %#v", tools)
@@ -99,6 +100,15 @@ func TestStructuredProtocolCreatesPatchesAndCompilesOneDurableRevision(t *testin
 	if patched.Workflow.Revision != 1 || len(patched.GeneratedNodes) != 1 || patched.GeneratedNodes[0].NodeID == "" {
 		t.Fatalf("patched = %#v", patched)
 	}
+	narrowResult := callTool(t, protocolClient, "workflow_set_input_value", map[string]any{
+		"workflowId": created.WorkflowID, "baseRevision": 1, "graphId": "main",
+		"nodeId": patched.GeneratedNodes[0].NodeID, "inputId": "a", "value": "updated",
+	})
+	var narrow WorkflowApplyPatchResult
+	decodeStructured(t, narrowResult, &narrow)
+	if narrow.Workflow.Revision != 2 {
+		t.Fatalf("narrow input patch = %#v", narrow)
+	}
 
 	compiledResult := callTool(t, protocolClient, "workflow_compile", map[string]any{"workflowId": created.WorkflowID})
 	var compiled WorkflowCompileResult
@@ -126,6 +136,66 @@ func TestCatalogAndWorkflowEnumerationAreExplicitlyBounded(t *testing.T) {
 	}
 	if _, err := searchCatalog(projection, CatalogSearchRequest{Limit: maxInspectPage + 1}); err == nil {
 		t.Fatal("catalog accepted an unbounded page")
+	}
+}
+
+func TestRunToolsExposeBoundedSourceAttributedEvidence(t *testing.T) {
+	app := testApplication(t)
+	created, err := app.CreateSource(context.Background(), "Run evidence")
+	if err != nil {
+		t.Fatal(err)
+	}
+	started, err := app.StartRun(context.Background(), appcore.StartRunRequest{WorkflowID: created.WorkflowID(), Principal: "mcp-test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	listed, err := listRuns(app, RunListRequest{WorkflowID: created.WorkflowID(), Limit: 10})
+	if err != nil || listed.Total != 1 || len(listed.Items) != 1 || listed.Items[0].SourceHash != created.Hash() {
+		t.Fatalf("Run list = %#v, err=%v", listed, err)
+	}
+	evidence, err := getRunEvidence(context.Background(), app, RunGetRequest{RunID: started.Record.Admission().RunID, Page: 1, PageSize: 20})
+	if err != nil || evidence.Run.WorkflowID != created.WorkflowID() || evidence.Run.SourceRevision != created.Revision() {
+		t.Fatalf("Run evidence = %#v, err=%v", evidence, err)
+	}
+}
+
+func TestToolProblemsKeepStableIDAndTypedParams(t *testing.T) {
+	protocol, err := BuildProtocol(testApplication(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	protocolClient, err := client.NewInProcessClient(protocol)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = protocolClient.Close() })
+	if err := protocolClient.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	initialize := mcp.InitializeRequest{}
+	initialize.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
+	initialize.Params.ClientInfo = mcp.Implementation{Name: "problem-test", Version: "1"}
+	if _, err := protocolClient.Initialize(context.Background(), initialize); err != nil {
+		t.Fatal(err)
+	}
+	request := mcp.CallToolRequest{}
+	request.Params.Name = "catalog_describe"
+	request.Params.Arguments = map[string]any{"nodeTypeId": "https://schemas.yotta.dev/nodes/missing"}
+	result, err := protocolClient.CallTool(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatalf("result = %#v", result)
+	}
+	raw, _ := json.Marshal(result.StructuredContent)
+	var problem toolProblem
+	if err := json.Unmarshal(raw, &problem); err != nil {
+		t.Fatal(err)
+	}
+	params, ok := problem.Params.(map[string]any)
+	if problem.ID != "catalog.node.unknown" || problem.OperationID == "" || !ok || params["nodeTypeId"] != "https://schemas.yotta.dev/nodes/missing" {
+		t.Fatalf("problem = %#v", problem)
 	}
 }
 

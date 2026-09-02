@@ -124,3 +124,20 @@ func TestEmitTemplateMatchStatusDistinguishesMatchAndTimeout(t *testing.T) {
 		})
 	}
 }
+
+func TestRecordTemplateMatchEvidenceKeepsBestCandidate(t *testing.T) {
+	counters := map[string]int64{"threshold_ppm": 850000}
+	recordTemplateMatchEvidence(counters, visionMatchResult{
+		Score: 0.824802, Bounds: visionRegion{X: 1603, Y: 768, Width: 120, Height: 33},
+		FrameWidth: 2560, FrameHeight: 1440, SearchPixels: 3_686_400, TemplatePixels: 3960,
+	})
+	recordTemplateMatchEvidence(counters, visionMatchResult{
+		Score: 0.75, Bounds: visionRegion{X: 10, Y: 20, Width: 120, Height: 33},
+		FrameWidth: 2560, FrameHeight: 1440,
+	})
+	if counters["best_score_ppm"] != 824802 || counters["last_score_ppm"] != 750000 ||
+		counters["best_x"] != 1603 || counters["best_y"] != 768 || counters["best_width"] != 120 ||
+		counters["best_height"] != 33 || counters["frame_width"] != 2560 || counters["frame_height"] != 1440 {
+		t.Fatalf("evidence = %#v", counters)
+	}
+}

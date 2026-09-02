@@ -155,6 +155,43 @@ func TestTerminalReviewExpiresFromBoundedManagerState(t *testing.T) {
 	}
 }
 
+func TestConversationTurnMayAnswerWithoutInventingPatch(t *testing.T) {
+	now := time.Date(2026, 9, 3, 5, 30, 0, 0, time.UTC)
+	runtime := testRuntime(t, now)
+	created, err := runtime.Application.CreateSource(context.Background(), "Question")
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager, err := aiauthoring.NewManager(runtime.Application, runtime.Builtins, func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile, err := ai.SealModelProfile(ai.ModelProfileDraft{
+		Provider: ai.ProviderOpenAIResponses, Model: "test-model", MaxOutputTokens: 1024,
+		Capabilities: ai.ProfileCapabilities{ToolCalling: true}, Pricing: ai.TokenPricing{InputMicrounitsPerMillion: 1, OutputMicrounitsPerMillion: 1},
+		Evaluation: ai.EvaluationUnverified, ProviderMetadata: json.RawMessage(`{}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	review, err := manager.Propose(context.Background(), aiauthoring.Runtime{Profile: profile, Provider: answerProvider{}, Credential: "secret"}, aiauthoring.ProposeRequest{
+		WorkflowID: created.WorkflowID(), BaseRevision: created.Revision(), Instruction: "为什么停止了？", TrustClass: "user-authored", AllowAnswerOnly: true,
+	})
+	if err != nil || review.ReviewID != "" || review.Summary != "The workflow stopped because its terminal route completed." {
+		t.Fatalf("answer-only result = %#v, %v", review, err)
+	}
+}
+
+type answerProvider struct{}
+
+func (answerProvider) StartAgent(context.Context, string, ai.AgentStartRequest) (ai.Outcome, any, error) {
+	return ai.Outcome{Provider: ai.ProviderOpenAIResponses, RequestedModel: "test-model", ResolvedModel: "test-model", Items: []ai.OutputItem{{Kind: ai.OutputText, Text: &ai.TextOutput{Text: "The workflow stopped because its terminal route completed."}}}, Finish: ai.Finish{Kind: ai.FinishCompleted}, Usage: testUsage()}, nil, nil
+}
+
+func (answerProvider) ContinueAgent(context.Context, string, any, ai.AgentContinueRequest) (ai.Outcome, any, error) {
+	return ai.Outcome{}, nil, errors.New("unexpected continuation")
+}
+
 type scriptedProvider struct {
 	turn       int
 	workflowID string

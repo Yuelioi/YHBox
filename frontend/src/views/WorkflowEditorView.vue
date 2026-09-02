@@ -583,6 +583,7 @@
             :workflow-id="session.workflowId"
             :base-revision="session.baseRevision"
             :dirty="session.dirty"
+            :run-id="session.activeRun?.runId"
             @close="aiPanelOpen = false"
             @accepted="acceptAIProposal"
           />
@@ -658,6 +659,7 @@
         @cancel="editorRuns.execute({ kind: 'cancel' })"
         @refresh="editorRuns.execute({ kind: 'refresh' })"
         @export-timeline="editorRuns.execute({ kind: 'export-timeline' })"
+        @diagnose-run="openAIDiagnosis"
         @page="(page) => editorRuns.execute({ kind: 'load-timeline-page', page })"
         @focus-node="focusNode"
         @focus="focusDiagnostic"
@@ -1252,6 +1254,7 @@ import {
   watch,
 } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
+import { registerMainWindowCloseGuard } from '@/app/window/mainWindowCloseGuard'
 import { useToast } from '@nuxt/ui/composables'
 import {
   VueFlow,
@@ -2235,8 +2238,13 @@ onBeforeUnmount(() => {
   editorRuns.dispose()
   clearTimeout(connectionEndTimer)
   stopSidebarResize?.()
+  unregisterMainWindowCloseGuard()
 })
-onBeforeRouteLeave(async () => {
+onBeforeRouteLeave(confirmEditorExit)
+
+const unregisterMainWindowCloseGuard = registerMainWindowCloseGuard(confirmEditorExit)
+
+async function confirmEditorExit(): Promise<boolean> {
   if (
     recording.state.phase === 'armed' ||
     recording.state.phase === 'countdown' ||
@@ -2274,7 +2282,7 @@ onBeforeRouteLeave(async () => {
   })
   if (decision === true) return (await editorRuns.execute({ kind: 'save' })).ok
   return decision === 'discard'
-})
+}
 
 function openRecordingStart(mode: RecordingMode): void {
   void editorRecording.execute({ kind: 'open-start', mode })
@@ -3092,6 +3100,12 @@ function toggleAIReview(): void {
   }
 }
 
+function openAIDiagnosis(): void {
+  aiPanelOpen.value = true
+  statePanelOpen.value = false
+  inspectorSidebarOpen.value = true
+}
+
 function toggleStatePanel(): void {
   statePanelOpen.value = !statePanelOpen.value
   if (statePanelOpen.value) {
@@ -3509,9 +3523,9 @@ function selectConnectionCandidate(candidate: WorkflowConnectionCandidate): void
       position,
     )
     closeConnectionMenu()
-  } catch (error) {
-    connectionError.value = error instanceof Error ? error.message : String(error)
-    showError(t('workflow.toast.edit_rejected'), error)
+  } catch {
+    connectionError.value = t('error.workflow.connection.invalid')
+    showError(t('workflow.toast.edit_rejected'), { id: 'workflow.connection.invalid' })
   }
 }
 

@@ -583,7 +583,7 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 		schedulesView: Boolean(document.querySelector('[data-testid="schedules-view"]')),
 		scheduleBrowse: Boolean(document.querySelector('[data-testid="schedule-library"][data-mode="browse"]')),
 		scheduleManageButton: Boolean(document.querySelector('[data-testid="schedule-manage-button"]')),
-		scheduleManagement: Boolean(document.querySelector('[data-testid="schedule-library"][data-mode="manage"] [data-testid="schedule-management"]')),
+		scheduleManagement: Boolean(document.querySelector('[data-testid="schedule-library"][data-mode="manage"]')),
 		scheduleEditor: Boolean(document.querySelector('[data-testid="schedule-editor"]')),
 		scheduleAdvanced: Boolean(document.querySelector('[data-testid="schedule-advanced"]')),
 		scheduleAdvancedToggle: Boolean(document.querySelector('[data-testid="schedule-advanced-toggle"]')),
@@ -657,7 +657,7 @@ func dispatchConnectionGesture(ctx context.Context, client *browsercdp.WebSocket
 	payload, _ := json.Marshal(gesture)
 	return eval(ctx, client, fmt.Sprintf(`(async () => {
 		const gesture = %s;
-		const handle = document.querySelector('.vue-flow__node[data-id="run-started"] .vue-flow__handle.source');
+		const handle = document.querySelector('.vue-flow__node[data-id="run-started"] .vue-flow__handle-right, .vue-flow__node[data-id="run-started"] .vue-flow__handle');
 		if (!handle) throw new Error('RunStarted connection handle not found');
 		const handleRect = handle.getBoundingClientRect();
 		const start = { x: handleRect.left + handleRect.width / 2, y: handleRect.top + handleRect.height / 2 };

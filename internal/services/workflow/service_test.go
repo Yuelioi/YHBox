@@ -136,7 +136,7 @@ func TestServiceProjectsProductionWorkflowLifecycle(t *testing.T) {
 	batch := service.BatchUpdateSourceMetadata([]workflow.BatchUpdateSourceMetadataRequest{
 		{WorkflowID: created.WorkflowID, BaseRevision: metadata.Revision, Category: "Batch", Tags: []string{"reviewed"}},
 	})
-	if len(batch) != 1 || !batch[0].Updated || batch[0].Error != "" {
+	if len(batch) != 1 || !batch[0].Updated || batch[0].Problem != nil {
 		t.Fatalf("BatchUpdateSourceMetadata() = %#v", batch)
 	}
 	created, err = service.GetSource(created.WorkflowID)
@@ -468,7 +468,7 @@ func TestServiceExposesWorkflowSourcePortabilityWithoutMachineInstallations(t *t
 		t.Fatalf("ExportSourceBundles() = %#v", results)
 	}
 	repeated := service.ExportSourceBundles([]string{created.WorkflowID}, batchDirectory)
-	if len(repeated) != 1 || repeated[0].Exported || repeated[0].Error != "destination already exists" {
+	if len(repeated) != 1 || repeated[0].Exported || repeated[0].Problem == nil || repeated[0].Problem.ID != "workflow.bundle.destination_exists" {
 		t.Fatalf("repeated ExportSourceBundles() = %#v", repeated)
 	}
 }

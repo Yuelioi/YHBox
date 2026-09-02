@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
@@ -48,8 +49,8 @@ type Summary struct {
 }
 
 type LoadWarning struct {
-	File  string `json:"file"`
-	Error string `json:"error"`
+	File    string           `json:"file"`
+	Problem *apperr.Envelope `json:"problem"`
 }
 
 type ListResult struct {
