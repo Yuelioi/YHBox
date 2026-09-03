@@ -46,6 +46,10 @@ func TestRunRecordStateMachineRoundTripsDurableValues(t *testing.T) {
 	if opened.Status() != run.StatusSucceeded || opened.Digest() != succeeded.Digest() || !bytes.Equal(opened.Bytes(), succeeded.Bytes()) {
 		t.Fatalf("opened run record = %s %s", opened.Status(), opened.Digest())
 	}
+	timing := opened.Timing()
+	if !timing.QueuedAt.Equal(queuedAt) || timing.StartedAt == nil || !timing.StartedAt.Equal(queuedAt.Add(time.Second)) || timing.EndedAt == nil || !timing.EndedAt.Equal(queuedAt.Add(2*time.Second)) {
+		t.Fatalf("opened run timing = %#v", timing)
+	}
 	if _, err := opened.Start(queuedAt.Add(3 * time.Second)); err == nil {
 		t.Fatal("terminal RunRecord transitioned again")
 	}

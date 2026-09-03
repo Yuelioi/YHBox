@@ -210,9 +210,59 @@ func TestConversationTurnAllowsEnoughIterationsForCatalogDiscoveryAndProposal(t 
 	}
 }
 
+func TestAnswerOnlyTurnCanCompileAndPreviewTheCurrentWorkflowWithoutAProposal(t *testing.T) {
+	now := time.Date(2026, 9, 3, 11, 45, 0, 0, time.UTC)
+	runtime := testRuntime(t, now)
+	created, err := runtime.Application.CreateSource(context.Background(), "Diagnostic baseline")
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager, err := aiauthoring.NewManager(runtime.Application, runtime.Builtins, func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile, err := ai.SealModelProfile(ai.ModelProfileDraft{
+		Provider: ai.ProviderOpenAIResponses, Model: "test-model", MaxOutputTokens: 1024,
+		Capabilities: ai.ProfileCapabilities{ToolCalling: true}, Pricing: ai.TokenPricing{InputMicrounitsPerMillion: 1, OutputMicrounitsPerMillion: 1},
+		Evaluation: ai.EvaluationUnverified, ProviderMetadata: json.RawMessage(`{}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	review, err := manager.Propose(context.Background(), aiauthoring.Runtime{Profile: profile, Provider: &baselineDiagnosticProvider{workflowID: created.WorkflowID()}, Credential: "secret"}, aiauthoring.ProposeRequest{
+		WorkflowID: created.WorkflowID(), BaseRevision: created.Revision(), Instruction: "Diagnose the current workflow.", TrustClass: "user-authored", AllowAnswerOnly: true,
+	})
+	if err != nil || review.ReviewID != "" || review.Summary != "The current workflow compiles and needs no patch." {
+		t.Fatalf("baseline diagnostic result = %#v, %v", review, err)
+	}
+}
+
 type answerProvider struct{}
 
 type catalogDiscoveryProvider struct{ turn int }
+
+type baselineDiagnosticProvider struct {
+	turn       int
+	workflowID string
+}
+
+func (p *baselineDiagnosticProvider) StartAgent(context.Context, string, ai.AgentStartRequest) (ai.Outcome, any, error) {
+	p.turn = 1
+	arguments, _ := json.Marshal(map[string]string{"workflowId": p.workflowID})
+	return toolOutcome("call-baseline-1", "workflow_inspect", string(arguments)), p.turn, nil
+}
+
+func (p *baselineDiagnosticProvider) ContinueAgent(context.Context, string, any, ai.AgentContinueRequest) (ai.Outcome, any, error) {
+	p.turn++
+	switch p.turn {
+	case 2:
+		return toolOutcome("call-baseline-2", "workflow_compile", `{}`), p.turn, nil
+	case 3:
+		return toolOutcome("call-baseline-3", "workflow_preview", `{}`), p.turn, nil
+	default:
+		return ai.Outcome{Provider: ai.ProviderOpenAIResponses, RequestedModel: "test-model", ResolvedModel: "test-model", Items: []ai.OutputItem{{Kind: ai.OutputText, Text: &ai.TextOutput{Text: "The current workflow compiles and needs no patch."}}}, Finish: ai.Finish{Kind: ai.FinishCompleted}, Usage: testUsage()}, nil, nil
+	}
+}
 
 func (p *catalogDiscoveryProvider) StartAgent(context.Context, string, ai.AgentStartRequest) (ai.Outcome, any, error) {
 	p.turn = 1

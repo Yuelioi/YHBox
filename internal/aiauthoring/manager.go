@@ -346,7 +346,7 @@ func (m *Manager) Propose(ctx context.Context, runtime Runtime, request ProposeR
 	if err != nil {
 		return Review{}, err
 	}
-	state := &proposalState{manager: m, workflowID: request.WorkflowID, runID: request.RunID, baseRevision: request.BaseRevision, basePlan: []capability.PlanEntry{}, progress: request.Progress}
+	state := &proposalState{manager: m, workflowID: request.WorkflowID, runID: request.RunID, baseRevision: request.BaseRevision, baseHash: base.Hash(), basePlan: []capability.PlanEntry{}, baseDiagnostics: []schema.Diagnostic{}, progress: request.Progress}
 	if request.RunID != "" {
 		record, runErr := m.application.GetRun(request.RunID)
 		if runErr != nil {
@@ -358,6 +358,9 @@ func (m *Manager) Propose(ctx context.Context, runtime Runtime, request ProposeR
 	}
 	if preview, previewErr := m.application.PreviewRun(ctx, request.WorkflowID); previewErr == nil {
 		state.basePlan = preview.CapabilityPlan
+		state.baseDiagnostics = append([]schema.Diagnostic(nil), preview.Diagnostics...)
+	} else if len(preview.Diagnostics) != 0 {
+		state.baseDiagnostics = append([]schema.Diagnostic(nil), preview.Diagnostics...)
 	}
 	executor, err := state.executor()
 	if err != nil {
@@ -603,7 +606,9 @@ type proposalState struct {
 	workflowID        string
 	runID             string
 	baseRevision      int64
+	baseHash          artifact.Digest
 	basePlan          []capability.PlanEntry
+	baseDiagnostics   []schema.Diagnostic
 	candidatePlan     []capability.PlanEntry
 	prepared          appcore.PreparedPatch
 	changes           []Change
@@ -726,10 +731,21 @@ func (s *proposalState) runGet(ctx context.Context, raw json.RawMessage) (json.R
 		return nil, err
 	}
 	admission := record.Admission()
+	timing := record.Timing()
+	elapsedMilliseconds := int64(0)
+	if timing.StartedAt != nil {
+		end := s.manager.now().UTC()
+		if timing.EndedAt != nil {
+			end = *timing.EndedAt
+		}
+		if !end.Before(*timing.StartedAt) {
+			elapsedMilliseconds = end.Sub(*timing.StartedAt).Milliseconds()
+		}
+	}
 	evidence, err := artifact.Marshal(map[string]any{
 		"runId": admission.RunID, "workflowId": admission.WorkflowID,
 		"sourceHash": admission.SourceHash, "sourceRevision": admission.SourceRevision,
-		"programHash": admission.ProgramHash, "status": record.Status(),
+		"programHash": admission.ProgramHash, "status": record.Status(), "elapsedMilliseconds": elapsedMilliseconds,
 		"timelinePage": timeline.Page, "timelinePages": timeline.Pages, "timelineTotal": timeline.Total,
 		"timeline": timeline.Entries,
 	})
@@ -965,11 +981,15 @@ func decodeAuthoringCommands(raw []byte, commands *[]authoring.Command) error {
 }
 
 func (s *proposalState) workflowCompile(_ context.Context, raw json.RawMessage) (json.RawMessage, error) {
-	if !s.prepared.Valid() {
-		return nil, ErrNoProposal
+	diagnostics := s.diagnostics
+	candidateHash := s.baseHash
+	if s.prepared.Valid() {
+		candidateHash = s.prepared.CandidateHash()
+	} else {
+		diagnostics = s.baseDiagnostics
 	}
-	keyParts := make([]string, 0, len(s.diagnostics))
-	for _, diagnostic := range s.diagnostics {
+	keyParts := make([]string, 0, len(diagnostics))
+	for _, diagnostic := range diagnostics {
 		keyParts = append(keyParts, diagnostic.Code)
 	}
 	key := strings.Join(keyParts, ",")
@@ -981,27 +1001,31 @@ func (s *proposalState) workflowCompile(_ context.Context, raw json.RawMessage) 
 	if s.diagnosticRepeats >= 2 {
 		return nil, errors.New("AI authoring stopped after repeated identical compiler diagnostics")
 	}
-	s.compileChecked = true
-	encoded, err := artifact.Marshal(s.diagnostics)
+	if s.prepared.Valid() {
+		s.compileChecked = true
+	}
+	encoded, err := artifact.Marshal(diagnostics)
 	if err != nil {
 		return nil, err
 	}
 	s.addToolTrace("workflow_compile", raw, encoded)
-	s.addTrace("compiler", "", map[string]string{"candidate_hash": s.prepared.CandidateHash().String(), "diagnostics": key, "errors": fmt.Sprint(schema.HasErrors(s.diagnostics))})
+	s.addTrace("compiler", "", map[string]string{"candidate_hash": candidateHash.String(), "diagnostics": key, "errors": fmt.Sprint(schema.HasErrors(diagnostics))})
 	return json.Marshal(map[string]string{"diagnosticsJson": string(encoded)})
 }
 
 func (s *proposalState) workflowPreview(_ context.Context, raw json.RawMessage) (json.RawMessage, error) {
+	permissions := s.permissions
 	if !s.prepared.Valid() {
-		return nil, ErrNoProposal
+		permissions = PermissionDelta{Added: []CapabilityChange{}, Removed: []CapabilityChange{}}
+	} else {
+		s.previewChecked = true
 	}
-	s.previewChecked = true
-	encoded, err := artifact.Marshal(s.permissions)
+	encoded, err := artifact.Marshal(permissions)
 	if err != nil {
 		return nil, err
 	}
 	s.addToolTrace("workflow_preview", raw, encoded)
-	s.addTrace("run-preview", "", map[string]string{"admission": "not-run", "effects": "none", "added_capabilities": fmt.Sprint(len(s.permissions.Added)), "removed_capabilities": fmt.Sprint(len(s.permissions.Removed))})
+	s.addTrace("run-preview", "", map[string]string{"admission": "not-run", "effects": "none", "added_capabilities": fmt.Sprint(len(permissions.Added)), "removed_capabilities": fmt.Sprint(len(permissions.Removed))})
 	return json.Marshal(map[string]string{"deltaJson": string(encoded)})
 }
 

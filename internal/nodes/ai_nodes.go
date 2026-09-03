@@ -55,7 +55,7 @@ func sealAIArtifacts() (aiArtifacts, error) {
 	emptyInput := json.RawMessage(`{"type":"object","properties":{},"required":[],"additionalProperties":false}`)
 	patchOutput := json.RawMessage(`{"type":"object","properties":{"candidateHash":{"type":"string"},"newRevision":{"type":"integer"},"diagnosticsJson":{"type":"string"}},"required":["candidateHash","newRevision","diagnosticsJson"],"additionalProperties":false}`)
 	authoringTools, err := ai.SealToolSet(ai.ToolSetDraft{
-		ID: "yotta.ai.workflow-authoring", Version: "1.1.0", Owner: "ai-authoring",
+		ID: "yotta.ai.workflow-authoring", Version: "1.2.0", Owner: "ai-authoring",
 		Tools: []ai.ToolManifestDraft{
 			{Name: "catalog_search", Description: "Search the trusted admitted node catalog. Returns bounded typed catalog items as canonical JSON.", Authority: ai.ToolAuthorityPure, InputSchema: stringProperty("query"), OutputSchema: stringProperty("itemsJson")},
 			{Name: "catalog_describe", Description: "Describe one exact node type from the trusted authoring projection.", Authority: ai.ToolAuthorityPure, InputSchema: stringProperty("nodeTypeId"), OutputSchema: stringProperty("nodeJson")},
@@ -66,8 +66,8 @@ func sealAIArtifacts() (aiArtifacts, error) {
 			{Name: "workflow_set_numeric_input", Description: "Prepare one numeric value change, such as a threshold, for an existing node input.", Authority: ai.ToolAuthorityPure, InputSchema: json.RawMessage(`{"type":"object","properties":{"graphId":{"type":"string"},"nodeId":{"type":"string"},"inputId":{"type":"string"},"value":{"type":"number"}},"required":["graphId","nodeId","inputId","value"],"additionalProperties":false}`), OutputSchema: patchOutput},
 			{Name: "workflow_set_input_json", Description: "Set one node input from a compact JSON value string, such as [\"F\"] for a key list.", Authority: ai.ToolAuthorityPure, InputSchema: json.RawMessage(`{"type":"object","properties":{"graphId":{"type":"string"},"nodeId":{"type":"string"},"inputId":{"type":"string"},"valueJson":{"type":"string"}},"required":["graphId","nodeId","inputId","valueJson"],"additionalProperties":false}`), OutputSchema: patchOutput},
 			{Name: "workflow_propose_patch", Description: "Prepare a structural multi-command edit. Prefer narrow authoring tools when one operation is sufficient.", Authority: ai.ToolAuthorityPure, InputSchema: stringProperty("commandsJson"), OutputSchema: patchOutput},
-			{Name: "workflow_compile", Description: "Return compiler diagnostics for the latest exact prepared candidate.", Authority: ai.ToolAuthorityPure, InputSchema: emptyInput, OutputSchema: stringProperty("diagnosticsJson")},
-			{Name: "workflow_preview", Description: "Return the capability, credential, and target delta for the latest exact prepared candidate without admission or effects.", Authority: ai.ToolAuthorityPure, InputSchema: emptyInput, OutputSchema: stringProperty("deltaJson")},
+			{Name: "workflow_compile", Description: "Return compiler diagnostics for the latest exact prepared candidate, or for the current durable Workflow Source when no candidate exists.", Authority: ai.ToolAuthorityPure, InputSchema: emptyInput, OutputSchema: stringProperty("diagnosticsJson")},
+			{Name: "workflow_preview", Description: "Return the capability, credential, and target delta for the latest exact prepared candidate without admission or effects; returns an empty delta when no candidate exists.", Authority: ai.ToolAuthorityPure, InputSchema: emptyInput, OutputSchema: stringProperty("deltaJson")},
 			{Name: "diagnostic_explain", Description: "Explain one stable compiler diagnostic code and bounded repair hints.", Authority: ai.ToolAuthorityPure, InputSchema: stringProperty("code"), OutputSchema: json.RawMessage(`{"type":"object","properties":{"explanation":{"type":"string"},"repairsJson":{"type":"string"}},"required":["explanation","repairsJson"],"additionalProperties":false}`)},
 		},
 	})

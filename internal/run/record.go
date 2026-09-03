@@ -137,6 +137,13 @@ type recordState struct {
 
 type Record struct{ state *recordState }
 
+// Timing is the stable lifecycle clock projection of a Run.
+type Timing struct {
+	QueuedAt  time.Time
+	StartedAt *time.Time
+	EndedAt   *time.Time
+}
+
 func NewQueuedRecord(request QueueRequest) (Record, error) {
 	if !request.Grant.Valid() {
 		return Record{}, errors.New("queued Run requires a sealed Run Grant")
@@ -447,6 +454,13 @@ func (r Record) Admission() Admission {
 		CapabilityPlanDigest: document.CapabilityPlanDigest, GrantDigest: document.GrantDigest,
 		PolicyGeneration: document.PolicyGeneration, Principal: document.Principal, QueuedAt: document.QueuedAt,
 	}
+}
+func (r Record) Timing() Timing {
+	if !r.Valid() {
+		return Timing{}
+	}
+	document := r.state.document
+	return Timing{QueuedAt: document.QueuedAt, StartedAt: cloneRunTime(document.StartedAt), EndedAt: cloneRunTime(document.EndedAt)}
 }
 func (r Record) Journal() []JournalEntry {
 	if !r.Valid() {

@@ -17,10 +17,12 @@ Open
 service 将其折叠为 `ai.authoring.failed`，侧栏又把持久 Problem 错误降级成“发生未知错误”。
 
 当前修复已引导英文稳定目录词、将迭代余量增至 24、投影专用可重试 `ai.authoring.budget_exhausted`，并让持久
-Problem 通过 canonical formatter 展示 params 和 operationId。同一真实 smoke 已在 18 次迭代完整执行
-`workflow_add_node → workflow_set_input_json → workflow_connect → workflow_compile → workflow_preview` 并生成候选；
-步骤上限现可在“设置 → AI 模型 → 提案执行”中按 8–64 配置，并明确说明它不是订阅或 API 余额。
-`task check` 与 `task webview:smoke` 均通过。最新生产 EXE 中由 owner 发起同场景的最终 UI 验收仍待完成。
+Problem 通过 canonical formatter 展示 params 和 operationId。真实 Run 诊断中模型在未创建修改候选时调用
+`workflow_compile`/`workflow_preview` 曾触发 `ErrNoProposal` 并被折叠为 `ai.authoring.failed`；现已允许这两个工具
+分别检查当前持久 Source、返回空变更，并保留候选存在时的原有验收语义。同一生产数据、真实 Run 和 Codex 配置
+已完整执行 `run_get → workflow_inspect → workflow_compile → workflow_preview` 并成功返回无需修改的诊断结论；
+`run_get` 现在还提供从 Run 开始到当前时刻或终态的 `elapsedMilliseconds`，供 AI 明确报告运行时长。
+`task check` 通过。最新生产 EXE 中由 owner 发起同场景的最终 UI 验收仍待完成。
 
 ## Next
 
@@ -36,6 +38,11 @@ Problem 通过 canonical formatter 展示 params 和 operationId。同一真实 
 
 ## Progress
 
+- 2026-09-03 根据 owner 建议为 AI Run evidence 增加结构化 `elapsedMilliseconds`：运行中使用当前时刻，终态使用
+  `endedAt`，并通过 Run timing accessor 测试覆盖持久时间投影。
+- 2026-09-03 复现 owner 的真实 `ai.authoring.failed`：Run 读取与 Source 检查成功后，模型在无候选时调用
+  `workflow_compile`，被 `ErrNoProposal` 中止。补齐基线编译/空变更预览语义和回归测试；同一真实 Run smoke
+  随后成功完成 6 轮诊断，AI eval 8/8 approved，`task check` 通过。
 - 2026-09-03 精确真实 smoke 证明 12 次迭代预算在候选完成前耗尽；修复目录发现提示、预算错误投影、持久参数和
   UI 关联 ID，并更新陈旧 WebView smoke。修复后同场景 18 次迭代成功；`task check`、`task webview:smoke` 通过。
 - 2026-09-03 将 AI 提案单轮步骤上限改为持久用户设置，范围 8–64、默认 24；设置页和耗尽错误均解释其为
