@@ -27,6 +27,25 @@ type heldInputProvider struct {
 	closed     int
 }
 
+type pointerPositionProvider struct{ closed int }
+
+func (provider *pointerPositionProvider) Open(_ context.Context, request resource.ProviderOpenRequest) (any, error) {
+	if request.Kind != automationinstalled.KindInput || fmt.Sprint(request.Operations) != "[pointer-position]" {
+		return nil, fmt.Errorf("unexpected pointer position open request: %#v", request)
+	}
+	return &struct{}{}, nil
+}
+func (provider *pointerPositionProvider) Invoke(_ context.Context, _ any, operation string, payload []byte) ([]byte, error) {
+	if operation != automationinstalled.OperationPointerPosition || string(payload) != `{}` {
+		return nil, fmt.Errorf("unexpected pointer position invocation: %s %s", operation, payload)
+	}
+	return []byte(`{"point":{"unit":"ratio","x":0.25,"y":0.75}}`), nil
+}
+func (provider *pointerPositionProvider) Close(context.Context, any) error {
+	provider.closed++
+	return nil
+}
+
 func (provider *heldInputProvider) Open(_ context.Context, request resource.ProviderOpenRequest) (any, error) {
 	if request.Kind != automationinstalled.KindHeldInput || fmt.Sprint(request.Operations) != "[hold-button hold-keys release-held]" ||
 		string(request.Config) != `{}` || len(request.CapabilityScope) != 0 {
@@ -133,6 +152,32 @@ func TestHeldInputLeaseCrossesNodesAndIsClosedByRun(t *testing.T) {
 	}
 }
 
+func TestGetPointerPositionProducesReusableNormalizedPoint(t *testing.T) {
+	builtins, err := nodes.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider := &pointerPositionProvider{}
+	const targetID, slot = "automation-target/pointer", "automation-pointer"
+	program := compilePrimitiveProgram(t, builtins, pointerPositionSource(t, builtins, slot))
+	now := time.Date(2026, 9, 4, 2, 0, 0, 0, time.UTC)
+	_, owner, journal := admittedExecution(t, builtins, program, map[string]run.InstalledProvider{}, now)
+	t.Cleanup(func() { _ = owner.Close(context.Background()) })
+	adapters, err := noderuntime.Installed(builtins, testDependencies())
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).
+		RunWithTargets(context.Background(), program, owner, configuredTargetRun(t, slot, targetID, provider), journal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	point := result.NodeOutputs["position"]["point"].InlineJSON()
+	if string(point) != `{"unit":"ratio","x":0.25,"y":0.75}` || provider.closed != 1 {
+		t.Fatalf("point=%s closed=%d", point, provider.closed)
+	}
+}
+
 func automationInputSource(t *testing.T, builtins nodes.Builtins, slot string) []byte {
 	t.Helper()
 	started, _ := builtins.Definition(nodes.RunStartedNodeID)
@@ -167,4 +212,18 @@ func heldInputSource(t *testing.T, builtins nodes.Builtins, slot string) []byte 
 	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
 		hold.Contract.NodeRef().NodeTypeID, hold.Contract.NodeRef().SemanticDigest, slot,
 		release.Contract.NodeRef().NodeTypeID, release.Contract.NodeRef().SemanticDigest, slot))
+}
+
+func pointerPositionSource(t *testing.T, builtins nodes.Builtins, slot string) []byte {
+	t.Helper()
+	started, _ := builtins.Definition(nodes.RunStartedNodeID)
+	position, _ := builtins.Definition(nodes.GetPointerPositionNodeID)
+	return []byte(fmt.Sprintf(`{
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-pointer-position","name":"Pointer Position"},"revision":0,"entryGraph":"main",
+		"graphs":[{"id":"main","kind":"main","nodes":[
+			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
+			{"id":"position","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{"slot":%q},"bindings":{}}
+		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"position","portId":"in"}}],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
+	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
+		position.Contract.NodeRef().NodeTypeID, position.Contract.NodeRef().SemanticDigest, slot))
 }

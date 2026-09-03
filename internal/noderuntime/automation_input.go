@@ -56,6 +56,46 @@ func automationInput(nodeTypeID, operation string) nodeadapter.Adapter {
 	}
 }
 
+func getPointerPosition(builtins nodes.Builtins) nodeadapter.Adapter {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
+		action := nodeadapter.AdapterAction{
+			EffectID: nodes.GetPointerPositionEffectID, Action: "automation.pointer-position",
+			SummaryCode: "automation.pointer-position", Counters: map[string]int64{}, Facts: map[string]string{},
+		}
+		defer func() {
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, action, installed.CodeInputFailed, runErr))
+		}()
+		handle, err := openConfiguredTarget(ctx, invocation, installed.KindInput, []string{installed.OperationPointerPosition})
+		if err != nil {
+			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
+		}
+		defer func() { runErr = errors.Join(runErr, invocation.Targets.Drop(context.WithoutCancel(ctx), handle)) }()
+		raw, err := invocation.Targets.Invoke(ctx, handle, installed.OperationPointerPosition, []byte(`{}`))
+		if err != nil {
+			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
+		}
+		response, err := installed.OpenPointerPositionResponse(raw)
+		if err != nil {
+			return nodeadapter.AdapterResult{}, mapAutomationFailure(err)
+		}
+		resolved, ok := invocation.OutputTypes["point"]
+		if !ok {
+			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("pointer position output type is missing"))
+		}
+		pointRaw, err := json.Marshal(response.Point)
+		if err != nil {
+			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, err)
+		}
+		point, err := datatype.SealInlineJSON(builtins.Catalog, resolved, pointRaw)
+		if err != nil {
+			return nodeadapter.AdapterResult{}, automationFailure(installed.CodeContractViolation, err)
+		}
+		action.Counters["x_ppm"] = int64(response.Point.X * 1_000_000)
+		action.Counters["y_ppm"] = int64(response.Point.Y * 1_000_000)
+		return nodeadapter.AdapterResult{Outputs: map[string]datatype.ValueEnvelope{"point": point}, ExecOutputs: []string{"completed"}}, nil
+	}
+}
+
 func automationInputRequest(invocation nodeadapter.Invocation, operation string) (any, map[string]int64, error) {
 	counters := map[string]int64{}
 	switch operation {

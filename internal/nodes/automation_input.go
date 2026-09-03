@@ -17,6 +17,7 @@ const (
 
 	ClickPointerNodeID        = "https://schemas.yotta.dev/nodes/automation/click-pointer"
 	MovePointerNodeID         = "https://schemas.yotta.dev/nodes/automation/move-pointer"
+	GetPointerPositionNodeID  = "https://schemas.yotta.dev/nodes/automation/get-pointer-position"
 	ScrollPointerNodeID       = "https://schemas.yotta.dev/nodes/automation/scroll-pointer"
 	DragPointerNodeID         = "https://schemas.yotta.dev/nodes/automation/drag-pointer"
 	MovePointerRelativeNodeID = "https://schemas.yotta.dev/nodes/automation/move-pointer-relative"
@@ -28,6 +29,7 @@ const (
 
 	ClickPointerEffectID        = "https://schemas.yotta.dev/effects/automation/click-pointer/v1"
 	MovePointerEffectID         = "https://schemas.yotta.dev/effects/automation/move-pointer/v1"
+	GetPointerPositionEffectID  = "https://schemas.yotta.dev/effects/automation/get-pointer-position/v1"
 	ScrollPointerEffectID       = "https://schemas.yotta.dev/effects/automation/scroll-pointer/v1"
 	DragPointerEffectID         = "https://schemas.yotta.dev/effects/automation/drag-pointer/v1"
 	MovePointerRelativeEffectID = "https://schemas.yotta.dev/effects/automation/move-pointer-relative/v1"
@@ -58,6 +60,7 @@ type automationInputNode struct {
 	operation   string
 	effectID    string
 	inputs      []nodecontract.DataInputPort
+	outputs     []nodecontract.DataOutputPort
 	conformance string
 }
 
@@ -216,6 +219,10 @@ func defineAutomationInputNodes(types automationInputTypes) ([]BuiltinDefinition
 			inputs: []nodecontract.DataInputPort{point("point"), duration("duration", "0"), instantMotion}, conformance: "exact-target/pointer-move/v1",
 		},
 		{
+			id: GetPointerPositionNodeID, entrypoint: "automation.get-pointer-position", titleKey: "node.automation.getPointerPosition", icon: "current-location", operation: installed.OperationPointerPosition, effectID: GetPointerPositionEffectID,
+			outputs: []nodecontract.DataOutputPort{{ID: "point", Type: pointType}}, conformance: "exact-target/current-normalized-pointer-position/v1",
+		},
+		{
 			id: ScrollPointerNodeID, entrypoint: "automation.scroll-pointer", titleKey: "node.automation.scrollPointer", icon: "mouse", operation: installed.OperationScroll, effectID: ScrollPointerEffectID,
 			inputs: []nodecontract.DataInputPort{point("point"), {ID: "notches", Type: integerType, Required: true, Default: rawDefault("1")}, {ID: "horizontal", Type: booleanType, Required: true, Default: rawDefault("false")}}, conformance: "exact-target/pointer-scroll/v1",
 		},
@@ -240,7 +247,7 @@ func defineAutomationInputNodes(types automationInputTypes) ([]BuiltinDefinition
 	contracts := make([]nodecontract.Contract, 0, len(specs))
 	for _, spec := range specs {
 		targetKinds := []string{installed.TargetKindDesktopWindow, installed.TargetKindAndroidDevice, installed.TargetKindBrowserCDP}
-		if spec.operation == installed.OperationMoveRelative {
+		if spec.operation == installed.OperationMoveRelative || spec.operation == installed.OperationPointerPosition {
 			targetKinds = []string{installed.TargetKindDesktopWindow}
 		} else if spec.operation == installed.OperationPressKeys {
 			targetKinds = []string{installed.TargetKindDesktopWindow, installed.TargetKindBrowserCDP}
@@ -273,7 +280,7 @@ func sealAutomationInputNode(spec automationInputNode, targetKinds []string) (no
 				"x-yotta-title-key":"node.automation.config.slot.title","x-yotta-description-key":"node.automation.config.slot.description"}},
 			"required":["slot"],"additionalProperties":false
 		}`, schemaID))}},
-		Ports: nodecontract.PortSet{DataInputs: spec.inputs, DataOutputs: []nodecontract.DataOutputPort{}, ExecInputs: signalList("in"), ExecOutputs: signalList("completed"), ErrorOutputs: signalList("failed")},
+		Ports: nodecontract.PortSet{DataInputs: spec.inputs, DataOutputs: spec.outputs, ExecInputs: signalList("in"), ExecOutputs: signalList("completed"), ErrorOutputs: signalList("failed")},
 		Execution: nodecontract.ExecutionSpec{
 			Class: nodecontract.ExecutionEffect, Effects: []nodecontract.EffectID{nodecontract.EffectID(spec.effectID)}, Determinism: nodecontract.Recorded,
 			Evaluation: nodecontract.EvaluationPush, Cache: nodecontract.CacheNone, Retry: nodecontract.RetryNever,
@@ -311,6 +318,7 @@ func automationTargetSpec(id string, kinds ...string) []nodecontract.ConfiguredT
 func AutomationInputEffectID(nodeID string) (string, bool) {
 	for _, pair := range [][2]string{
 		{ClickPointerNodeID, ClickPointerEffectID}, {MovePointerNodeID, MovePointerEffectID},
+		{GetPointerPositionNodeID, GetPointerPositionEffectID},
 		{ScrollPointerNodeID, ScrollPointerEffectID}, {DragPointerNodeID, DragPointerEffectID},
 		{MovePointerRelativeNodeID, MovePointerRelativeEffectID}, {PressKeysNodeID, PressKeysEffectID},
 		{TypeTextNodeID, TypeTextEffectID},

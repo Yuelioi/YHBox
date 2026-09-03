@@ -439,6 +439,10 @@ export default {
         title: '移动指针',
         description: '以即时、匀速直线或贝塞尔曲线移动到目标坐标。',
       },
+      getPointerPosition: {
+        title: '读取指针位置',
+        description: '读取鼠标在桌面目标客户区内的当前位置，并输出可直接用于移动节点的比例坐标。',
+      },
       scrollPointer: { title: '滚动指针', description: '在配置目标内执行滚动。' },
       dragPointer: {
         title: '拖拽指针',

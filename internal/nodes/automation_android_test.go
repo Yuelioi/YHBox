@@ -16,6 +16,11 @@ func TestAutomationNodesExposeOnlyConfiguredTargetSemantics(t *testing.T) {
 	if !slices.Equal(moveRelative.Contract.Machine().ConfiguredTargets[0].TargetKinds, []string{installed.TargetKindDesktopWindow}) {
 		t.Fatal("relative movement is not desktop-only")
 	}
+	position, ok := builtins.Definition(GetPointerPositionNodeID)
+	if !ok || !slices.Equal(position.Contract.Machine().ConfiguredTargets[0].TargetKinds, []string{installed.TargetKindDesktopWindow}) ||
+		len(position.Contract.Machine().Ports.DataOutputs) != 1 || position.Contract.Machine().Ports.DataOutputs[0].ID != "point" {
+		t.Fatalf("pointer position contract = %#v", position.Contract.Machine())
+	}
 	pressKeys, _ := builtins.Definition(PressKeysNodeID)
 	if !slices.Contains(pressKeys.Contract.Machine().ConfiguredTargets[0].TargetKinds, installed.TargetKindBrowserCDP) {
 		t.Fatal("key node is not browser compatible")

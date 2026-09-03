@@ -38,6 +38,7 @@ const (
 
 	OperationClick            = "click"
 	OperationMove             = "move"
+	OperationPointerPosition  = "pointer-position"
 	OperationScroll           = "scroll"
 	OperationDrag             = "drag"
 	OperationMoveRelative     = "move-relative"
@@ -78,7 +79,7 @@ const (
 )
 
 var inputOperations = []string{
-	OperationClick, OperationDrag, OperationMove, OperationMoveRelative,
+	OperationClick, OperationDrag, OperationMove, OperationPointerPosition, OperationMoveRelative,
 	OperationPressKeys, OperationScroll, OperationTypeText,
 }
 var heldInputOperations = []string{OperationHoldButton, OperationHoldKeys, OperationReleaseHeld}
@@ -137,6 +138,9 @@ type Point struct {
 	X    float64 `json:"x"`
 	Y    float64 `json:"y"`
 	Unit string  `json:"unit"`
+}
+type PointerPositionResponse struct {
+	Point Point `json:"point"`
 }
 type ClickRequest struct {
 	Point                Point  `json:"point"`
@@ -323,6 +327,9 @@ type windowWaiter interface {
 }
 type windowStateReader interface {
 	WindowState(context.Context) (WindowStateResponse, error)
+}
+type pointerPositionDriver interface {
+	PointerPosition(context.Context) (Point, error)
 }
 type heldInputSession struct {
 	mu         sync.Mutex
@@ -518,6 +525,20 @@ func (p *provider) Invoke(ctx context.Context, object any, operation string, pay
 			return nil, failure(CodeWindowFailed, err)
 		}
 		return artifact.Marshal(response)
+	}
+	if operation == OperationPointerPosition {
+		locator, ok := p.driver.(pointerPositionDriver)
+		if !ok {
+			return nil, failure(CodeUnsupportedHost, errors.New("pointer position is unsupported by this automation adapter"))
+		}
+		point, err := locator.PointerPosition(ctx)
+		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return nil, err
+			}
+			return nil, failure(CodeInputFailed, err)
+		}
+		return artifact.Marshal(PointerPositionResponse{Point: point})
 	}
 	if err := p.driver.Execute(ctx, operation, request); err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
@@ -917,6 +938,18 @@ func OpenEffectResponse(raw []byte) error {
 	return nil
 }
 
+func OpenPointerPositionResponse(raw []byte) (PointerPositionResponse, error) {
+	var response PointerPositionResponse
+	if err := decodeExact(raw, &response, 256); err != nil || validatePoint(response.Point) != nil || response.Point.Unit != "ratio" {
+		return PointerPositionResponse{}, failure(CodeContractViolation, errors.New("invalid pointer position response"))
+	}
+	canonical, err := artifact.Marshal(response)
+	if err != nil || !bytes.Equal(canonical, raw) {
+		return PointerPositionResponse{}, failure(CodeContractViolation, errors.New("pointer position response is not canonical"))
+	}
+	return response, nil
+}
+
 func OpenCaptureResponse(raw []byte) (CaptureResponse, error) {
 	var response CaptureResponse
 	if err := decodeExact(raw, &response, 1024); err != nil || !validCaptureResponse(response) {
@@ -986,7 +1019,7 @@ func decodeOperationRequest(operation string, raw []byte) (any, error) {
 	}
 	decode := func(target any) error { return decodeExact(raw, target, 64<<10) }
 	switch operation {
-	case OperationActivate, OperationCloseWindow, OperationGetWindowState, OperationStopApp, OperationReleaseHeld:
+	case OperationActivate, OperationCloseWindow, OperationGetWindowState, OperationPointerPosition, OperationStopApp, OperationReleaseHeld:
 		var request struct{}
 		if err := decode(&request); err != nil {
 			return nil, err

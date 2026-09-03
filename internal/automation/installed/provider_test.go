@@ -80,6 +80,9 @@ func (driver *fakeDriver) WaitWindow(_ context.Context, present bool, _ time.Dur
 func (driver *fakeDriver) WindowState(context.Context) (WindowStateResponse, error) {
 	return WindowStateResponse{State: "normal", Foreground: true, X: 10, Y: 20, Width: 800, Height: 600}, driver.err
 }
+func (driver *fakeDriver) PointerPosition(context.Context) (Point, error) {
+	return Point{X: 0.25, Y: 0.75, Unit: "ratio"}, driver.err
+}
 func (driver *fakeHeldInput) Execute(_ context.Context, operation string, request any) error {
 	driver.operation, driver.request = operation, request
 	return driver.err
@@ -163,6 +166,17 @@ func TestProviderUsesConfiguredOperationAndCanonicalPayload(t *testing.T) {
 	}
 	if _, err := provider.Invoke(context.Background(), object, OperationMove, []byte(`{"point":{"x":0.5,"y":0.5,"unit":"ratio"}}`)); err == nil {
 		t.Fatal("click session accepted move operation")
+	}
+}
+
+func TestProviderReturnsCanonicalPointerPosition(t *testing.T) {
+	profile, _ := testProfile(t)
+	provider := &provider{profile: profile, driver: &fakeDriver{}}
+	object := openInputSession(t, provider, OperationPointerPosition)
+	raw, err := provider.Invoke(context.Background(), object, OperationPointerPosition, []byte(`{}`))
+	response, decodeErr := OpenPointerPositionResponse(raw)
+	if err != nil || decodeErr != nil || response.Point != (Point{X: 0.25, Y: 0.75, Unit: "ratio"}) {
+		t.Fatalf("pointer response=%#v raw=%s invoke=%v decode=%v", response, raw, err, decodeErr)
 	}
 }
 

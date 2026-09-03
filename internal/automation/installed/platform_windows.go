@@ -578,6 +578,31 @@ func (d *windowsDriver) Execute(ctx context.Context, operation string, raw any) 
 	}
 }
 
+func (d *windowsDriver) PointerPosition(ctx context.Context) (Point, error) {
+	select {
+	case <-ctx.Done():
+		return Point{}, ctx.Err()
+	case <-d.gate:
+	}
+	defer func() { d.gate <- struct{}{} }()
+	if d.closed || d.backend == nil {
+		return Point{}, failure(CodeContractViolation, errors.New("automation input driver is closed"))
+	}
+	window, err := d.resolve(ctx)
+	if err != nil {
+		return Point{}, err
+	}
+	resolved, err := d.controller(window)
+	if err != nil {
+		return Point{}, failure(CodeContractViolation, err)
+	}
+	point, err := resolved.PointerPosition(ctx)
+	if err != nil {
+		return Point{}, failure(CodeInputFailed, err)
+	}
+	return Point{X: point.X, Y: point.Y, Unit: "ratio"}, nil
+}
+
 func (d *windowsDriver) WaitWindow(ctx context.Context, present bool, timeout time.Duration) (bool, error) {
 	select {
 	case <-ctx.Done():

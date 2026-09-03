@@ -74,6 +74,7 @@ func Installed(builtins nodes.Builtins, dependencies Dependencies) (map[string]n
 		nodes.TerminateApplicationNodeID: terminateApplication(builtins),
 		nodes.ClickPointerNodeID:         automationInput(nodes.ClickPointerNodeID, automationinstalled.OperationClick),
 		nodes.MovePointerNodeID:          automationInput(nodes.MovePointerNodeID, automationinstalled.OperationMove),
+		nodes.GetPointerPositionNodeID:   getPointerPosition(builtins),
 		nodes.ScrollPointerNodeID:        automationInput(nodes.ScrollPointerNodeID, automationinstalled.OperationScroll),
 		nodes.DragPointerNodeID:          automationInput(nodes.DragPointerNodeID, automationinstalled.OperationDrag),
 		nodes.MovePointerRelativeNodeID:  automationInput(nodes.MovePointerRelativeNodeID, automationinstalled.OperationMoveRelative),

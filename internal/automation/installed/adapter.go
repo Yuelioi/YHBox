@@ -178,7 +178,7 @@ func productionAdapters() []productionAdapter {
 			targetType: targetTypeDescriptor(
 				TargetKindDesktopWindow, AdapterKindWin32, "desktop-window", PlatformSupported(),
 				[]ResourceDescriptor{
-					targetResource(KindInput, OperationClick, OperationDrag, OperationMove, OperationScroll, OperationTypeText, OperationMoveRelative, OperationPressKeys),
+					targetResource(KindInput, OperationClick, OperationDrag, OperationMove, OperationPointerPosition, OperationScroll, OperationTypeText, OperationMoveRelative, OperationPressKeys),
 					targetResource(KindHeldInput, OperationHoldKeys, OperationHoldButton, OperationReleaseHeld),
 					targetResource(KindWindow, OperationActivate, OperationCloseWindow, OperationGetWindowState, OperationMoveResizeWindow, OperationSetWindowState, OperationWaitWindow, OperationWaitWindowGone),
 					targetResource(KindCapture, OperationCapture, OperationReadCapture),

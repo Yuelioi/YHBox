@@ -628,6 +628,11 @@ export default {
         description:
           'Move to a target coordinate instantly, along a constant-speed line, or on a Bézier curve.',
       },
+      getPointerPosition: {
+        title: 'Get pointer position',
+        description:
+          'Read the current pointer position in a desktop target client area as a normalized point that can feed a move node.',
+      },
       scrollPointer: {
         title: 'Scroll pointer',
         description: 'Scroll inside the configured target.',
