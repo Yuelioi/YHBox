@@ -1,4 +1,5 @@
 /// <reference types="vitest/config" />
+import { readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { fileURLToPath, URL } from 'node:url'
@@ -12,6 +13,10 @@ const virtualTablerIconNames = 'virtual:tabler-icon-names'
 const resolvedVirtualTablerIconNames = `\0${virtualTablerIconNames}`
 const require = createRequire(import.meta.url)
 const tablerIconsPath = require.resolve('@iconify-json/tabler/icons.json')
+const nodeAuthoringPath = fileURLToPath(
+  new URL('../contracts/node/v2/builtin-authoring.json', import.meta.url),
+)
+const catalogIconNames = loadCatalogIconNames()
 
 function tablerIconNamesPlugin(): Plugin {
   let generatedModule: Promise<string> | undefined
@@ -41,6 +46,20 @@ async function buildTablerIconNamesModule(): Promise<string> {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function loadCatalogIconNames(): string[] {
+  const parsed: unknown = JSON.parse(readFileSync(nodeAuthoringPath, 'utf8'))
+  if (!isRecord(parsed) || !isRecord(parsed.body) || !Array.isArray(parsed.body.nodes)) {
+    throw new Error(`invalid Node Authoring Projection at ${nodeAuthoringPath}`)
+  }
+  return [
+    ...new Set(
+      parsed.body.nodes
+        .map((node) => (isRecord(node) && typeof node.icon === 'string' ? node.icon : ''))
+        .filter(Boolean),
+    ),
+  ].map((name) => `i-tabler-${name}`)
 }
 
 export default defineConfig(({ mode }) => {
@@ -87,6 +106,17 @@ export default defineConfig(({ mode }) => {
       tablerIconNamesPlugin(),
       vue(),
       ui({
+        icon: {
+          // Bundle production icon references so first paint never waits for
+          // Iconify network resolution.
+          clientBundle: {
+            icons: catalogIconNames,
+            scan: {
+              globInclude: ['src/**/*.{vue,ts}'],
+              globExclude: ['src/test/**', 'src/**/*.spec.ts', 'src/**/*.test.ts'],
+            },
+          },
+        },
         ui: {
           colors: {
             primary: 'emerald',

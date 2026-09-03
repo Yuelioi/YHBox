@@ -16,6 +16,14 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe('literal Tabler icon references', () => {
+  it('bundles production icon references for synchronous first paint', () => {
+    const config = readFileSync(join(process.cwd(), 'vite.config.ts'), 'utf8')
+
+    expect(config).toContain("globInclude: ['src/**/*.{vue,ts}']")
+    expect(config).toContain("globExclude: ['src/test/**', 'src/**/*.spec.ts', 'src/**/*.test.ts']")
+    expect(config).toContain('icons: catalogIconNames')
+  })
+
   it('only uses icons included in the installed collection', () => {
     const collection = JSON.parse(
       readFileSync(join(process.cwd(), 'node_modules/@iconify-json/tabler/icons.json'), 'utf8'),
