@@ -1,5 +1,7 @@
 <template>
-  <UApp :toaster="{ position: 'top-center', duration: 2500 }">
+  <UApp
+    :toaster="{ position: 'top-center', duration: 3200, progress: false, max: 3, expand: true }"
+  >
     <!-- Standalone 工具窗（HUD / ScreenPicker 等 meta.standalone 路由）：跳过整个主壳，直接渲染 router-view -->
     <div v-if="isStandalone" class="h-[100dvh] overflow-hidden bg-default">
       <router-view />

@@ -1255,7 +1255,7 @@ import {
   registerMainWindowCloseGuard,
   type MainWindowCloseRequest,
 } from '@/app/window/mainWindowCloseGuard'
-import { useToast } from '@nuxt/ui/composables'
+import { useToast } from '@/composables/useAppToast'
 import {
   VueFlow,
   useVueFlow,

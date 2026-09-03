@@ -99,7 +99,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useToast } from '@nuxt/ui/composables'
+import { useToast } from '@/composables/useAppToast'
 import { Events } from '@wailsio/runtime'
 import { backend } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'

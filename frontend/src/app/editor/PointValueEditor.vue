@@ -57,7 +57,7 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { errorMessage } from '@/lib/invoke'
-import { useToast } from '@nuxt/ui/composables'
+import { useToast } from '@/composables/useAppToast'
 import { pickTargetValue, targetDimensions, type TargetPoint } from './useTargetPicker'
 import {
   pointValueFromTarget,

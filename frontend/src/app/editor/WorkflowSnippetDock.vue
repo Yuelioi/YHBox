@@ -119,7 +119,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useToast } from '@nuxt/ui/composables'
+import { useToast } from '@/composables/useAppToast'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { errorMessage } from '@/lib/invoke'

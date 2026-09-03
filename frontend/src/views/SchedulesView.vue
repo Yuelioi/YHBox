@@ -310,7 +310,7 @@
 import { computed, onMounted, reactive, ref, shallowRef, toRaw, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import { useToast } from '@nuxt/ui/composables'
+import { useToast } from '@/composables/useAppToast'
 import { useSchedulesStore } from '@/stores/schedules'
 import { useConfirm } from '@/composables/useConfirm'
 import { errorMessage } from '@/lib/invoke'

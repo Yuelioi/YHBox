@@ -1,4 +1,4 @@
-import { useToast } from '@nuxt/ui/composables'
+import { useToast } from '@/composables/useAppToast'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { errorMessage, normalizeError } from '@/lib/invoke'

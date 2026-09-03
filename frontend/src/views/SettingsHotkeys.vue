@@ -99,7 +99,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useToast } from '@nuxt/ui/composables'
+import { useToast } from '@/composables/useAppToast'
 import { useHotkeysStore } from '@/stores/hotkeys'
 import { errorMessage } from '@/lib/invoke'
 import { useConfirm } from '@/composables/useConfirm'

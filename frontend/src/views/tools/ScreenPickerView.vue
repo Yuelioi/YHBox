@@ -424,7 +424,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useToast } from '@nuxt/ui/composables'
+import { useToast } from '@/composables/useAppToast'
 import { Window, Events } from '@wailsio/runtime'
 import { useLocalStorage } from '@vueuse/core'
 import { backend } from '@/lib/backend'
