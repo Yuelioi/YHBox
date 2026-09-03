@@ -87,12 +87,28 @@ if ($cliExitCode -eq 0 -or ($cliOutput -join "`n") -notmatch 'diagnostics') {
 
 $appOut = Join-Path $smokeRoot "yotta.out.log"
 $appErr = Join-Path $smokeRoot "yotta.err.log"
-$process = Start-Process -FilePath (Join-Path $smokeRoot "Yotta.exe") -WorkingDirectory $smokeRoot -WindowStyle Hidden -RedirectStandardOutput $appOut -RedirectStandardError $appErr -PassThru
+$profileRoot = Join-Path $smokeRoot "profile"
+$previousStorageRoot = [System.Environment]::GetEnvironmentVariable("YOTTA_ROOT", "Process")
+$previousCompatLayer = [System.Environment]::GetEnvironmentVariable("__COMPAT_LAYER", "Process")
+try {
+    # The production manifest requires elevation. This unattended smoke uses
+    # the same test-only shim as smoke-windows-desktop-startup.ps1 and gives
+    # the staged executable an isolated profile rather than touching user data.
+    [System.Environment]::SetEnvironmentVariable("__COMPAT_LAYER", "RunAsInvoker", "Process")
+    [System.Environment]::SetEnvironmentVariable("YOTTA_ROOT", $profileRoot, "Process")
+    $process = Start-Process -FilePath (Join-Path $smokeRoot "Yotta.exe") -WorkingDirectory $smokeRoot -WindowStyle Hidden -RedirectStandardOutput $appOut -RedirectStandardError $appErr -PassThru
+} finally {
+    [System.Environment]::SetEnvironmentVariable("__COMPAT_LAYER", $previousCompatLayer, "Process")
+    [System.Environment]::SetEnvironmentVariable("YOTTA_ROOT", $previousStorageRoot, "Process")
+}
 try {
     Start-Sleep -Seconds 3
     if ($process.HasExited) {
         throw "staged Yotta exited during startup smoke; see $appErr"
     }
+	if (-not (Test-Path -LiteralPath (Join-Path $profileRoot "root.json") -PathType Leaf)) {
+		throw "staged Yotta did not claim the isolated storage profile"
+	}
 } finally {
     if (-not $process.HasExited) {
         Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
