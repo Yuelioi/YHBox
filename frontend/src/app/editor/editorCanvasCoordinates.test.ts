@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   canvasCenteredInsertionPosition,
+  centerElementAtFlowPosition,
   flowGuideToCanvasCoordinate,
 } from './editorCanvasCoordinates'
 
@@ -17,5 +18,9 @@ describe('editor canvas coordinates', () => {
     )
 
     expect(position).toEqual({ x: 225, y: 129 })
+    expect(centerElementAtFlowPosition(position, { width: 260, height: 140 })).toEqual({
+      x: 95,
+      y: 59,
+    })
   })
 })

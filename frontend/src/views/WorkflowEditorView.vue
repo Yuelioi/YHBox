@@ -1279,6 +1279,7 @@ import '@vue-flow/minimap/dist/style.css'
 import { useI18n } from 'vue-i18n'
 import { useLocalStorage } from '@vueuse/core'
 import {
+  DEFAULT_ANNOTATION_SIZE,
   type Edge,
   type EditorCommand,
   type Node,
@@ -1337,7 +1338,10 @@ import WorkflowGraphBoundary from '@/app/editor/WorkflowGraphBoundary.vue'
 import WorkflowAnnotation from '@/app/editor/WorkflowAnnotation.vue'
 import WorkflowRerouteEdge from '@/app/editor/WorkflowRerouteEdge.vue'
 import WorkflowCanvasAssistToolbar from '@/app/editor/WorkflowCanvasAssistToolbar.vue'
-import { canvasCenteredInsertionPosition } from '@/app/editor/editorCanvasCoordinates'
+import {
+  canvasCenteredInsertionPosition,
+  centerElementAtFlowPosition,
+} from '@/app/editor/editorCanvasCoordinates'
 import BaseModal from '@/components/common/BaseModal.vue'
 import { useRecordingStore, type RecordingMode } from '@/stores/recording'
 import { useSettingsStore } from '@/stores/settings'
@@ -3110,9 +3114,10 @@ async function locateGraphCall(parentGraphId: string, callId: string): Promise<v
 
 function addComment(): void {
   const rect = canvasElement.value?.getBoundingClientRect()
-  const position = rect
+  const center = rect
     ? canvasCenteredInsertionPosition(rect, screenToFlowCoordinate)
     : { x: 160, y: 160 }
+  const position = centerElementAtFlowPosition(center, DEFAULT_ANNOTATION_SIZE)
   const id = session.addAnnotation(position)
   selectedNodeIds.value = new Set([id])
   selectedNodeId.value = id

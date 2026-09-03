@@ -21,3 +21,10 @@ export function canvasCenteredInsertionPosition(
     y: bounds.top + bounds.height * 0.38,
   })
 }
+
+export function centerElementAtFlowPosition(
+  center: { x: number; y: number },
+  size: { width: number; height: number },
+): { x: number; y: number } {
+  return { x: center.x - size.width / 2, y: center.y - size.height / 2 }
+}

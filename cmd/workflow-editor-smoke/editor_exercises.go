@@ -116,7 +116,7 @@ func exerciseMultigraph(ctx context.Context, client *browsercdp.WebSocketClient,
 	if err := waitUntil(ctx, client, func(current pageState) bool { return current.Annotations == 1 }); err != nil {
 		return fmt.Errorf("add graph annotation: %w", err)
 	}
-	if err := eval(ctx, client, `(() => {
+	if err := eval(ctx, client, `(async () => {
 		const canvas = document.querySelector('[data-testid="workflow-canvas"]');
 		const annotation = document.querySelector('[data-testid="workflow-annotation"]');
 		const textarea = annotation?.querySelector('textarea');
@@ -131,9 +131,19 @@ func exerciseMultigraph(ctx context.Context, client *browsercdp.WebSocketClient,
 			throw new Error('toolbar-created annotation missed the upper canvas center by (' + deltaX.toFixed(1) + ', ' + deltaY.toFixed(1) + ')');
 		}
 		const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
-		setter?.call(textarea, 'Smoke comment');
+		setter?.call(textarea, '## Smoke comment\n\nThis is **important**.\n\n- First item\n- Second item\n\nLong content must stay inside the annotation rather than expanding the canvas node.\n\nMore content verifies that the body owns scrolling while the header and resize boundary remain fixed.');
 		textarea.dispatchEvent(new Event('input', { bubbles: true }));
 		textarea.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+		await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+		const content = annotation.querySelector('[data-testid="workflow-annotation-content"]');
+		if (!content?.querySelector('h2') || !content.querySelector('strong') || content.querySelectorAll('li').length !== 2) {
+			throw new Error('annotation Markdown preview did not render basic structure');
+		}
+		const articleRect = annotation.getBoundingClientRect();
+		const contentRect = content.getBoundingClientRect();
+		if (contentRect.bottom > articleRect.bottom + 1 || content.scrollTop !== 0) {
+			throw new Error('annotation content escaped its internal top-aligned scroll region');
+		}
 		if (document.body.textContent?.includes('编辑被拒绝')) throw new Error('annotation edit was rejected');
 	})()`); err != nil {
 		return fmt.Errorf("edit graph annotation: %w", err)

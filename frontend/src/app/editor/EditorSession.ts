@@ -26,6 +26,8 @@ import type {
   DebugSnapshot,
 } from '@/app/transport/workflow'
 import { runStartOutcome, type RunStartOutcome } from '@/app/run/runReadiness'
+
+export const DEFAULT_ANNOTATION_SIZE = { width: 260, height: 140 } as const
 import {
   assignable,
   projectedConnectionCompatibility,
@@ -379,7 +381,7 @@ export class EditorSession {
     const id = uniqueElementId(graph, this.idFactory)
     this.apply({
       kind: 'add-annotation',
-      annotation: { id, text: '', position, size: { width: 260, height: 140 } },
+      annotation: { id, text: '', position, size: { ...DEFAULT_ANNOTATION_SIZE } },
     })
     return id
   }
