@@ -59,6 +59,7 @@ type Config struct {
 
 type RunEvent struct {
 	RunID      string
+	WorkflowID string
 	Status     run.Status
 	Generation uint64
 	Digest     artifact.Digest

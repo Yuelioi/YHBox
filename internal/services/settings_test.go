@@ -240,6 +240,23 @@ func TestSettingsValidateLauncherSize(t *testing.T) {
 	}
 }
 
+func TestSettingsValidateLauncherSlotModifiers(t *testing.T) {
+	for _, value := range []string{"", "Ctrl", "Ctrl+Shift", "Ctrl+Shift+Alt"} {
+		settings := defaultSettings()
+		settings.UI.LauncherSlotHotkeyModifiers = value
+		if err := settings.Validate(); err != nil {
+			t.Fatalf("modifiers %q: %v", value, err)
+		}
+	}
+	for _, value := range []string{"1", "Ctrl+Ctrl", "Meta", "Ctrl+"} {
+		settings := defaultSettings()
+		settings.UI.LauncherSlotHotkeyModifiers = value
+		if err := settings.Validate(); err == nil {
+			t.Fatalf("modifiers %q should fail", value)
+		}
+	}
+}
+
 func TestSettingsValidateCanvasAssist(t *testing.T) {
 	settings := defaultSettings()
 	if settings.UI.CanvasAssist.Hidden || settings.UI.CanvasAssist.Display != "labels" || len(settings.UI.CanvasAssist.FavoriteNodeTypeIDs) != 5 {

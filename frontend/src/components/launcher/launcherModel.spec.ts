@@ -73,6 +73,19 @@ describe('launcher model', () => {
     expect(result.items.map((item) => item.workflowId)).toEqual(['alpha', 'alpha'])
   })
 
+  it('assigns the configured visible-launcher chord to the first nine valid items', () => {
+    const manyBlocks: LauncherBlock[] = Array.from({ length: 10 }, (_, index) => ({
+      id: `item-${index}`,
+      type: 'workflow',
+      workflowId: 'alpha',
+    }))
+    const result = resolveLauncher(manyBlocks, workflows, 'Ctrl+Alt')
+
+    expect(result.items[0]?.shortcut).toBe('Ctrl+Alt+1')
+    expect(result.items[8]?.shortcut).toBe('Ctrl+Alt+9')
+    expect(result.items[9]?.shortcut).toBe('')
+  })
+
   it('normalizes launcher content size to medium', () => {
     expect(normalizeLauncherSize('xsmall')).toBe('xsmall')
     expect(normalizeLauncherSize('small')).toBe('small')

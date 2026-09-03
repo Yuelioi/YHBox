@@ -384,6 +384,7 @@ func (a *Application) emit(record run.Record, err error) {
 		return
 	}
 	a.onRunEvent(RunEvent{
-		RunID: record.Admission().RunID, Status: record.Status(), Generation: record.Generation(), Digest: record.Digest(), Err: err,
+		RunID: record.Admission().RunID, WorkflowID: record.Admission().WorkflowID,
+		Status: record.Status(), Generation: record.Generation(), Digest: record.Digest(), Err: err,
 	})
 }

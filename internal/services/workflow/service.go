@@ -492,6 +492,31 @@ func (s *Service) SetDebugBreakpoints(runID string, breakpoints []compiler.Debug
 	return s.application.SetDebugBreakpoints(context.Background(), runID, breakpoints)
 }
 
+// GetActiveSourceRuns returns the queued/running Run identities for a bounded
+// set of Workflow Sources so secondary windows can restore live state after
+// mounting or being shown again.
+func (s *Service) GetActiveSourceRuns(workflowIDs []string) (map[string][]string, error) {
+	if len(workflowIDs) > 100 {
+		return nil, errors.New("active source Run query exceeds 100 workflows")
+	}
+	result := make(map[string][]string, len(workflowIDs))
+	seen := make(map[string]struct{}, len(workflowIDs))
+	for _, workflowID := range workflowIDs {
+		workflowID = strings.TrimSpace(workflowID)
+		if workflowID == "" {
+			return nil, errors.New("active source Run query contains an empty workflow ID")
+		}
+		if _, duplicate := seen[workflowID]; duplicate {
+			continue
+		}
+		seen[workflowID] = struct{}{}
+		if runIDs := s.application.ActiveSourceRuns(workflowID); len(runIDs) != 0 {
+			result[workflowID] = runIDs
+		}
+	}
+	return result, nil
+}
+
 func (s *Service) CancelRun(runID string) (RunView, error) {
 	record, err := s.application.CancelRun(context.Background(), runID)
 	if err != nil {

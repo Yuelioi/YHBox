@@ -68,6 +68,8 @@ export default {
     hotkey_unbound: '可从主窗口或本页打开。',
     hotkey_failed: '热键注册失败或发生冲突；请到快捷键页处理。',
     configure_hotkey: '配置热键',
+    slot_hotkey_title: '前 9 个槽位快捷键',
+    slot_hotkey_hint: '仅在启动器可见时全局生效；隐藏后立即释放。至少保留一个修饰键。',
     display_label: '命令布局',
     appearance_title: '外观与显示',
     display_hint: '选择列表、图标网格或纯文字布局。',

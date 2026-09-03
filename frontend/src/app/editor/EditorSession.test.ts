@@ -2336,6 +2336,7 @@ function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
     getDebugSnapshot: vi.fn(async () => ({ status: 'paused', generation: 1 }) as never),
     controlDebugRun: vi.fn(async () => ({ status: 'paused', generation: 2 }) as never),
     setDebugBreakpoints: vi.fn(async () => ({ status: 'paused', generation: 2 }) as never),
+    getActiveSourceRuns: vi.fn(async () => ({})),
     cancelRun: vi.fn(async () => runView('CANCELLED')),
     cancelAllRuns: vi.fn(async () => undefined),
     getRunTimeline: vi.fn(async () => run),

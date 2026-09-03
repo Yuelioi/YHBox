@@ -32,6 +32,7 @@ import { callRPC, invoke } from '@/lib/invoke'
 
 export interface RunChangedEvent {
   runId: string
+  workflowId: string
   status: string
   generation: number
   recordDigest: string
@@ -101,6 +102,7 @@ export interface WorkflowTransport {
   getDebugSnapshot(runId: string): Promise<DebugSnapshot>
   controlDebugRun(runId: string, action: 'continue' | 'pause' | 'step'): Promise<DebugSnapshot>
   setDebugBreakpoints(runId: string, breakpoints: DebugBreakpoint[]): Promise<DebugSnapshot>
+  getActiveSourceRuns(workflowIds: string[]): Promise<Record<string, string[]>>
   cancelRun(runId: string): Promise<RunView>
   cancelAllRuns(): Promise<void>
   getRunTimeline(runId: string): Promise<RunView>
@@ -180,6 +182,8 @@ export const workflowTransport: WorkflowTransport = {
   controlDebugRun: (runId, action) => invoke(WorkflowService.ControlDebugRun, runId, action),
   setDebugBreakpoints: (runId, breakpoints) =>
     invoke(WorkflowService.SetDebugBreakpoints, runId, breakpoints),
+  getActiveSourceRuns: (workflowIds) =>
+    invoke(WorkflowService.GetActiveSourceRuns, workflowIds) as Promise<Record<string, string[]>>,
   cancelRun: (runId) => invoke(WorkflowService.CancelRun, runId),
   cancelAllRuns: () => invoke(WorkflowService.CancelAllRuns),
   getRunTimeline: (runId) => invoke(WorkflowService.GetRunTimeline, runId),
@@ -223,6 +227,7 @@ function isRunChangedEvent(value: unknown): value is RunChangedEvent {
   const candidate = value as Record<string, unknown>
   return (
     typeof candidate.runId === 'string' &&
+    typeof candidate.workflowId === 'string' &&
     typeof candidate.status === 'string' &&
     typeof candidate.generation === 'number' &&
     typeof candidate.recordDigest === 'string'

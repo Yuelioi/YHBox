@@ -34,6 +34,7 @@ export interface LauncherResolution {
 export function resolveLauncher(
   blocks: LauncherBlock[],
   workflows: LauncherWorkflowSummary[],
+  slotModifiers = '',
 ): LauncherResolution {
   const workflowsById = new Map(workflows.map((workflow) => [workflow.workflowId, workflow]))
   const groups: ResolvedLauncherGroup[] = []
@@ -89,7 +90,7 @@ export function resolveLauncher(
       workflowId: block.workflowId,
       label: block.label?.trim() || workflow.name,
       icon: block.icon || 'i-tabler-player-play',
-      shortcut: '',
+      shortcut: slotModifiers && items.length < 9 ? `${slotModifiers}+${items.length + 1}` : '',
       ordinal: items.length + 1,
       separatorBefore: pendingVerticalSeparator ? 'vertical' : undefined,
     }

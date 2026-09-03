@@ -28,7 +28,7 @@
 
     <div class="flex flex-wrap items-center gap-2" aria-live="polite">
       <UBadge color="neutral" variant="subtle" icon="i-tabler-keyboard">
-        {{ t('hotkeys.summary.total', { n: store.list.length }) }}
+        {{ t('hotkeys.summary.total', { n: persistentEntries.length }) }}
       </UBadge>
       <UBadge color="error" variant="subtle" icon="i-tabler-alert-circle">
         {{ t('hotkeys.summary.failed', { n: failedCount }) }}
@@ -117,10 +117,17 @@ const { confirm } = useConfirm()
 const searchText = ref('')
 const statusFilter = ref<StatusFilter>('all')
 
-onMounted(() => void store.reload().catch(showError))
+onMounted(() => {
+  void backend.hotkeys.reconcile().then(store.reload).catch(showError)
+})
 
-const failedCount = computed(() => store.list.filter((entry) => entry.status === 'failed').length)
-const unboundCount = computed(() => store.list.filter((entry) => entry.status === 'unbound').length)
+const persistentEntries = computed(() => store.list.filter((entry) => entry.source !== 'launcher'))
+const failedCount = computed(
+  () => persistentEntries.value.filter((entry) => entry.status === 'failed').length,
+)
+const unboundCount = computed(
+  () => persistentEntries.value.filter((entry) => entry.status === 'unbound').length,
+)
 const filterItems = computed(() => [
   { label: t('hotkeys.filter.all'), value: 'all' },
   { label: t('hotkeys.filter.failed'), value: 'failed' },
@@ -129,7 +136,7 @@ const filterItems = computed(() => [
 
 const filteredGrouped = computed(() => {
   const query = searchText.value.trim().toLocaleLowerCase()
-  const filtered = store.list.filter((entry) => {
+  const filtered = persistentEntries.value.filter((entry) => {
     if (statusFilter.value !== 'all' && entry.status !== statusFilter.value) return false
     if (!query) return true
     const label = t(entry.label, entry.labelParams ?? {})

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/yottaapp/yotta/internal/ai"
@@ -271,8 +272,13 @@ type UISettings struct {
 	// LauncherSize 启动器内容尺寸："xsmall" | "small" | "medium" | "large"。
 	LauncherSize string `json:"launcherSize"`
 	// LauncherToggleHotkey 呼出/隐藏悬浮窗的全局热键（空 = 未绑）。
-	LauncherToggleHotkey string               `json:"launcherToggleHotkey"`
-	CanvasAssist         CanvasAssistSettings `json:"canvasAssist"`
+	LauncherToggleHotkey string `json:"launcherToggleHotkey"`
+	// LauncherSlotHotkeyModifiers 是启动器可见期间前九个槽位共享的修饰键。
+	// 仅允许 Ctrl/Shift/Alt 的非空组合；隐藏启动器后对应 OS 热键立即注销。
+	LauncherSlotHotkeyModifiers string `json:"launcherSlotHotkeyModifiers"`
+	// WorkflowHotkeys 是本机安装级 Workflow 全局热键，不进入可移植 Workflow Source。
+	WorkflowHotkeys map[string]string    `json:"workflowHotkeys,omitempty"`
+	CanvasAssist    CanvasAssistSettings `json:"canvasAssist"`
 }
 
 type CanvasAssistSettings struct {
@@ -349,16 +355,17 @@ func defaultSettings() *Settings {
 				PanelOpen: true, AutoScroll: true, ShowTime: true, ShowTag: true,
 				WrapText: false, WriteFile: true, FileDir: "",
 			},
-			Window:                WindowSettings{Width: 1100, Height: 720},
-			ActionStopHotkey:      "Ctrl+Shift+F9",
-			CalibrateHotkey:       "F8",
-			WindowCaptureHotkey:   "F9",
-			RecordingStopHotkey:   "F12",
-			RecordingStartHotkey:  "F10",
-			RecordingPauseHotkey:  "F11",
-			RecordingCancelHotkey: "F7",
-			RecordingMouseMode:    "relative",
-			LauncherSize:          "medium",
+			Window:                      WindowSettings{Width: 1100, Height: 720},
+			ActionStopHotkey:            "Ctrl+Shift+F9",
+			CalibrateHotkey:             "F8",
+			WindowCaptureHotkey:         "F9",
+			RecordingStopHotkey:         "F12",
+			RecordingStartHotkey:        "F10",
+			RecordingPauseHotkey:        "F11",
+			RecordingCancelHotkey:       "F7",
+			RecordingMouseMode:          "relative",
+			LauncherSize:                "medium",
+			LauncherSlotHotkeyModifiers: "Ctrl+Shift",
 			CanvasAssist: CanvasAssistSettings{
 				Display: "labels",
 				FavoriteNodeTypeIDs: []string{
@@ -431,6 +438,9 @@ func (s *Settings) Validate() error {
 	default:
 		return fmt.Errorf("ui.launcherSize 必须是 xsmall/small/medium/large，got %q", s.UI.LauncherSize)
 	}
+	if !validLauncherSlotModifiers(s.UI.LauncherSlotHotkeyModifiers) {
+		return fmt.Errorf("ui.launcherSlotHotkeyModifiers 必须是 Ctrl/Shift/Alt 的非空组合，got %q", s.UI.LauncherSlotHotkeyModifiers)
+	}
 	if s.UI.CanvasAssist.Display != "icons" && s.UI.CanvasAssist.Display != "labels" {
 		return fmt.Errorf("ui.canvasAssist.display must be icons or labels, got %q", s.UI.CanvasAssist.Display)
 	}
@@ -482,6 +492,24 @@ func (s *Settings) Validate() error {
 		installedSlots[configured.Slot] = "automation.targets"
 	}
 	return nil
+}
+
+func validLauncherSlotModifiers(value string) bool {
+	if value == "" {
+		return true
+	}
+	parts := strings.Split(value, "+")
+	if len(parts) == 0 || len(parts) > 3 {
+		return false
+	}
+	seen := map[string]bool{}
+	for _, part := range parts {
+		if part != "Ctrl" && part != "Shift" && part != "Alt" || seen[part] {
+			return false
+		}
+		seen[part] = true
+	}
+	return true
 }
 
 func (settings *AISettings) validate() error {

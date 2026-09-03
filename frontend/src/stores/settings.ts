@@ -59,6 +59,8 @@ export interface Settings {
     launcherDisplay: string // 'both'(默认)|'icon'|'text'
     launcherSize: string // 'xsmall'|'small'|'medium'(默认)|'large'
     launcherToggleHotkey: string // 呼出/隐藏悬浮窗的全局热键（空=未绑）
+    launcherSlotHotkeyModifiers: string // 启动器可见时前九槽位共享的 Ctrl/Shift/Alt 组合
+    workflowHotkeys: Record<string, string> // 本机 Workflow 永久全局热键
     canvasAssist: {
       collapsed: boolean
       hidden: boolean

@@ -171,6 +171,28 @@ func TestRegistry_OnActionHotkeyChangeCallback(t *testing.T) {
 	_ = r.Unregister("action.abc")
 }
 
+func TestRegistryTransientConflictRemainsVisibleAndDoesNotPersist(t *testing.T) {
+	mgr := newTestHotkeyManager()
+	persisted := false
+	r := NewHotkeyRegistryWithCallbacks(mgr, Callbacks{OnActionChange: func(string, string) error {
+		persisted = true
+		return nil
+	}})
+	if err := r.Register("action.workflow", HotkeySourceAction, "workflow", nil, "Ctrl+Shift+1", "", nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.RegisterTransient("launcher.slot.1", "slot", nil, "Ctrl+Shift+1", nil); err != nil {
+		t.Fatal(err)
+	}
+	entry, ok := r.Get("launcher.slot.1")
+	if !ok || entry.Status != HotkeyStatusFailed || entry.LastError == "" {
+		t.Fatalf("transient entry = %#v, exists=%v", entry, ok)
+	}
+	if persisted {
+		t.Fatal("transient registration must not persist through action callback")
+	}
+}
+
 func TestRegistry_UpdateRollsBackBindingWhenPersistenceFails(t *testing.T) {
 	mgr := newTestHotkeyManager()
 	wantErr := errors.New("settings save failed")

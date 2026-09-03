@@ -76,6 +76,15 @@
         <span>{{ runIssue }}</span>
       </div>
 
+      <div
+        v-if="failedSlotHotkeys.length"
+        class="launcher-health launcher-health--error"
+        role="status"
+      >
+        <UIcon name="i-tabler-keyboard-off" class="size-3.5 shrink-0" />
+        <span>{{ t('floatingLauncher.hotkey_failed', { n: failedSlotHotkeys.length }) }}</span>
+      </div>
+
       <div v-if="resolution.staleBlocks.length" class="launcher-health">
         <UIcon name="i-tabler-alert-triangle" class="size-3.5" />
         <span>{{ t('floatingLauncher.stale_hint', { n: resolution.staleBlocks.length }) }}</span>
@@ -106,6 +115,7 @@ import { errorMessage } from '@/lib/invoke'
 import { runReadinessMessage, runStartOutcome } from '@/app/run/runReadiness'
 import { pollTerminalRunStatus } from '@/app/run/followRun'
 import { useSettingsStore } from '@/stores/settings'
+import { useHotkeysStore } from '@/stores/hotkeys'
 import { onRunChanged, workflowTransport, type SourceView } from '@/app/transport/workflow'
 import HudShell from '@/components/tools/HudShell.vue'
 import LauncherSurface, {
@@ -121,6 +131,7 @@ import {
 } from '@/components/launcher/launcherModel'
 
 const settingsStore = useSettingsStore()
+const hotkeysStore = useHotkeysStore()
 const { t } = useI18n()
 const toast = useToast()
 
@@ -130,6 +141,7 @@ const query = ref('')
 const activeBlockId = ref('')
 const requestedId = ref('')
 const requestedRunId = ref('')
+const activeRuns = ref<Record<string, string[]>>({})
 const feedback = ref<{ id: string; status: 'success' | 'error' | 'cancelled' } | null>(null)
 const runIssue = ref('')
 let feedbackTimer: ReturnType<typeof setTimeout> | undefined
@@ -147,7 +159,11 @@ const size = computed<LauncherSize>(() =>
   normalizeLauncherSize(settingsStore.data?.ui.launcherSize),
 )
 const resolution = computed(() =>
-  resolveLauncher(settingsStore.data?.ui.launcherItems ?? [], workflows.value),
+  resolveLauncher(
+    settingsStore.data?.ui.launcherItems ?? [],
+    workflows.value,
+    settingsStore.data?.ui.launcherSlotHotkeyModifiers ?? 'Ctrl+Shift',
+  ),
 )
 const filteredGroups = computed(() => filterLauncherGroups(resolution.value.groups, query.value))
 const filteredItems = computed(() =>
@@ -167,10 +183,18 @@ const statusLabels = computed(() => ({
 }))
 const statuses = computed<Record<string, LauncherCommandStatus>>(() => {
   const result: Record<string, LauncherCommandStatus> = {}
+  for (const [workflowId, runIds] of Object.entries(activeRuns.value)) {
+    if (runIds.length) result[workflowId] = 'running'
+  }
   if (feedback.value) result[feedback.value.id] = feedback.value.status
   if (requestedId.value) result[requestedId.value] = 'running'
   return result
 })
+const failedSlotHotkeys = computed(() =>
+  hotkeysStore.list.filter(
+    (entry) => entry.key.startsWith('launcher.slot.') && entry.status === 'failed',
+  ),
+)
 
 watch(
   filteredItems,
@@ -200,6 +224,8 @@ function activeWorkflowId(): string {
 
 function settleRequest(status: 'success' | 'error' | 'cancelled', issue = '') {
   if (!requestedId.value) return
+  const workflowId = requestedId.value
+  if (requestedRunId.value) removeActiveRun(workflowId, requestedRunId.value)
   feedback.value = { id: requestedId.value, status }
   runIssue.value = issue
   requestedId.value = ''
@@ -209,6 +235,21 @@ function settleRequest(status: 'success' | 'error' | 'cancelled', issue = '') {
     feedback.value = null
     runIssue.value = ''
   }, 10_000)
+}
+
+function addActiveRun(workflowId: string, runId: string) {
+  if (!workflowId || !runId) return
+  const current = activeRuns.value[workflowId] ?? []
+  if (current.includes(runId)) return
+  activeRuns.value = { ...activeRuns.value, [workflowId]: [...current, runId] }
+}
+
+function removeActiveRun(workflowId: string, runId: string) {
+  const remaining = (activeRuns.value[workflowId] ?? []).filter((id) => id !== runId)
+  const next = { ...activeRuns.value }
+  if (remaining.length) next[workflowId] = remaining
+  else delete next[workflowId]
+  activeRuns.value = next
 }
 
 function settleTerminalStatus(status: string) {
@@ -227,12 +268,28 @@ function settleTerminalStatus(status: string) {
   return false
 }
 
+function isTerminalRunStatus(status: string) {
+  return (
+    status === 'succeeded' ||
+    status === 'cancelled' ||
+    status === 'interrupted' ||
+    status === 'failed'
+  )
+}
+
 async function onRun(id: string) {
   if (!id) return
-  if (requestedId.value === id && requestedRunId.value) {
+  const runningIds = activeRuns.value[id] ?? []
+  if (runningIds.length || (requestedId.value === id && requestedRunId.value)) {
+    requestedId.value = id
+    requestedRunId.value = runningIds[0] ?? requestedRunId.value
     try {
-      const stopped = await workflowTransport.cancelRun(requestedRunId.value)
-      settleTerminalStatus(stopped.status || 'cancelled')
+      await Promise.all(
+        (runningIds.length ? runningIds : [requestedRunId.value]).map((runId) =>
+          workflowTransport.cancelRun(runId),
+        ),
+      )
+      settleRequest('cancelled')
     } catch (error) {
       settleRequest('error', errorMessage(error))
     }
@@ -250,6 +307,7 @@ async function onRun(id: string) {
       return
     }
     requestedRunId.value = outcome.runId
+    addActiveRun(id, outcome.runId)
     if (!started.run) return
     if (settleTerminalStatus(started.run.status)) return
 
@@ -311,13 +369,6 @@ function onKeyDown(event: KeyboardEvent) {
     else onHide()
     return
   }
-  if (!editing && event.key >= '1' && event.key <= '9') {
-    const item = resolution.value.items[Number(event.key) - 1]
-    if (!item) return
-    event.preventDefault()
-    void onRun(item.workflowId)
-    return
-  }
   if (!editing && event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
     event.preventDefault()
     query.value += event.key
@@ -341,6 +392,11 @@ watch([filteredGroups, display, size], () => void nextTick(fitHeight))
 async function refreshLauncherData() {
   const [, listed] = await Promise.all([settingsStore.load(), workflowTransport.listSources()])
   workflows.value = listed
+  activeRuns.value = await workflowTransport.getActiveSourceRuns([
+    ...new Set(resolution.value.items.map((item) => item.workflowId)),
+  ])
+  await backend.tools.refreshLauncherHotkeys()
+  await hotkeysStore.reload()
   await nextTick()
   fitHeight()
 }
@@ -385,8 +441,11 @@ onMounted(() => {
     () => void refreshLauncherData(),
   ) as unknown as () => void
   offRun = onRunChanged((event) => {
-    if (!requestedRunId.value || event.runId !== requestedRunId.value) return
-    settleTerminalStatus(event.status)
+    if (isTerminalRunStatus(event.status)) removeActiveRun(event.workflowId, event.runId)
+    else addActiveRun(event.workflowId, event.runId)
+    if (requestedRunId.value && event.runId === requestedRunId.value) {
+      settleTerminalStatus(event.status)
+    }
   })
   window.addEventListener('keydown', onKeyDown)
 })

@@ -10,6 +10,7 @@ import (
 type HotkeyService struct {
 	reg            *HotkeyRegistry
 	systemDefaults map[string]string // 内置热键出厂默认 (key→hotkeyStr)，给 ResetSystemDefaults 用
+	beforeList     func()
 }
 
 func NewHotkeyService(reg *HotkeyRegistry, defaults ...map[string]string) *HotkeyService {
@@ -19,6 +20,14 @@ func NewHotkeyService(reg *HotkeyRegistry, defaults ...map[string]string) *Hotke
 			service.systemDefaults[key] = value
 		}
 	}
+	return service
+}
+
+// NewHotkeyServiceWithListHook keeps dynamic manifest reconciliation inside
+// the backend instead of exposing a function-valued Wails RPC method.
+func NewHotkeyServiceWithListHook(reg *HotkeyRegistry, defaults map[string]string, beforeList func()) *HotkeyService {
+	service := NewHotkeyService(reg, defaults)
+	service.beforeList = beforeList
 	return service
 }
 
@@ -44,6 +53,15 @@ func (s *HotkeyService) ResetSystemDefaults() error {
 // List 返回所有 hotkey entry 给前端"快捷键" tab 渲染。
 func (s *HotkeyService) List() []HotkeyEntry {
 	return s.reg.List()
+}
+
+// Reconcile refreshes dynamic workflow entries before a separate List call.
+// Keeping these as two RPC turns prevents event emission from re-entering List
+// while the registry mutation still owns its lock.
+func (s *HotkeyService) Reconcile() {
+	if s.beforeList != nil {
+		s.beforeList()
+	}
 }
 
 // Update 改某 entry 的热键绑定。hotkeyStr="" 表示清空。

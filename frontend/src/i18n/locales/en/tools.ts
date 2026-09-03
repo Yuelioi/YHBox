@@ -107,6 +107,8 @@ export default {
     running: 'Running, click again to stop',
     success: 'Run submitted',
     failed: 'Launch failed',
+    hotkey_failed:
+      '{n} slot hotkeys are unavailable. Choose another modifier combination in Launcher settings.',
     cancelled: 'Stopped',
   },
 }

@@ -104,6 +104,7 @@ export default {
     running: '运行中，再按一次停止',
     success: '已提交运行',
     failed: '启动失败',
+    hotkey_failed: '{n} 个槽位快捷键被占用，请在启动器设置中更换组合键。',
     cancelled: '已停止',
   },
 }

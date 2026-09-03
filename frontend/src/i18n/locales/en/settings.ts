@@ -70,6 +70,9 @@ export default {
     hotkey_failed:
       'The hotkey failed to register or conflicts with another binding. Resolve it under Hotkeys.',
     configure_hotkey: 'Configure hotkey',
+    slot_hotkey_title: 'First 9 slot hotkeys',
+    slot_hotkey_hint:
+      'Global only while the launcher is visible; released immediately when hidden. Keep at least one modifier.',
     display_label: 'Command layout',
     appearance_title: 'Appearance & display',
     display_hint: 'Choose a list, icon grid, or text-only layout.',

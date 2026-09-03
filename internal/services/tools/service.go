@@ -41,6 +41,8 @@ type Service struct {
 	// onCalibratorClose: 校准 HUD 窗关闭时的兜底清理 (main.go 注入 → 卸 F8 钩 + 停 session)。
 	// 覆盖 ESC / Alt+F4 / 崩溃 等不走前端正常关闭的路径。
 	onCalibratorClose func()
+	onLauncherShown   func()
+	onLauncherHidden  func()
 	// pickerWindows: requestID → lifecycle slot，方便复用（同 id 重开聚焦旧窗口）
 	pickerWindows map[string]*windowSlot
 	targetTools   targetToolRouter
@@ -56,6 +58,8 @@ type Service struct {
 type Options struct {
 	CaptureHotkey     func() (mods, vk uint32)
 	OnCalibratorClose func()
+	OnLauncherShown   func()
+	OnLauncherHidden  func()
 }
 
 func NewService(resolver TargetResolver, presenter Presenter) *Service {
@@ -68,6 +72,8 @@ func NewServiceWithOptions(resolver TargetResolver, presenter Presenter, options
 		presenter:         presenter,
 		captureHotkey:     options.CaptureHotkey,
 		onCalibratorClose: options.OnCalibratorClose,
+		onLauncherShown:   options.OnLauncherShown,
+		onLauncherHidden:  options.OnLauncherHidden,
 		winCache:          map[string]cachedWindow{},
 		pickerWindows:     map[string]*windowSlot{},
 		shutdownDone:      make(chan struct{}),
@@ -138,6 +144,7 @@ func Shutdown(ctx context.Context, s *Service) error {
 func (s *Service) shutdown() {
 	s.mu.Lock()
 	s.launcherVisible = false
+	launcherHidden := s.onLauncherHidden
 
 	slots := []*windowSlot{&s.hud, &s.recordingHUD, &s.calibratorHUD, &s.launcher}
 	for _, slot := range s.pickerWindows {
@@ -167,6 +174,9 @@ func (s *Service) shutdown() {
 	}
 	calibratorClose := s.onCalibratorClose
 	s.mu.Unlock()
+	if launcherHidden != nil {
+		launcherHidden()
+	}
 
 	captureDone := make(chan error, 1)
 	go func() {
@@ -272,14 +282,22 @@ func (s *Service) OpenLauncher() error {
 	w, opened, err := s.openWindow(presenter, &s.launcher, WindowRequest{Kind: WindowLauncher}, func() {
 		s.mu.Lock()
 		s.launcherVisible = false
+		hidden := s.onLauncherHidden
 		s.mu.Unlock()
+		if hidden != nil {
+			hidden()
+		}
 	})
 	if err != nil {
 		return err
 	}
 	s.mu.Lock()
 	s.launcherVisible = true
+	shown := s.onLauncherShown
 	s.mu.Unlock()
+	if shown != nil {
+		shown()
+	}
 	if !opened && w != nil {
 		w.Show()
 		w.Focus()
@@ -311,8 +329,12 @@ func (s *Service) ToggleLauncher() error {
 	if visible {
 		s.mu.Lock()
 		s.launcherVisible = false
+		hidden := s.onLauncherHidden
 		s.mu.Unlock()
 		w.Hide()
+		if hidden != nil {
+			hidden()
+		}
 		return nil
 	}
 	return s.OpenLauncher()
@@ -323,9 +345,26 @@ func (s *Service) HideLauncher() error {
 	s.mu.Lock()
 	w := s.launcher.window
 	s.launcherVisible = false
+	hidden := s.onLauncherHidden
 	s.mu.Unlock()
 	if w != nil {
 		w.Hide()
+	}
+	if hidden != nil {
+		hidden()
+	}
+	return nil
+}
+
+// RefreshLauncherHotkeys reapplies the visible launcher's position bindings
+// after settings or workflow availability changes. It is safe while hidden.
+func (s *Service) RefreshLauncherHotkeys() error {
+	s.mu.Lock()
+	visible := s.launcherVisible && s.launcher.window != nil
+	refresh := s.onLauncherShown
+	s.mu.Unlock()
+	if visible && refresh != nil {
+		refresh()
 	}
 	return nil
 }

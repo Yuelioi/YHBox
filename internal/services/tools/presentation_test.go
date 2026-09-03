@@ -135,7 +135,10 @@ func TestOpenMouseHUDUsesPresentationPort(t *testing.T) {
 
 func TestLauncherOpenIsIdempotentAndEmptyStateCanRevealSettings(t *testing.T) {
 	presenter := &fakePresenter{ready: true}
-	service := NewService(nil, presenter)
+	shown, hidden := 0, 0
+	service := NewServiceWithOptions(nil, presenter, Options{
+		OnLauncherShown: func() { shown++ }, OnLauncherHidden: func() { hidden++ },
+	})
 	if err := service.OpenLauncher(); err != nil {
 		t.Fatal(err)
 	}
@@ -145,17 +148,29 @@ func TestLauncherOpenIsIdempotentAndEmptyStateCanRevealSettings(t *testing.T) {
 	if len(presenter.requests) != 1 || presenter.window.showCalls != 1 || presenter.window.focusCalls != 1 {
 		t.Fatalf("launcher requests=%d show=%d focus=%d", len(presenter.requests), presenter.window.showCalls, presenter.window.focusCalls)
 	}
+	if shown != 2 {
+		t.Fatalf("launcher shown callbacks=%d", shown)
+	}
 	if err := service.HideLauncher(); err != nil {
 		t.Fatal(err)
 	}
 	if presenter.window.hideCalls != 1 {
 		t.Fatalf("launcher hide calls=%d", presenter.window.hideCalls)
 	}
+	if hidden != 1 {
+		t.Fatalf("launcher hidden callbacks=%d", hidden)
+	}
 	if err := service.OpenLauncher(); err != nil {
 		t.Fatal(err)
 	}
 	if len(presenter.requests) != 1 || presenter.window.showCalls != 2 || presenter.window.focusCalls != 2 {
 		t.Fatalf("launcher was not reused after hide: requests=%d show=%d focus=%d", len(presenter.requests), presenter.window.showCalls, presenter.window.focusCalls)
+	}
+	if err := service.RefreshLauncherHotkeys(); err != nil {
+		t.Fatal(err)
+	}
+	if shown != 4 {
+		t.Fatalf("launcher shown/refresh callbacks=%d", shown)
 	}
 	if err := service.OpenLauncherSettings(); err != nil {
 		t.Fatal(err)

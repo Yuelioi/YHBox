@@ -61,7 +61,7 @@ export interface LogBatchEvent {
 // 装 vue-i18n named interpolation (工作流名 / 计划名等动态), backend Register 时填.
 export interface HotkeyEntry {
   key: string
-  source: 'system' | 'action' | 'schedule' | 'editor' | 'recording'
+  source: 'system' | 'action' | 'schedule' | 'editor' | 'recording' | 'launcher'
   label: string
   labelParams?: Record<string, string>
   hotkeyStr: string
@@ -798,6 +798,7 @@ export const backend = {
       invoke(AssetService.RemoveVariant, guid, w, h),
   },
   hotkeys: {
+    reconcile: () => invoke(HotkeyService.Reconcile),
     list: () => invoke(HotkeyService.List),
     update: (key: string, hotkeyStr: string) => invoke(HotkeyService.Update, key, hotkeyStr),
     // pause/resume：HotkeyCaptureInput 进入捕获模式时 pause，离开时 resume。
@@ -969,6 +970,7 @@ export const backend = {
     setLauncherAlwaysOnTop: (on: boolean) => invoke(ToolsService.SetLauncherAlwaysOnTop, on),
     setLauncherSize: (width: number, height: number) =>
       invoke(ToolsService.SetLauncherSize, width, height),
+    refreshLauncherHotkeys: () => invoke(ToolsService.RefreshLauncherHotkeys),
   },
   events: {
     // 共享事件

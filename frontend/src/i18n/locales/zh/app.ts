@@ -347,6 +347,8 @@ export default {
       reset_ok: '重置',
     },
     label: {
+      workflow: '工作流 {name}',
+      launcher_slot: '启动器槽位 {n}：{name}',
       system: {
         execution_stop: '强停所有运行',
         calibrate_toggle: 'DPI 校准 启动/停止',

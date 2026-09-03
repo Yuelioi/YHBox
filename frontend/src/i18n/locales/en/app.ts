@@ -382,6 +382,8 @@ export default {
       reset_ok: 'Reset',
     },
     label: {
+      workflow: 'Workflow {name}',
+      launcher_slot: 'Launcher slot {n}: {name}',
       system: {
         execution_stop: 'Stop all running',
         calibrate_toggle: 'DPI calibration toggle',

@@ -55,6 +55,8 @@ describe('standalone window presentation contract', () => {
     expect(source).toContain("event.key === 'ArrowDown'")
     expect(source).toContain("event.key === 'Enter'")
     expect(source).toContain('query.value += event.key')
+    expect(source).toContain('backend.tools.refreshLauncherHotkeys()')
+    expect(source).not.toContain("event.key >= '1'")
     expect(surface).toContain('launcher-command--stale')
     expect(surface).toContain(':aria-disabled="item.stale')
   })
@@ -79,10 +81,18 @@ describe('standalone window presentation contract', () => {
     const source = readSource('src/views/tools/FloatingLauncherView.vue')
     const surface = readSource('src/components/launcher/LauncherSurface.vue')
 
-    expect(source).toContain('workflowTransport.cancelRun(requestedRunId.value)')
+    expect(source).toContain('workflowTransport.cancelRun(runId)')
     expect(source).toContain("settleRequest('cancelled')")
     expect(surface).toContain("statusFor(item.workflowId) === 'running'")
     expect(surface).toContain("case 'cancelled':")
+  })
+
+  it('restores active workflow Runs and tracks Runs started outside the launcher window', () => {
+    const source = readSource('src/views/tools/FloatingLauncherView.vue')
+
+    expect(source).toContain('workflowTransport.getActiveSourceRuns(')
+    expect(source).toContain('event.workflowId')
+    expect(source).toContain('activeRuns.value')
   })
 
   it('lets live HUD state regions fill spare height instead of pushing it above actions', () => {

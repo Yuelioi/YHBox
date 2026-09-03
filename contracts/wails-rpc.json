@@ -3,7 +3,7 @@
   "generator": "wails3",
   "summary": {
     "services": 16,
-    "methods": 147,
+    "methods": 150,
     "models": 237
   },
   "services": [
@@ -19,6 +19,12 @@
         {
           "name": "Pause",
           "bindingId": "799242776",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "Reconcile",
+          "bindingId": "3651192234",
           "parameters": [],
           "returns": "$CancellablePromise<void>"
         },
@@ -1459,6 +1465,12 @@
           "returns": "$CancellablePromise<$models.PixelInfo>"
         },
         {
+          "name": "RefreshLauncherHotkeys",
+          "bindingId": "2080457740",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
           "name": "SetLauncherAlwaysOnTop",
           "bindingId": "1803702165",
           "parameters": [
@@ -1695,6 +1707,18 @@
             }
           ],
           "returns": "$CancellablePromise<$models.BundleExportResult[]>"
+        },
+        {
+          "name": "GetActiveSourceRuns",
+          "bindingId": "3539981845",
+          "parameters": [
+            {
+              "name": "workflowIDs",
+              "optional": false,
+              "type": "string[]"
+            }
+          ],
+          "returns": "$CancellablePromise<{ [_ in string]?: string[] }>"
         },
         {
           "name": "GetAuthoringProjection",
@@ -3273,6 +3297,10 @@
             {
               "name": "HotkeySourceRecording",
               "value": "\"recording\""
+            },
+            {
+              "name": "HotkeySourceLauncher",
+              "value": "\"launcher\""
             }
           ]
         },
@@ -5183,6 +5211,16 @@
               "name": "\"launcherToggleHotkey\"",
               "optional": false,
               "type": "string"
+            },
+            {
+              "name": "\"launcherSlotHotkeyModifiers\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"workflowHotkeys\"",
+              "optional": true,
+              "type": "{ [_ in string]?: string }"
             },
             {
               "name": "\"canvasAssist\"",

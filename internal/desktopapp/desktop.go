@@ -104,7 +104,8 @@ func Run(config Config) error {
 		Now:               time.Now,
 		OnRunEvent: func(event yottaapplication.RunEvent) {
 			payload := map[string]any{
-				"runId": event.RunID, "status": event.Status, "generation": event.Generation, "recordDigest": event.Digest,
+				"runId": event.RunID, "workflowId": event.WorkflowID, "status": event.Status,
+				"generation": event.Generation, "recordDigest": event.Digest,
 			}
 			if event.Err != nil {
 				payload["failed"] = true
@@ -291,6 +292,20 @@ func Run(config Config) error {
 	// 用户可在 Settings → 快捷键 tab 改任意一条，hot reload 立即生效。
 	var recordingSvc *recording.Service
 	hotkeyRegistry := hotkey.NewHotkeyRegistryWithCallbacks(sharedHotkeys, hotkey.Callbacks{
+		OnActionChange: func(workflowID, newStr string) error {
+			_, _, err := app.MutateSettings(func(cur *services.Settings) error {
+				if cur.UI.WorkflowHotkeys == nil {
+					cur.UI.WorkflowHotkeys = map[string]string{}
+				}
+				if strings.TrimSpace(newStr) == "" {
+					delete(cur.UI.WorkflowHotkeys, workflowID)
+				} else {
+					cur.UI.WorkflowHotkeys[workflowID] = newStr
+				}
+				return nil
+			})
+			return err
+		},
 		// OnSystemChange 写回 settings.UI 的 exact binding。
 		OnSystemChange: func(key, newStr string) error {
 			switch key {
@@ -342,7 +357,7 @@ func Run(config Config) error {
 
 	// 暴露 HotkeyService RPC 给前端
 	// 「重置默认」用的内置热键出厂默认 (跟 services.defaultSettings 一致, 也是下方各 Register 的 fallback)。
-	hotkeySvc := hotkey.NewHotkeyService(hotkeyRegistry, map[string]string{
+	hotkeyDefaults := map[string]string{
 		"system.execution-stop":   "Ctrl+Shift+F9",
 		"system.calibrate-toggle": "F8",
 		"system.launcher-toggle":  "",
@@ -351,7 +366,46 @@ func Run(config Config) error {
 		"recording.stop":          "F12",
 		"recording.pause":         "F11",
 		"recording.cancel":        "F7",
-	})
+	}
+	runWorkflowHotkey := func(workflowID string) {
+		go func() {
+			if active := workflowRuntime.Application.ActiveSourceRuns(workflowID); len(active) != 0 {
+				for _, runID := range active {
+					if _, err := workflowRuntime.Application.CancelRun(context.Background(), runID); err != nil {
+						rootLog.Warn().Err(err).Str("tag", "HOTKEY").Str("workflowId", workflowID).Str("runId", runID).
+							Msg("workflow hotkey failed to cancel Run")
+					}
+				}
+				return
+			}
+			result, err := workflowRuntime.Application.StartRun(context.Background(), yottaapplication.StartRunRequest{
+				WorkflowID: workflowID, Principal: "local-user",
+			})
+			if err != nil {
+				rootLog.Warn().Err(err).Str("tag", "HOTKEY").Str("workflowId", workflowID).
+					Msg("workflow hotkey failed to start Run")
+				return
+			}
+			rootLog.Debug().Str("tag", "HOTKEY").Str("workflowId", workflowID).Str("runId", result.Record.Admission().RunID).
+				Msg("workflow hotkey started Run")
+		}()
+	}
+	launcherHotkeys := &launcherHotkeyController{
+		registry: hotkeyRegistry,
+		settings: app.Settings,
+		list:     workflowSvc.ListSources,
+		run:      runWorkflowHotkey,
+	}
+	syncWorkflowEntries := func() {
+		views, listErr := workflowSvc.ListSources()
+		if listErr != nil {
+			rootLog.Warn().Err(listErr).Str("tag", "HOTKEY").Msg("reconcile workflow hotkeys")
+			return
+		}
+		syncWorkflowHotkeys(hotkeyRegistry, app.Settings(), views, runWorkflowHotkey)
+	}
+	hotkeySvc := hotkey.NewHotkeyServiceWithListHook(hotkeyRegistry, hotkeyDefaults, syncWorkflowEntries)
+	syncWorkflowEntries()
 
 	// Asset authoring captures exact installed targets; no Workflow
 	// document can inject a native window selector.
@@ -417,6 +471,8 @@ func Run(config Config) error {
 		CaptureHotkey: func() (uint32, uint32) {
 			return registryHotkey(hotkeyRegistry, "tools.window-capture", 0x78)
 		},
+		OnLauncherShown:  launcherHotkeys.refresh,
+		OnLauncherHidden: launcherHotkeys.clear,
 	})
 
 	// 悬浮窗启动器 呼出/隐藏 热键：默认未绑（空），从 settings.UI 读，rebind 经 onSystemHotkeyChange 写回。

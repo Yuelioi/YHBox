@@ -31,6 +31,7 @@ const (
 	HotkeySourceSchedule  HotkeySource = "schedule"
 	HotkeySourceEditor    HotkeySource = "editor"
 	HotkeySourceRecording HotkeySource = "recording"
+	HotkeySourceLauncher  HotkeySource = "launcher"
 )
 
 // HotkeyStatus runtime 状态。
@@ -81,6 +82,14 @@ type registryEntry struct {
 	normalized string
 	bindingID  int
 	onFire     func()
+}
+
+type TransientBinding struct {
+	Key         string
+	Label       string
+	LabelParams map[string]string
+	HotkeyStr   string
+	OnFire      func()
 }
 
 // HotkeyRegistry 所有热键的中央 manifest。线程安全。
@@ -169,6 +178,92 @@ func (r *HotkeyRegistry) Register(key string, source HotkeySource, label string,
 		r.emitChanged()
 	}
 	return nil
+}
+
+// RegisterTransient registers an OS-global binding whose lifetime is owned by
+// a visible surface. Validation and conflicts remain visible in List instead
+// of deleting the entry, and Update never persists this source.
+func (r *HotkeyRegistry) RegisterTransient(key, label string, labelParams map[string]string, hotkeyStr string, onFire func()) error {
+	return r.registerVisible(key, HotkeySourceLauncher, label, labelParams, hotkeyStr, onFire)
+}
+
+// RegisterAction registers a durable workflow action while retaining invalid
+// or conflicting configured intent as a repairable failed entry.
+func (r *HotkeyRegistry) RegisterAction(key, label string, labelParams map[string]string, hotkeyStr string, onFire func()) error {
+	return r.registerVisible(key, HotkeySourceAction, label, labelParams, hotkeyStr, onFire)
+}
+
+func (r *HotkeyRegistry) registerVisible(key string, source HotkeySource, label string, labelParams map[string]string, hotkeyStr string, onFire func()) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.closed.Load() {
+		return ErrRegistryClosed
+	}
+	if _, exists := r.entries[key]; exists {
+		return ErrDuplicateKey
+	}
+	entry := &registryEntry{spec: HotkeyEntry{
+		Key: key, Source: source, Label: label, LabelParams: labelParams,
+		HotkeyStr: hotkeyStr, Status: HotkeyStatusUnbound, Mechanism: HotkeyMechanismOSGlobal,
+	}, onFire: onFire}
+	r.entries[key] = entry
+	if err := r.updateLocked(key, hotkeyStr); err != nil {
+		entry.spec.Status = HotkeyStatusFailed
+		entry.spec.LastError = err.Error()
+		if normalized, normalizeErr := NormalizeHotkey(hotkeyStr); normalizeErr == nil {
+			entry.normalized = normalized
+		}
+	}
+	if r.emitChanged != nil {
+		r.emitChanged()
+	}
+	return nil
+}
+
+// ReplaceTransients atomically replaces one visible surface's bindings and
+// emits one change notification, keeping rapid launcher toggles inexpensive.
+func (r *HotkeyRegistry) ReplaceTransients(keyPrefix string, bindings []TransientBinding) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.closed.Load() {
+		return ErrRegistryClosed
+	}
+	var errs []error
+	for key, entry := range r.entries {
+		if entry.spec.Source != HotkeySourceLauncher || !strings.HasPrefix(key, keyPrefix) {
+			continue
+		}
+		if entry.bindingID != 0 {
+			if err := r.manager.Unregister(entry.bindingID); err != nil {
+				errs = append(errs, fmt.Errorf("unregister transient hotkey %q: %w", key, err))
+				continue
+			}
+		}
+		delete(r.entries, key)
+	}
+	for _, binding := range bindings {
+		if _, exists := r.entries[binding.Key]; exists {
+			errs = append(errs, fmt.Errorf("register transient hotkey %q: %w", binding.Key, ErrDuplicateKey))
+			continue
+		}
+		entry := &registryEntry{spec: HotkeyEntry{
+			Key: binding.Key, Source: HotkeySourceLauncher, Label: binding.Label,
+			LabelParams: binding.LabelParams, HotkeyStr: binding.HotkeyStr,
+			Status: HotkeyStatusUnbound, Mechanism: HotkeyMechanismOSGlobal,
+		}, onFire: binding.OnFire}
+		r.entries[binding.Key] = entry
+		if err := r.updateLocked(binding.Key, binding.HotkeyStr); err != nil {
+			entry.spec.Status = HotkeyStatusFailed
+			entry.spec.LastError = err.Error()
+			if normalized, normalizeErr := NormalizeHotkey(binding.HotkeyStr); normalizeErr == nil {
+				entry.normalized = normalized
+			}
+		}
+	}
+	if r.emitChanged != nil {
+		r.emitChanged()
+	}
+	return errors.Join(errs...)
 }
 
 // Get 按 key 查 entry，返 spec 副本。
@@ -314,7 +409,7 @@ func (r *HotkeyRegistry) updateLocked(key, newHotkeyStr string) error {
 		return &HotkeyInvalidError{Hotkey: newHotkeyStr, Reason: err.Error()}
 	}
 	// noop
-	if normalized == entry.normalized {
+	if normalized == entry.normalized && entry.spec.Status != HotkeyStatusFailed {
 		return nil
 	}
 	// Reserved 检查（system source 走特权通道：reserved 黑名单的初衷是拦用户绑定，
@@ -618,5 +713,14 @@ func (r *HotkeyRegistry) SyncLabel(key, newLabel string) {
 	}
 	if r.emitChanged != nil {
 		r.emitChanged()
+	}
+}
+
+// SyncLabelParams updates dynamic presentation data without rebinding.
+func (r *HotkeyRegistry) SyncLabelParams(key string, params map[string]string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if entry, ok := r.entries[key]; ok {
+		entry.spec.LabelParams = params
 	}
 }

@@ -38,6 +38,30 @@
           {{ t('settingsLauncher.configure_hotkey') }}
         </UButton>
       </div>
+      <div class="settings-inset flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div class="min-w-0 flex-1">
+          <p class="settings-detail__label">{{ t('settingsLauncher.slot_hotkey_title') }}</p>
+          <p class="settings-detail__hint">{{ t('settingsLauncher.slot_hotkey_hint') }}</p>
+        </div>
+        <div
+          class="flex shrink-0 items-center gap-1"
+          role="group"
+          :aria-label="t('settingsLauncher.slot_hotkey_title')"
+        >
+          <UButton
+            v-for="modifier in slotModifierOptions"
+            :key="modifier"
+            size="xs"
+            color="neutral"
+            :variant="slotModifiers.includes(modifier) ? 'solid' : 'outline'"
+            :aria-pressed="slotModifiers.includes(modifier)"
+            @click="toggleSlotModifier(modifier)"
+          >
+            {{ modifier }}
+          </UButton>
+          <UKbd :value="`${slotModifierText}+1–9`" />
+        </div>
+      </div>
     </SettingsSection>
 
     <SettingsSection
@@ -331,6 +355,15 @@ const launcherHotkey = computed(() =>
   hotkeysStore.list.find((entry) => entry.key === 'system.launcher-toggle'),
 )
 const launcherHotkeyStatus = computed(() => launcherHotkey.value?.status ?? 'unbound')
+const slotModifierOptions = ['Ctrl', 'Shift', 'Alt'] as const
+const slotModifiers = computed(() =>
+  slotModifierOptions.filter((modifier) =>
+    (settingsStore.data?.ui.launcherSlotHotkeyModifiers ?? 'Ctrl+Shift')
+      .split('+')
+      .includes(modifier),
+  ),
+)
+const slotModifierText = computed(() => slotModifiers.value.join('+'))
 const copyItems = (items: LauncherBlock[]) => items.map((block) => ({ ...block }))
 const syncFromStore = () =>
   (editItems.value = copyItems(settingsStore.data?.ui.launcherItems ?? []))
@@ -466,6 +499,18 @@ function setIcon(id: string, icon: string) {
 function setLabel(id: string, label: string) {
   const item = block(id)
   if (item) item.label = label
+}
+async function toggleSlotModifier(modifier: (typeof slotModifierOptions)[number]) {
+  const next = new Set(slotModifiers.value)
+  if (next.has(modifier)) {
+    if (next.size === 1) return
+    next.delete(modifier)
+  } else {
+    next.add(modifier)
+  }
+  const value = slotModifierOptions.filter((item) => next.has(item)).join('+')
+  await settingsStore.patch({ ui: { launcherSlotHotkeyModifiers: value } })
+  await backend.tools.refreshLauncherHotkeys()
 }
 function workflowName(id?: string) {
   return (
