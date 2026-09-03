@@ -2,7 +2,9 @@ package resourceauthoring
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
@@ -21,7 +23,11 @@ func NewService(creator *Creator, emit ...func(name string, data any)) *Service 
 }
 
 func (s *Service) CreateImage(draft ImageDraft) (schema.WorkflowResource, error) {
-	return s.creator.CreateImage(context.Background(), draft)
+	resource, err := s.creator.CreateImage(context.Background(), draft)
+	if err != nil {
+		return schema.WorkflowResource{}, fmt.Errorf("%w: %v", apperr.New("workflow.resource.image_create_failed", nil), err)
+	}
+	return resource, nil
 }
 
 func (s *Service) Open(resource schema.WorkflowResource) (Content, error) {

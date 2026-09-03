@@ -12,6 +12,7 @@ import (
 
 	"github.com/lxn/win"
 
+	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
@@ -178,21 +179,21 @@ func (s *captureSession) workerThread(started chan<- error) {
 func (s *captureSession) handleWindow(hwnd uintptr) {
 	if hwnd == 0 {
 		if s.emit != nil {
-			s.emit("win32windowtarget:captured", map[string]any{"error": "无前台窗口"})
+			s.emit("win32windowtarget:captured", map[string]any{"problem": apperr.Project(apperr.New("automation.window_capture.no_foreground", nil))})
 		}
 		return
 	}
 	wh, err := winutil.WindowMetadata(hwnd)
 	if err != nil {
 		if s.emit != nil {
-			s.emit("win32windowtarget:captured", map[string]any{"error": err.Error()})
+			s.emit("win32windowtarget:captured", map[string]any{"problem": apperr.Project(fmt.Errorf("%w: %v", apperr.New("automation.window_capture.metadata_failed", nil), err))})
 		}
 		return
 	}
 	executable, err := winutil.WindowExecutable(hwnd)
 	if err != nil {
 		if s.emit != nil {
-			s.emit("win32windowtarget:captured", map[string]any{"error": err.Error()})
+			s.emit("win32windowtarget:captured", map[string]any{"problem": apperr.Project(fmt.Errorf("%w: %v", apperr.New("automation.window_capture.executable_failed", nil), err))})
 		}
 		return
 	}

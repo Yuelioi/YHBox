@@ -3,6 +3,8 @@ package resourceauthoring
 import (
 	"context"
 	"testing"
+
+	"github.com/yottaapp/yotta/internal/apperr"
 )
 
 func TestServicePromoteEmitsGlobalAssetRevision(t *testing.T) {
@@ -30,5 +32,17 @@ func TestServicePromoteEmitsGlobalAssetRevision(t *testing.T) {
 	guids, ok := payload["guids"].([]string)
 	if !ok || len(guids) != 1 || guids[0] != promotion.GUID {
 		t.Fatalf("event GUIDs = %#v", payload["guids"])
+	}
+}
+
+func TestServiceCreateImageProjectsStableProblem(t *testing.T) {
+	creator, _, _ := newTestCreator(t)
+	_, err := NewService(creator).CreateImage(ImageDraft{Metadata: Metadata{Name: "Broken"}})
+	if err == nil {
+		t.Fatal("invalid image succeeded")
+	}
+	problem := apperr.From(err)
+	if problem.ID != "workflow.resource.image_create_failed" || problem.OperationID == "" || problem.Retryable {
+		t.Fatalf("CreateImage problem = %#v", problem)
 	}
 }

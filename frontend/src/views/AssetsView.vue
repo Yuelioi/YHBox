@@ -1249,7 +1249,14 @@ watch(
   () => recording.completionFailure,
   (failure) => {
     if (failure && recording.invocation === 'library')
-      showError(t('recordingSave.save_failed'), failure.message)
+      showError(
+        t(
+          failure.problem.id?.startsWith('recording.start.')
+            ? 'assets.recording.start_failed'
+            : 'recordingSave.save_failed',
+        ),
+        failure.problem,
+      )
   },
 )
 

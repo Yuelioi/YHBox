@@ -45,6 +45,31 @@ func TestPlatformNeutralPackagesDoNotImportWindowsAdapters(t *testing.T) {
 	assertNoBannedImports(t, repoRoot, neutralRoots, banned, nil)
 }
 
+func TestServiceEventsDoNotPublishLegacyErrorStrings(t *testing.T) {
+	repoRoot := repositoryRoot(t)
+	root := filepath.Join(repoRoot, "internal", "services")
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() || filepath.Ext(path) != ".go" || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if strings.Contains(string(raw), `map[string]any{"error"`) {
+			relative, _ := filepath.Rel(repoRoot, path)
+			t.Errorf("service event in %s publishes a legacy error string; emit a canonical problem envelope", filepath.ToSlash(relative))
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestNodeAdapterImplementationsDoNotImportWorkflowCompiler(t *testing.T) {
 	assertNoBannedImports(
 		t,

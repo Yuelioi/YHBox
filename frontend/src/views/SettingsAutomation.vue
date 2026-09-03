@@ -1386,8 +1386,15 @@ async function acceptCapture(raw: unknown): Promise<void> {
   if (!slot || typeof raw !== 'object' || raw === null) return
   const payload = raw as Record<string, unknown>
   resetCapture()
+  if (payload.problem && typeof payload.problem === 'object') {
+    captureFeedback.value = { tone: 'error', message: errorMessage(payload.problem) }
+    return
+  }
   if (typeof payload.error === 'string' && payload.error) {
-    captureFeedback.value = { tone: 'error', message: payload.error }
+    captureFeedback.value = {
+      tone: 'error',
+      message: errorMessage({ id: 'automation.window_capture.unstructured_failure' }),
+    }
     return
   }
   if (

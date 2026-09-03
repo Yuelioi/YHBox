@@ -17,6 +17,7 @@ import {
   type MacroDocument,
 } from '@/lib/backend'
 import { i18n } from '@/i18n'
+import { toRPCError, type NormalizedError } from '@/lib/invoke'
 import type { WorkflowResource } from '../../../contracts/workflow/current/workflow-source'
 
 export type RecordingMode = 'simple' | 'precise'
@@ -323,7 +324,7 @@ export const useRecordingStore = defineStore('recording', () => {
   const state = ref<RecordingState>({ ...IDLE })
   const lastResult = ref<RecordingStopPayload | null>(null)
   const invocation = ref<RecordingInvocation | null>(null)
-  const completionFailure = ref<{ revision: number; message: string } | null>(null)
+  const completionFailure = ref<{ revision: number; problem: NormalizedError } | null>(null)
 
   // 派生值 — 无独立 flag, 不可能跟后端 desync.
   // isRecording 严格 = phase==='recording' (暂停时 false); 判"录制会话进行中"用 isRecording||isPaused.
@@ -359,11 +360,16 @@ export const useRecordingStore = defineStore('recording', () => {
 
   Events.On('recording:completed', (event: unknown) => {
     const payload = eventPayload(event)
-    const message = isRecord(payload) ? payload.error : undefined
-    if (typeof message !== 'string' || !message) return
+    if (!isRecord(payload)) return
+    const projected = isRecord(payload.problem)
+      ? (payload.problem as NormalizedError)
+      : typeof payload.error === 'string' && payload.error
+        ? { id: 'recording.stop.unstructured_failure', category: 'infrastructure' }
+        : null
+    if (!projected?.id) return
     completionFailure.value = {
       revision: (completionFailure.value?.revision ?? 0) + 1,
-      message,
+      problem: projected,
     }
   })
 
@@ -415,7 +421,11 @@ export const useRecordingStore = defineStore('recording', () => {
     // 幂等: 后端不在录 → 返 null 不抛错. 拿到产物 (或 null) 后对账收敛状态.
     const result = await backend.recording.stop()
     const payload = result == null ? null : normalizeRecordingStopPayload(result)
-    if (result != null && !payload) throw new Error('recording.stop: invalid result')
+    if (result != null && !payload)
+      throw toRPCError(
+        { id: 'recording.stop.result_invalid', category: 'infrastructure' },
+        'recording.stop',
+      )
     lastResult.value = payload
     await reconcile()
     return payload
@@ -439,7 +449,11 @@ export const useRecordingStore = defineStore('recording', () => {
     trimEndUs?: number
   }): Promise<RecordingFinalizePayload> {
     const result = await backend.recording.finalize(args)
-    if (!isRecordingFinalizePayload(result)) throw new Error('recording.finalize: invalid result')
+    if (!isRecordingFinalizePayload(result))
+      throw toRPCError(
+        { id: 'recording.finalize.result_invalid', category: 'infrastructure' },
+        'recording.finalize',
+      )
     await reconcile()
     return result
   }

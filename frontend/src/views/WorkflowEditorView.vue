@@ -1321,7 +1321,10 @@ import { createEditorWorkflowMetadataController } from '@/app/editor/EditorWorkf
 import type { EditorToolbarCommand, EditorToolbarContext } from '@/app/editor/editorToolbarModel'
 import type { WorkflowWorkspacePanel } from '@/app/editor/workspacePanel'
 import { parseWorkspaceResource, RESOURCE_DRAG_FORMAT } from '@/app/editor/resourceDrag'
-import { applyCapturedImageVersion } from '@/app/editor/workflowResourceVersions'
+import {
+  applyCapturedImageVersion,
+  WorkflowResourceVersionError,
+} from '@/app/editor/workflowResourceVersions'
 import { snapshotGlobalAssetByID } from '@/app/editor/workflowResourceSnapshot'
 import type {
   ResourceLocateRequest,
@@ -1351,7 +1354,7 @@ import { useSnippetsStore } from '@/stores/snippets'
 import { shortcutFromKeyboardEvent } from '@/app/editor/snippetShortcut'
 import { resolveEditorKeyboardAction } from '@/app/editor/editorKeyboard'
 import type { WorkflowQuickAddItem } from '@/app/editor/workflowQuickAdd'
-import { errorMessage } from '@/lib/invoke'
+import { errorMessage, normalizeError } from '@/lib/invoke'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
 import { nodeRunStatuses, unhandledExecRouteKeys } from '@/app/editor/runTrace'
 import { nodeDiagnosticSeverities, type WorkflowDiagnostic } from '@/app/editor/workflowDiagnostics'
@@ -2251,7 +2254,14 @@ watch(
   () => recording.completionFailure,
   (failure) => {
     if (failure && recording.invocation === 'editor')
-      showError(t('recordingSave.save_failed'), failure.message)
+      showError(
+        t(
+          failure.problem.id?.startsWith('recording.start.')
+            ? 'workflow.recording.start_failed'
+            : 'recordingSave.save_failed',
+        ),
+        failure.problem,
+      )
   },
 )
 
@@ -2407,14 +2417,22 @@ async function captureWorkspaceTemplate(): Promise<void> {
       return
     }
     const captured = resource.image?.variants[0]
-    if (!captured) throw new Error(t('workflow.resources.capture_failed'))
+    if (!captured)
+      throw new WorkflowResourceVersionError('workflow.resource.capture_result_invalid')
     session.apply({
       kind: 'replace-resource',
       resourceId: intent.resource.id,
       resource: applyCapturedImageVersion(intent.resource, captured, intent.mode, intent.variantId),
     })
   } catch (error) {
-    showError(t('assets.templates.capture_failed'), error)
+    const normalized = normalizeError(error)
+    const feedback =
+      error instanceof WorkflowResourceVersionError
+        ? { id: error.id }
+        : normalized.id || normalized.errors?.length
+          ? error
+          : { id: 'workflow.resource.capture_apply_failed' }
+    showError(t('assets.templates.capture_failed'), feedback)
   } finally {
     templateCaptureBusy.value = false
     templateCaptureIntent.value = null

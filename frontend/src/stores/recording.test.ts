@@ -17,6 +17,9 @@ const { pauseMock, resumeMock } = vi.hoisted(() => ({
   pauseMock: vi.fn(async () => {}),
   resumeMock: vi.fn(async () => {}),
 }))
+const { eventHandlers } = vi.hoisted(() => ({
+  eventHandlers: new Map<string, (event: unknown) => void>(),
+}))
 vi.mock('@/lib/backend', () => ({
   backend: {
     recording: {
@@ -31,7 +34,14 @@ vi.mock('@/lib/backend', () => ({
 }))
 vi.mock('@/i18n', () => ({ i18n: { global: { t: (k: string) => k } } }))
 // store 体内 Events.On('recording:state') 订阅后端广播 — 测试里 stub 掉, 只验镜像逻辑.
-vi.mock('@wailsio/runtime', () => ({ Events: { On: vi.fn(() => () => {}) } }))
+vi.mock('@wailsio/runtime', () => ({
+  Events: {
+    On: vi.fn((name: string, handler: (event: unknown) => void) => {
+      eventHandlers.set(name, handler)
+      return () => eventHandlers.delete(name)
+    }),
+  },
+}))
 
 import { isRecordingStopPayload, useRecordingStore } from './recording'
 
@@ -71,6 +81,28 @@ describe('recordStore — 后端状态机镜像', () => {
     expect(finalizeMock).toHaveBeenCalledWith(
       expect.objectContaining({ destination: 'workflow-resource' }),
     )
+  })
+
+  it('preserves the structured async completion Problem for user feedback and correlation', () => {
+    const store = useRecordingStore()
+    eventHandlers.get('recording:completed')?.({
+      data: [
+        {
+          problem: {
+            id: 'recording.stop.failed',
+            category: 'adapter',
+            operationId: 'recording-op-42',
+            retryable: true,
+          },
+        },
+      ],
+    })
+    expect(store.completionFailure?.problem).toEqual({
+      id: 'recording.stop.failed',
+      category: 'adapter',
+      operationId: 'recording-op-42',
+      retryable: true,
+    })
   })
 
   it('applyState(recording) mirrors the exact installed target slot', () => {

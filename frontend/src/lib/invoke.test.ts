@@ -163,6 +163,16 @@ describe('errorMessage', () => {
     expect(msg).not.toContain('map[]')
     expect(msg).toContain('节点类型') // zh user-facing diagnostic, not raw code
   })
+  it('把后端 operation ID 展示给用户和开发者用于日志关联', () => {
+    const message = errorMessage({
+      cause: {
+        id: 'recording.finalize.failed',
+        params: { destination: 'workflow-resource' },
+        operationId: 'backend-recording-42',
+      },
+    })
+    expect(message).toContain('backend-recording-42')
+  })
 })
 
 describe('invoke', () => {

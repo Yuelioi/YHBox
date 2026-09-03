@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/automation/target"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/storage"
@@ -89,6 +90,21 @@ func TestService_SaveTemplateCapture_ListGet(t *testing.T) {
 	}
 	if len(list) != 1 || list[0].GUID != guid || list[0].VariantCount != 1 || len(list[0].Variants) != 1 || list[0].Variants[0].Blob != v.Blob {
 		t.Fatalf("List = %+v", list)
+	}
+}
+
+func TestTemplateCaptureFailuresProjectStableProblems(t *testing.T) {
+	store, _ := newTestStore(t)
+	service := NewService(store, nil, nil)
+	if _, err := service.SaveTemplateCapture("not-a-png", "x", "", nil, [2]int{8, 8}, [4]float32{0, 0, 1, 1}); err == nil {
+		t.Fatal("invalid capture succeeded")
+	} else if problem := apperr.From(err); problem.ID != "asset.template.capture_invalid" || problem.OperationID == "" {
+		t.Fatalf("invalid capture problem = %#v", problem)
+	}
+	if _, err := service.AddTemplateVariant("missing", pngDataURL(t, 8, 8), [2]int{8, 8}, [4]float32{0, 0, 1, 1}); err == nil {
+		t.Fatal("missing template succeeded")
+	} else if problem := apperr.From(err); problem.ID != "asset.template.not_found" || problem.OperationID == "" {
+		t.Fatalf("missing template problem = %#v", problem)
 	}
 }
 

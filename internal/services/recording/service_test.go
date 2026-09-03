@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/automation/target"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/services/asset"
@@ -54,6 +55,7 @@ type resultRecorder struct {
 	hwnd      uintptr
 	meta      inputclip.ClipMeta
 	startErr  error
+	stopErr   error
 }
 
 func (*resultRecorder) Active() bool { return true }
@@ -63,7 +65,7 @@ func (r *resultRecorder) Start(hwnd uintptr, meta inputclip.ClipMeta) (string, e
 	r.hwnd, r.meta = hwnd, meta
 	return "session", r.startErr
 }
-func (r *resultRecorder) Stop() (*StopResult, error) { return r.result, nil }
+func (r *resultRecorder) Stop() (*StopResult, error) { return r.result, r.stopErr }
 func (r *resultRecorder) Cancel()                    { r.cancelled = true }
 
 type memoryClipStore struct {
@@ -227,6 +229,29 @@ func TestServiceStopAsyncEmitsCompletePreviewPayload(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("StopAsync did not emit recording:completed")
+	}
+}
+
+func TestServiceStopAsyncEmitsStructuredProblem(t *testing.T) {
+	completed := make(chan map[string]any, 1)
+	service := NewService(&resultRecorder{stopErr: errors.New("private adapter cause")}, nil, &memoryClipStore{}, nil, nil, nil, func(name string, data any) {
+		if name == "recording:completed" {
+			completed <- data.(map[string]any)
+		}
+	})
+	service.setState(RecordingState{Phase: PhaseRecording, TargetSlot: "editor"})
+	service.StopAsync()
+	select {
+	case payload := <-completed:
+		problem, ok := payload["problem"].(apperr.Envelope)
+		if !ok || problem.ID != "recording.stop.failed" || problem.OperationID == "" {
+			t.Fatalf("completed problem = %#v", payload)
+		}
+		if _, leaked := payload["error"]; leaked {
+			t.Fatalf("completed event leaked raw error: %#v", payload)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("StopAsync did not emit structured failure")
 	}
 }
 

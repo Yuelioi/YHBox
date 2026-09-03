@@ -1,9 +1,9 @@
 package recording
 
 import (
-	"errors"
 	"fmt"
 
+	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/services/inputclip"
 )
 
@@ -22,13 +22,13 @@ func (s *Service) PendingEvents(pendingID string, offset, limit int) (PendingEve
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.pending == nil || "pending-"+s.pending.result.TempID != pendingID {
-		return PendingEventPage{}, fmt.Errorf("pending recording %q not found", pendingID)
+		return PendingEventPage{}, fmt.Errorf("%w: pending recording identity does not match", apperr.New("recording.finalize.pending_unavailable", nil))
 	}
 	if s.pending.result.Meta.RecordingMode != inputclip.RecordingModePrecise {
-		return PendingEventPage{}, errors.New("raw event pages are available only for precise recordings")
+		return PendingEventPage{}, fmt.Errorf("%w: raw events require precise mode", apperr.New("recording.events.unavailable", nil))
 	}
 	if offset < 0 || limit <= 0 || limit > maxPendingEventPageSize {
-		return PendingEventPage{}, errors.New("pending event page is outside the bounded range")
+		return PendingEventPage{}, fmt.Errorf("%w: page outside bounded range", apperr.New("recording.events.invalid_page", nil))
 	}
 	total := len(s.pending.result.Events)
 	start := min(offset, total)

@@ -13,7 +13,12 @@ Open
 ## Current
 
 图片变体 Modal 的录制阻断已修复：新增或指定变体重拍会发起截图动作并同步关闭旧 Modal，不再留下覆盖
-截图界面的模糊遮罩；真实组件回归覆盖两条路径。
+截图界面的模糊遮罩；真实组件回归覆盖两条路径。工作流内重录返回的图片变体经过 Wails/Vue event 边界时
+可能成为 reactive projection，旧代码对其调用 `structuredClone` 会抛 `DataCloneError`，截图成功后仍显示
+“发生未知错误”；现改为按 portable JSON 边界复制，并为无图片结果、过期目标版本和写入失败提供独立恢复文案。
+相邻录制链也已重新审计：Finalize/Stop/倒计时启动、pending event、模板资产与窗口捕获不再通过字符串事件或
+原始 Go error 穿越 Wails；所有 Problem 显示 operationId，并以同一 ID 在本地日志记录内部 cause。架构测试禁止
+service event 重新加入 `{"error": "..."}` 旧协议。
 
 Run 分辨率自适应已接入生产 composition：Application 在编译/Admission 前持有本次 Run 的 configured-target
 generation，通过 target snapshot 一次读取被图片资源引用的 slot 分辨率。精确变体直接成为 Compiler 的
@@ -35,6 +40,12 @@ Planner race、Impeccable 检测和仓库 `task check` 通过。真实 2K“异�
 
 ## Progress
 
+- 2026-09-03 根据 owner 真实重录失败建立 reactive event payload 回归：修复 `structuredClone` 无法复制 proxy
+  导致的截图后写入失败，并把三条本地失败从 `UNKNOWN_ERROR` 拆为可操作反馈；前端定向测试与 `task check`
+  通过。
+- 2026-09-03 根据真实“录制保存失败 / transport.unstructured_failure”重新审计录制与捕获错误链：异步事件改传
+  canonical Problem，录制开始/停止/Finalize/pending、模板创建/重拍与窗口捕获均补稳定 ID、恢复动作和
+  operationId→日志 cause 关联；增加禁止字符串错误事件的架构门禁。
 - 2026-09-02 建立 Work；确认“编译/预渲染”不是用户应理解的底层术语，产品入口暂定评估为“优化运行”。
 - 2026-09-02 已有未提交 UI 改动：共享图片变体管理 Modal、指定变体重拍、最后一档按动作拦截；前端
   `task check` 通过。隔离 WebView smoke 因 fixture 未生成工作流行而无法完成截图验收。

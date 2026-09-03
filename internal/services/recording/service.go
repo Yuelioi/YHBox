@@ -243,6 +243,11 @@ type armedRecording struct {
 //
 // 倒计时结束、recorder 真正启动后才设置 F11/F12 hook；准备阶段仅监听 F10.
 func (s *Service) Start(args StartArgs) (string, error) {
+	id, err := s.start(args)
+	return id, projectRecordingProblem("recording.start.failed", nil, err)
+}
+
+func (s *Service) start(args StartArgs) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed.Load() {
@@ -362,7 +367,7 @@ func (s *Service) finishCountdown(generation uint64) {
 		s.releaseActiveLocked()
 		s.setState(RecordingState{Phase: PhaseIdle})
 		if s.emit != nil {
-			s.emit("recording:completed", map[string]any{"error": fmt.Errorf("recorder.Start: %w", err).Error()})
+			s.emit("recording:completed", map[string]any{"problem": apperr.Project(recordingProblem("recording.start.adapter_failed", nil, err))})
 		}
 		return
 	}
@@ -493,6 +498,11 @@ type FinalizeResult struct {
 //
 // 注意: 用 internal mutex 防 F12 stop callback 跟 UI Stop 重入 (Recorder.Stop 不可重入).
 func (s *Service) Stop() (*StopResultPayload, error) {
+	payload, err := s.stop()
+	return payload, projectRecordingProblem("recording.stop.failed", nil, err)
+}
+
+func (s *Service) stop() (*StopResultPayload, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed.Load() {
@@ -617,17 +627,17 @@ func (s *Service) Finalize(args FinalizeArgs) (*FinalizeResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if args.Destination != DestinationGlobalAsset && args.Destination != DestinationWorkflowResource {
-		return nil, errors.New("recording destination is invalid")
+		return nil, recordingProblem("recording.finalize.invalid_request", map[string]any{"field": "destination"}, errors.New("recording destination is invalid"))
 	}
 	label := strings.TrimSpace(args.Label)
 	if label == "" {
-		return nil, errors.New("录制名称不能为空")
+		return nil, recordingProblem("recording.finalize.invalid_request", map[string]any{"field": "name"}, errors.New("recording name is empty"))
 	}
 	if len([]rune(label)) > 80 {
-		return nil, errors.New("录制名称不能超过 80 个字符")
+		return nil, recordingProblem("recording.finalize.invalid_request", map[string]any{"field": "name"}, errors.New("recording name exceeds 80 characters"))
 	}
 	if s.pending == nil || "pending-"+s.pending.result.TempID != args.PendingID {
-		return nil, fmt.Errorf("pending recording %q not found", args.PendingID)
+		return nil, recordingProblem("recording.finalize.pending_unavailable", nil, errors.New("pending recording identity does not match"))
 	}
 	pending := *s.pending
 	tags := normalizeTags(args.Tags)
@@ -640,11 +650,30 @@ func (s *Service) Finalize(args FinalizeArgs) (*FinalizeResult, error) {
 	result, err := s.finalizePending(pending, args.Destination, label, description, category, tags, args.Document, args.TrimStartUs, args.TrimEndUs)
 	if err != nil {
 		s.setState(pendingState)
-		return nil, err
+		var provider apperr.EnvelopeProvider
+		if errors.As(err, &provider) {
+			return nil, err
+		}
+		return nil, recordingProblem("recording.finalize.failed", map[string]any{"destination": args.Destination, "mode": string(pending.result.Meta.RecordingMode)}, err)
 	}
 	s.pending = nil
 	s.setState(RecordingState{Phase: PhaseIdle})
 	return result, nil
+}
+
+func recordingProblem(id string, params map[string]any, cause error) error {
+	return fmt.Errorf("%w: %v", apperr.New(id, params), cause)
+}
+
+func projectRecordingProblem(id string, params map[string]any, cause error) error {
+	if cause == nil {
+		return nil
+	}
+	var provider apperr.EnvelopeProvider
+	if errors.As(cause, &provider) {
+		return cause
+	}
+	return recordingProblem(id, params, cause)
 }
 
 func (s *Service) finalizePending(pending pendingRecording, destination, label, description, category string, tags []string, editedDocument *macro.Document, trimStartUs, trimEndUs *uint64) (*FinalizeResult, error) {
@@ -755,7 +784,7 @@ func (s *Service) Discard(pendingID string) error {
 		return nil
 	}
 	if "pending-"+s.pending.result.TempID != pendingID {
-		return fmt.Errorf("pending recording %q not found", pendingID)
+		return recordingProblem("recording.finalize.pending_unavailable", nil, errors.New("pending recording identity does not match"))
 	}
 	s.pending = nil
 	s.setState(RecordingState{Phase: PhaseIdle})
@@ -810,7 +839,7 @@ func normalizeTags(tags []string) []string {
 // 此时第一条已经 emit 过正常 payload, 再 emit error 会覆盖前端 toast.
 func (s *Service) StopAsync() {
 	go func() {
-		payload, err := s.Stop()
+		payload, err := s.stop()
 		if s.emit == nil {
 			return
 		}
@@ -818,7 +847,7 @@ func (s *Service) StopAsync() {
 			if errors.Is(err, ErrRecorderNotActive) {
 				return
 			}
-			s.emit("recording:completed", map[string]any{"error": err.Error()})
+			s.emit("recording:completed", map[string]any{"problem": apperr.Project(recordingProblem("recording.stop.failed", nil, err))})
 			return
 		}
 		// 幂等 no-op (payload nil): 不在录时被触发, 状态已走 recording:state, 不发结果事件.

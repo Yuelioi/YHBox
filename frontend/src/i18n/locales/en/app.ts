@@ -470,8 +470,39 @@ export default {
     RECORDING_CALIBRATION_REQUIRED:
       'Precise relative recording requires mouse calibration on the selected automation target',
     RECORDING_SESSION_BUSY: 'Finish or discard the current recording before starting another one',
+    'recording.stop.failed':
+      'Recording finalization failed. The recording stopped; record it again and use the operation ID to locate the cause in logs.',
+    'recording.start.adapter_failed':
+      'The recorder could not begin capture. Check the target window and record again.',
+    'recording.start.failed':
+      'Recording could not be prepared. Check the target window, recording hotkeys, and calibration, then retry.',
+    'recording.stop.unstructured_failure':
+      'Recording finalization returned a legacy unstructured error. Restart Yotta and record again.',
+    'recording.stop.result_invalid':
+      'Recording finalization returned an invalid result. Restart Yotta and record again.',
+    'recording.finalize.invalid_request': 'The recording {field} is invalid. Correct it and retry.',
+    'recording.finalize.pending_unavailable':
+      'The pending recording is no longer available. Keep the current input and record it again.',
+    'recording.finalize.failed':
+      'The recording could not be saved to {destination}. It is still pending, so you can retry saving.',
+    'recording.finalize.result_invalid':
+      'The recording was saved but returned an invalid result. Reload the library and retry only if it is absent.',
+    'recording.events.unavailable': 'Raw events are available only for precise recordings.',
+    'recording.events.invalid_page':
+      'The recording event page request is invalid. Close the details and reopen them.',
     ASSET_QUERY_INVALID: 'The asset query is invalid; try again',
+    'asset.template.capture_invalid':
+      'The capture data is invalid. Select the capture region again.',
+    'asset.template.load_failed':
+      'The original visual template could not be read. Reopen the resource and retry.',
+    'asset.template.not_found':
+      'The original visual template no longer exists. Refresh the library.',
+    'asset.template.save_failed':
+      'The visual template could not be saved to the library. Retry, then use the operation ID to inspect logs.',
+    'workflow.resource.image_create_failed':
+      'The capture could not be added to this workflow. Retry, then use the operation ID to inspect logs.',
     UNKNOWN_ERROR: 'An unknown error occurred',
+    OPERATION_ID: 'Operation ID: {id}',
     'system.unexpected': 'The operation did not complete. Try again.',
     'transport.unstructured_failure':
       'The {operation} call returned no valid error result. Try again or restart Yotta.',
@@ -506,7 +537,23 @@ export default {
       'This conversation reached its history limit. Create a new conversation to continue.',
     'workflow.revision.conflict':
       'Another operation updated this workflow. Reload the latest revision before editing.',
+    'workflow.resource.image_version_missing':
+      'This visual template has no version available to re-record. Reopen the resource and try again.',
+    'workflow.resource.recapture_target_stale':
+      'The template version to replace has changed. Select that version again before recording.',
+    'workflow.resource.capture_result_invalid':
+      'The capture did not return a valid template image. Capture it again.',
+    'workflow.resource.capture_apply_failed':
+      'The capture completed but could not be added to this workflow. Reopen the workflow and try again.',
     'automation.health.ready': 'The target identity and automation runtime are ready.',
+    'automation.window_capture.no_foreground':
+      'No foreground window was detected. Switch to the target window and capture again.',
+    'automation.window_capture.metadata_failed':
+      'The target window details could not be read. Confirm it is still running and retry.',
+    'automation.window_capture.executable_failed':
+      'The application behind the target window could not be identified. Reopen it and retry.',
+    'automation.window_capture.unstructured_failure':
+      'Window capture returned a legacy error. Restart Yotta and retry.',
     'automation.health.unavailable': 'Automation health checks are currently unavailable.',
     'automation.health.invalid_profile':
       'Automation target {slot} has an invalid profile. Review and save its settings.',

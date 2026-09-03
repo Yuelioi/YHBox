@@ -120,14 +120,24 @@ export function errorMessage(e: unknown): string {
       ? t(key, (first.params ?? {}) as Record<string, unknown>)
       : t('error.UNEXPECTED_CODE', { code: first.code })
     const rest = n.errors.length - 1
-    return rest > 0 ? `${head}${t('toast.and_n_more', { n: rest })}` : head
+    return correlatedErrorMessage(
+      rest > 0 ? `${head}${t('toast.and_n_more', { n: rest })}` : head,
+      n,
+    )
   }
   if (n.id) {
     const key = `error.${n.id}`
-    if (te(key)) return t(key, (n.params ?? {}) as Record<string, unknown>)
-    return t('error.UNEXPECTED_CODE', { code: n.id })
+    const message = te(key)
+      ? t(key, (n.params ?? {}) as Record<string, unknown>)
+      : t('error.UNEXPECTED_CODE', { code: n.id })
+    return correlatedErrorMessage(message, n)
   }
   return t('error.UNKNOWN_ERROR')
+}
+
+function correlatedErrorMessage(message: string, error: NormalizedError): string {
+  if (!error.operationId) return message
+  return `${message}\n${i18n.global.t('error.OPERATION_ID', { id: error.operationId })}`
 }
 
 export function toRPCError(error: unknown, operation = 'rpc.call'): RPCError {

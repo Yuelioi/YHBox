@@ -83,7 +83,8 @@ func Run(config Config) error {
 			Str("problemId", problem.ID).
 			Str("operationId", problem.OperationID).
 			Str("errorType", reflect.TypeOf(cause).String()).
-			Msg("unclassified RPC problem")
+			Err(cause).
+			Msg("RPC problem")
 	})
 	defer restoreProblemObserver()
 	aiSecrets := services.NewAISecrets(securestore.New())

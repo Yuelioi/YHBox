@@ -142,11 +142,11 @@ func (s *Service) emitChangedSince(before uint64, guids ...string) {
 // 返新分配的 GUID (用户看不到, FE 拿来 set 节点 pin).
 func (s *Service) SaveTemplateCapture(dataURL, name, category string, tags []string, recRes [2]int, region [4]float32) (string, error) {
 	if !strings.HasPrefix(dataURL, "data:image/png;base64,") {
-		return "", fmt.Errorf("data URL must start with %q", "data:image/png;base64,")
+		return "", fmt.Errorf("%w: invalid data URL prefix", apperr.New("asset.template.capture_invalid", nil))
 	}
 	pngData, err := base64.StdEncoding.DecodeString(dataURL[len("data:image/png;base64,"):])
 	if err != nil {
-		return "", fmt.Errorf("decode dataURL: %w", err)
+		return "", fmt.Errorf("%w: %v", apperr.New("asset.template.capture_invalid", nil), err)
 	}
 	// region (ratio in recRes frame) → bbox (pixel in recRes frame). 逐字搬旧 service.go:92-98.
 	bbox := [4]int{
@@ -172,7 +172,7 @@ func (s *Service) SaveTemplateCapture(dataURL, name, category string, tags []str
 	})
 	s.emitChangedSince(before, guid)
 	if err != nil {
-		return "", fmt.Errorf("commit template blob: %w", err)
+		return "", fmt.Errorf("%w: %v", apperr.NewRetryable("asset.template.save_failed", nil), err)
 	}
 	return guid, nil
 }
@@ -181,16 +181,16 @@ func (s *Service) SaveTemplateCapture(dataURL, name, category string, tags []str
 // 返目标 GUID — 给 FE 区分成功 (返 guid) 与失败 (RPC error), 跟 SaveTemplateCapture 对称.
 func (s *Service) AddTemplateVariant(guid, dataURL string, recRes [2]int, region [4]float32) (string, error) {
 	if _, ok, err := s.store.Record(guid); err != nil {
-		return "", fmt.Errorf("load asset %q: %w", guid, err)
+		return "", fmt.Errorf("%w: %v", apperr.NewRetryable("asset.template.load_failed", nil), err)
 	} else if !ok {
-		return "", fmt.Errorf("asset %q not found", guid)
+		return "", apperr.New("asset.template.not_found", nil)
 	}
 	if !strings.HasPrefix(dataURL, "data:image/png;base64,") {
-		return "", fmt.Errorf("data URL must start with %q", "data:image/png;base64,")
+		return "", fmt.Errorf("%w: invalid data URL prefix", apperr.New("asset.template.capture_invalid", nil))
 	}
 	pngData, err := base64.StdEncoding.DecodeString(dataURL[len("data:image/png;base64,"):])
 	if err != nil {
-		return "", fmt.Errorf("decode dataURL: %w", err)
+		return "", fmt.Errorf("%w: %v", apperr.New("asset.template.capture_invalid", nil), err)
 	}
 	bbox := [4]int{
 		int(region[0] * float32(recRes[0])),
@@ -202,7 +202,7 @@ func (s *Service) AddTemplateVariant(guid, dataURL string, recRes [2]int, region
 	_, err = s.store.CommitVariantBlob(context.Background(), "image/png", bytes.NewReader(pngData), guid, recRes, bbox, nil)
 	s.emitChangedSince(before, guid)
 	if err != nil {
-		return "", fmt.Errorf("commit template variant: %w", err)
+		return "", fmt.Errorf("%w: %v", apperr.NewRetryable("asset.template.save_failed", nil), err)
 	}
 	return guid, nil
 }

@@ -79,13 +79,20 @@ func (e *Error) RPCErrorEnvelope() Envelope {
 // shape, so frontend transports never need to guess whether Wails returned an
 // object, a validation struct, or a raw message.
 func Marshal(err error) []byte {
-	envelope := From(err)
-	observe(envelope, err)
+	envelope := Project(err)
 	encoded, marshalErr := json.Marshal(envelope)
 	if marshalErr == nil {
 		return encoded
 	}
 	return []byte(`{"id":"system.unexpected","category":"infrastructure","retryable":false}`)
+}
+
+// Project creates the canonical envelope and notifies the diagnostic observer.
+// Event-driven commands use it when no Wails MarshalError call will occur.
+func Project(err error) Envelope {
+	envelope := From(err)
+	observe(envelope, err)
+	return envelope
 }
 
 // SetObserver installs the process composition's safe correlation sink. The
@@ -103,7 +110,7 @@ func SetObserver(next func(Envelope, error)) func() {
 }
 
 func observe(envelope Envelope, err error) {
-	if envelope.ID != IDUnexpected || err == nil {
+	if err == nil {
 		return
 	}
 	observerMu.RLock()

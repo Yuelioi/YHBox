@@ -434,8 +434,30 @@ export default {
     RECORDING_MODE_REQUIRED: '请选择简易录制或精准录制',
     RECORDING_CALIBRATION_REQUIRED: '精准相对录制需要先为当前自动化目标完成鼠标校准',
     RECORDING_SESSION_BUSY: '请先完成或丢弃当前录制，再开始下一次录制',
+    'recording.stop.failed': '录制收尾失败。录制已停止，请重新录制；可用操作 ID 在日志中定位原因。',
+    'recording.start.adapter_failed': '录制器未能开始采集，请检查目标窗口后重新录制。',
+    'recording.start.failed': '无法准备录制，请检查目标窗口、录制热键和校准状态后重试。',
+    'recording.stop.unstructured_failure':
+      '录制收尾返回了旧版非结构化错误，请重启 Yotta 后重新录制。',
+    'recording.stop.result_invalid': '录制收尾没有返回有效结果，请重启 Yotta 后重新录制。',
+    'recording.finalize.invalid_request': '录制的{field}无效，请修正后重试。',
+    'recording.finalize.pending_unavailable': '待保存的录制已失效，请保留当前输入并重新录制。',
+    'recording.finalize.failed':
+      '录制内容未能保存到 {destination}。当前录制仍保留，可直接重试保存。',
+    'recording.finalize.result_invalid':
+      '录制已保存但返回结果无效，请重新加载资源列表；若未出现再重试保存。',
+    'recording.events.unavailable': '只有精准录制可以查看原始事件。',
+    'recording.events.invalid_page': '录制事件页请求无效，请关闭详情后重新打开。',
     ASSET_QUERY_INVALID: '资源查询无效，请重试',
+    'asset.template.capture_invalid': '截图数据无效，请重新选择截图区域。',
+    'asset.template.load_failed': '无法读取原视觉模板，请重新打开资源后再试。',
+    'asset.template.not_found': '原视觉模板已不存在，请刷新资源列表。',
+    'asset.template.save_failed':
+      '视觉模板未能写入资源库，请直接重试；失败时可用操作 ID 查询日志。',
+    'workflow.resource.image_create_failed':
+      '截图未能写入当前工作流，请直接重试；失败时可用操作 ID查询日志。',
     UNKNOWN_ERROR: '发生未知错误',
+    OPERATION_ID: '操作 ID：{id}',
     'system.unexpected': '操作未完成，请重试。',
     'transport.unstructured_failure':
       '调用 {operation} 时没有收到有效的错误结果，请重试或重启 Yotta。',
@@ -460,7 +482,20 @@ export default {
       '找不到这段 AI 对话，它可能已在其他窗口中删除。请新建对话。',
     'ai.authoring.conversation_capacity': '这段对话已达到历史上限，请新建对话后继续。',
     'workflow.revision.conflict': '工作流已被其他操作更新，请重新加载最新版本后再修改',
+    'workflow.resource.image_version_missing':
+      '当前视觉模板没有可重录的版本，请重新打开资源后再试。',
+    'workflow.resource.recapture_target_stale':
+      '要替换的模板版本已经变化，请重新选择该版本后再录制。',
+    'workflow.resource.capture_result_invalid': '截图没有返回有效的模板图像，请重新截图。',
+    'workflow.resource.capture_apply_failed':
+      '截图已完成，但无法写入当前工作流。请重新打开工作流后再试。',
     'automation.health.ready': '目标身份与自动化运行环境已就绪',
+    'automation.window_capture.no_foreground': '没有检测到前台窗口，请切换到目标窗口后重新捕获。',
+    'automation.window_capture.metadata_failed': '无法读取目标窗口信息，请确认窗口仍在运行后重试。',
+    'automation.window_capture.executable_failed':
+      '无法识别目标窗口对应的程序，请重新打开目标程序后重试。',
+    'automation.window_capture.unstructured_failure':
+      '窗口捕获返回了旧版错误，请重启 Yotta 后重试。',
     'automation.health.unavailable': '自动化健康检查当前不可用',
     'automation.health.invalid_profile': '自动化目标 {slot} 的配置无效，请检查并重新保存',
     'automation.health.not_found': '未找到自动化目标 {slot}，请检查目标槽绑定',

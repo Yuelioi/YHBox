@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -92,6 +93,18 @@ func TestMarshalCorrelatesUnclassifiedCauseWithObserver(t *testing.T) {
 	t.Cleanup(restore)
 	_ = Marshal(cause)
 	if observed.ID != IDUnexpected || observed.OperationID == "" || !errors.Is(observedCause, cause) {
+		t.Fatalf("observer = %#v / %v", observed, observedCause)
+	}
+}
+
+func TestMarshalCorrelatesTypedCauseWithObserver(t *testing.T) {
+	cause := fmt.Errorf("%w: private persistence detail", New("recording.finalize.failed", map[string]any{"destination": "workflow-resource"}))
+	var observed Envelope
+	var observedCause error
+	restore := SetObserver(func(envelope Envelope, err error) { observed, observedCause = envelope, err })
+	t.Cleanup(restore)
+	_ = Marshal(cause)
+	if observed.ID != "recording.finalize.failed" || observed.OperationID == "" || !errors.Is(observedCause, cause) {
 		t.Fatalf("observer = %#v / %v", observed, observedCause)
 	}
 }

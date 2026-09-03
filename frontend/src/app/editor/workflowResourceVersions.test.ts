@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { reactive } from 'vue'
 import type { WorkflowResource } from '../../../../contracts/workflow/current/workflow-source'
-import { applyCapturedImageVersion } from './workflowResourceVersions'
+import { applyCapturedImageVersion, WorkflowResourceVersionError } from './workflowResourceVersions'
 
 const blob = (digest: string) => ({ mediaType: 'image/png', digest, size: 12 })
 const resource = (): WorkflowResource => ({
@@ -41,9 +42,18 @@ describe('workflow image versions', () => {
     expect(result.image?.variants[0]?.blob.digest).toBe('sha256:old')
   })
 
+  it('accepts a captured variant projected through a reactive event boundary', () => {
+    const result = applyCapturedImageVersion(resource(), reactive(captured), 'replace')
+    expect(result.image?.variants[0]?.blob.digest).toBe('sha256:new')
+  })
+
   it('rejects a missing replacement target', () => {
-    expect(() => applyCapturedImageVersion(resource(), captured, 'replace', 'missing')).toThrow(
-      'image resource variant missing does not exist',
+    expect(() =>
+      applyCapturedImageVersion(resource(), captured, 'replace', 'missing'),
+    ).toThrowError(
+      expect.objectContaining<Partial<WorkflowResourceVersionError>>({
+        id: 'workflow.resource.recapture_target_stale',
+      }),
     )
   })
 })
