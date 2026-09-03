@@ -59,7 +59,7 @@ native automation smoke 会使用全局输入、前台窗口和 hook。不要与
 - `task package` 要求 clean worktree，并运行 full gate、production build、staging、manifest/archive 和 frozen
   candidate smoke。未经用户授权不要为了满足它清理或提交工作区。
 - 产品版本的唯一可编辑来源是根 `VERSION`。查看当前域用 `task version:show` / `task versions:inventory`；
-  提升用 `task version:bump BUMP=<patch|minor|major|x.y.z>`；手工改 `VERSION` 后运行
+  提升用 `task version:bump BUMP=<alpha|patch|minor|major|x.y.z[-alpha.N]>`；手工改 `VERSION` 后运行
   `task version:sync` 和 `task versions:check`。版本工具不 commit、不 tag。
 - 签名只作用于 frozen payload；签名后 restage 并重复 candidate smoke，不能让 sign 步骤隐式 rebuild。
 

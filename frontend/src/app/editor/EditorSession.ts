@@ -64,7 +64,7 @@ import {
   type WorkflowSaveErrorKind,
   type WorkflowSaveErrorTarget,
 } from './workflowSaveError'
-import { errorMessage } from '@/lib/invoke'
+import { errorMessage, toRPCError } from '@/lib/invoke'
 import { toWorkflowPatch } from './editorCommandPersistence'
 import {
   applyCompatibleNodeContractUpgrade,
@@ -1197,6 +1197,30 @@ export class EditorSession {
     this.dismissSaveError()
     const commands = toWorkflowPatch(this.pendingCommands)
     try {
+      const checked = await this.checkCurrentDraft()
+      const blocking = checked.diagnostics.find((diagnostic) => diagnostic.severity === 'error')
+      if (blocking) {
+        const diagnostic = blocking as typeof blocking & {
+          graphPath?: string[]
+          nodeId?: string
+          fieldPath?: string[]
+        }
+        throw toRPCError(
+          {
+            cause: {
+              id: 'workflow.draft.invalid',
+              category: 'validation',
+              params: {
+                code: diagnostic.code,
+                graphPath: diagnostic.graphPath ?? [],
+                nodeId: diagnostic.nodeId ?? '',
+                fieldPath: diagnostic.fieldPath ?? [],
+              },
+            },
+          },
+          'workflow.checkDraft',
+        )
+      }
       let patched
       try {
         patched = await this.transport.applyPatch(this.workflowId, this.baseRevision, commands)

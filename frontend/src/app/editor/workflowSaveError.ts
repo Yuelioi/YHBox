@@ -44,7 +44,9 @@ export function describeWorkflowSaveError(
   const params = normalized.params
   const code = firstErrorCode(normalized, params)
   const commandIndex = typeof params?.commandIndex === 'number' ? params.commandIndex : undefined
-  const target = commandIndex !== undefined ? targetFromCommand(commands[commandIndex]) : undefined
+  const target =
+    targetFromProblemParams(params) ??
+    (commandIndex !== undefined ? targetFromCommand(commands[commandIndex]) : undefined)
   if (normalized.id === 'workflow.revision.conflict') {
     return { kind: 'revision', message: i18n.global.t('workflow.editor.revision_conflict') }
   }
@@ -71,6 +73,25 @@ export function describeWorkflowSaveError(
   return {
     kind: 'unknown',
     message: i18n.global.t('workflow.editor.save_error.unknown'),
+  }
+}
+
+function targetFromProblemParams(
+  params: Record<string, unknown> | undefined,
+): WorkflowSaveErrorTarget | undefined {
+  if (!params || typeof params.nodeId !== 'string' || !params.nodeId) return undefined
+  const graphPath = Array.isArray(params.graphPath)
+    ? params.graphPath.filter((item): item is string => typeof item === 'string')
+    : []
+  const fieldPath = Array.isArray(params.fieldPath)
+    ? params.fieldPath.filter((item): item is string => typeof item === 'string')
+    : []
+  const graphId = graphPath.at(-1)
+  if (!graphId) return undefined
+  return {
+    graphId,
+    nodeId: params.nodeId,
+    fieldId: fieldPath.at(-1),
   }
 }
 

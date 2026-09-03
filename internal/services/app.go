@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/rs/zerolog"
+	"github.com/yottaapp/yotta/internal/apperr"
 )
 
 // App 是顶层协调器（不暴露给 JS，不注册为 RPC service）。
@@ -157,7 +158,7 @@ func (a *App) MutateSettings(
 		return before, nil, err
 	}
 	if err := after.Validate(); err != nil {
-		return before, nil, fmt.Errorf("validate settings: %w", err)
+		return before, nil, fmt.Errorf("%w: %v", &settingsUpdateError{ID: "settings.invalid", Category: apperr.CategoryValidation}, err)
 	}
 	var activation *SettingsActivationPlan
 	if a.settingsActivator != nil {

@@ -974,10 +974,14 @@ async function emitResult(payload: any) {
 async function closeWindow() {
   try {
     await backend.tools.closePicker(requestID.value)
-  } catch {}
+  } catch {
+    // Best-effort idempotent teardown; closing this WebView is the fallback cleanup path.
+  }
   try {
     await Window.Close()
-  } catch {}
+  } catch {
+    // The native window may already be gone after backend teardown.
+  }
 }
 async function cancel() {
   await emitResult({ cancelled: true })

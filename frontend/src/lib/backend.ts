@@ -30,7 +30,7 @@ import type {
   Schedule as ScheduleModel,
 } from '@bindings/github.com/yottaapp/yotta/internal/services/schedule/models.js'
 import { BlobRef as BlobRefBinding } from '@bindings/github.com/yottaapp/yotta/internal/blob/models.js'
-import { callRPC, invoke } from './invoke'
+import { callRPC, invoke, type NormalizedError } from './invoke'
 import * as E from '@/constants/events'
 import type { WorkflowResource } from '../../../contracts/workflow/current/workflow-source'
 
@@ -66,7 +66,7 @@ export interface HotkeyEntry {
   labelParams?: Record<string, string>
   hotkeyStr: string
   status: 'active' | 'unbound' | 'failed'
-  lastError: string
+  problem?: NormalizedError
   readonlyReason: string
   mechanism?: 'os-global' | 'editor-inapp' | 'll-hook'
 }

@@ -67,4 +67,31 @@ describe('workflow save errors', () => {
       portId: undefined,
     })
   })
+
+  it('locates a pre-existing incompatible node from canonical diagnostic params', () => {
+    const failure = describeWorkflowSaveError(
+      new RPCError(
+        {
+          id: 'NODE_CONTRACT_MISMATCH',
+          category: 'validation',
+          params: {
+            commandIndex: -1,
+            graphPath: ['main'],
+            nodeId: 'legacy-node',
+            fieldPath: ['graphs', '0', 'nodes', '5', 'nodeRef'],
+          },
+        },
+        'workflow.applyPatch',
+        'op-1',
+        null,
+      ),
+    )
+
+    expect(failure.kind).toBe('validation')
+    expect(failure.target).toEqual({
+      graphId: 'main',
+      nodeId: 'legacy-node',
+      fieldId: 'nodeRef',
+    })
+  })
 })

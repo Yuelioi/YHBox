@@ -145,7 +145,7 @@ func NormalizeProviderEndpoint(provider ProviderKind, raw string, allowLocalHTTP
 		if raw == "" || raw == "codex://subscription" {
 			return "codex://subscription", nil
 		}
-		return "", errors.New("Codex subscription provider endpoint is managed by Codex")
+		return "", errors.New("codex subscription provider endpoint is managed by Codex")
 	}
 	raw = strings.TrimSpace(raw)
 	if raw == "" {

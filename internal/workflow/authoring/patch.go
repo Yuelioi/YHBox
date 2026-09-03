@@ -429,9 +429,12 @@ type Result struct {
 }
 
 type PatchError struct {
-	CommandIndex int    `json:"commandIndex"`
-	Code         string `json:"code"`
-	Message      string `json:"message"`
+	CommandIndex int      `json:"commandIndex"`
+	Code         string   `json:"code"`
+	Message      string   `json:"message"`
+	GraphPath    []string `json:"graphPath,omitempty"`
+	NodeID       string   `json:"nodeId,omitempty"`
+	FieldPath    []string `json:"fieldPath,omitempty"`
 }
 
 func (e *PatchError) Error() string {
@@ -448,12 +451,22 @@ func (e *PatchError) RPCErrorEnvelope() apperr.Envelope {
 			Category: apperr.CategoryInfrastructure,
 		}
 	}
+	params := map[string]any{
+		"commandIndex": e.CommandIndex,
+	}
+	if len(e.GraphPath) != 0 {
+		params["graphPath"] = append([]string(nil), e.GraphPath...)
+	}
+	if e.NodeID != "" {
+		params["nodeId"] = e.NodeID
+	}
+	if len(e.FieldPath) != 0 {
+		params["fieldPath"] = append([]string(nil), e.FieldPath...)
+	}
 	return apperr.Envelope{
 		ID:       e.Code,
 		Category: apperr.CategoryValidation,
-		Params: map[string]any{
-			"commandIndex": e.CommandIndex,
-		},
+		Params:   params,
 	}
 }
 
@@ -500,7 +513,12 @@ func (e *Engine) Apply(source schema.WorkflowSource, commands []Command) (Result
 	}
 	canonical, diagnostics := schema.ParseSource(raw)
 	if len(diagnostics) != 0 {
-		return Result{}, patchError(-1, "INVALID_RESULT", diagnostics[0].Code)
+		diagnostic := diagnostics[0]
+		return Result{}, &PatchError{
+			CommandIndex: -1, Code: diagnostic.Code, Message: "patched workflow failed validation",
+			GraphPath: append([]string(nil), diagnostic.GraphPath...), NodeID: diagnostic.NodeID,
+			FieldPath: append([]string(nil), diagnostic.FieldPath...),
+		}
 	}
 	raw, err = artifact.Marshal(canonical)
 	if err != nil {

@@ -24,7 +24,7 @@ const (
 	builtinNodeReleaseFile    = "builtin-node-refs.json"
 )
 
-var productVersionPattern = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
+var productVersionPattern = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-alpha\.([1-9][0-9]*))?$`)
 
 type BuiltinNodeRelease struct {
 	Format         string                 `json:"format"`

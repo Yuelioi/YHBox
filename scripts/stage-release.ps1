@@ -26,8 +26,8 @@ if ($outputRoot -ne $artifactsRoot -and -not $outputRoot.StartsWith($artifactsPr
 }
 
 $version = [System.IO.File]::ReadAllText((Join-Path $root "VERSION")).Trim()
-if ($version -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') {
-    throw "VERSION is not numeric SemVer: ${version}"
+if ($version -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-alpha\.([1-9][0-9]*))?$') {
+    throw "VERSION is not a supported product SemVer: ${version}"
 }
 
 $stageRoot = Join-Path $outputRoot "staging/Yotta"

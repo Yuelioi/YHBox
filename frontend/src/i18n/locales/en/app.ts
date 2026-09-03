@@ -511,6 +511,65 @@ export default {
     'system.unexpected': 'The operation did not complete. Try again.',
     'transport.unstructured_failure':
       'The {operation} call returned no valid error result. Try again or restart Yotta.',
+    'hotkey.conflict':
+      'This hotkey is already used by “{conflictLabel}”. Choose another combination.',
+    'hotkey.reserved':
+      'The {hotkey} combination is reserved by the system or editor. Choose another combination.',
+    'hotkey.invalid': 'The {hotkey} combination is invalid. Record it again.',
+    'hotkey.update_failed': 'The hotkey could not be saved. Keep the current setting and retry.',
+    'hotkey.pause_failed':
+      'Hotkey capture could not start. Close any other capture operation and retry.',
+    'hotkey.resume_failed': 'Global hotkeys could not be restored. Reopen Hotkey settings.',
+    'hotkey.registration_failed':
+      'The {hotkey} hotkey could not be registered. Choose another combination or close the application using it.',
+    'hotkey.rollback_failed':
+      'The hotkey update failed and the previous binding could not be restored. Reopen Hotkey settings and configure it again.',
+    'settings.invalid': 'The settings are invalid. Check the field you just changed.',
+    'settings.update.invalid':
+      'The settings update could not be parsed. Correct it and save again.',
+    'settings.update_failed': 'The settings were not saved. Check disk access and retry.',
+    'settings.update.committed_sync_failed':
+      'The settings were saved, but the running features could not synchronize. Do not save again; restart Yotta to apply them.',
+    'calibration.unavailable': 'Calibration is unavailable. Restart Yotta.',
+    'calibration.start_failed':
+      'Calibration could not start. Close applications that may be using input devices and retry.',
+    'calibration.stop_failed':
+      'Calibration could not stop. Close and reopen the calibration window.',
+    'calibration.hotkey_watch_failed':
+      'The calibration hotkey could not be monitored. Change it or close the application using it.',
+    'schedule.not_found': 'Schedule {id} was not found. Refresh the schedule list.',
+    'schedule.runner_unavailable': 'The schedule runner is not ready. Restart Yotta and retry.',
+    'schedule.fire_failed': 'Schedule {id} could not start. Check the target workflow run state.',
+    'schedule.update.invalid_patch': 'The schedule changes are invalid. Edit them and save again.',
+    'schedule.save_failed': 'Schedule {id} was not saved. Check disk access and retry.',
+    'schedule.delete_failed': 'Schedule {id} was not deleted. Check disk access and retry.',
+    'schedule.committed_reload_failed':
+      'The schedule change was saved, but the running scheduler could not reload it. Do not repeat the action; restart Yotta to synchronize it.',
+    'input_clip.store_unavailable': 'The input recording library is unavailable. Restart Yotta.',
+    'input_clip.invalid': 'The input recording is invalid. Record it again.',
+    'input_clip.save_failed': 'Input recording {id} was not saved. Check disk access and retry.',
+    'input_clip.load_failed':
+      'Input recording {id} could not be read. Refresh the library and retry.',
+    'input_clip.not_found': 'Input recording {id} was not found. Refresh the library.',
+    'input_clip.corrupt': 'Input recording {id} is damaged. Record it again.',
+    'input_clip.events.invalid_page':
+      'The input event page request is invalid. Reopen the event details.',
+    'input_clip.list_failed':
+      'The input recording list could not be read. Check disk access and retry.',
+    'input_clip.delete_failed':
+      'Input recording {id} was not deleted. Check disk access and retry.',
+    'input_clip.update_failed':
+      'Input recording {id} was not updated. Check disk access and retry.',
+    'macro.unavailable': 'The macro library is unavailable. Restart Yotta.',
+    'macro.invalid': 'The macro is invalid. Check its name and actions, then retry.',
+    'macro.load_failed': 'Macro {id} could not be read. Check disk access and retry.',
+    'macro.identity_conflict':
+      'Asset {id} already exists but is not a macro. Save with another name.',
+    'macro.save_failed': 'Macro {id} was not saved. Check disk access and retry.',
+    'macro.not_found': 'Macro {id} was not found. Refresh the library.',
+    'macro.corrupt': 'Macro {id} is damaged and cannot be opened.',
+    'macro.list_failed': 'The macro list could not be read. Check disk access and retry.',
+    'macro.delete_failed': 'Macro {id} was not deleted. Check disk access and retry.',
     'ai.authoring.unavailable': 'AI proposals are unavailable. Restart Yotta and try again.',
     'ai.authoring.profile_not_found':
       'Model profile {slot} was not found. Choose the AI proposal model again.',
@@ -540,8 +599,34 @@ export default {
       'This AI conversation no longer exists. Create a new conversation.',
     'ai.authoring.conversation_capacity':
       'This conversation reached its history limit. Create a new conversation to continue.',
+    'ai.credential.unavailable':
+      'Credential storage for model {slot} is unavailable. Restart Yotta.',
+    'ai.credential.save_failed': 'The credential for model {slot} was not saved. Retry.',
+    'ai.credential.delete_failed': 'The credential for model {slot} was not deleted. Retry.',
+    'ai.evaluation.unavailable': 'AI evaluation is unavailable. Restart Yotta.',
+    'ai.evaluation.invalid':
+      'Evaluation evidence for model {slot} is invalid. Run the evaluation again.',
+    'ai.evaluation.apply_failed':
+      'The evaluation result for model {slot} was not applied. Check the model configuration and retry.',
+    'ai.evaluation.committed_sync_failed':
+      'The evaluation result for model {slot} was saved, but runtime state did not synchronize. Do not apply it again; restart Yotta.',
     'workflow.revision.conflict':
       'Another operation updated this workflow. Reload the latest revision before editing.',
+    'workflow.source.failed':
+      'Workflow operation {operation} did not complete. Your current changes are preserved; retry.',
+    'workflow.bundle.failed':
+      'Workflow package operation {operation} did not complete. Check the file and disk access, then retry.',
+    'workflow.run.failed':
+      'Workflow run operation {operation} did not complete. Refresh the run state and retry.',
+    'workflow.feature.unavailable': 'Workflow feature {feature} is unavailable. Restart Yotta.',
+    'workflow.compile.failed':
+      'Workflow validation did not complete. Fix any displayed diagnostics; if none appear, restart Yotta.',
+    'workflow.draft.invalid':
+      'The workflow draft contains errors. Fix the located node before saving.',
+    'workflow.run_query.invalid': 'The run-state query is invalid. Refresh the workflow list.',
+    'workflow.timeline.destination_required': 'Choose a destination for the run timeline export.',
+    'workflow.timeline.export_failed':
+      'The run timeline could not be exported. Check the destination and disk access, then retry.',
     'workflow.resource.image_version_missing':
       'This visual template has no version available to re-record. Reopen the resource and try again.',
     'workflow.resource.recapture_target_stale':
@@ -559,6 +644,23 @@ export default {
       'The application behind the target window could not be identified. Reopen it and retry.',
     'automation.window_capture.unstructured_failure':
       'Window capture returned a legacy error. Restart Yotta and retry.',
+    'tools.target_unavailable': 'The automation target service is unavailable. Restart Yotta.',
+    'tools.target_resolve_failed':
+      'Target {slot} could not be reached. Confirm that its application is running.',
+    'tools.pixel_sample_failed':
+      'A pixel could not be read from target {slot}. Confirm that its window is visible.',
+    'tools.color_range.invalid': 'The color samples are invalid. Select the color region again.',
+    'tools.mouse_position_failed':
+      'The pointer position could not be read. Reopen the coordinate tool.',
+    'tools.window_open_failed': 'The {window} window could not be opened. Retry or restart Yotta.',
+    'tools.picker.invalid': 'Picker field {field} is invalid. Start the selection again.',
+    'tools.picker.open_failed':
+      'The picker could not open for target {slot}. Confirm that its application is running.',
+    'tools.window_capture_unsupported': 'Hotkey window capture is not supported on this platform.',
+    'tools.window_capture_start_failed':
+      'Window capture could not start. Close another capture operation and retry.',
+    'tools.window_capture_cancel_failed':
+      'Window capture did not stop cleanly. Restart Yotta before capturing again.',
     'automation.health.unavailable': 'Automation health checks are currently unavailable.',
     'automation.health.invalid_profile':
       'Automation target {slot} has an invalid profile. Review and save its settings.',
@@ -566,6 +668,27 @@ export default {
       'Automation target {slot} was not found. Check the target-slot binding.',
     'asset.batch.duplicate': 'The asset batch contains a duplicate item.',
     'asset.not_found': 'Asset {guid} was not found.',
+    'asset.load_failed': 'Asset {guid} could not be read. Check disk access and retry.',
+    'asset.list_failed': 'The asset list could not be read. Check disk access and retry.',
+    'asset.binding_failed':
+      'The asset binding could not be resolved. Refresh the library and retry.',
+    'asset.update_failed': 'Asset {guid} was not updated. Check disk access and retry.',
+    'asset.delete_failed': 'Asset {guid} was not deleted. Check disk access and retry.',
+    'asset.variant.last': 'Asset {guid} has only one variant. Delete the whole asset to remove it.',
+    'asset.variant.remove_failed':
+      'A variant of asset {guid} was not deleted. Check disk access and retry.',
+    'asset.variant.not_found': 'Asset {guid} has no variant suitable for the current resolution.',
+    'asset.variant.inconsistent':
+      'Asset {guid} has inconsistent variant metadata. Import or capture it again.',
+    'asset.preview.invalid': 'The asset preview is unsupported or damaged.',
+    'asset.preview.failed': 'The asset preview could not be generated. Refresh and retry.',
+    'asset.capture.unavailable': 'Screen capture is unavailable. Restart Yotta.',
+    'asset.capture.failed':
+      'Target {slot} could not be captured. Confirm that its window is running and visible.',
+    'asset.target.failed':
+      'Target {slot} state could not be read. Confirm that its application is running.',
+    'asset.target.invalid_resolution':
+      'Target {slot} returned an invalid resolution. Reopen its application.',
     'workflow.batch.duplicate': 'The Workflow batch contains a duplicate item.',
     'workflow.bundle.unavailable': 'Workflow export is currently unavailable.',
     'workflow.bundle.directory_required': 'Choose a Workflow export directory.',
@@ -579,6 +702,18 @@ export default {
     'snippet.load.invalid': 'Snippet file {file} could not be read.',
     'snippet.load.identity_mismatch':
       'Snippet file {file} has an identity that does not match its filename.',
+    'snippet.invalid': 'The snippet is invalid. Check its name, shortcut, and node configuration.',
+    'snippet.node_incompatible':
+      'Node {nodeTypeId} in this snippet is incompatible with this Yotta version.',
+    'snippet.shortcut_conflict':
+      'Shortcut {shortcut} is already used by snippet “{name}”. Choose another combination.',
+    'snippet.save_failed': 'Snippet {id} was not saved. Check disk access and retry.',
+    'snippet.delete_failed': 'Snippet {id} was not deleted. Check disk access and retry.',
+    'snippet.mark_used_failed':
+      'Snippet {id} ran, but its usage record was not saved. Do not run it again.',
+    'snippet.not_found': 'Snippet {id} was not found. Refresh the list.',
+    'snippet.migration_save_failed':
+      'Snippet {id} was upgraded, but the result was not saved. Check disk access and retry.',
     UNEXPECTED_CODE: 'The operation did not complete. Try again (code: {code}).',
     TRANSPORT_TIMEOUT: 'The request timed out; try again',
     TRANSPORT_UNAVAILABLE: 'The backend connection is unavailable; restart Yotta',

@@ -3232,9 +3232,9 @@
               "type": "HotkeyStatus"
             },
             {
-              "name": "\"lastError\"",
-              "optional": false,
-              "type": "string"
+              "name": "\"problem\"",
+              "optional": true,
+              "type": "apperr$0.Envelope | null"
             },
             {
               "name": "\"readonlyReason\"",

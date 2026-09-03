@@ -3,6 +3,8 @@ package tools
 import (
 	"context"
 	"fmt"
+
+	"github.com/yottaapp/yotta/internal/apperr"
 )
 
 // PixelInfo is a sampled target pixel in client coordinates.
@@ -22,11 +24,12 @@ type PixelInfo struct {
 // PixelAt samples one exact installed target through its target tool adapter.
 func (s *Service) PixelAt(targetSlot string) (PixelInfo, error) {
 	if s.resolver == nil {
-		return PixelInfo{}, fmt.Errorf("installed target resolver is unavailable")
+		return PixelInfo{}, toolError("tools.target_unavailable", apperr.CategoryInfrastructure, nil, true, fmt.Errorf("installed target resolver is unavailable"))
 	}
 	tg, err := s.resolver.ResolveTarget(context.Background(), targetSlot)
 	if err != nil {
-		return PixelInfo{}, err
+		return PixelInfo{}, toolError("tools.target_resolve_failed", apperr.CategoryDomain, map[string]any{"slot": targetSlot}, true, err)
 	}
-	return s.targetTools.PixelAt(tg, PixelSampleRequest{TargetSlot: targetSlot})
+	result, err := s.targetTools.PixelAt(tg, PixelSampleRequest{TargetSlot: targetSlot})
+	return result, toolError("tools.pixel_sample_failed", apperr.CategoryAdapter, map[string]any{"slot": targetSlot}, true, err)
 }

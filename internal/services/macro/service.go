@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/services/asset"
 )
@@ -28,14 +29,14 @@ func NewService(store *asset.Store, emit ...func(name string, data any)) *Servic
 
 func (s *Service) Save(value *Macro) (*Macro, error) {
 	if s.store == nil || value == nil {
-		return nil, errors.New("macro service requires a store and value")
+		return nil, problem("macro.unavailable", apperr.CategoryInfrastructure, nil, true, errors.New("macro service requires a store and value"))
 	}
 	label := strings.TrimSpace(value.Label)
 	if label == "" || len([]rune(label)) > 80 {
-		return nil, errors.New("macro label must contain 1 to 80 characters")
+		return nil, problem("macro.invalid", apperr.CategoryValidation, map[string]any{"field": "label"}, false, errors.New("macro label must contain 1 to 80 characters"))
 	}
 	if err := Validate(value.Document); err != nil {
-		return nil, err
+		return nil, problem("macro.invalid", apperr.CategoryValidation, nil, false, err)
 	}
 	id := strings.TrimSpace(value.ID)
 	if id == "" {
@@ -44,11 +45,11 @@ func (s *Service) Save(value *Macro) (*Macro, error) {
 	createdAt := time.Now().UTC()
 	existing, ok, err := s.store.Record(id)
 	if err != nil {
-		return nil, fmt.Errorf("read existing macro %q: %w", id, err)
+		return nil, problem("macro.load_failed", apperr.CategoryInfrastructure, map[string]any{"id": id}, true, err)
 	}
 	if ok {
 		if existing.Kind != asset.KindMacro {
-			return nil, fmt.Errorf("asset %q is not a macro", id)
+			return nil, problem("macro.identity_conflict", apperr.CategoryDomain, map[string]any{"id": id}, false, fmt.Errorf("asset is not a macro"))
 		}
 		if !existing.CreatedAt.IsZero() {
 			createdAt = existing.CreatedAt
@@ -60,7 +61,7 @@ func (s *Service) Save(value *Macro) (*Macro, error) {
 	}
 	var carrier bytes.Buffer
 	if err := Encode(&carrier, value.Document); err != nil {
-		return nil, err
+		return nil, problem("macro.invalid", apperr.CategoryValidation, map[string]any{"id": id}, false, err)
 	}
 	before := s.store.Revision()
 	ref, err := s.store.CommitRecordBlob(context.Background(), MediaType, bytes.NewReader(carrier.Bytes()), func(ref blob.BlobRef) asset.AssetRecord {
@@ -71,7 +72,7 @@ func (s *Service) Save(value *Macro) (*Macro, error) {
 		}
 	})
 	if err != nil {
-		return nil, fmt.Errorf("commit macro: %w", err)
+		return nil, problem("macro.save_failed", apperr.CategoryInfrastructure, map[string]any{"id": id}, true, err)
 	}
 	s.emitChangedSince(before)
 	saved := cloneMacro(value)
@@ -82,22 +83,22 @@ func (s *Service) Save(value *Macro) (*Macro, error) {
 
 func (s *Service) Get(id string) (*Macro, error) {
 	if s.store == nil {
-		return nil, errors.New("macro service store is unavailable")
+		return nil, problem("macro.unavailable", apperr.CategoryInfrastructure, nil, true, errors.New("macro service store is unavailable"))
 	}
 	record, ok, err := s.store.Record(id)
 	if err != nil {
-		return nil, fmt.Errorf("read macro %q: %w", id, err)
+		return nil, problem("macro.load_failed", apperr.CategoryInfrastructure, map[string]any{"id": id}, true, err)
 	}
 	if !ok || record.Kind != asset.KindMacro || record.Blob == nil {
-		return nil, fmt.Errorf("macro %q not found", id)
+		return nil, problem("macro.not_found", apperr.CategoryDomain, map[string]any{"id": id}, false, fmt.Errorf("macro not found"))
 	}
 	content, err := s.store.ReadBlob(context.Background(), *record.Blob)
 	if err != nil {
-		return nil, fmt.Errorf("read macro %q: %w", id, err)
+		return nil, problem("macro.load_failed", apperr.CategoryInfrastructure, map[string]any{"id": id}, true, err)
 	}
 	decoded, err := decode(bytes.NewReader(content))
 	if err != nil {
-		return nil, fmt.Errorf("decode macro %q: %w", id, err)
+		return nil, problem("macro.corrupt", apperr.CategoryDomain, map[string]any{"id": id}, false, err)
 	}
 	document := decoded.Document
 	ref := *record.Blob
@@ -127,7 +128,7 @@ func (s *Service) List() ([]Summary, error) {
 	result := []Summary{}
 	records, err := s.store.Records()
 	if err != nil {
-		return nil, fmt.Errorf("list macro records: %w", err)
+		return nil, problem("macro.list_failed", apperr.CategoryInfrastructure, nil, true, err)
 	}
 	for _, record := range records {
 		if record.Kind != asset.KindMacro {
@@ -153,18 +154,18 @@ func (s *Service) Analyze(document Document) Analysis {
 
 func (s *Service) Delete(id string) error {
 	if s.store == nil {
-		return errors.New("macro service store is unavailable")
+		return problem("macro.unavailable", apperr.CategoryInfrastructure, nil, true, errors.New("macro service store is unavailable"))
 	}
 	record, ok, err := s.store.Record(id)
 	if err != nil {
-		return fmt.Errorf("read macro %q: %w", id, err)
+		return problem("macro.load_failed", apperr.CategoryInfrastructure, map[string]any{"id": id}, true, err)
 	}
 	if !ok || record.Kind != asset.KindMacro {
-		return fmt.Errorf("macro %q not found", id)
+		return problem("macro.not_found", apperr.CategoryDomain, map[string]any{"id": id}, false, fmt.Errorf("macro not found"))
 	}
 	before := s.store.Revision()
 	if err := s.store.DeleteRecord(id); err != nil {
-		return err
+		return problem("macro.delete_failed", apperr.CategoryInfrastructure, map[string]any{"id": id}, true, err)
 	}
 	s.emitChangedSince(before)
 	return nil

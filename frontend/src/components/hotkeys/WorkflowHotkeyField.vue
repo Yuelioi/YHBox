@@ -6,8 +6,8 @@
       :aria-label="t('workflow.hotkey.capture_aria', { name })"
       @update:model-value="update"
     />
-    <p v-if="entry?.lastError" class="mt-1 text-xs text-error" role="alert">
-      {{ t('workflow.hotkey.failed') }}：{{ entry.lastError }}
+    <p v-if="entry?.problem" class="mt-1 text-xs text-error" role="alert">
+      {{ t('workflow.hotkey.failed') }}：{{ errorMessage(entry.problem) }}
     </p>
   </UFormField>
 </template>

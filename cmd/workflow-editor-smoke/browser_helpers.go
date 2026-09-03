@@ -45,30 +45,6 @@ func dispatchModifiedMouseClick(ctx context.Context, client *browsercdp.WebSocke
 	return err
 }
 
-func dispatchControlClicks(ctx context.Context, client *browsercdp.WebSocketClient, points []point) error {
-	const controlModifier = 2
-	if _, err := client.Call(ctx, "Input.dispatchKeyEvent", map[string]any{
-		"type": "rawKeyDown", "key": "Control", "code": "ControlLeft",
-		"windowsVirtualKeyCode": 17, "nativeVirtualKeyCode": 17, "modifiers": controlModifier,
-	}); err != nil {
-		return err
-	}
-	var clickErr error
-	for _, point := range points {
-		if clickErr = dispatchModifiedMouseClick(ctx, client, point.X, point.Y, controlModifier); clickErr != nil {
-			break
-		}
-	}
-	_, releaseErr := client.Call(ctx, "Input.dispatchKeyEvent", map[string]any{
-		"type": "keyUp", "key": "Control", "code": "ControlLeft",
-		"windowsVirtualKeyCode": 17, "nativeVirtualKeyCode": 17,
-	})
-	if clickErr != nil {
-		return clickErr
-	}
-	return releaseErr
-}
-
 func readCanvasNodeErgonomics(ctx context.Context, client *browsercdp.WebSocketClient) (canvasNodeErgonomics, error) {
 	var probe canvasNodeErgonomics
 	err := evalJSON(ctx, client, `(() => {
@@ -181,18 +157,6 @@ func workflowEditorUIFailures(visualState, confirmState, saveState pageState) []
 		failures = append(failures, "workflow save omitted inline success feedback")
 	}
 	return failures
-}
-
-func waitFor(ctx context.Context, client *browsercdp.WebSocketClient, ready func(pageState) bool, action func() error) error {
-	current, err := state(ctx, client)
-	if err != nil {
-		return err
-	}
-	if !ready(current) {
-		return errors.New("unexpected initial page state")
-	}
-	time.Sleep(100 * time.Millisecond)
-	return action()
 }
 
 func waitUntil(ctx context.Context, client *browsercdp.WebSocketClient, predicate func(pageState) bool) error {

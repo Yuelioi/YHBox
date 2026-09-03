@@ -5,6 +5,19 @@ import (
 	"testing"
 )
 
+func TestProductVersionPatternAcceptsSupportedAlpha(t *testing.T) {
+	for _, version := range []string{"4.0.0", "4.0.0-alpha.2"} {
+		if !productVersionPattern.MatchString(version) {
+			t.Fatalf("supported product version %q rejected", version)
+		}
+	}
+	for _, version := range []string{"4.0.0-alpha2", "4.0.0-alpha.0", "4.0.0-beta.1"} {
+		if productVersionPattern.MatchString(version) {
+			t.Fatalf("unsupported product version %q accepted", version)
+		}
+	}
+}
+
 func TestVersionDomainReleasesFreezeAndRequireReleasedReaders(t *testing.T) {
 	releases := VersionDomainReleases{Root: t.TempDir()}
 	v1 := []CurrentVersionDomain{{

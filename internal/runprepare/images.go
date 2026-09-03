@@ -60,7 +60,7 @@ type scaleKey struct {
 
 func New(store imageBlobStore) (*Planner, error) {
 	if store == nil {
-		return nil, errors.New("Run image planner requires a Blob store")
+		return nil, errors.New("run image planner requires a Blob store")
 	}
 	return &Planner{store: store, cache: make(map[scaleKey][]byte)}, nil
 }
@@ -68,7 +68,7 @@ func New(store imageBlobStore) (*Planner, error) {
 func ReferencedTargetSlots(sourceJSON []byte) ([]string, error) {
 	source, diagnostics := schema.ParseSource(sourceJSON)
 	if schema.HasErrors(diagnostics) {
-		return nil, errors.New("Run image planning requires a valid Workflow Source")
+		return nil, errors.New("run image planning requires a valid Workflow Source")
 	}
 	usage := referencedImageSlots(source)
 	slots := make(map[string]bool)
@@ -117,11 +117,11 @@ func referencedImageSlots(source schema.WorkflowSource) map[string]map[string]bo
 
 func (planner *Planner) Prepare(ctx context.Context, sourceJSON []byte, resolutions map[string][2]int) (_ PreparedImages, resultErr error) {
 	if ctx == nil || planner == nil || planner.store == nil {
-		return PreparedImages{}, errors.New("Run image planning context is unavailable")
+		return PreparedImages{}, errors.New("run image planning context is unavailable")
 	}
 	source, diagnostics := schema.ParseSource(sourceJSON)
 	if schema.HasErrors(diagnostics) {
-		return PreparedImages{}, errors.New("Run image planning requires a valid Workflow Source")
+		return PreparedImages{}, errors.New("run image planning requires a valid Workflow Source")
 	}
 	slots := make([]string, 0, len(resolutions))
 	for slot, resolution := range resolutions {

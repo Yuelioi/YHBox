@@ -105,6 +105,53 @@ func TestServiceQueriesOneThousandSourcesWithBoundedPages(t *testing.T) {
 	}
 }
 
+func TestServiceActiveRunQueryValidationAndEmptyState(t *testing.T) {
+	runtime := workflowRuntime(t, time.Date(2026, 7, 18, 13, 0, 0, 0, time.UTC), 1)
+	if err := runtime.Application.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = runtime.Close(ctx)
+	})
+	service, err := workflow.NewService(runtime.Application)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.GetActiveSourceRuns(make([]string, 101)); err == nil {
+		t.Fatal("oversized query succeeded")
+	}
+	if _, err := service.GetActiveSourceRuns([]string{""}); err == nil {
+		t.Fatal("empty workflow ID succeeded")
+	}
+	got, err := service.GetActiveSourceRuns([]string{"missing", "missing"})
+	if err != nil || len(got) != 0 {
+		t.Fatalf("empty active runs = %#v, %v", got, err)
+	}
+	if recoveries := service.ListSourceRecoveries(); recoveries == nil {
+		t.Fatal("recoveries must be an empty slice")
+	}
+	if _, err := service.StartDebugRun("missing", nil); err == nil {
+		t.Fatal("debugging a missing workflow succeeded")
+	}
+	if _, err := service.GetDebugSnapshot("missing"); err == nil {
+		t.Fatal("missing debug snapshot succeeded")
+	}
+	if _, err := service.ControlDebugRun("missing", "pause"); err == nil {
+		t.Fatal("controlling a missing debug Run succeeded")
+	}
+	if _, err := service.SetDebugBreakpoints("missing", nil); err == nil {
+		t.Fatal("setting breakpoints on a missing Run succeeded")
+	}
+	if _, err := service.CancelRun("missing"); err == nil {
+		t.Fatal("cancelling a missing Run succeeded")
+	}
+	if _, err := service.GetRunTimelinePage("missing", 1, 10); err == nil {
+		t.Fatal("missing timeline page succeeded")
+	}
+}
+
 func TestServiceProjectsProductionWorkflowLifecycle(t *testing.T) {
 	now := time.Date(2026, 7, 17, 3, 0, 0, 0, time.UTC)
 	runtime := workflowRuntime(t, now)

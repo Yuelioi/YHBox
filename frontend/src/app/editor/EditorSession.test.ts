@@ -300,7 +300,7 @@ describe('EditorSession', () => {
     const first = session.save()
     const second = session.save()
 
-    expect(transport.applyPatch).toHaveBeenCalledTimes(1)
+    await vi.waitFor(() => expect(transport.applyPatch).toHaveBeenCalledTimes(1))
     releaseSave()
     await expect(Promise.all([first, second])).resolves.toHaveLength(2)
     expect(session.baseRevision).toBe(1)
@@ -480,6 +480,41 @@ describe('EditorSession', () => {
     ) as YottaWorkflowSource
     expect(checked.graphs[0]!.nodes.map((candidate) => candidate.id)).toContain('node_concat')
     expect(session.dirty).toBe(true)
+  })
+
+  it('blocks save on draft diagnostics and preserves the editable draft', async () => {
+    const source = emptySource()
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    transport.checkDraft = vi.fn(
+      async () =>
+        ({
+          sourceHash: 'draft-hash',
+          programHash: '',
+          diagnostics: [
+            {
+              severity: 'error' as const,
+              code: 'UNKNOWN_NODE_TYPE',
+              graphPath: ['main'],
+              nodeId: 'legacy-node',
+              fieldPath: ['config', 'target'],
+            },
+          ],
+        }) as CompileView,
+    )
+    const session = new EditorSession(transport)
+    await session.load(source.workflow.id)
+    session.apply({ kind: 'rename-workflow', name: '仍保留的修改' })
+
+    await expect(session.save()).rejects.toMatchObject({ id: 'workflow.draft.invalid' })
+
+    expect(transport.applyPatch).not.toHaveBeenCalled()
+    expect(session.dirty).toBe(true)
+    expect(session.source?.workflow.name).toBe('仍保留的修改')
+    expect(session.saveErrorTarget).toEqual({
+      graphId: 'main',
+      nodeId: 'legacy-node',
+      fieldId: 'target',
+    })
   })
 
   it('starts and controls a true debug Run through the admitted Run transport', async () => {

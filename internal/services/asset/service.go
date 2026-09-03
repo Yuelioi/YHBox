@@ -212,19 +212,19 @@ func (s *Service) AddTemplateVariant(guid, dataURL string, recRes [2]int, region
 func (s *Service) RemoveVariant(guid string, w, h int) (string, error) {
 	rec, ok, err := s.store.Record(guid)
 	if err != nil {
-		return "", fmt.Errorf("load asset %q: %w", guid, err)
+		return "", fmt.Errorf("%w: %v", apperr.NewRetryable("asset.load_failed", map[string]any{"guid": guid}), err)
 	}
 	if !ok {
-		return "", fmt.Errorf("asset %q not found", guid)
+		return "", apperr.New("asset.not_found", map[string]any{"guid": guid})
 	}
 	if len(rec.Variants) <= 1 {
-		return "", fmt.Errorf("asset %q 仅剩 1 个分辨率档, 删它请用删除整个素材", guid)
+		return "", apperr.New("asset.variant.last", map[string]any{"guid": guid})
 	}
 	before := s.store.Revision()
 	err = s.store.RemoveVariant(guid, [2]int{w, h})
 	s.emitChangedSince(before, guid)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%w: %v", apperr.NewRetryable("asset.variant.remove_failed", map[string]any{"guid": guid}), err)
 	}
 	return guid, nil
 }
@@ -234,7 +234,7 @@ func (s *Service) RemoveVariant(guid string, w, h int) (string, error) {
 func (s *Service) List() ([]AssetSummary, error) {
 	records, err := s.store.Records()
 	if err != nil {
-		return nil, fmt.Errorf("list assets: %w", err)
+		return nil, fmt.Errorf("%w: %v", apperr.NewRetryable("asset.list_failed", nil), err)
 	}
 	out := []AssetSummary{}
 	for _, rec := range records {
@@ -272,7 +272,7 @@ func (s *Service) QueryAssets(query AssetQuery) (AssetPage, error) {
 	}
 	page, err := s.store.query(query)
 	if err != nil {
-		return AssetPage{}, err
+		return AssetPage{}, fmt.Errorf("%w: %v", apperr.NewRetryable("asset.list_failed", nil), err)
 	}
 	thumbnailCount := 0
 	for index := range page.Items {
@@ -294,7 +294,7 @@ func (s *Service) ResolveBinding(ref blob.BlobRef) (AssetBinding, error) {
 	}
 	matches, err := s.store.resolveBinding(ref)
 	if err != nil {
-		return AssetBinding{}, err
+		return AssetBinding{}, fmt.Errorf("%w: %v", apperr.NewRetryable("asset.binding_failed", nil), err)
 	}
 	if len(matches) == 0 {
 		return AssetBinding{Blob: ref}, nil
@@ -370,10 +370,10 @@ func assetBatchProblemFrom(err error) *apperr.Envelope {
 func (s *Service) Get(guid string) (AssetRecord, error) {
 	rec, ok, err := s.store.Record(guid)
 	if err != nil {
-		return AssetRecord{}, fmt.Errorf("load asset %q: %w", guid, err)
+		return AssetRecord{}, fmt.Errorf("%w: %v", apperr.NewRetryable("asset.load_failed", map[string]any{"guid": guid}), err)
 	}
 	if !ok {
-		return AssetRecord{}, fmt.Errorf("asset %q not found", guid)
+		return AssetRecord{}, apperr.New("asset.not_found", map[string]any{"guid": guid})
 	}
 	return rec, nil
 }
@@ -381,43 +381,43 @@ func (s *Service) Get(guid string) (AssetRecord, error) {
 // PreviewBlob renders a bounded PNG thumbnail for an exact immutable BlobRef.
 func (s *Service) PreviewBlob(ref blob.BlobRef) (BlobPreview, error) {
 	if ref.MediaType != "image/png" {
-		return BlobPreview{}, fmt.Errorf("preview media type %q is not supported", ref.MediaType)
+		return BlobPreview{}, apperr.New("asset.preview.invalid", map[string]any{"reason": "media_type"})
 	}
 	if ref.Size <= 0 || ref.Size > previewMaxSourceBytes {
-		return BlobPreview{}, fmt.Errorf("preview source size %d exceeds budget", ref.Size)
+		return BlobPreview{}, apperr.New("asset.preview.invalid", map[string]any{"reason": "size"})
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), previewTimeout)
 	defer cancel()
 	content, err := s.store.ReadBlob(ctx, ref)
 	if err != nil {
-		return BlobPreview{}, fmt.Errorf("read preview blob: %w", err)
+		return BlobPreview{}, fmt.Errorf("%w: %v", apperr.NewRetryable("asset.preview.failed", nil), err)
 	}
 	config, err := png.DecodeConfig(bytes.NewReader(content))
 	if err != nil {
-		return BlobPreview{}, fmt.Errorf("decode preview header: %w", err)
+		return BlobPreview{}, fmt.Errorf("%w: %v", apperr.New("asset.preview.invalid", map[string]any{"reason": "decode"}), err)
 	}
 	if config.Width <= 0 || config.Height <= 0 || config.Width > previewMaxPixels/config.Height {
-		return BlobPreview{}, fmt.Errorf("preview dimensions %dx%d exceed budget", config.Width, config.Height)
+		return BlobPreview{}, apperr.New("asset.preview.invalid", map[string]any{"reason": "dimensions"})
 	}
 	if err := ctx.Err(); err != nil {
-		return BlobPreview{}, fmt.Errorf("preview deadline: %w", err)
+		return BlobPreview{}, fmt.Errorf("%w: %v", apperr.NewRetryable("asset.preview.failed", nil), err)
 	}
 	source, err := png.Decode(bytes.NewReader(content))
 	if err != nil {
-		return BlobPreview{}, fmt.Errorf("decode preview: %w", err)
+		return BlobPreview{}, fmt.Errorf("%w: %v", apperr.New("asset.preview.invalid", map[string]any{"reason": "decode"}), err)
 	}
 	width, height := previewDimensions(config.Width, config.Height)
 	thumbnail := image.NewRGBA(image.Rect(0, 0, width, height))
 	draw.CatmullRom.Scale(thumbnail, thumbnail.Bounds(), source, source.Bounds(), draw.Over, nil)
 	if err := ctx.Err(); err != nil {
-		return BlobPreview{}, fmt.Errorf("preview deadline: %w", err)
+		return BlobPreview{}, fmt.Errorf("%w: %v", apperr.NewRetryable("asset.preview.failed", nil), err)
 	}
 	var encoded bytes.Buffer
 	if err := png.Encode(&encoded, thumbnail); err != nil {
-		return BlobPreview{}, fmt.Errorf("encode preview: %w", err)
+		return BlobPreview{}, fmt.Errorf("%w: %v", apperr.NewRetryable("asset.preview.failed", nil), err)
 	}
 	if encoded.Len() > previewMaxOutputBytes {
-		return BlobPreview{}, fmt.Errorf("preview output exceeds byte budget")
+		return BlobPreview{}, apperr.New("asset.preview.invalid", map[string]any{"reason": "output_size"})
 	}
 	return BlobPreview{
 		MediaType: "image/png",
@@ -440,14 +440,17 @@ func previewDimensions(width, height int) (int, int) {
 // UpdateMeta 改资产显示名 + 描述 + 分类 + 标签 (记录级元数据, 不动变体/blob).
 func (s *Service) UpdateMeta(guid, name, description, category string, tags []string) error {
 	if _, ok, err := s.store.Record(guid); err != nil {
-		return fmt.Errorf("load asset %q: %w", guid, err)
+		return fmt.Errorf("%w: %v", apperr.NewRetryable("asset.load_failed", map[string]any{"guid": guid}), err)
 	} else if !ok {
-		return fmt.Errorf("asset %q not found", guid)
+		return apperr.New("asset.not_found", map[string]any{"guid": guid})
 	}
 	before := s.store.Revision()
 	err := s.store.PutRecordMeta(guid, name, description, category, tags)
 	s.emitChangedSince(before, guid)
-	return err
+	if err != nil {
+		return fmt.Errorf("%w: %v", apperr.NewRetryable("asset.update_failed", map[string]any{"guid": guid}), err)
+	}
+	return nil
 }
 
 // Delete removes asset metadata. Workflows retain immutable BlobRefs rather
@@ -456,17 +459,20 @@ func (s *Service) Delete(guid string) error {
 	before := s.store.Revision()
 	err := s.store.DeleteRecord(guid)
 	s.emitChangedSince(before, guid)
-	return err
+	if err != nil {
+		return fmt.Errorf("%w: %v", apperr.NewRetryable("asset.delete_failed", map[string]any{"guid": guid}), err)
+	}
+	return nil
 }
 
 // Capture captures the exact installed target selected by targetSlot.
 func (s *Service) Capture(targetSlot string) (string, error) {
 	if s.capture == nil {
-		return "", fmt.Errorf("capture adapter 未注入")
+		return "", apperr.NewRetryable("asset.capture.unavailable", nil)
 	}
 	pngData, err := s.capture.CapturePNG(context.Background(), targetSlot)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%w: %v", apperr.NewRetryable("asset.capture.failed", map[string]any{"slot": targetSlot}), err)
 	}
 	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(pngData), nil
 }
@@ -474,14 +480,14 @@ func (s *Service) Capture(targetSlot string) (string, error) {
 // CurrentResolution resolves the installed target's current automation space.
 func (s *Service) CurrentResolution(targetSlot string) ([2]int, error) {
 	if s.capture == nil {
-		return [2]int{}, fmt.Errorf("capture adapter 未注入")
+		return [2]int{}, apperr.NewRetryable("asset.capture.unavailable", nil)
 	}
 	resolved, err := s.capture.ResolveTarget(context.Background(), targetSlot)
 	if err != nil {
-		return [2]int{}, err
+		return [2]int{}, fmt.Errorf("%w: %v", apperr.NewRetryable("asset.target.failed", map[string]any{"slot": targetSlot}), err)
 	}
 	if resolved.Resolution.W <= 0 || resolved.Resolution.H <= 0 {
-		return [2]int{}, fmt.Errorf("automation target %q has invalid resolution %dx%d", targetSlot, resolved.Resolution.W, resolved.Resolution.H)
+		return [2]int{}, apperr.New("asset.target.invalid_resolution", map[string]any{"slot": targetSlot})
 	}
 	return [2]int{resolved.Resolution.W, resolved.Resolution.H}, nil
 }
@@ -498,24 +504,24 @@ type VariantPick struct {
 func (s *Service) PickVariant(guid string, w, h int) (VariantPick, error) {
 	v, ok, err := s.store.PickVariant(guid, w, h)
 	if err != nil {
-		return VariantPick{}, fmt.Errorf("load asset %q: %w", guid, err)
+		return VariantPick{}, fmt.Errorf("%w: %v", apperr.NewRetryable("asset.load_failed", map[string]any{"guid": guid}), err)
 	}
 	if !ok {
-		return VariantPick{}, fmt.Errorf("asset %q 无可用变体 (%dx%d)", guid, w, h)
+		return VariantPick{}, apperr.New("asset.variant.not_found", map[string]any{"guid": guid})
 	}
 	rec, ok, err := s.store.Record(guid)
 	if err != nil {
-		return VariantPick{}, fmt.Errorf("load asset %q: %w", guid, err)
+		return VariantPick{}, fmt.Errorf("%w: %v", apperr.NewRetryable("asset.load_failed", map[string]any{"guid": guid}), err)
 	}
 	if !ok {
-		return VariantPick{}, fmt.Errorf("asset %q not found", guid)
+		return VariantPick{}, apperr.New("asset.not_found", map[string]any{"guid": guid})
 	}
 	for i, vv := range rec.Variants {
 		if vv.Resolution == v.Resolution {
 			return VariantPick{Index: i, Exact: v.Resolution[0] == w && v.Resolution[1] == h}, nil
 		}
 	}
-	return VariantPick{}, fmt.Errorf("picked variant %v not in record %q", v.Resolution, guid)
+	return VariantPick{}, apperr.New("asset.variant.inconsistent", map[string]any{"guid": guid})
 }
 
 func assetSummary(rec AssetRecord) AssetSummary {

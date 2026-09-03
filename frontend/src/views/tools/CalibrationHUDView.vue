@@ -134,7 +134,9 @@ async function closeWindow() {
   await teardown()
   try {
     await backend.tools.closeCalibratorHUD()
-  } catch {}
+  } catch {
+    // Best-effort idempotent teardown; native close also runs calibration cleanup.
+  }
 }
 </script>
 

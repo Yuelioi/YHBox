@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"github.com/yottaapp/yotta/internal/apperr"
 )
 
 // HotkeyRegistry 是所有热键的中央 manifest。
@@ -71,7 +73,8 @@ type HotkeyEntry struct {
 	LabelParams    map[string]string `json:"labelParams,omitempty"`
 	HotkeyStr      string            `json:"hotkeyStr"`
 	Status         HotkeyStatus      `json:"status"`
-	LastError      string            `json:"lastError"`
+	LastError      string            `json:"-"`
+	Problem        *apperr.Envelope  `json:"problem,omitempty"`
 	ReadonlyReason string            `json:"readonlyReason"`
 	Mechanism      HotkeyMechanism   `json:"mechanism"`
 }
@@ -208,8 +211,7 @@ func (r *HotkeyRegistry) registerVisible(key string, source HotkeySource, label 
 	}, onFire: onFire}
 	r.entries[key] = entry
 	if err := r.updateLocked(key, hotkeyStr); err != nil {
-		entry.spec.Status = HotkeyStatusFailed
-		entry.spec.LastError = err.Error()
+		setHotkeyEntryFailure(entry, err, "hotkey.registration_failed")
 		if normalized, normalizeErr := NormalizeHotkey(hotkeyStr); normalizeErr == nil {
 			entry.normalized = normalized
 		}
@@ -253,8 +255,7 @@ func (r *HotkeyRegistry) ReplaceTransients(keyPrefix string, bindings []Transien
 		}, onFire: binding.OnFire}
 		r.entries[binding.Key] = entry
 		if err := r.updateLocked(binding.Key, binding.HotkeyStr); err != nil {
-			entry.spec.Status = HotkeyStatusFailed
-			entry.spec.LastError = err.Error()
+			setHotkeyEntryFailure(entry, err, "hotkey.registration_failed")
 			if normalized, normalizeErr := NormalizeHotkey(binding.HotkeyStr); normalizeErr == nil {
 				entry.normalized = normalized
 			}
@@ -347,8 +348,7 @@ func (r *HotkeyRegistry) Update(key, newHotkeyStr string) error {
 				rollbackErr = errors.New(entry.spec.LastError)
 			}
 			if rollbackErr != nil {
-				entry.spec.Status = HotkeyStatusFailed
-				entry.spec.LastError = rollbackErr.Error()
+				setHotkeyEntryFailure(entry, rollbackErr, "hotkey.rollback_failed")
 				if r.emitChanged != nil {
 					r.emitChanged()
 				}
@@ -395,6 +395,7 @@ func (r *HotkeyRegistry) updateLocked(key, newHotkeyStr string) error {
 		entry.normalized = ""
 		entry.spec.Status = HotkeyStatusUnbound
 		entry.spec.LastError = ""
+		entry.spec.Problem = nil
 		return nil
 	}
 
@@ -447,8 +448,7 @@ func (r *HotkeyRegistry) updateLocked(key, newHotkeyStr string) error {
 			// OS 失败：entry 写入新值（用户意图），Status=failed，**不**调持久化
 			entry.spec.HotkeyStr = newHotkeyStr
 			entry.normalized = normalized
-			entry.spec.Status = HotkeyStatusFailed
-			entry.spec.LastError = err.Error()
+			setHotkeyEntryFailure(entry, err, "hotkey.registration_failed")
 			return nil // registry-level success
 		}
 		entry.bindingID = newID
@@ -457,6 +457,7 @@ func (r *HotkeyRegistry) updateLocked(key, newHotkeyStr string) error {
 	entry.normalized = normalized
 	entry.spec.Status = HotkeyStatusActive
 	entry.spec.LastError = ""
+	entry.spec.Problem = nil
 	return nil
 }
 
@@ -545,8 +546,7 @@ func (r *HotkeyRegistry) Resume() error {
 		}
 		mods, vk, err := parseHotkey(e.spec.HotkeyStr)
 		if err != nil {
-			e.spec.Status = HotkeyStatusFailed
-			e.spec.LastError = err.Error()
+			setHotkeyEntryFailure(e, err, "hotkey.invalid")
 			hasFailures = true
 			continue
 		}
@@ -556,8 +556,7 @@ func (r *HotkeyRegistry) Resume() error {
 			Name: e.spec.HotkeyStr,
 		}, OwnerAction, e.onFire)
 		if err != nil {
-			e.spec.Status = HotkeyStatusFailed
-			e.spec.LastError = err.Error()
+			setHotkeyEntryFailure(e, err, "hotkey.registration_failed")
 			hasFailures = true
 			continue
 		}
@@ -599,8 +598,7 @@ func (r *HotkeyRegistry) RegisterEditor(key, label, hotkeyStr, readonlyReason st
 		},
 	}
 	failWith := func(reason string) {
-		entry.spec.Status = HotkeyStatusFailed
-		entry.spec.LastError = reason
+		setHotkeyEntryFailure(entry, errors.New(reason), "hotkey.registration_failed")
 		r.entries[key] = entry
 		if r.emitChanged != nil {
 			r.emitChanged()
@@ -631,6 +629,16 @@ func (r *HotkeyRegistry) RegisterEditor(key, label, hotkeyStr, readonlyReason st
 		r.emitChanged()
 	}
 	return nil
+}
+
+func setHotkeyEntryFailure(entry *registryEntry, cause error, fallbackID string) {
+	entry.spec.Status = HotkeyStatusFailed
+	entry.spec.LastError = cause.Error()
+	envelope := apperr.From(cause)
+	if envelope.ID == apperr.IDUnexpected {
+		envelope = apperr.From(apperr.New(fallbackID, map[string]any{"hotkey": entry.spec.HotkeyStr}))
+	}
+	entry.spec.Problem = &envelope
 }
 
 // RegisterLLHook 注册 LL-hook 全局拦截热键 (录制 stop/pause)。

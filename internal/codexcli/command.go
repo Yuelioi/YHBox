@@ -37,7 +37,7 @@ func resolve() (string, []string, error) {
 			return native[0], nil, nil
 		}
 		if shim == "" {
-			return "", nil, errors.New("Codex command path is empty")
+			return "", nil, errors.New("codex command path is empty")
 		}
 		return "cmd.exe", []string{"/d", "/s", "/c", "call", shim}, nil
 	}

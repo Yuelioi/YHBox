@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/yottaapp/yotta/internal/apperr"
@@ -269,11 +268,11 @@ func (s *Service) ApplyPatch(workflowID string, baseRevision int64, commands []a
 		if errors.Is(err, workflowstore.ErrSourceConflict) {
 			return PatchView{}, apperr.New("workflow.revision.conflict", map[string]any{"baseRevision": baseRevision})
 		}
-		return PatchView{}, err
+		return PatchView{}, sourceError("apply_patch", err)
 	}
 	view, err := sourceView(result.Source, true)
 	if err != nil {
-		return PatchView{}, err
+		return PatchView{}, sourceError("project", err)
 	}
 	return PatchView{Source: view, GeneratedNodes: result.GeneratedNodes}, nil
 }
@@ -281,7 +280,7 @@ func (s *Service) ApplyPatch(workflowID string, baseRevision int64, commands []a
 func (s *Service) CreateSource(name string) (SourceView, error) {
 	snapshot, err := s.application.CreateSource(context.Background(), name)
 	if err != nil {
-		return SourceView{}, err
+		return SourceView{}, sourceError("create", err)
 	}
 	return sourceView(snapshot, true)
 }
@@ -291,7 +290,7 @@ func (s *Service) CreateSourceWithMetadata(request CreateSourceRequest) (SourceV
 		Name: request.Name, Description: request.Description, Category: request.Category, Tags: request.Tags,
 	})
 	if err != nil {
-		return SourceView{}, err
+		return SourceView{}, sourceError("create", err)
 	}
 	return sourceView(snapshot, true)
 }
@@ -304,7 +303,7 @@ func (s *Service) UpdateSourceMetadata(workflowID string, baseRevision int64, re
 		},
 	}})
 	if err != nil {
-		return SourceView{}, err
+		return SourceView{}, sourceError("update_metadata", err)
 	}
 	return patch.Source, nil
 }
@@ -312,7 +311,7 @@ func (s *Service) UpdateSourceMetadata(workflowID string, baseRevision int64, re
 func (s *Service) GetSource(workflowID string) (SourceView, error) {
 	snapshot, err := s.application.GetSource(workflowID)
 	if err != nil {
-		return SourceView{}, err
+		return SourceView{}, sourceError("get", err)
 	}
 	return sourceView(snapshot, true)
 }
@@ -323,7 +322,7 @@ func (s *Service) ListSources() ([]SourceView, error) {
 	for _, snapshot := range snapshots {
 		view, err := sourceView(snapshot, false)
 		if err != nil {
-			return nil, err
+			return nil, sourceError("list", err)
 		}
 		result = append(result, view)
 	}
@@ -345,71 +344,71 @@ func (s *Service) ListSourceRecoveries() []SourceRecoveryView {
 func (s *Service) RepairSourceRecovery(recoveryID artifact.Digest, sourceJSON string) (SourceView, error) {
 	snapshot, err := s.application.RepairSourceRecovery(context.Background(), recoveryID, []byte(sourceJSON))
 	if err != nil {
-		return SourceView{}, err
+		return SourceView{}, sourceError("repair_recovery", err)
 	}
 	return sourceView(snapshot, false)
 }
 
 func (s *Service) DeleteSourceRecovery(recoveryID artifact.Digest) error {
-	return s.application.DeleteSourceRecovery(context.Background(), recoveryID)
+	return sourceError("delete_recovery", s.application.DeleteSourceRecovery(context.Background(), recoveryID))
 }
 
 func (s *Service) InspectSourceBundle(archivePath string) (BundleInfoView, error) {
 	if s.bundles == nil {
-		return BundleInfoView{}, errors.New("workflow source portability is unavailable")
+		return BundleInfoView{}, unavailable("bundle")
 	}
 	info, err := s.bundles.Inspect(context.Background(), archivePath)
 	if err != nil {
-		return BundleInfoView{}, err
+		return BundleInfoView{}, bundleError("inspect", err)
 	}
 	return bundleInfoView(info), nil
 }
 
 func (s *Service) ImportSourceBundle(archivePath string) (SourceView, error) {
 	if s.bundles == nil {
-		return SourceView{}, errors.New("workflow source portability is unavailable")
+		return SourceView{}, unavailable("bundle")
 	}
 	result, err := s.bundles.Import(context.Background(), workflowbundle.ImportRequest{Path: archivePath, Mode: workflowbundle.ImportCopy})
 	if err != nil {
-		return SourceView{}, err
+		return SourceView{}, bundleError("import", err)
 	}
 	return sourceView(result.Source, false)
 }
 
 func (s *Service) ReplaceSourceFromBundle(archivePath, targetWorkflowID string, expectedRevision int64, expectedSourceHash artifact.Digest) (SourceView, error) {
 	if s.bundles == nil {
-		return SourceView{}, errors.New("workflow source portability is unavailable")
+		return SourceView{}, unavailable("bundle")
 	}
 	result, err := s.bundles.Import(context.Background(), workflowbundle.ImportRequest{
 		Path: archivePath, Mode: workflowbundle.ImportReplace, TargetWorkflowID: targetWorkflowID,
 		ExpectedRevision: expectedRevision, ExpectedSourceHash: expectedSourceHash,
 	})
 	if err != nil {
-		return SourceView{}, err
+		return SourceView{}, bundleError("replace", err)
 	}
 	return sourceView(result.Source, false)
 }
 
 func (s *Service) ExportSourceBundle(workflowID, destination string) (BundleExportResult, error) {
 	if s.bundles == nil {
-		return BundleExportResult{}, errors.New("workflow source portability is unavailable")
+		return BundleExportResult{}, unavailable("bundle")
 	}
 	result, err := s.bundles.Export(context.Background(), workflowID, destination)
 	if err != nil {
-		return BundleExportResult{}, err
+		return BundleExportResult{}, bundleError("export", err)
 	}
 	return BundleExportResult{WorkflowID: workflowID, Path: result.Path, Exported: true}, nil
 }
 
 func (s *Service) CompileSource(workflowID string) (CompileView, error) {
 	result, err := s.application.CompileSource(context.Background(), workflowID)
-	return compileView(result), err
+	return compileView(result), projectError("workflow.compile.failed", apperr.CategoryDomain, nil, false, err)
 }
 
 // CheckDraft validates the editor's current in-memory Source without saving it.
 func (s *Service) CheckDraft(sourceJSON string) (CompileView, error) {
 	result, err := s.application.CompileDraft(context.Background(), []byte(sourceJSON))
-	return compileView(result), err
+	return compileView(result), projectError("workflow.compile.failed", apperr.CategoryDomain, nil, false, err)
 }
 
 func compileView(result compiler.CompileResult) CompileView {
@@ -421,7 +420,8 @@ func compileView(result compiler.CompileResult) CompileView {
 }
 
 func (s *Service) PreviewRun(workflowID string) (appcore.RunPreview, error) {
-	return s.application.PreviewRun(context.Background(), workflowID)
+	result, err := s.application.PreviewRun(context.Background(), workflowID)
+	return result, runError("preview", err)
 }
 
 func (s *Service) StartRun(workflowID string) (StartRunView, error) {
@@ -438,7 +438,7 @@ func (s *Service) StartRun(workflowID string) (StartRunView, error) {
 	if readinessErrorHandled(view.Readiness) {
 		return view, nil
 	}
-	return view, err
+	return view, runError("start", err)
 }
 
 func (s *Service) StartDebugRun(workflowID string, breakpoints []compiler.DebugBreakpoint) (StartRunView, error) {
@@ -458,7 +458,7 @@ func (s *Service) StartDebugRun(workflowID string, breakpoints []compiler.DebugB
 	if readinessErrorHandled(view.Readiness) {
 		return view, nil
 	}
-	return view, err
+	return view, runError("start_debug", err)
 }
 
 func runReadinessView(result appcore.StartRunResult, startErr error) RunReadinessView {
@@ -481,15 +481,18 @@ func readinessErrorHandled(readiness RunReadinessView) bool {
 }
 
 func (s *Service) GetDebugSnapshot(runID string) (compiler.DebugSnapshot, error) {
-	return s.application.GetDebugSnapshot(runID)
+	result, err := s.application.GetDebugSnapshot(runID)
+	return result, runError("debug_snapshot", err)
 }
 
 func (s *Service) ControlDebugRun(runID, action string) (compiler.DebugSnapshot, error) {
-	return s.application.ControlDebugRun(context.Background(), runID, appcore.DebugAction(action))
+	result, err := s.application.ControlDebugRun(context.Background(), runID, appcore.DebugAction(action))
+	return result, runError("debug_control", err)
 }
 
 func (s *Service) SetDebugBreakpoints(runID string, breakpoints []compiler.DebugBreakpoint) (compiler.DebugSnapshot, error) {
-	return s.application.SetDebugBreakpoints(context.Background(), runID, breakpoints)
+	result, err := s.application.SetDebugBreakpoints(context.Background(), runID, breakpoints)
+	return result, runError("debug_breakpoints", err)
 }
 
 // GetActiveSourceRuns returns the queued/running Run identities for a bounded
@@ -497,14 +500,14 @@ func (s *Service) SetDebugBreakpoints(runID string, breakpoints []compiler.Debug
 // mounting or being shown again.
 func (s *Service) GetActiveSourceRuns(workflowIDs []string) (map[string][]string, error) {
 	if len(workflowIDs) > 100 {
-		return nil, errors.New("active source Run query exceeds 100 workflows")
+		return nil, projectError("workflow.run_query.invalid", apperr.CategoryValidation, map[string]any{"reason": "limit"}, false, errors.New("active source Run query exceeds 100 workflows"))
 	}
 	result := make(map[string][]string, len(workflowIDs))
 	seen := make(map[string]struct{}, len(workflowIDs))
 	for _, workflowID := range workflowIDs {
 		workflowID = strings.TrimSpace(workflowID)
 		if workflowID == "" {
-			return nil, errors.New("active source Run query contains an empty workflow ID")
+			return nil, projectError("workflow.run_query.invalid", apperr.CategoryValidation, map[string]any{"reason": "empty_id"}, false, errors.New("active source Run query contains an empty workflow ID"))
 		}
 		if _, duplicate := seen[workflowID]; duplicate {
 			continue
@@ -520,19 +523,19 @@ func (s *Service) GetActiveSourceRuns(workflowIDs []string) (map[string][]string
 func (s *Service) CancelRun(runID string) (RunView, error) {
 	record, err := s.application.CancelRun(context.Background(), runID)
 	if err != nil {
-		return RunView{}, err
+		return RunView{}, runError("cancel", err)
 	}
 	return runView(record), nil
 }
 
 func (s *Service) CancelAllRuns() error {
-	return s.application.CancelAll(context.Background())
+	return runError("cancel_all", s.application.CancelAll(context.Background()))
 }
 
 func (s *Service) GetRunTimeline(runID string) (RunView, error) {
 	record, err := s.application.GetRun(runID)
 	if err != nil {
-		return RunView{}, err
+		return RunView{}, runError("timeline", err)
 	}
 	return runView(record), nil
 }
@@ -540,18 +543,18 @@ func (s *Service) GetRunTimeline(runID string) (RunView, error) {
 func (s *Service) GetRunTimelinePage(runID string, page, pageSize int) (RunView, error) {
 	timeline, err := s.application.GetRunTimelinePage(context.Background(), runID, page, pageSize)
 	if err != nil {
-		return RunView{}, err
+		return RunView{}, runError("timeline_page", err)
 	}
 	return runTimelinePageView(timeline), nil
 }
 
 func (s *Service) ExportRunTimeline(runID, destination string) (RunTimelineExportResult, error) {
 	if strings.TrimSpace(destination) == "" {
-		return RunTimelineExportResult{}, errors.New("run timeline export destination is required")
+		return RunTimelineExportResult{}, projectError("workflow.timeline.destination_required", apperr.CategoryValidation, nil, false, errors.New("run timeline export destination is required"))
 	}
 	record, err := s.application.GetRun(runID)
 	if err != nil {
-		return RunTimelineExportResult{}, err
+		return RunTimelineExportResult{}, runError("timeline_export", err)
 	}
 	view := runView(record)
 	view.Timeline = timelineView(record.Journal())
@@ -567,11 +570,11 @@ func (s *Service) ExportRunTimeline(runID, destination string) (RunTimelineExpor
 	}
 	raw, err := json.MarshalIndent(document, "", "  ")
 	if err != nil {
-		return RunTimelineExportResult{}, fmt.Errorf("encode Run timeline export: %w", err)
+		return RunTimelineExportResult{}, projectError("workflow.timeline.export_failed", apperr.CategoryInfrastructure, nil, false, err)
 	}
 	raw = append(raw, '\n')
 	if err := durablefs.WriteFile(destination, raw, 0o600); err != nil {
-		return RunTimelineExportResult{}, fmt.Errorf("write Run timeline export: %w", err)
+		return RunTimelineExportResult{}, projectError("workflow.timeline.export_failed", apperr.CategoryInfrastructure, nil, true, err)
 	}
 	return RunTimelineExportResult{Path: destination, Entries: len(view.Timeline)}, nil
 }

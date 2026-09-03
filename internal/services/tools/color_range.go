@@ -5,6 +5,7 @@ import (
 	"math"
 	"sort"
 
+	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/pkg/vision"
 )
 
@@ -131,5 +132,6 @@ func hueWraps(sorted []int) bool {
 
 // ExtractColorRange wails RPC: 前端降采样像素 → 颜色范围. 点一次吸管调一次(非每帧).
 func (s *Service) ExtractColorRange(samples []RGB, colorSpace string) (ColorRangeResult, error) {
-	return extractColorRange(samples, colorSpace)
+	result, err := extractColorRange(samples, colorSpace)
+	return result, toolError("tools.color_range.invalid", apperr.CategoryValidation, nil, false, err)
 }

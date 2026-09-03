@@ -46,7 +46,7 @@ func (s *Service) List() ListResult {
 
 func (s *Service) Get(id string) (*Snippet, error) {
 	if s.store == nil {
-		return nil, errors.New("snippet store is unavailable")
+		return nil, problem("snippet.store.unavailable", apperr.CategoryInfrastructure, nil, true, errors.New("snippet store is unavailable"))
 	}
 	value, err := s.load(strings.TrimSpace(id))
 	if err != nil {
@@ -57,7 +57,7 @@ func (s *Service) Get(id string) (*Snippet, error) {
 
 func (s *Service) Save(value *Snippet) (*Snippet, error) {
 	if s.store == nil || value == nil {
-		return nil, errors.New("snippet service requires a store and value")
+		return nil, problem("snippet.invalid", apperr.CategoryValidation, nil, false, errors.New("snippet service requires a store and value"))
 	}
 	result := clone(*value)
 	result.SchemaVersion = SchemaVersion
@@ -67,16 +67,16 @@ func (s *Service) Save(value *Snippet) (*Snippet, error) {
 	result.Tags = normalizeTags(result.Tags)
 	shortcut, err := normalizeShortcut(result.Shortcut)
 	if err != nil {
-		return nil, err
+		return nil, problem("snippet.invalid", apperr.CategoryValidation, map[string]any{"field": "shortcut"}, false, err)
 	}
 	result.Shortcut = shortcut
 	if _, err := s.upgradeNodeTemplate(&result); err != nil {
-		return nil, err
+		return nil, problem("snippet.node_incompatible", apperr.CategoryDomain, map[string]any{"nodeTypeId": result.Payload.NodeRef.NodeTypeID}, false, err)
 	}
 	if shortcut != "" {
 		for _, item := range s.store.List().Items {
 			if item.ID != result.ID && strings.EqualFold(item.Shortcut, shortcut) {
-				return nil, fmt.Errorf("snippet shortcut %q is already used by %q", shortcut, item.Name)
+				return nil, problem("snippet.shortcut_conflict", apperr.CategoryValidation, map[string]any{"shortcut": shortcut, "name": item.Name}, false, fmt.Errorf("shortcut conflict"))
 			}
 		}
 	}
@@ -91,7 +91,7 @@ func (s *Service) Save(value *Snippet) (*Snippet, error) {
 	}
 	result.UpdatedAt = now
 	if err := s.store.Save(result); err != nil {
-		return nil, fmt.Errorf("save snippet: %w", err)
+		return nil, problem("snippet.save_failed", apperr.CategoryInfrastructure, map[string]any{"id": result.ID}, true, err)
 	}
 	s.emitChanged()
 	saved := clone(result)
@@ -100,10 +100,10 @@ func (s *Service) Save(value *Snippet) (*Snippet, error) {
 
 func (s *Service) Delete(id string) error {
 	if s.store == nil {
-		return errors.New("snippet store is unavailable")
+		return problem("snippet.store.unavailable", apperr.CategoryInfrastructure, nil, true, errors.New("snippet store is unavailable"))
 	}
 	if err := s.store.Delete(strings.TrimSpace(id)); err != nil {
-		return err
+		return problem("snippet.delete_failed", apperr.CategoryInfrastructure, map[string]any{"id": id}, true, err)
 	}
 	s.emitChanged()
 	return nil
@@ -111,7 +111,7 @@ func (s *Service) Delete(id string) error {
 
 func (s *Service) MarkUsed(id string) (*Snippet, error) {
 	if s.store == nil {
-		return nil, errors.New("snippet store is unavailable")
+		return nil, problem("snippet.store.unavailable", apperr.CategoryInfrastructure, nil, true, errors.New("snippet store is unavailable"))
 	}
 	value, err := s.load(strings.TrimSpace(id))
 	if err != nil {
@@ -121,7 +121,7 @@ func (s *Service) MarkUsed(id string) (*Snippet, error) {
 	value.UsageCount++
 	value.LastUsedAt = &now
 	if err := s.store.Save(value); err != nil {
-		return nil, fmt.Errorf("mark snippet used: %w", err)
+		return nil, problem("snippet.mark_used_failed", apperr.CategoryInfrastructure, map[string]any{"id": id}, true, err)
 	}
 	s.emitChanged()
 	result := clone(value)
@@ -131,15 +131,15 @@ func (s *Service) MarkUsed(id string) (*Snippet, error) {
 func (s *Service) load(id string) (Snippet, error) {
 	value, ok := s.store.Get(id)
 	if !ok {
-		return Snippet{}, fmt.Errorf("snippet %q not found", id)
+		return Snippet{}, problem("snippet.not_found", apperr.CategoryDomain, map[string]any{"id": id}, false, fmt.Errorf("snippet not found"))
 	}
 	changed, err := s.upgradeNodeTemplate(&value)
 	if err != nil {
-		return Snippet{}, fmt.Errorf("snippet %q: %w", id, err)
+		return Snippet{}, problem("snippet.node_incompatible", apperr.CategoryDomain, map[string]any{"id": id, "nodeTypeId": value.Payload.NodeRef.NodeTypeID}, false, err)
 	}
 	if changed {
 		if err := s.store.Save(value); err != nil {
-			return Snippet{}, fmt.Errorf("persist migrated snippet %q: %w", id, err)
+			return Snippet{}, problem("snippet.migration_save_failed", apperr.CategoryInfrastructure, map[string]any{"id": id}, true, err)
 		}
 	}
 	return value, nil

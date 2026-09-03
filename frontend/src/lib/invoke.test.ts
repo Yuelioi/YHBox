@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeError, errorMessage, invoke, RPCError } from './invoke'
+import {
+  normalizeError,
+  errorMessage,
+  invoke,
+  RPCError,
+  setTransportContractViolationReporter,
+} from './invoke'
 
 describe('normalizeError', () => {
   it('通道A validation: cause.Errors 大写', () => {
@@ -198,7 +204,9 @@ describe('invoke', () => {
     })
   })
 
-  it('classifies an unstructured transport rejection instead of calling it system unexpected', async () => {
+  it('reports and classifies an unstructured transport rejection', async () => {
+    const violations: Array<{ operation: string; shape: string }> = []
+    const restore = setTransportContractViolationReporter((violation) => violations.push(violation))
     const rejected = invoke(async function ApplyPatch() {
       throw new Error('opaque transport rejection')
     })
@@ -206,6 +214,8 @@ describe('invoke', () => {
       id: 'transport.unstructured_failure',
       params: { operation: 'ApplyPatch' },
     })
+    expect(violations).toEqual([{ operation: 'ApplyPatch', shape: 'error' }])
+    restore()
   })
 
   it('value RPCs do not turn failure into undefined success', async () => {

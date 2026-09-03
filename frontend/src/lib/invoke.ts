@@ -40,6 +40,35 @@ export class RPCError extends Error {
 
 let operationSequence = 0
 
+export type TransportContractViolation = { operation: string; shape: string }
+let reportTransportContractViolation = (violation: TransportContractViolation) => {
+  console.error('RPC transport contract violation', violation)
+}
+
+export function setTransportContractViolationReporter(
+  reporter: (violation: TransportContractViolation) => void,
+): () => void {
+  const previous = reportTransportContractViolation
+  reportTransportContractViolation = reporter
+  return () => {
+    reportTransportContractViolation = previous
+  }
+}
+
+function transportShape(value: unknown): string {
+  if (value === null) return 'null'
+  if (value === undefined) return 'undefined'
+  if (value instanceof Error) return 'error'
+  if (Array.isArray(value)) return 'array'
+  if (typeof value === 'object') {
+    const keys = Object.keys(value as Record<string, unknown>)
+      .sort()
+      .slice(0, 8)
+    return keys.length ? `object:${keys.join(',')}` : 'object:empty'
+  }
+  return typeof value
+}
+
 /** 把两条投递通道(wails RPC .cause / worker 事件信封)规整成统一形态。 */
 export function normalizeError(e: unknown): NormalizedError {
   if (e == null) return {}
@@ -144,6 +173,7 @@ export function toRPCError(error: unknown, operation = 'rpc.call'): RPCError {
   if (error instanceof RPCError) return error
   const normalized = normalizeError(error)
   if (!normalized.id && !normalized.errors?.length) {
+    reportTransportContractViolation({ operation, shape: transportShape(error) })
     normalized.id = 'transport.unstructured_failure'
     normalized.category = 'infrastructure'
     normalized.params = { operation }

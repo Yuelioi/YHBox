@@ -46,12 +46,13 @@ import (
 
 const productVersionVariable = "github.com/yottaapp/yotta/pkg/version.Version"
 
-var numericSemverPattern = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
+var productSemverPattern = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-alpha\.([1-9][0-9]*))?$`)
 
 type productVersion struct {
 	Major int
 	Minor int
 	Patch int
+	Alpha int
 }
 
 type inventoryRow struct {
@@ -62,17 +63,20 @@ type inventoryRow struct {
 }
 
 func (v productVersion) String() string {
+	if v.Alpha > 0 {
+		return fmt.Sprintf("%d.%d.%d-alpha.%d", v.Major, v.Minor, v.Patch, v.Alpha)
+	}
 	return fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
 }
 
 func (v productVersion) WindowsManifest() string {
-	return fmt.Sprintf("%d.%d.%d.0", v.Major, v.Minor, v.Patch)
+	return fmt.Sprintf("%d.%d.%d.%d", v.Major, v.Minor, v.Patch, v.Alpha)
 }
 
 func parseProductVersion(value string) (productVersion, error) {
-	match := numericSemverPattern.FindStringSubmatch(strings.TrimSpace(value))
+	match := productSemverPattern.FindStringSubmatch(strings.TrimSpace(value))
 	if match == nil {
-		return productVersion{}, fmt.Errorf("product version must be numeric SemVer MAJOR.MINOR.PATCH, got %q", value)
+		return productVersion{}, fmt.Errorf("product version must be MAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH-alpha.N, got %q", value)
 	}
 	parts := [3]int{}
 	for index := range parts {
@@ -82,10 +86,18 @@ func parseProductVersion(value string) (productVersion, error) {
 		}
 		parts[index] = parsed
 	}
-	if parts[0] > 255 || parts[1] > 255 || parts[2] > 65535 {
+	alpha := 0
+	if match[4] != "" {
+		parsed, err := strconv.Atoi(match[4])
+		if err != nil {
+			return productVersion{}, fmt.Errorf("parse product version %q: %w", value, err)
+		}
+		alpha = parsed
+	}
+	if parts[0] > 255 || parts[1] > 255 || parts[2] > 65535 || alpha > 65535 {
 		return productVersion{}, errors.New("product version exceeds Windows installer numeric limits")
 	}
-	return productVersion{Major: parts[0], Minor: parts[1], Patch: parts[2]}, nil
+	return productVersion{Major: parts[0], Minor: parts[1], Patch: parts[2], Alpha: alpha}, nil
 }
 
 type projection struct {
@@ -206,7 +218,7 @@ func readProductVersion(root string) (productVersion, error) {
 		return productVersion{}, fmt.Errorf("read VERSION: %w", err)
 	}
 	if bytes.ContainsAny(bytes.TrimSpace(raw), " \t\r\n") {
-		return productVersion{}, errors.New("VERSION must contain exactly one numeric SemVer")
+		return productVersion{}, errors.New("VERSION must contain exactly one supported SemVer")
 	}
 	return parseProductVersion(string(raw))
 }
@@ -257,25 +269,11 @@ func bumpProductVersion(root string, current productVersion, arguments []string)
 		return err
 	}
 	if flags.NArg() != 1 {
-		return errors.New("usage: yotta-versions bump [--dry-run] <patch|minor|major|MAJOR.MINOR.PATCH>")
+		return errors.New("usage: yotta-versions bump [--dry-run] <alpha|patch|minor|major|MAJOR.MINOR.PATCH[-alpha.N]>")
 	}
-	target := current
-	switch value := flags.Arg(0); value {
-	case "patch":
-		target.Patch++
-	case "minor":
-		target.Minor++
-		target.Patch = 0
-	case "major":
-		target.Major++
-		target.Minor = 0
-		target.Patch = 0
-	default:
-		parsed, err := parseProductVersion(value)
-		if err != nil {
-			return err
-		}
-		target = parsed
+	target, err := nextProductVersion(current, flags.Arg(0))
+	if err != nil {
+		return err
 	}
 	if _, err := parseProductVersion(target.String()); err != nil {
 		return err
@@ -298,6 +296,36 @@ func bumpProductVersion(root string, current productVersion, arguments []string)
 	}
 	fmt.Printf("bumped product version %s -> %s: VERSION, %s\n", current, target, strings.Join(changed, ", "))
 	return nil
+}
+
+func nextProductVersion(current productVersion, value string) (productVersion, error) {
+	target := current
+	switch value {
+	case "alpha":
+		if target.Alpha == 0 {
+			return productVersion{}, errors.New("alpha increment requires an existing alpha version")
+		}
+		target.Alpha++
+	case "patch":
+		target.Patch++
+		target.Alpha = 0
+	case "minor":
+		target.Minor++
+		target.Patch = 0
+		target.Alpha = 0
+	case "major":
+		target.Major++
+		target.Minor = 0
+		target.Patch = 0
+		target.Alpha = 0
+	default:
+		parsed, err := parseProductVersion(value)
+		if err != nil {
+			return productVersion{}, err
+		}
+		target = parsed
+	}
+	return target, nil
 }
 
 func projectWailsConfig(raw []byte, version productVersion) ([]byte, error) {

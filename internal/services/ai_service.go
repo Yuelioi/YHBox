@@ -177,23 +177,26 @@ func projectAIAuthoringError(err error) error {
 
 func (s *AIService) AcceptWorkflowProposal(reviewID string) (aiauthoring.Review, error) {
 	if s.authoring == nil {
-		return aiauthoring.Review{}, errors.New("AI workflow authoring is unavailable")
+		return aiauthoring.Review{}, apperr.New("ai.authoring.unavailable", nil)
 	}
-	return s.authoring.Accept(context.Background(), reviewID)
+	review, err := s.authoring.Accept(context.Background(), reviewID)
+	return review, projectAIAuthoringError(err)
 }
 
 func (s *AIService) RejectWorkflowProposal(reviewID string) (aiauthoring.Review, error) {
 	if s.authoring == nil {
-		return aiauthoring.Review{}, errors.New("AI workflow authoring is unavailable")
+		return aiauthoring.Review{}, apperr.New("ai.authoring.unavailable", nil)
 	}
-	return s.authoring.Reject(reviewID)
+	review, err := s.authoring.Reject(reviewID)
+	return review, projectAIAuthoringError(err)
 }
 
 func (s *AIService) GetWorkflowProposal(reviewID string) (aiauthoring.Review, error) {
 	if s.authoring == nil {
-		return aiauthoring.Review{}, errors.New("AI workflow authoring is unavailable")
+		return aiauthoring.Review{}, apperr.New("ai.authoring.unavailable", nil)
 	}
-	return s.authoring.Get(reviewID)
+	review, err := s.authoring.Get(reviewID)
+	return review, projectAIAuthoringError(err)
 }
 
 func newAIService(app *App, secrets *AISecrets, factory aiNativeFactory) *AIService {
@@ -296,24 +299,36 @@ func (s *AIService) SecretStatus(slots []string) map[string]bool {
 }
 
 func (s *AIService) SetAPIKey(slot, apiKey string) error {
-	return s.secrets.SetSlot(slot, apiKey)
+	if s.secrets == nil {
+		return apperr.New("ai.credential.unavailable", map[string]any{"slot": slot})
+	}
+	if err := s.secrets.SetSlot(slot, apiKey); err != nil {
+		return fmt.Errorf("%w: %v", apperr.NewRetryable("ai.credential.save_failed", map[string]any{"slot": slot}), err)
+	}
+	return nil
 }
 
 func (s *AIService) DeleteAPIKey(slot string) error {
-	return s.secrets.DeleteSlot(slot)
+	if s.secrets == nil {
+		return apperr.New("ai.credential.unavailable", map[string]any{"slot": slot})
+	}
+	if err := s.secrets.DeleteSlot(slot); err != nil {
+		return fmt.Errorf("%w: %v", apperr.NewRetryable("ai.credential.delete_failed", map[string]any{"slot": slot}), err)
+	}
+	return nil
 }
 
 func (s *AIService) ApplyEvaluation(slot string, evidence ai.EvalReportArtifact) error {
 	if s.app == nil {
-		return errors.New("settings are unavailable")
+		return apperr.New("ai.evaluation.unavailable", nil)
 	}
 	report, err := evidence.Open()
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: %v", apperr.New("ai.evaluation.invalid", map[string]any{"slot": slot}), err)
 	}
 	builtins, err := nodes.Build()
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: %v", apperr.New("ai.evaluation.unavailable", nil), err)
 	}
 	document := report.Machine()
 	_, current, err := s.app.MutateSettings(func(settings *Settings) error {
@@ -335,15 +350,18 @@ func (s *AIService) ApplyEvaluation(slot string, evidence ai.EvalReportArtifact)
 		return nil
 	})
 	if err != nil && current == nil {
-		return err
+		return fmt.Errorf("%w: %v", apperr.New("ai.evaluation.apply_failed", map[string]any{"slot": slot}), err)
 	}
 	s.app.Emit("settings:changed", map[string]any{})
-	return err
+	if err != nil {
+		return fmt.Errorf("%w: %v", apperr.New("ai.evaluation.committed_sync_failed", map[string]any{"slot": slot}), err)
+	}
+	return nil
 }
 
 func (s *AIService) RevokeEvaluation(slot string) error {
 	if s.app == nil {
-		return errors.New("settings are unavailable")
+		return apperr.New("ai.evaluation.unavailable", nil)
 	}
 	_, current, err := s.app.MutateSettings(func(settings *Settings) error {
 		configured := findAIProfile(settings, slot)
@@ -356,10 +374,13 @@ func (s *AIService) RevokeEvaluation(slot string) error {
 		return nil
 	})
 	if err != nil && current == nil {
-		return err
+		return fmt.Errorf("%w: %v", apperr.New("ai.evaluation.apply_failed", map[string]any{"slot": slot}), err)
 	}
 	s.app.Emit("settings:changed", map[string]any{})
-	return err
+	if err != nil {
+		return fmt.Errorf("%w: %v", apperr.New("ai.evaluation.committed_sync_failed", map[string]any{"slot": slot}), err)
+	}
+	return nil
 }
 
 func findAIProfile(settings *Settings, slot string) *AIModelSettings {

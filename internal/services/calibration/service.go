@@ -5,6 +5,8 @@ import (
 	"errors"
 	"sync"
 	"sync/atomic"
+
+	"github.com/yottaapp/yotta/internal/apperr"
 )
 
 // VKF8 是 DPI 校准热键的出厂默认 (VK_F8); vkGetter 拿不到绑定时兜这个.
@@ -35,14 +37,23 @@ func (s *Service) Start() error {
 	s.lifecycleMu.Lock()
 	defer s.lifecycleMu.Unlock()
 	if s.closed.Load() {
-		return errors.New("calibration service is closed")
+		return calibrationProblem("calibration.unavailable", apperr.CategoryDomain, false, errors.New("calibration service is closed"))
 	}
 	Reset()
-	return Start()
+	if err := Start(); err != nil {
+		return calibrationProblem("calibration.start_failed", apperr.CategoryAdapter, true, err)
+	}
+	return nil
 }
 
 // Stop 停止校准并返回累积状态。
-func (s *Service) Stop() (State, error) { return Stop() }
+func (s *Service) Stop() (State, error) {
+	state, err := Stop()
+	if err != nil {
+		return state, calibrationProblem("calibration.stop_failed", apperr.CategoryAdapter, true, err)
+	}
+	return state, nil
+}
 
 // Status 当前累积状态（前端 200ms poll 用）。
 func (s *Service) Status() State { return Get() }
@@ -53,7 +64,7 @@ func (s *Service) StartHotkeyWatch() error {
 	s.lifecycleMu.Lock()
 	defer s.lifecycleMu.Unlock()
 	if s.closed.Load() {
-		return errors.New("calibration service is closed")
+		return calibrationProblem("calibration.unavailable", apperr.CategoryDomain, false, errors.New("calibration service is closed"))
 	}
 	s.hookMu.Lock()
 	defer s.hookMu.Unlock()
@@ -73,10 +84,26 @@ func (s *Service) StartHotkeyWatch() error {
 		}
 	})
 	if err := h.Start(); err != nil {
-		return err
+		return calibrationProblem("calibration.hotkey_watch_failed", apperr.CategoryAdapter, true, err)
 	}
 	s.hook = h
 	return nil
+}
+
+func calibrationProblem(id, category string, retryable bool, cause error) error {
+	problem := calibrationError{id: id, category: category, retryable: retryable}
+	return errors.Join(problem, cause)
+}
+
+type calibrationError struct {
+	id        string
+	category  string
+	retryable bool
+}
+
+func (e calibrationError) Error() string { return e.id }
+func (e calibrationError) RPCErrorEnvelope() apperr.Envelope {
+	return apperr.Envelope{ID: e.id, Category: e.category, Retryable: e.retryable}
 }
 
 // StopHotkeyWatch 校准窗关闭时调: 卸 F8 LL hook。幂等。

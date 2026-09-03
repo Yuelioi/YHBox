@@ -412,8 +412,9 @@ tasks:
   version:bump:
     summary: 提升 VERSION 并自动刷新产品版本投影
     desc: |
-      用法: task version:bump BUMP=patch
-      BUMP 可取 patch、minor、major 或精确 MAJOR.MINOR.PATCH。
+      用法: task version:bump BUMP=alpha
+      BUMP 可取 alpha（递增当前 alpha.N）、patch、minor、major，或精确
+      MAJOR.MINOR.PATCH[-alpha.N]。alpha.N 会映射为 Windows 第四段 N。
       命令只修改工作区，不 commit、不 tag；release identity 由后续显式发布动作创建。
     cmds:
       - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/bump-version.ps1 -Version {{.BUMP}}

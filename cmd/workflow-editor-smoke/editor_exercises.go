@@ -117,6 +117,7 @@ func exerciseMultigraph(ctx context.Context, client *browsercdp.WebSocketClient,
 		return fmt.Errorf("add graph annotation: %w", err)
 	}
 	if err := eval(ctx, client, `(async () => {
+		await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 		const canvas = document.querySelector('[data-testid="workflow-canvas"]');
 		const annotation = document.querySelector('[data-testid="workflow-annotation"]');
 		const textarea = annotation?.querySelector('textarea');

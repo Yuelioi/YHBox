@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/services/asset"
 )
@@ -74,17 +75,20 @@ func (s *Service) emitChangedSince(before uint64) {
 
 // Save 写盘 (新建或覆盖). clip.ID = GUID. 字节走 blob 池去重, 元数据进记录.
 func (s *Service) Save(clip *InputClip) error {
-	if clip.ID == "" {
-		return fmt.Errorf("clip id 不能为空")
+	if s.store == nil {
+		return problem("input_clip.store_unavailable", apperr.CategoryInfrastructure, nil, true, fmt.Errorf("clip store is unavailable"))
+	}
+	if clip == nil || clip.ID == "" {
+		return problem("input_clip.invalid", apperr.CategoryValidation, nil, false, fmt.Errorf("clip id is required"))
 	}
 	before := s.store.Revision()
 	defer s.emitChangedSince(before)
 	var buf bytes.Buffer
 	if err := Encode(&buf, clip); err != nil {
-		return fmt.Errorf("encode clip: %w", err)
+		return problem("input_clip.invalid", apperr.CategoryValidation, map[string]any{"id": clip.ID}, false, err)
 	}
 	if _, err := Decode(bytes.NewReader(buf.Bytes())); err != nil {
-		return fmt.Errorf("verify encoded clip: %w", err)
+		return problem("input_clip.invalid", apperr.CategoryValidation, map[string]any{"id": clip.ID}, false, err)
 	}
 	createdAt := clip.CreatedAt
 	if createdAt == "" {
@@ -107,7 +111,7 @@ func (s *Service) Save(clip *InputClip) error {
 		return rec
 	})
 	if err != nil {
-		return fmt.Errorf("commit clip blob: %w", err)
+		return problem("input_clip.save_failed", apperr.CategoryInfrastructure, map[string]any{"id": clip.ID}, true, err)
 	}
 	clip.Blob = ref
 	return nil
@@ -117,23 +121,26 @@ func (s *Service) Save(clip *InputClip) error {
 // intentionally excluded from ordinary JSON; EventPage exposes a bounded
 // diagnostic window for the precise-recording workbench.
 func (s *Service) Get(id string) (*InputClip, error) {
+	if s.store == nil {
+		return nil, problem("input_clip.store_unavailable", apperr.CategoryInfrastructure, nil, true, fmt.Errorf("clip store is unavailable"))
+	}
 	rec, ok, err := s.store.Record(id)
 	if err != nil {
-		return nil, fmt.Errorf("read clip record %q: %w", id, err)
+		return nil, problem("input_clip.load_failed", apperr.CategoryInfrastructure, map[string]any{"id": id}, true, err)
 	}
 	if !ok || rec.Kind != asset.KindClip {
-		return nil, fmt.Errorf("clip %q not found", id)
+		return nil, problem("input_clip.not_found", apperr.CategoryDomain, map[string]any{"id": id}, false, fmt.Errorf("clip not found"))
 	}
 	if rec.Blob == nil {
-		return nil, fmt.Errorf("clip %q has no blob reference", id)
+		return nil, problem("input_clip.load_failed", apperr.CategoryInfrastructure, map[string]any{"id": id}, false, fmt.Errorf("clip has no blob reference"))
 	}
 	data, err := s.store.ReadBlob(context.Background(), *rec.Blob)
 	if err != nil {
-		return nil, fmt.Errorf("read clip blob %q: %w", id, err)
+		return nil, problem("input_clip.load_failed", apperr.CategoryInfrastructure, map[string]any{"id": id}, true, err)
 	}
 	clip, err := Decode(bytes.NewReader(data))
 	if err != nil {
-		return nil, fmt.Errorf("decode clip %q: %w", id, err)
+		return nil, problem("input_clip.corrupt", apperr.CategoryDomain, map[string]any{"id": id}, false, err)
 	}
 	clip.ID = rec.GUID
 	clip.Label = rec.Name
@@ -147,7 +154,7 @@ func (s *Service) Get(id string) (*InputClip, error) {
 
 func (s *Service) Events(id string, offset, limit int) (EventPage, error) {
 	if offset < 0 || limit <= 0 || limit > maxEventPageSize {
-		return EventPage{}, fmt.Errorf("clip event page is outside the bounded range")
+		return EventPage{}, problem("input_clip.events.invalid_page", apperr.CategoryValidation, nil, false, fmt.Errorf("clip event page is outside the bounded range"))
 	}
 	clip, err := s.Get(id)
 	if err != nil {
@@ -164,10 +171,13 @@ func (s *Service) Events(id string, offset, limit int) (EventPage, error) {
 
 // List 列所有 clip 摘要 (不带 events, 列表视图用). 解 blob header 取 metadata.
 func (s *Service) List() ([]ClipSummary, error) {
+	if s.store == nil {
+		return nil, problem("input_clip.store_unavailable", apperr.CategoryInfrastructure, nil, true, fmt.Errorf("clip store is unavailable"))
+	}
 	out := []ClipSummary{}
 	records, err := s.store.Records()
 	if err != nil {
-		return nil, fmt.Errorf("list clip records: %w", err)
+		return nil, problem("input_clip.list_failed", apperr.CategoryInfrastructure, nil, true, err)
 	}
 	for _, rec := range records {
 		if rec.Kind != asset.KindClip {
@@ -238,20 +248,26 @@ func EventTracks(events []Event) []EventTrack {
 
 // Delete 删 clip 记录 (blob 由 GC 回收孤儿字节).
 func (s *Service) Delete(id string) error {
+	if s.store == nil {
+		return problem("input_clip.store_unavailable", apperr.CategoryInfrastructure, nil, true, fmt.Errorf("clip store is unavailable"))
+	}
 	before := s.store.Revision()
 	defer s.emitChangedSince(before)
 	if err := s.store.DeleteRecord(id); err != nil {
-		return err
+		return problem("input_clip.delete_failed", apperr.CategoryInfrastructure, map[string]any{"id": id}, true, err)
 	}
 	return nil
 }
 
 // Update only changes presentation metadata; the content-addressed carrier remains stable.
 func (s *Service) Update(id string, label, description, category string, tags []string) error {
+	if s.store == nil {
+		return problem("input_clip.store_unavailable", apperr.CategoryInfrastructure, nil, true, fmt.Errorf("clip store is unavailable"))
+	}
 	before := s.store.Revision()
 	defer s.emitChangedSince(before)
 	if err := s.store.PutRecordMeta(id, label, description, category, tags); err != nil {
-		return err
+		return problem("input_clip.update_failed", apperr.CategoryInfrastructure, map[string]any{"id": id}, true, err)
 	}
 	return nil
 }

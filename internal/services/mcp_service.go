@@ -32,7 +32,7 @@ func (*MCPService) RegisterCodex(port int) error {
 		if configured == endpoint {
 			return nil
 		}
-		return fmt.Errorf("Codex already has an MCP server named yotta at %s; remove or rename it first", configured)
+		return fmt.Errorf("codex already has an MCP server named yotta at %s; remove or rename it first", configured)
 	}
 	if !errors.Is(err, exec.ErrNotFound) {
 		var exitErr *exec.ExitError
@@ -42,7 +42,7 @@ func (*MCPService) RegisterCodex(port int) error {
 	}
 	cmd, err := codexcli.CommandContext(ctx, "mcp", "add", "yotta", "--url", endpoint)
 	if err != nil {
-		return errors.New("Codex CLI is not installed or is unavailable on PATH")
+		return errors.New("codex CLI is not installed or is unavailable on PATH")
 	}
 	if output, runErr := cmd.CombinedOutput(); runErr != nil {
 		return fmt.Errorf("register Yotta with Codex: %w: %s", runErr, boundedCommandOutput(output))
@@ -63,7 +63,7 @@ func (*MCPService) UnregisterCodex(port int) error {
 	}
 	parsed, err := url.Parse(configured)
 	if err != nil || parsed.Hostname() != "127.0.0.1" || parsed.Path != "/mcp" || parsed.Port() != strconv.Itoa(port) {
-		return errors.New("Codex yotta entry is not owned by this Yotta endpoint")
+		return errors.New("codex yotta entry is not owned by this Yotta endpoint")
 	}
 	cmd, err := codexcli.CommandContext(ctx, "mcp", "remove", "yotta")
 	if err != nil {
@@ -90,7 +90,7 @@ func readCodexYottaMCP(ctx context.Context) (string, error) {
 		} `json:"transport"`
 	}
 	if err := json.Unmarshal(raw, &configured); err != nil || configured.Transport.URL == "" {
-		return "", errors.New("Codex returned an invalid Yotta MCP configuration")
+		return "", errors.New("codex returned an invalid Yotta MCP configuration")
 	}
 	return configured.Transport.URL, nil
 }

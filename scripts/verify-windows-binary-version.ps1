@@ -12,11 +12,13 @@ if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
 if ([string]::IsNullOrWhiteSpace($ExpectedVersion)) {
     $ExpectedVersion = [System.IO.File]::ReadAllText((Resolve-Path -LiteralPath "VERSION")).Trim()
 }
-if ($ExpectedVersion -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') {
-    throw "expected product version is not numeric SemVer: $ExpectedVersion"
+$versionMatch = [regex]::Match($ExpectedVersion, '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-alpha\.([1-9][0-9]*))?$')
+if (-not $versionMatch.Success) {
+    throw "expected product version is not a supported SemVer: $ExpectedVersion"
 }
 
-$expectedWindowsVersion = "${ExpectedVersion}.0"
+$revision = if ($versionMatch.Groups[4].Success) { $versionMatch.Groups[4].Value } else { "0" }
+$expectedWindowsVersion = "$($versionMatch.Groups[1].Value).$($versionMatch.Groups[2].Value).$($versionMatch.Groups[3].Value).${revision}"
 $item = Get-Item -LiteralPath $Path
 $versionInfo = $item.VersionInfo
 if ($versionInfo.FileVersionRaw.ToString() -ne $expectedWindowsVersion) {

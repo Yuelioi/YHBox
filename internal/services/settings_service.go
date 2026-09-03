@@ -2,9 +2,11 @@ package services
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/yottaapp/yotta/internal/ai"
+	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/artifact"
 )
 
@@ -41,7 +43,7 @@ func (s *SettingsService) Update(patchJSON string) error {
 			previousApplications[configured.Slot] = struct{}{}
 		}
 		if err := ApplyMergePatch(settings, patch); err != nil {
-			return fmt.Errorf("apply patch: %w", err)
+			return fmt.Errorf("%w: %v", &settingsUpdateError{ID: "settings.update.invalid", Category: apperr.CategoryValidation}, err)
 		}
 		removeTargetsForRemovedApplications(settings, previousApplications)
 		for index := range settings.AI.Profiles {
@@ -71,13 +73,31 @@ func (s *SettingsService) Update(patchJSON string) error {
 		s.deleteRemovedAISecrets(old, cur)
 	})
 	if err != nil && cur == nil {
-		return err
+		var provider apperr.EnvelopeProvider
+		if errors.As(err, &provider) {
+			return err
+		}
+		return fmt.Errorf("%w: %v", &settingsUpdateError{ID: "settings.update_failed", Category: apperr.CategoryInfrastructure, Retryable: true}, err)
 	}
-	commitErr := err
+	var commitErr error
+	if err != nil {
+		commitErr = fmt.Errorf("%w: %v", &settingsUpdateError{ID: "settings.update.committed_sync_failed", Category: apperr.CategoryInfrastructure}, err)
+	}
 
 	// 通知所有 webview（尤其独立悬浮窗这种自带 store 的窗口）设置已变 → 各自 reload。
 	s.app.Emit("settings:changed", map[string]any{})
 	return commitErr
+}
+
+type settingsUpdateError struct {
+	ID        string
+	Category  string
+	Retryable bool
+}
+
+func (e *settingsUpdateError) Error() string { return e.ID }
+func (e *settingsUpdateError) RPCErrorEnvelope() apperr.Envelope {
+	return apperr.Envelope{ID: e.ID, Category: e.Category, Retryable: e.Retryable}
 }
 
 func removeTargetsForRemovedApplications(settings *Settings, previous map[string]struct{}) {

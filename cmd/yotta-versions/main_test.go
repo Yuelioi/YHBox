@@ -16,10 +16,26 @@ func TestParseProductVersionAndWindowsProjection(t *testing.T) {
 	if version.String() != "3.1.0" || version.WindowsManifest() != "3.1.0.0" {
 		t.Fatalf("unexpected projections: %s / %s", version, version.WindowsManifest())
 	}
-	for _, invalid := range []string{"3.1", "03.1.0", "3.1.0-beta.1", "256.0.0", "1.256.0", "1.0.65536"} {
+	alpha, err := parseProductVersion("4.0.0-alpha.2")
+	if err != nil || alpha.String() != "4.0.0-alpha.2" || alpha.WindowsManifest() != "4.0.0.2" {
+		t.Fatalf("unexpected alpha projections: %s / %s / %v", alpha, alpha.WindowsManifest(), err)
+	}
+	for _, invalid := range []string{"3.1", "03.1.0", "3.1.0-beta.1", "3.1.0-alpha2", "3.1.0-alpha.0", "256.0.0", "1.256.0", "1.0.65536", "1.0.0-alpha.65536"} {
 		if _, err := parseProductVersion(invalid); err == nil {
 			t.Fatalf("parseProductVersion(%q) succeeded", invalid)
 		}
+	}
+}
+
+func TestNextProductVersion(t *testing.T) {
+	alpha, _ := parseProductVersion("4.0.0-alpha.2")
+	next, err := nextProductVersion(alpha, "alpha")
+	if err != nil || next.String() != "4.0.0-alpha.3" || next.WindowsManifest() != "4.0.0.3" {
+		t.Fatalf("next alpha = %s / %s / %v", next, next.WindowsManifest(), err)
+	}
+	stable, _ := parseProductVersion("4.0.0")
+	if _, err := nextProductVersion(stable, "alpha"); err == nil {
+		t.Fatal("alpha increment accepted a stable version")
 	}
 }
 
@@ -48,6 +64,25 @@ func TestProjectionFormats(t *testing.T) {
 	if projected.Fixed.FileVersion != "3.2.4.0" || projected.Fixed.ProductVersion != "3.2.4.0" ||
 		projected.Info["0409"]["FileVersion"] != "3.2.4" || projected.Info["0409"]["ProductVersion"] != "3.2.4" {
 		t.Fatalf("unexpected Windows info projection: %+v", projected)
+	}
+}
+
+func TestAlphaProjectionFormats(t *testing.T) {
+	version, _ := parseProductVersion("4.0.0-alpha.2")
+	config, err := projectWailsConfig([]byte("  version: \"4.0.1\"\n"), version)
+	if err != nil || !strings.Contains(string(config), `version: "4.0.0-alpha.2"`) {
+		t.Fatalf("projectWailsConfig = %q, %v", config, err)
+	}
+	info, err := projectWindowsInfo([]byte(`{"fixed":{},"info":{"0409":{}}}`), version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var projected windowsInfo
+	if err := json.Unmarshal(info, &projected); err != nil {
+		t.Fatal(err)
+	}
+	if projected.Fixed.FileVersion != "4.0.0.2" || projected.Info["0409"]["ProductVersion"] != "4.0.0-alpha.2" {
+		t.Fatalf("alpha Windows projection = %#v", projected)
 	}
 }
 

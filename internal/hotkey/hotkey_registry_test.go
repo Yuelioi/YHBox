@@ -5,7 +5,26 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/yottaapp/yotta/internal/apperr"
 )
+
+func TestHotkeyValidationErrorsProjectStableProblems(t *testing.T) {
+	tests := []struct {
+		err error
+		id  string
+	}{
+		{&HotkeyConflictError{Key: "action.a", ConflictKey: "action.b", Label: "hotkeys.label.workflow"}, "hotkey.conflict"},
+		{&HotkeyReservedError{Hotkey: "Ctrl+C", Reason: "raw reason"}, "hotkey.reserved"},
+		{&HotkeyInvalidError{Hotkey: "Nope", Reason: "raw reason"}, "hotkey.invalid"},
+	}
+	for _, test := range tests {
+		envelope := apperr.From(test.err)
+		if envelope.ID != test.id || envelope.Category != apperr.CategoryValidation || envelope.OperationID == "" {
+			t.Fatalf("%T projected %#v", test.err, envelope)
+		}
+	}
+}
 
 func TestRegistry_RegisterBasicEntry(t *testing.T) {
 	mgr := newTestHotkeyManager()

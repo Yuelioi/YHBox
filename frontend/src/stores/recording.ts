@@ -361,11 +361,7 @@ export const useRecordingStore = defineStore('recording', () => {
   Events.On('recording:completed', (event: unknown) => {
     const payload = eventPayload(event)
     if (!isRecord(payload)) return
-    const projected = isRecord(payload.problem)
-      ? (payload.problem as NormalizedError)
-      : typeof payload.error === 'string' && payload.error
-        ? { id: 'recording.stop.unstructured_failure', category: 'infrastructure' }
-        : null
+    const projected = isRecord(payload.problem) ? (payload.problem as NormalizedError) : null
     if (!projected?.id) return
     completionFailure.value = {
       revision: (completionFailure.value?.revision ?? 0) + 1,

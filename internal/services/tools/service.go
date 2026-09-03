@@ -209,7 +209,7 @@ func (s *Service) MousePos(targetSlot string) (MousePosInfo, error) {
 	sx, sy, err := readCursor()
 	info := MousePosInfo{ScreenX: sx, ScreenY: sy}
 	if err != nil {
-		return info, err
+		return info, toolError("tools.mouse_position_failed", apperr.CategoryAdapter, nil, true, err)
 	}
 	wh, hasGame := s.gameWindowFor(targetSlot)
 	if !hasGame {
@@ -223,7 +223,7 @@ func (s *Service) MousePos(targetSlot string) (MousePosInfo, error) {
 	info.ClientW, info.ClientH = cw, ch
 	cx, cy, err := screenToClient(hwnd, sx, sy)
 	if err != nil {
-		return info, err
+		return info, toolError("tools.mouse_position_failed", apperr.CategoryAdapter, map[string]any{"slot": targetSlot}, true, err)
 	}
 	info.ClientX, info.ClientY = cx, cy
 	if cw > 0 {
@@ -246,7 +246,7 @@ func (s *Service) OpenMouseHUD(targetSlot string) error {
 		TargetSlot: targetSlot,
 	}, nil)
 	if err != nil {
-		return err
+		return toolError("tools.window_open_failed", apperr.CategoryInfrastructure, map[string]any{"window": "mouse_hud"}, true, err)
 	}
 	if !opened && w != nil {
 		w.Focus()
@@ -264,7 +264,7 @@ func (s *Service) OpenRecordingHUD() error {
 	}
 	w, opened, err := s.openWindow(presenter, &s.recordingHUD, WindowRequest{Kind: WindowRecordingHUD}, nil)
 	if err != nil {
-		return err
+		return toolError("tools.window_open_failed", apperr.CategoryInfrastructure, map[string]any{"window": "recording_hud"}, true, err)
 	}
 	if !opened && w != nil {
 		w.Focus()
@@ -289,7 +289,7 @@ func (s *Service) OpenLauncher() error {
 		}
 	})
 	if err != nil {
-		return err
+		return toolError("tools.window_open_failed", apperr.CategoryInfrastructure, map[string]any{"window": "launcher"}, true, err)
 	}
 	s.mu.Lock()
 	s.launcherVisible = true
@@ -314,7 +314,7 @@ func (s *Service) OpenLauncherSettings() error {
 		return apperr.New(apperr.CodeWailsNotReady, nil)
 	}
 	if err := presenter.ShowMain(); err != nil {
-		return err
+		return toolError("tools.window_open_failed", apperr.CategoryInfrastructure, map[string]any{"window": "main"}, true, err)
 	}
 	presenter.Emit("main:navigate", map[string]string{"path": "/settings", "section": "launcher"})
 	return nil
@@ -412,7 +412,7 @@ func (s *Service) OpenCalibratorHUD(requestID string) (bool, error) {
 		}
 	})
 	if err != nil {
-		return false, err
+		return false, toolError("tools.window_open_failed", apperr.CategoryInfrastructure, map[string]any{"window": "calibrator"}, true, err)
 	}
 	if !opened && w != nil {
 		w.Focus()
@@ -455,22 +455,22 @@ func (s *Service) CloseRecordingHUD() {
 // guid 仅 template_recapture 模式需要（重拍目标资产 GUID，存成同 GUID 的新分辨率档）；其他模式传 ""。
 func (s *Service) OpenScreenPicker(mode, requestID, targetSlot, colorSpace, guid string) error {
 	if mode != "point" && mode != "rect" && mode != "template_save" && mode != "workflow_resource" && mode != "workflow_resource_version" && mode != "template_recapture" && mode != "color" {
-		return fmt.Errorf("unsupported mode %q", mode)
+		return toolError("tools.picker.invalid", apperr.CategoryValidation, map[string]any{"field": "mode"}, false, fmt.Errorf("unsupported mode %q", mode))
 	}
 	if requestID == "" {
-		return fmt.Errorf("requestID 不能为空")
+		return toolError("tools.picker.invalid", apperr.CategoryValidation, map[string]any{"field": "requestId"}, false, fmt.Errorf("requestID is required"))
 	}
 	if s.resolver == nil {
-		return errors.New("installed target resolver is unavailable")
+		return toolError("tools.target_unavailable", apperr.CategoryInfrastructure, nil, true, errors.New("installed target resolver is unavailable"))
 	}
 	tg, err := s.resolver.ResolveTarget(context.Background(), targetSlot)
 	if err != nil {
-		return err
+		return toolError("tools.target_resolve_failed", apperr.CategoryDomain, map[string]any{"slot": targetSlot}, true, err)
 	}
-	return s.targetTools.OpenPicker(tg, PickerRequest{
+	return toolError("tools.picker.open_failed", apperr.CategoryAdapter, map[string]any{"slot": targetSlot}, true, s.targetTools.OpenPicker(tg, PickerRequest{
 		Mode: mode, RequestID: requestID, TargetSlot: targetSlot,
 		ColorSpace: colorSpace, GUID: guid,
-	})
+	}))
 }
 
 // ClosePicker 由 picker 完成后或取消时调，前端拿不到 self window handle，
@@ -507,7 +507,7 @@ func (s *Service) ClosePicker(requestID string) error {
 // → 前端收 event 填表. 取代旧 CaptureForegroundWindow (用户在游戏前台时无法点按钮).
 func (s *Service) StartWin32WindowTargetCapture() (string, error) {
 	if err := win32WindowCaptureSupported(); err != nil {
-		return "", err
+		return "", toolError("tools.window_capture_unsupported", apperr.CategoryDomain, nil, false, err)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -526,14 +526,15 @@ func (s *Service) StartWin32WindowTargetCapture() (string, error) {
 	if presenter == nil || !presenter.Ready() {
 		return "", apperr.New(apperr.CodeWailsNotReady, nil)
 	}
-	return startWin32WindowTargetCapture(mods, vk, func(name string, data any) {
+	result, err := startWin32WindowTargetCapture(mods, vk, func(name string, data any) {
 		presenter.Emit(name, data)
 	})
+	return result, toolError("tools.window_capture_start_failed", apperr.CategoryAdapter, nil, true, err)
 }
 
 // CancelWin32WindowTargetCapture 主动 cancel 一个等待中的 capture session.
 // captureID 必须匹配 — 不匹配 / 无活跃 session 都返 nil (idempotent).
 // 前端组件 unmount / 用户再点按钮取消都调本 RPC.
 func (s *Service) CancelWin32WindowTargetCapture(captureID string) error {
-	return cancelWin32WindowTargetCapture(captureID)
+	return toolError("tools.window_capture_cancel_failed", apperr.CategoryAdapter, nil, true, cancelWin32WindowTargetCapture(captureID))
 }

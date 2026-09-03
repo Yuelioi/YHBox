@@ -1,8 +1,11 @@
 package hotkey
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/yottaapp/yotta/internal/apperr"
 )
 
 // HotkeyService 是 wails3 binding RPC 入口，前端通过它读/改热键。
@@ -67,19 +70,32 @@ func (s *HotkeyService) Reconcile() {
 // Update 改某 entry 的热键绑定。hotkeyStr="" 表示清空。
 // error message 带 [conflict] / [reserved] / [invalid] 前缀让前端做分类 toast。
 func (s *HotkeyService) Update(key, hotkeyStr string) error {
-	return s.reg.Update(key, hotkeyStr)
+	if err := s.reg.Update(key, hotkeyStr); err != nil {
+		var projected apperr.EnvelopeProvider
+		if errors.As(err, &projected) {
+			return err
+		}
+		return fmt.Errorf("%w: %v", apperr.New("hotkey.update_failed", map[string]any{"key": key}), err)
+	}
+	return nil
 }
 
 // Pause 临时反注册所有 OS hotkey。前端 HotkeyCaptureInput 进入捕获模式时调，
 // 不暂停的话 Win32 会拦截已注册组合（如 Ctrl+Shift+1）直接派发给原 action，
 // webview 收不到 keystroke。
 func (s *HotkeyService) Pause() error {
-	return s.reg.Pause()
+	if err := s.reg.Pause(); err != nil {
+		return fmt.Errorf("%w: %v", apperr.New("hotkey.pause_failed", nil), err)
+	}
+	return nil
 }
 
 // Resume Pause 的反操作。前端 stopListening 时调。
 func (s *HotkeyService) Resume() error {
-	return s.reg.Resume()
+	if err := s.reg.Resume(); err != nil {
+		return fmt.Errorf("%w: %v", apperr.New("hotkey.resume_failed", nil), err)
+	}
+	return nil
 }
 
 // RegisterEditor 暴露给 FE — useEditorHotkeys onActivated 时调。

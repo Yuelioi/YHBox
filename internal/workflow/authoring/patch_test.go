@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"slices"
 	"strings"
 	"testing"
 
@@ -719,7 +720,9 @@ func TestEngineUpdatesCallableSubgraphInterfaceAsOneCommand(t *testing.T) {
 		},
 	}})
 	var patchErr *authoring.PatchError
-	if !errors.As(err, &patchErr) || patchErr.Code != "INVALID_RESULT" {
+	if !errors.As(err, &patchErr) || patchErr.Code != schema.CodeInvalidField ||
+		!slices.Equal(patchErr.GraphPath, []string{"child"}) ||
+		!slices.Equal(patchErr.FieldPath, []string{"graphs", "1", "entries"}) {
 		t.Fatalf("multiple entry error = %#v", err)
 	}
 }

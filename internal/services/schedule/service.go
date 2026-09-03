@@ -2,11 +2,13 @@ package schedule
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/yottaapp/yotta/internal/apperr"
 )
 
 // ChangeListener Schedule CRUD 后回调，main.go 注入 daemon.Reload。
@@ -35,6 +37,25 @@ func (e *PostCommitError) Error() string {
 }
 func (e *PostCommitError) Unwrap() error   { return e.Err }
 func (e *PostCommitError) Committed() bool { return true }
+func (e *PostCommitError) RPCErrorEnvelope() apperr.Envelope {
+	return apperr.Envelope{ID: "schedule.committed_reload_failed", Category: apperr.CategoryInfrastructure, Params: map[string]any{"operation": e.Operation}}
+}
+
+type serviceError struct {
+	id        string
+	category  string
+	params    map[string]any
+	retryable bool
+}
+
+func (e serviceError) Error() string { return e.id }
+func (e serviceError) RPCErrorEnvelope() apperr.Envelope {
+	return apperr.Envelope{ID: e.id, Category: e.category, Params: e.params, Retryable: e.retryable}
+}
+
+func scheduleProblem(id, category string, params map[string]any, retryable bool, cause error) error {
+	return errors.Join(serviceError{id: id, category: category, params: params, retryable: retryable}, cause)
+}
 
 type Service struct {
 	store      *Store
@@ -66,16 +87,20 @@ func (s *Service) List() []Schedule {
 func (s *Service) Get(id string) (Schedule, error) {
 	sc, ok := s.store.Get(id)
 	if !ok {
-		return Schedule{}, fmt.Errorf("schedule %q not found", id)
+		return Schedule{}, scheduleProblem("schedule.not_found", apperr.CategoryDomain, map[string]any{"id": id}, false, fmt.Errorf("schedule %q not found", id))
 	}
 	return sc, nil
 }
 
 func (s *Service) FireNow(id string) (FireResult, error) {
 	if s.manualFire == nil {
-		return FireResult{}, fmt.Errorf("schedule runner is unavailable")
+		return FireResult{}, scheduleProblem("schedule.runner_unavailable", apperr.CategoryInfrastructure, nil, true, fmt.Errorf("schedule runner is unavailable"))
 	}
-	return s.manualFire(id)
+	result, err := s.manualFire(id)
+	if err != nil {
+		return result, scheduleProblem("schedule.fire_failed", apperr.CategoryDomain, map[string]any{"id": id}, false, err)
+	}
+	return result, nil
 }
 
 // Create 返一个 default Schedule，不持久化。前端拿到 default 让用户改 + 按"保存"调 Save。
@@ -98,7 +123,7 @@ func (s *Service) Create(name string) (Schedule, error) {
 // Save 持久化一个完整 Schedule（首次或后续）。
 func (s *Service) Save(sc Schedule) error {
 	if err := s.store.Save(&sc); err != nil {
-		return err
+		return scheduleProblem("schedule.save_failed", apperr.CategoryInfrastructure, map[string]any{"id": sc.ID}, true, err)
 	}
 	if err := s.emitChange(); err != nil {
 		return &PostCommitError{Operation: "save", Err: err}
@@ -110,19 +135,19 @@ func (s *Service) Save(sc Schedule) error {
 func (s *Service) Update(id string, patchJSON string) error {
 	sc, ok := s.store.Get(id)
 	if !ok {
-		return fmt.Errorf("schedule %q not found", id)
+		return scheduleProblem("schedule.not_found", apperr.CategoryDomain, map[string]any{"id": id}, false, fmt.Errorf("schedule %q not found", id))
 	}
 	decoder := json.NewDecoder(strings.NewReader(patchJSON))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&sc); err != nil {
-		return fmt.Errorf("parse patchJSON: %w", err)
+		return scheduleProblem("schedule.update.invalid_patch", apperr.CategoryValidation, map[string]any{"id": id}, false, err)
 	}
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		return fmt.Errorf("parse patchJSON: expected exactly one JSON object")
+		return scheduleProblem("schedule.update.invalid_patch", apperr.CategoryValidation, map[string]any{"id": id}, false, fmt.Errorf("expected exactly one JSON object"))
 	}
 	sc.ID = id // 防 patch 改 ID 触发 path traversal
 	if err := s.store.Save(&sc); err != nil {
-		return err
+		return scheduleProblem("schedule.save_failed", apperr.CategoryInfrastructure, map[string]any{"id": id}, true, err)
 	}
 	if err := s.emitChange(); err != nil {
 		return &PostCommitError{Operation: "update", Err: err}
@@ -132,7 +157,7 @@ func (s *Service) Update(id string, patchJSON string) error {
 
 func (s *Service) Delete(id string) error {
 	if err := s.store.Delete(id); err != nil {
-		return err
+		return scheduleProblem("schedule.delete_failed", apperr.CategoryInfrastructure, map[string]any{"id": id}, true, err)
 	}
 	if err := s.emitChange(); err != nil {
 		return &PostCommitError{Operation: "delete", Err: err}

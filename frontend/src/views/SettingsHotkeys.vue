@@ -56,12 +56,14 @@
               {{ t(entry.label, entry.labelParams ?? {}) }}
             </div>
             <div
-              v-if="entry.lastError"
+              v-if="entry.problem"
               class="mt-1 flex items-start gap-1.5 text-xs leading-relaxed text-error"
               role="alert"
             >
               <UIcon name="i-tabler-alert-circle" class="mt-0.5 size-3.5 shrink-0" />
-              <span>{{ t('hotkeys.status.register_failed') }}：{{ entry.lastError }}</span>
+              <span
+                >{{ t('hotkeys.status.register_failed') }}：{{ errorMessage(entry.problem) }}</span
+              >
             </div>
             <div v-else-if="entry.readonlyReason" class="mt-1 text-xs text-dimmed">
               {{ entry.readonlyReason }}
@@ -125,7 +127,7 @@ const persistentEntries = computed(() =>
   store.list.filter(
     (entry) =>
       entry.source !== 'launcher' &&
-      (entry.source !== 'action' || entry.status !== 'unbound' || Boolean(entry.lastError)),
+      (entry.source !== 'action' || entry.status !== 'unbound' || Boolean(entry.problem)),
   ),
 )
 const failedCount = computed(

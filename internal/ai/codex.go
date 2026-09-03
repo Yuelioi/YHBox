@@ -23,7 +23,7 @@ type codexProvider struct{ profile ModelProfile }
 
 func newCodexProvider(profile ModelProfile) (*codexProvider, error) {
 	if !profile.Valid() || profile.Machine().Provider != ProviderCodexSubscription {
-		return nil, errors.New("Codex provider requires a Codex subscription profile")
+		return nil, errors.New("codex provider requires a Codex subscription profile")
 	}
 	return &codexProvider{profile: profile}, nil
 }
@@ -231,7 +231,7 @@ func (c *codexClient) requireChatGPTAccount() error {
 		return err
 	}
 	if response.Account == nil || response.Account.Type != "chatgpt" {
-		return errors.New("Codex is not signed in with a ChatGPT subscription; run `codex login`")
+		return errors.New("codex is not signed in with a ChatGPT subscription; run `codex login`")
 	}
 	return nil
 }
@@ -261,7 +261,7 @@ func (c *codexClient) startThread(profile ModelProfileDraft, tools []ToolManifes
 		return "", "", err
 	}
 	if response.Thread.ID == "" {
-		return "", "", errors.New("Codex app-server omitted the thread id")
+		return "", "", errors.New("codex app-server omitted the thread id")
 	}
 	return response.Thread.ID, response.Model, nil
 }
@@ -351,11 +351,11 @@ func (c *codexClient) readTurn() (codexTurnResult, error) {
 				return result, errors.New(message)
 			}
 			if result.text == "" {
-				return result, errors.New("Codex completed without a model response")
+				return result, errors.New("codex completed without a model response")
 			}
 			return result, nil
 		case "item/commandExecution/requestApproval", "item/fileChange/requestApproval", "item/permissions/requestApproval":
-			return result, errors.New("Codex requested an operation outside Yotta's bounded AI provider tools")
+			return result, errors.New("codex requested an operation outside Yotta's bounded AI provider tools")
 		}
 	}
 	return result, c.scanError()
@@ -422,9 +422,9 @@ func (c *codexClient) scanError() error {
 		detail = detail[len(detail)-4096:]
 	}
 	if detail != "" {
-		return fmt.Errorf("Codex app-server stopped: %s", detail)
+		return fmt.Errorf("codex app-server stopped: %s", detail)
 	}
-	return errors.New("Codex app-server stopped unexpectedly")
+	return errors.New("codex app-server stopped unexpectedly")
 }
 
 func (c *codexClient) close() {

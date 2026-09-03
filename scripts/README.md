@@ -24,7 +24,7 @@ Taskfile 复制一套并行命令；`task check` 是增量本地门禁，`task c
 | `smoke-windows-desktop-startup.ps1` | `task smoke:desktop` | 把已构建 GUI 与 worker 复制到隔离目录，验证启动后不会立即退出。 |
 | `smoke-storage-migration.ps1` | `task smoke:storage-migration` | 用冻结 layout 1 profile 触发 recovery，强停 GUI 后隔离阻塞记录、续接到当前 layout，并验证 production health/重启。 |
 | `verify-wails-version.ps1` | `task wails:verify` | 只读；校验 Wails Go/CLI/runtime pin 与已安装 CLI。 |
-| `bump-version.ps1` | `task version:bump BUMP=<patch|minor|major|x.y.z>` | 修改根 `VERSION` 并刷新投影；不 commit、不 tag。`-DryRun` 只报告。 |
+| `bump-version.ps1` | `task version:bump BUMP=<alpha|patch|minor|major|x.y.z[-alpha.N]>` | 修改根 `VERSION` 并刷新投影；alpha.N 映射到 Windows 第四段 N；不 commit、不 tag。`-DryRun` 只报告。 |
 | `stage-release.ps1` | `task release:stage` | **会重建** `artifacts/staging/Yotta` 并生成确定性 ZIP 与 artifact manifest。 |
 | `smoke-release-candidate.ps1` | `task release:smoke` | 将冻结 payload 复制到 `.task/`，运行 worker/plugin/CLI/桌面启动 smoke，并控制测试进程。 |
 | `write-release-checksums.ps1` | `.github/workflows/release.yml` | Release CI 专用；为指定发布产物写 `SHA256SUMS`。 |

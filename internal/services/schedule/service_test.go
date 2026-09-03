@@ -3,6 +3,8 @@ package schedule
 import (
 	"errors"
 	"testing"
+
+	"github.com/yottaapp/yotta/internal/apperr"
 )
 
 func TestScheduleService_CreateDefault(t *testing.T) {
@@ -25,6 +27,51 @@ func TestScheduleService_CreateDefault(t *testing.T) {
 	// Create 不持久化（spec），只返默认 Schedule
 	if len(s.List()) != 0 {
 		t.Error("Create should not persist; user calls Save")
+	}
+}
+
+func TestScheduleServiceProjectsStableProblems(t *testing.T) {
+	store, _ := NewStore(t.TempDir())
+	service := NewService(store)
+
+	_, err := service.Get("missing")
+	assertScheduleProblem(t, err, "schedule.not_found", apperr.CategoryDomain, false)
+
+	_, err = service.FireNow("missing")
+	assertScheduleProblem(t, err, "schedule.runner_unavailable", apperr.CategoryInfrastructure, true)
+
+	schedule, _ := service.Create("x")
+	schedule.Targets = []TargetRef{{Kind: TargetWorkflow, ID: "workflow-1"}}
+	if err := service.Save(schedule); err != nil {
+		t.Fatal(err)
+	}
+	assertScheduleProblem(t, service.Update(schedule.ID, `{"unknown":true}`), "schedule.update.invalid_patch", apperr.CategoryValidation, false)
+}
+
+func assertScheduleProblem(t *testing.T, err error, id, category string, retryable bool) {
+	t.Helper()
+	got := apperr.From(err)
+	if got.ID != id || got.Category != category || got.Retryable != retryable {
+		t.Fatalf("problem = %#v, want id=%q category=%q retryable=%v", got, id, category, retryable)
+	}
+}
+
+func TestSchedulePostCommitProblemProjection(t *testing.T) {
+	err := &PostCommitError{Operation: "save", Err: errors.New("private reload failure")}
+	problem := apperr.From(err)
+	if problem.ID != "schedule.committed_reload_failed" || problem.Category != apperr.CategoryInfrastructure || problem.Retryable {
+		t.Fatalf("problem = %#v", problem)
+	}
+	params, ok := problem.Params.(map[string]any)
+	if !ok || params["operation"] != "save" || !err.Committed() || !errors.Is(err, err.Err) {
+		t.Fatalf("post-commit semantics = %#v", problem)
+	}
+	if err.Error() == "" {
+		t.Fatal("post-commit error has no diagnostic string")
+	}
+	wrapped := scheduleProblem("schedule.test", apperr.CategoryDomain, nil, false, errors.New("private"))
+	if wrapped.Error() == "" {
+		t.Fatal("schedule problem has no diagnostic string")
 	}
 }
 

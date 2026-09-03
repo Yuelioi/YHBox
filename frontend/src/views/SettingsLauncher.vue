@@ -23,8 +23,8 @@
           <p class="settings-detail__hint">
             {{ t(`settingsLauncher.hotkey_${launcherHotkeyStatus}`) }}
           </p>
-          <p v-if="launcherHotkey?.lastError" class="mt-1 break-all text-xs text-error">
-            {{ launcherHotkey.lastError }}
+          <p v-if="launcherHotkey?.problem" class="mt-1 break-all text-xs text-error">
+            {{ errorMessage(launcherHotkey.problem) }}
           </p>
         </div>
         <UKbd v-if="launcherHotkey?.hotkeyStr" :value="launcherHotkey.hotkeyStr" />
@@ -325,6 +325,7 @@ import { VueDraggable } from 'vue-draggable-plus'
 import { useSettingsStore, type LauncherBlock } from '@/stores/settings'
 import { useHotkeysStore } from '@/stores/hotkeys'
 import { backend } from '@/lib/backend'
+import { errorMessage } from '@/lib/invoke'
 import { workflowTransport, type SourceView } from '@/app/transport/workflow'
 import IconPicker from '@/components/common/IconPicker.vue'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'

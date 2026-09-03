@@ -62,6 +62,12 @@ func TestServiceMetadataUpdatePreservesNominalBlobIdentity(t *testing.T) {
 	if _, err := service.Events(clip.ID, 0, maxEventPageSize+1); err == nil {
 		t.Fatal("oversized event page succeeded")
 	}
+	if err := service.Delete(clip.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Get(clip.ID); err == nil {
+		t.Fatal("deleted clip still loads")
+	}
 }
 
 func TestServiceListReportsUnsupportedCarrierInsteadOfHidingClip(t *testing.T) {
