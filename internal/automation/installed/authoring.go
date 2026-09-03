@@ -15,6 +15,10 @@ type AuthoringTargets struct {
 	state *authoringTargetState
 }
 
+type recordingTargetActivator interface {
+	ActivateAndResolveTarget(context.Context) (target.Target, error)
+}
+
 type authoringTargetState struct {
 	mu      sync.RWMutex
 	current Generation
@@ -115,10 +119,15 @@ func (targets AuthoringTargets) AcquireRecordingTarget(ctx context.Context, slot
 	if !ok {
 		return fail(errors.New("recording requires a desktop automation target"))
 	}
-	if err := provider.driver.Execute(ctx, OperationActivate, struct{}{}); err != nil {
-		return fail(err)
+	var resolved target.Target
+	if activator, ok := provider.driver.(recordingTargetActivator); ok {
+		resolved, err = activator.ActivateAndResolveTarget(ctx)
+	} else {
+		if err := provider.driver.Execute(ctx, OperationActivate, struct{}{}); err != nil {
+			return fail(err)
+		}
+		resolved, err = provider.driver.ResolveTarget(ctx)
 	}
-	resolved, err := provider.driver.ResolveTarget(ctx)
 	if err != nil {
 		return fail(err)
 	}

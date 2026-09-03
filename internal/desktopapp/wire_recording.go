@@ -53,6 +53,10 @@ func (a *recordingHkAdapter) GetPauseHotkeyVK() uint32 {
 	return a.hotkeyVK("recording.pause", 0x7A) // F11 fallback
 }
 
+func (a *recordingHkAdapter) GetCancelHotkeyVK() uint32 {
+	return a.hotkeyVK("recording.cancel", 0x76) // F7 fallback
+}
+
 func (a *recordingHkAdapter) hotkeyVK(key string, fallback uint32) uint32 {
 	if a.reg == nil {
 		return fallback

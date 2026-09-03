@@ -251,6 +251,8 @@ type UISettings struct {
 	// RecordingPauseHotkey 录制暂停/继续切换热键 (LL hook 拦截, 不透传游戏也不进 clip). 默认 "F11".
 	// 录制中按 → 暂停; 暂停中按 → 走 3s 倒计时后继续. 走热键避免点 HUD 按钮的点击被录进 clip.
 	RecordingPauseHotkey string `json:"recordingPauseHotkey"`
+	// RecordingCancelHotkey 丢弃当前录制的热键 (LL hook 拦截, 不透传游戏也不进 clip). 默认 "F7".
+	RecordingCancelHotkey string `json:"recordingCancelHotkey"`
 	// RecordingMouseMode 录制时鼠标语义. "relative" (FPS 相机 RawDelta, 默认) / "absolute" (UI 点击 MouseMove screen px).
 	// 决定 recorder drainLoop 是否窗口过滤. 改动需重启生效.
 	RecordingMouseMode string `json:"recordingMouseMode"`
@@ -347,15 +349,16 @@ func defaultSettings() *Settings {
 				PanelOpen: true, AutoScroll: true, ShowTime: true, ShowTag: true,
 				WrapText: false, WriteFile: true, FileDir: "",
 			},
-			Window:               WindowSettings{Width: 1100, Height: 720},
-			ActionStopHotkey:     "Ctrl+Shift+F9",
-			CalibrateHotkey:      "F8",
-			WindowCaptureHotkey:  "F9",
-			RecordingStopHotkey:  "F12",
-			RecordingStartHotkey: "F10",
-			RecordingPauseHotkey: "F11",
-			RecordingMouseMode:   "relative",
-			LauncherSize:         "medium",
+			Window:                WindowSettings{Width: 1100, Height: 720},
+			ActionStopHotkey:      "Ctrl+Shift+F9",
+			CalibrateHotkey:       "F8",
+			WindowCaptureHotkey:   "F9",
+			RecordingStopHotkey:   "F12",
+			RecordingStartHotkey:  "F10",
+			RecordingPauseHotkey:  "F11",
+			RecordingCancelHotkey: "F7",
+			RecordingMouseMode:    "relative",
+			LauncherSize:          "medium",
 			CanvasAssist: CanvasAssistSettings{
 				Display: "labels",
 				FavoriteNodeTypeIDs: []string{

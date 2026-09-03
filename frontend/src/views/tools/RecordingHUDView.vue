@@ -3,12 +3,20 @@
     icon="i-tabler-video"
     accent="error"
     :title="t('recordingHud.title')"
-    :subtitle="t('recordingHud.subtitle')"
     :status="windowStatus"
     :status-active="state === 'recording'"
     :close-title="t('recordingHud.close_hint')"
     @close="onCloseHud"
   >
+    <template #actions>
+      <span
+        class="grid size-7 place-items-center text-primary"
+        :title="t('recordingHud.pinned_hint')"
+        :aria-label="t('recordingHud.pinned_hint')"
+      >
+        <UIcon name="i-tabler-pin-filled" class="size-3.5" />
+      </span>
+    </template>
     <div class="flex min-h-0 flex-1 flex-col gap-3 p-3">
       <div class="live-hud__stage">
         <HudStatePanel
@@ -109,7 +117,8 @@
             class="flex-1"
             @click="onPause"
           >
-            {{ t('recordingHud.pause') }}
+            <span>{{ t('recordingHud.pause') }}</span>
+            <span class="recording-shortcut">{{ pauseKey }}</span>
           </UButton>
           <UButton
             v-else
@@ -120,7 +129,8 @@
             class="flex-1"
             @click="onResume"
           >
-            {{ t('recordingHud.resume') }}
+            <span>{{ t('recordingHud.resume') }}</span>
+            <span class="recording-shortcut">{{ pauseKey }}</span>
           </UButton>
           <UButton
             size="sm"
@@ -130,7 +140,8 @@
             :title="t('recordingHud.stop_hint', { key: stopKey })"
             @click="onStop"
           >
-            {{ t('recordingHud.stop') }}
+            <span>{{ t('recordingHud.stop') }}</span>
+            <span class="recording-shortcut">{{ stopKey }}</span>
           </UButton>
           <UButton
             size="sm"
@@ -140,7 +151,10 @@
             class="flex-1"
             @click="armOrCancel"
           >
-            {{ cancelArmed ? t('recordingHud.cancel_confirm') : t('recordingHud.cancel') }}
+            <span>{{
+              cancelArmed ? t('recordingHud.cancel_confirm') : t('recordingHud.cancel')
+            }}</span>
+            <span class="recording-shortcut">{{ cancelKey }}</span>
           </UButton>
         </template>
         <span v-else class="mx-auto text-xs text-dimmed">
@@ -167,10 +181,11 @@ const { t } = useI18n()
 const countdownSec = ref(0)
 const countdownEndsAt = ref(0)
 const resumeCountdown = ref(0) // >0 时显示"继续录制"倒计时 (优先于 paused 卡片)
-const startKey = ref('F10')
-const stopKey = ref('F12')
-const pauseKey = ref('F11') // 暂停/继续切换键标签
 const hotkeys = useHotkeysStore()
+const startKey = computed(() => hotkeys.keyFor('recording.start', 'F10'))
+const stopKey = computed(() => hotkeys.keyFor('recording.stop', 'F12'))
+const pauseKey = computed(() => hotkeys.keyFor('recording.pause', 'F11'))
+const cancelKey = computed(() => hotkeys.keyFor('recording.cancel', 'F7'))
 const mode = ref<'simple' | 'precise'>('simple')
 const elapsedMs = ref(0)
 let revision = 0
@@ -282,13 +297,14 @@ function applySnapshot(st: any) {
 onMounted(async () => {
   try {
     await hotkeys.reload()
-    startKey.value = hotkeyLabel('recording.start', 'F10')
-    pauseKey.value = hotkeyLabel('recording.pause', 'F11')
-    stopKey.value = hotkeyLabel('recording.stop', 'F12')
     applySnapshot(await backend.recording.getState())
   } catch (error) {
     console.warn('recording HUD reconcile failed', error)
   }
+})
+
+const offHotkeyChanged = backend.events.onHotkeyChanged(() => {
+  void hotkeys.reload()
 })
 
 // 暂停热键命中(后端)且当前 paused → emit 'recording:resume-hotkey' → HUD 走继续倒计时.
@@ -334,11 +350,8 @@ onUnmounted(() => {
   clearCancelTimer()
   offState?.()
   offResumeHotkey?.()
+  offHotkeyChanged?.()
 })
-
-function hotkeyLabel(key: string, fallback: string): string {
-  return hotkeys.list.find((entry) => entry.key === key)?.hotkeyStr || fallback
-}
 
 async function onStartCountdown() {
   try {
@@ -412,5 +425,13 @@ function onCloseHud() {
   min-width: 0;
   min-height: 0;
   flex: 1;
+}
+
+.recording-shortcut {
+  margin-inline-start: 0.2rem;
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 500;
+  opacity: 0.62;
 }
 </style>

@@ -110,6 +110,9 @@ var activePauseHotkeyVK uint32
 var activePauseCallback atomic.Pointer[func()]
 var pauseKeyHeld atomic.Bool
 
+var activeCancelHotkeyVK uint32
+var activeCancelCallback atomic.Pointer[func()]
+
 // InstallHooks 注册键盘+鼠标 LL hook。callback 在 OS hook 线程被调，
 // 非阻塞 push 到 events channel；channel 满则 drop（caller 自己定 cap）。
 // 返回的 HookHandle 必须由 caller 在停录时 Uninstall。
@@ -206,6 +209,14 @@ func keyboardProc(nCode, wParam, lParam uintptr) uintptr {
 			return 1
 		}
 
+		cancelVK := atomic.LoadUint32(&activeCancelHotkeyVK)
+		if isKeyDown && cancelVK != 0 && kbd.VkCode == cancelVK {
+			if cbp := activeCancelCallback.Swap(nil); cbp != nil {
+				go (*cbp)()
+			}
+			return 1
+		}
+
 		ev := HookEvent{
 			TimestampMs: kbd.Time,
 			IsKeyboard:  true,
@@ -241,6 +252,15 @@ func setActivePauseHotkey(vk uint32, callback func()) {
 		activePauseCallback.Store(nil)
 	} else {
 		activePauseCallback.Store(&callback)
+	}
+}
+
+func setActiveCancelHotkey(vk uint32, callback func()) {
+	atomic.StoreUint32(&activeCancelHotkeyVK, vk)
+	if callback == nil {
+		activeCancelCallback.Store(nil)
+	} else {
+		activeCancelCallback.Store(&callback)
 	}
 }
 

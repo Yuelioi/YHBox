@@ -94,24 +94,32 @@ func (s *memoryMacroStore) Save(value *macro.Macro) (*macro.Macro, error) {
 
 type recordingTargetResolver struct {
 	window     target.WindowHandle
+	windows    []target.WindowHandle
 	resolveErr error
 	counts360  int
 	released   int
+	calls      int
 }
 
 func (r *recordingTargetResolver) AcquireRecordingTarget(context.Context, string) (target.WindowHandle, int, func(), error) {
+	r.calls++
 	if r.resolveErr != nil {
 		return target.WindowHandle{}, 0, nil, r.resolveErr
 	}
-	return r.window, r.counts360, func() { r.released++ }, nil
+	window := r.window
+	if r.calls <= len(r.windows) {
+		window = r.windows[r.calls-1]
+	}
+	return window, r.counts360, func() { r.released++ }, nil
 }
 
 type recordingHotkeys struct{}
 
-func (recordingHotkeys) GetStartHotkeyVK() uint32 { return 0x79 }
-func (recordingHotkeys) GetStopHotkeyVK() uint32  { return 0x78 }
-func (recordingHotkeys) GetPauseHotkeyVK() uint32 { return 0 }
-func (recordingHotkeys) GetMouseMode() string     { return "absolute" }
+func (recordingHotkeys) GetStartHotkeyVK() uint32  { return 0x79 }
+func (recordingHotkeys) GetStopHotkeyVK() uint32   { return 0x78 }
+func (recordingHotkeys) GetPauseHotkeyVK() uint32  { return 0 }
+func (recordingHotkeys) GetCancelHotkeyVK() uint32 { return 0 }
+func (recordingHotkeys) GetMouseMode() string      { return "absolute" }
 
 type fakeStartHotkeyWatch struct {
 	callback func()
@@ -300,8 +308,44 @@ func TestServiceStartArmsThenCountsDownBeforeRecorderCapture(t *testing.T) {
 	if err := service.Cancel(); err != nil {
 		t.Fatal(err)
 	}
-	if targets.released != 1 {
-		t.Fatalf("recording target releases = %d, want 1", targets.released)
+	if targets.calls != 2 || targets.released != 2 {
+		t.Fatalf("recording target calls=%d releases=%d, want 2/2", targets.calls, targets.released)
+	}
+}
+
+func TestServiceCountdownRefusesAChangedReactivatedTarget(t *testing.T) {
+	recorder := &resultRecorder{}
+	targets := &recordingTargetResolver{windows: []target.WindowHandle{
+		{HWND: 42, ClientW: 1280, ClientH: 720},
+		{HWND: 84, ClientW: 1280, ClientH: 720},
+	}}
+	completed := make(chan map[string]any, 1)
+	service := NewService(recorder, recordingHotkeys{}, &memoryClipStore{}, nil, nil, targets, func(name string, data any) {
+		if name == "recording:completed" {
+			completed <- data.(map[string]any)
+		}
+	})
+	service.startHotkeyFactory = func(_ uint32, callback func()) startHotkeyWatch {
+		return &fakeStartHotkeyWatch{callback: callback}
+	}
+	if _, err := service.Start(StartArgs{TargetSlot: "editor", Mode: inputclip.RecordingModeSimple}); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.BeginCountdown(); err != nil {
+		t.Fatal(err)
+	}
+	service.finishCountdown(service.countdownGeneration.Load())
+	if recorder.hwnd != 0 || service.GetState().Phase != PhaseIdle || targets.released != 2 {
+		t.Fatalf("hwnd=%d state=%+v releases=%d", recorder.hwnd, service.GetState(), targets.released)
+	}
+	select {
+	case payload := <-completed:
+		problem, ok := payload["problem"].(apperr.Envelope)
+		if !ok || problem.ID != "recording.start.target_reactivation_failed" || problem.OperationID == "" {
+			t.Fatalf("reactivation problem = %#v", payload)
+		}
+	default:
+		t.Fatal("reactivation failure event was not emitted")
 	}
 }
 
@@ -352,13 +396,13 @@ func TestServiceStopReleasesExactRecordingTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	service.finishCountdown(service.countdownGeneration.Load())
-	if targets.released != 0 {
-		t.Fatalf("recording target released before Stop: %d", targets.released)
+	if targets.released != 1 {
+		t.Fatalf("reactivation lease releases = %d, want 1", targets.released)
 	}
 	if _, err := service.Stop(); err != nil {
 		t.Fatal(err)
 	}
-	if targets.released != 1 || service.GetState().Phase != PhasePending {
+	if targets.released != 2 || service.GetState().Phase != PhasePending {
 		t.Fatalf("released=%d state=%+v", targets.released, service.GetState())
 	}
 }

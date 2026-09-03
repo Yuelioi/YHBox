@@ -1,8 +1,8 @@
 export default {
   recordingHud: {
     title: '录制控制',
-    subtitle: '实时掌控本次输入采集',
     close_hint: '关闭控制窗；准备阶段会取消，录制中仅隐藏',
+    pinned_hint: '窗口保持置顶；请优先使用快捷键操作',
     preparing: '正在准备',
     preparing_hint: '正在连接录制服务',
     waiting: '等待开始',
@@ -10,7 +10,7 @@ export default {
     start_countdown: '开始倒计时',
     cancel_countdown: '取消倒计时',
     countdown: '倒计时',
-    countdown_hint: '倒计时结束后自动开始录制',
+    countdown_hint: '倒计时结束后将自动激活目标并开始录制，无需点击目标窗口',
     recording: '录制中',
     paused: '已暂停',
     resuming: '即将继续',
@@ -21,7 +21,7 @@ export default {
     stop_hint: '停止录制并进入预览（{key}）',
     cancel: '取消',
     cancel_confirm: '确认丢弃',
-    shortcut_hint: '{start} 开始 · {pause} 暂停/继续 · {stop} 完成',
+    shortcut_hint: '{start} 开始 · {pause} 暂停/继续 · {stop} 完成 · {cancel} 取消',
   },
   recordingEditor: {
     title: '编辑录制动作',

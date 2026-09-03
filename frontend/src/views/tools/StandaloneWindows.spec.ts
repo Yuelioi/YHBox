@@ -102,4 +102,14 @@ describe('standalone window presentation contract', () => {
     expect(source).toContain('if (nextRevision < revision) return')
     expect(source).toContain("st?.mode === 'simple' || st?.mode === 'precise'")
   })
+
+  it('keeps recording shortcuts small and live while removing redundant subtitle copy', () => {
+    const source = readSource('src/views/tools/RecordingHUDView.vue')
+
+    expect(source).not.toContain("t('recordingHud.subtitle')")
+    expect(source).toContain('backend.events.onHotkeyChanged')
+    expect(source).toContain("hotkeys.keyFor('recording.cancel', 'F7')")
+    expect(source).toContain('class="recording-shortcut"')
+    expect(source).toMatch(/\.recording-shortcut\s*\{[^}]*font-size:\s*9px;/s)
+  })
 })

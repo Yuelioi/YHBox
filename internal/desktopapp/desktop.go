@@ -289,11 +289,12 @@ func Run(config Config) error {
 	// ---- HotkeyRegistry：所有热键的中央 manifest ----
 	// 系统、录制、Schedule 与 editor 热键全部走这条路。
 	// 用户可在 Settings → 快捷键 tab 改任意一条，hot reload 立即生效。
+	var recordingSvc *recording.Service
 	hotkeyRegistry := hotkey.NewHotkeyRegistryWithCallbacks(sharedHotkeys, hotkey.Callbacks{
 		// OnSystemChange 写回 settings.UI 的 exact binding。
 		OnSystemChange: func(key, newStr string) error {
 			switch key {
-			case "system.execution-stop", "recording.start", "recording.stop", "recording.pause",
+			case "system.execution-stop", "recording.start", "recording.stop", "recording.pause", "recording.cancel",
 				"system.calibrate-toggle", "system.launcher-toggle", "tools.window-capture":
 			default:
 				return nil
@@ -308,6 +309,8 @@ func Run(config Config) error {
 					cur.UI.RecordingStartHotkey = newStr
 				case "recording.pause":
 					cur.UI.RecordingPauseHotkey = newStr
+				case "recording.cancel":
+					cur.UI.RecordingCancelHotkey = newStr
 				case "system.calibrate-toggle":
 					cur.UI.CalibrateHotkey = newStr
 				case "system.launcher-toggle":
@@ -318,10 +321,19 @@ func Run(config Config) error {
 				return nil
 			})
 			var committed interface{ Committed() bool }
+			refreshRecordingHotkeys := func() {
+				if recordingSvc != nil && strings.HasPrefix(key, "recording.") {
+					go recording.RefreshHotkeys(recordingSvc)
+				}
+			}
 			if err != nil && errors.As(err, &committed) && committed.Committed() {
+				refreshRecordingHotkeys()
 				rootLog.Warn().Err(err).Str("tag", "SETTINGS").Str("hotkey", key).
 					Msg("hotkey settings committed but durability sync failed")
 				return nil
+			}
+			if err == nil {
+				refreshRecordingHotkeys()
 			}
 			return err
 		},
@@ -338,6 +350,7 @@ func Run(config Config) error {
 		"recording.start":         "F10",
 		"recording.stop":          "F12",
 		"recording.pause":         "F11",
+		"recording.cancel":        "F7",
 	})
 
 	// Asset authoring captures exact installed targets; no Workflow
@@ -389,7 +402,7 @@ func Run(config Config) error {
 
 	// 简易录制落原子 Macro；精准录制落 InputClip。两条产品路径共享原生采集器，
 	// 但不再共享持久化模型或“保存后加到画布”副作用。
-	recordingSvc := newRecordingService(
+	recordingSvc = newRecordingService(
 		app, clipSvc, macroSvc, resourceCreator, hotkeyRegistry, authoringTargets, app.Emit,
 	)
 
@@ -441,6 +454,11 @@ func Run(config Config) error {
 	if err := hotkeyRegistry.RegisterLLHook("recording.pause", hotkey.HotkeySourceRecording,
 		"hotkeys.label.recording.pause", recPauseHk, ""); err != nil {
 		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", recPauseHk).Msg("注册暂停录制热键失败")
+	}
+	recCancelHk := hotkeyOrDefault(app.Settings().UI.RecordingCancelHotkey, "F7")
+	if err := hotkeyRegistry.RegisterLLHook("recording.cancel", hotkey.HotkeySourceRecording,
+		"hotkeys.label.recording.cancel", recCancelHk, ""); err != nil {
+		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", recCancelHk).Msg("注册取消录制热键失败")
 	}
 
 	// 窗口捕获键 (NodeInspector「捕获目标窗口」按下它抓前台游戏窗口)。

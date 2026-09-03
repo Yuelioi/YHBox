@@ -14,16 +14,23 @@ import (
 )
 
 type fakeDriver struct {
-	operation     string
-	request       any
-	err           error
-	closed        int
-	capture       []byte
-	frame         *image.RGBA
-	window        target.WindowHandle
-	held          *fakeHeldInput
-	waited        bool
-	playbackOpens int
+	operation            string
+	request              any
+	err                  error
+	closed               int
+	capture              []byte
+	frame                *image.RGBA
+	window               target.WindowHandle
+	held                 *fakeHeldInput
+	waited               bool
+	playbackOpens        int
+	recordingActivations int
+}
+
+func (driver *fakeDriver) ActivateAndResolveTarget(context.Context) (target.Target, error) {
+	driver.recordingActivations++
+	driver.operation = OperationActivate
+	return target.NewWin32WindowTarget(driver.window), driver.err
 }
 
 type fakeHeldInput struct {

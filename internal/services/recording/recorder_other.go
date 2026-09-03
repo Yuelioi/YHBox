@@ -35,4 +35,5 @@ func (*Recorder) Cancel() {}
 
 func setActiveStopHotkey(uint32, func()) {}
 
-func setActivePauseHotkey(uint32, func()) {}
+func setActivePauseHotkey(uint32, func())  {}
+func setActiveCancelHotkey(uint32, func()) {}

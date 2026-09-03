@@ -343,7 +343,7 @@ export default {
     },
     confirm: {
       reset_title: '重置内置热键？',
-      reset_desc: '强停 / 校准 / 录制开始 / 录制停止 / 录制暂停都会恢复出厂默认。',
+      reset_desc: '强停 / 校准 / 录制开始 / 录制停止 / 录制暂停 / 录制取消都会恢复出厂默认。',
       reset_ok: '重置',
     },
     label: {
@@ -357,6 +357,7 @@ export default {
         start: '开始录制',
         stop: '停止录制',
         pause: '暂停/继续录制',
+        cancel: '取消并丢弃录制',
       },
       schedule: '计划 {name}',
       editor: {
@@ -437,6 +438,8 @@ export default {
     'recording.stop.failed': '录制收尾失败。录制已停止，请重新录制；可用操作 ID 在日志中定位原因。',
     'recording.start.adapter_failed': '录制器未能开始采集，请检查目标窗口后重新录制。',
     'recording.start.failed': '无法准备录制，请检查目标窗口、录制热键和校准状态后重试。',
+    'recording.start.target_reactivation_failed':
+      '倒计时结束时无法重新激活同一个目标窗口，本次没有开始录制。请确认目标仍在运行后重试。',
     'recording.stop.unstructured_failure':
       '录制收尾返回了旧版非结构化错误，请重启 Yotta 后重新录制。',
     'recording.stop.result_invalid': '录制收尾没有返回有效结果，请重启 Yotta 后重新录制。',

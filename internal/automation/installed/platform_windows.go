@@ -134,6 +134,28 @@ func (d *windowsDriver) ResolveTarget(ctx context.Context) (target.Target, error
 	return target.NewWin32WindowTarget(target.WindowHandle(window)), nil
 }
 
+// ActivateAndResolveTarget resolves exactly once under the driver gate, brings
+// that HWND to the foreground, and returns the same identity to recording.
+func (d *windowsDriver) ActivateAndResolveTarget(ctx context.Context) (target.Target, error) {
+	select {
+	case <-ctx.Done():
+		return target.Target{}, ctx.Err()
+	case <-d.gate:
+	}
+	defer func() { d.gate <- struct{}{} }()
+	if d.closed || d.backend == nil {
+		return target.Target{}, failure(CodeContractViolation, errors.New("automation input driver is closed"))
+	}
+	window, err := d.resolve(ctx)
+	if err != nil {
+		return target.Target{}, err
+	}
+	if err := winutil.BringToFront(window.HWND); err != nil {
+		return target.Target{}, failure(CodeWindowFailed, err)
+	}
+	return target.NewWin32WindowTarget(target.WindowHandle(window)), nil
+}
+
 func (d *windowsDriver) Capture(ctx context.Context) ([]byte, error) {
 	frame, err := d.CaptureFrame(ctx)
 	if err != nil {

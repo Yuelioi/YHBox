@@ -22,10 +22,11 @@ import (
 // HotkeySettingsProvider 给 Service 拿录制热键 VK + mouseMode.
 // nil = 默认 F10/F11/F12 + relative.
 type HotkeySettingsProvider interface {
-	GetStartHotkeyVK() uint32 // 0x79 = F10 默认
-	GetStopHotkeyVK() uint32  // 0x7B = F12 默认
-	GetPauseHotkeyVK() uint32 // 0x7A = F11 默认 (暂停/继续切换); 0 = 不启用
-	GetMouseMode() string     // 'relative' / 'absolute'
+	GetStartHotkeyVK() uint32  // 0x79 = F10 默认
+	GetStopHotkeyVK() uint32   // 0x7B = F12 默认
+	GetPauseHotkeyVK() uint32  // 0x7A = F11 默认 (暂停/继续切换); 0 = 不启用
+	GetCancelHotkeyVK() uint32 // 0x76 = F7 默认; 0 = 不启用
+	GetMouseMode() string      // 'relative' / 'absolute'
 }
 
 type startHotkeyWatch interface {
@@ -193,6 +194,7 @@ func (s *Service) shutdown() {
 		s.rec.Cancel()
 		setActiveStopHotkey(0, nil)
 		setActivePauseHotkey(0, nil)
+		setActiveCancelHotkey(0, nil)
 	}
 	s.countdownGeneration.Add(1)
 	s.stopStartHotkeyLocked()
@@ -234,9 +236,11 @@ type StartArgs struct {
 }
 
 type armedRecording struct {
-	window  target.WindowHandle
-	meta    inputclip.ClipMeta
-	pauseVK uint32
+	targetSlot string
+	window     target.WindowHandle
+	meta       inputclip.ClipMeta
+	pauseVK    uint32
+	cancelVK   uint32
 }
 
 // Start 准备录制 (非阻塞). 只校验并锁定目标、监听开始热键，不采集任何输入。
@@ -287,11 +291,13 @@ func (s *Service) start(args StartArgs) (string, error) {
 	startVK := uint32(0x79)
 	stopVK := uint32(0x7B)
 	pauseVK := uint32(0x7A)
+	cancelVK := uint32(0x76)
 	if s.hkProv != nil {
 		mouseMode = s.hkProv.GetMouseMode()
 		startVK = s.hkProv.GetStartHotkeyVK()
 		stopVK = s.hkProv.GetStopHotkeyVK()
 		pauseVK = s.hkProv.GetPauseHotkeyVK()
+		cancelVK = s.hkProv.GetCancelHotkeyVK()
 	}
 	// 录制基准分辨率取目标窗口客户区实际尺寸 (回放跨分辨率缩放用). 取不到 (≤0) 直接
 	// 返 error 让用户重试 —— 兜底 1080p 反而让回放按错基准缩放绝对坐标, 比不缩放更糟.
@@ -320,7 +326,7 @@ func (s *Service) start(args StartArgs) (string, error) {
 		return "", fmt.Errorf("start recording hotkey watch: %w", err)
 	}
 	s.startHotkey = watch
-	s.armed = &armedRecording{window: wh, meta: meta, pauseVK: pauseVK}
+	s.armed = &armedRecording{targetSlot: args.TargetSlot, window: wh, meta: meta, pauseVK: pauseVK, cancelVK: cancelVK}
 	s.activeRelease = release
 	releaseOnFailure = false
 	s.setState(RecordingState{
@@ -361,6 +367,23 @@ func (s *Service) finishCountdown(generation uint64) {
 		return
 	}
 	prepared := s.armed
+	reactivated, _, release, activateErr := s.targets.AcquireRecordingTarget(context.Background(), prepared.targetSlot)
+	if release != nil {
+		release()
+	}
+	if activateErr != nil || reactivated.HWND == 0 || reactivated.HWND != prepared.window.HWND {
+		s.armed = nil
+		s.releaseActiveLocked()
+		s.setState(RecordingState{Phase: PhaseIdle})
+		cause := activateErr
+		if cause == nil {
+			cause = errors.New("recording target identity changed during countdown")
+		}
+		if s.emit != nil {
+			s.emit("recording:completed", map[string]any{"problem": apperr.Project(recordingProblem("recording.start.target_reactivation_failed", map[string]any{"targetSlot": prepared.targetSlot}, cause))})
+		}
+		return
+	}
 	id, err := s.rec.Start(prepared.window.HWND, prepared.meta)
 	if err != nil {
 		s.armed = nil
@@ -392,6 +415,9 @@ func (s *Service) finishCountdown(generation uint64) {
 				}
 			}
 		})
+	}
+	if prepared.cancelVK != 0 {
+		setActiveCancelHotkey(prepared.cancelVK, func() { _ = s.Cancel() })
 	}
 }
 
@@ -434,6 +460,35 @@ func (s *Service) Resume() error {
 	cur.Phase = PhaseRecording
 	s.setState(cur)
 	return nil
+}
+
+// RefreshHotkeys applies the current registry values to an active native
+// recording without widening the Wails-bound Service method surface.
+func RefreshHotkeys(s *Service) {
+	if s == nil {
+		return
+	}
+	s.refreshHotkeys()
+}
+
+func (s *Service) refreshHotkeys() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.hkProv == nil || (s.phase() != PhaseRecording && s.phase() != PhasePaused) {
+		return
+	}
+	setActiveStopHotkey(s.hkProv.GetStopHotkeyVK(), func() { s.StopAsync() })
+	setActivePauseHotkey(s.hkProv.GetPauseHotkeyVK(), func() {
+		switch s.phase() {
+		case PhaseRecording:
+			_ = s.Pause()
+		case PhasePaused:
+			if s.emit != nil {
+				s.emit("recording:resume-hotkey", nil)
+			}
+		}
+	})
+	setActiveCancelHotkey(s.hkProv.GetCancelHotkeyVK(), func() { _ = s.Cancel() })
 }
 
 // StopResultPayload 描述尚未入库的录制结果，供前端打开命名表单.
@@ -535,6 +590,7 @@ func (s *Service) stop() (*StopResultPayload, error) {
 	// 不管成败都清停录 + 暂停热键, 避免悬挂 callback 引发误触
 	setActiveStopHotkey(0, nil)
 	setActivePauseHotkey(0, nil)
+	setActiveCancelHotkey(0, nil)
 	s.releaseActiveLocked()
 	if err != nil {
 		// recorder 自己已不活跃 (理论上 phase 守卫挡住, 防御性): 当 no-op, 不抛伪错误.
@@ -614,6 +670,7 @@ func (s *Service) Cancel() error {
 	s.rec.Cancel()
 	setActiveStopHotkey(0, nil)
 	setActivePauseHotkey(0, nil)
+	setActiveCancelHotkey(0, nil)
 	s.releaseActiveLocked()
 	s.setState(RecordingState{Phase: PhaseIdle})
 	if s.emit != nil {

@@ -5145,6 +5145,11 @@
               "type": "string"
             },
             {
+              "name": "\"recordingCancelHotkey\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
               "name": "\"recordingMouseMode\"",
               "optional": false,
               "type": "string"

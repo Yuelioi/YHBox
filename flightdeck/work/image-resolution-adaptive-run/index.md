@@ -40,6 +40,18 @@ Planner race、Impeccable 检测和仓库 `task check` 通过。真实 2K“异�
 
 ## Progress
 
+- 2026-09-03 修复录制准备偶发“目标不可用”：旧 `AcquireRecordingTarget` 先用 `Execute(activate)` 解析窗口，随后
+  `ResolveTarget` 再枚举一次，同一动作存在两次匹配竞态。Win32 adapter 现于同一 driver gate 内只解析一次，
+  用该 HWND 完成置前并原样返回；准备和倒计时结束后的再次激活均复用该原子 seam。倒计时文案明确无需点击目标。
+- 2026-09-03 录制倒计时结束后、安装原生采集 hook 前，再通过同一 configured target adapter 激活并解析目标；
+  仅当 HWND 与准备阶段锁定的窗口完全一致才开始录制。目标消失或身份变化时回到 idle、释放两份 generation
+  lease，并返回带 operationId 的 `recording.start.target_reactivation_failed`，避免用户为确认焦点点击游戏。
+- 2026-09-03 修复 `build:frontend` 的陈旧 production bundle：旧 `status` 只比较 dev/production marker，导致同模式下
+  即使 `frontend/src/**` 更新也跳过构建，Go EXE 随后嵌入旧 UI。新增统一输入时间戳检查和回归测试；当前 dist
+  已确认不再包含录制 HUD 旧副标题。
+- 2026-09-03 精简录制 HUD：移除重复副标题，暂停/继续/完成/取消按钮以内联 9px 辅助文字展示热键；新增可配置
+  且由 LL hook 拦截的 F7“取消并丢弃录制”。HUD 订阅 `hotkey:changed`，录制中的实际 hook 与显示同步热更新；
+  标题栏增加置顶/优先使用快捷键状态图标。相关 bindings、Go/前端测试与 `task check` 通过。
 - 2026-09-03 根据 owner 真实重录失败建立 reactive event payload 回归：修复 `structuredClone` 无法复制 proxy
   导致的截图后写入失败，并把三条本地失败从 `UNKNOWN_ERROR` 拆为可操作反馈；前端定向测试与 `task check`
   通过。

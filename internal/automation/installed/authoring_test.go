@@ -85,7 +85,7 @@ func TestRecordingTargetLeasePinsExactGenerationUntilSessionRelease(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if window.HWND != 42 || counts360 != int(desktopPayload(t, profile).MouseCounts360) || driver.operation != OperationActivate {
+	if window.HWND != 42 || counts360 != int(desktopPayload(t, profile).MouseCounts360) || driver.operation != OperationActivate || driver.recordingActivations != 1 {
 		t.Fatalf("recording target window=%+v counts360=%d operation=%q", window, counts360, driver.operation)
 	}
 	if err := generation.Retire(); err != nil {

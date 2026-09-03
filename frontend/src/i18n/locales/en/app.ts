@@ -378,7 +378,7 @@ export default {
     confirm: {
       reset_title: 'Reset built-in hotkeys?',
       reset_desc:
-        'Strong-stop / calibrate / recording start / recording stop / recording pause will return to factory defaults.',
+        'Strong-stop / calibrate / recording start / recording stop / recording pause / recording cancel will return to factory defaults.',
       reset_ok: 'Reset',
     },
     label: {
@@ -392,6 +392,7 @@ export default {
         start: 'Start recording',
         stop: 'Stop recording',
         pause: 'Pause / resume recording',
+        cancel: 'Cancel and discard recording',
       },
       schedule: 'Schedule {name}',
       editor: {
@@ -476,6 +477,8 @@ export default {
       'The recorder could not begin capture. Check the target window and record again.',
     'recording.start.failed':
       'Recording could not be prepared. Check the target window, recording hotkeys, and calibration, then retry.',
+    'recording.start.target_reactivation_failed':
+      'The same target window could not be reactivated when the countdown ended, so recording did not start. Confirm the target is still running and retry.',
     'recording.stop.unstructured_failure':
       'Recording finalization returned a legacy unstructured error. Restart Yotta and record again.',
     'recording.stop.result_invalid':

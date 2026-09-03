@@ -54,6 +54,8 @@ native automation smoke 会使用全局输入、前台窗口和 hook。不要与
 - 开发入口：`task dev`。
 - 正式 Windows 构建：`task build`。它负责 bindings、frontend、resource/syso、GUI/CLI、worker、runner、
   capture DLL 与 ADB；不要用裸 `go build -o Yotta.exe` 代替。
+- 前端增量状态由 `scripts/frontend-build-current.mjs` 同时核对 build mode 与全部声明输入的修改时间；只检查
+  `.yotta-build-mode` 内容会让同为 production 的后续源码修改被错误跳过，禁止恢复这种 status 判定。
 - `task package` 要求 clean worktree，并运行 full gate、production build、staging、manifest/archive 和 frozen
   candidate smoke。未经用户授权不要为了满足它清理或提交工作区。
 - 产品版本的唯一可编辑来源是根 `VERSION`。查看当前域用 `task version:show` / `task versions:inventory`；

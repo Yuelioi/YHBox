@@ -1,8 +1,8 @@
 export default {
   recordingHud: {
     title: 'Recording controls',
-    subtitle: 'Control the active input capture',
     close_hint: 'Close controls; this cancels preparation but only hides an active recording',
+    pinned_hint: 'Window stays on top; use keyboard shortcuts whenever possible',
     preparing: 'Preparing',
     preparing_hint: 'Connecting to the recording service',
     waiting: 'Waiting to start',
@@ -10,7 +10,8 @@ export default {
     start_countdown: 'Start countdown',
     cancel_countdown: 'Cancel countdown',
     countdown: 'Countdown',
-    countdown_hint: 'Recording starts when the countdown ends',
+    countdown_hint:
+      'The target activates automatically when the countdown ends; do not click the target window',
     recording: 'Recording',
     paused: 'Paused',
     resuming: 'Resuming soon',
@@ -21,7 +22,7 @@ export default {
     stop_hint: 'Stop and review this recording ({key})',
     cancel: 'Cancel',
     cancel_confirm: 'Discard recording',
-    shortcut_hint: '{start} start · {pause} pause/resume · {stop} finish',
+    shortcut_hint: '{start} start · {pause} pause/resume · {stop} finish · {cancel} cancel',
   },
   recordingEditor: {
     title: 'Edit recorded actions',

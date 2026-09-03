@@ -40,9 +40,7 @@ tasks:
     generates:
       - dist/**/*
     status:
-      - >-
-        node -e "const fs=require('fs');process.exit(fs.existsSync('dist/.yotta-build-mode')&&fs.readFileSync('dist/.yotta-build-mode','utf8')===process.argv[1]?0:1)"
-        '{{if eq .DEV "true"}}dev{{else}}production{{end}}'
+      - node ../scripts/frontend-build-current.mjs '{{if eq .DEV "true"}}dev{{else}}production{{end}}'
     deps:
       - task: install:frontend:deps
       - task: generate:bindings

@@ -26,7 +26,7 @@ func (resolver fixedRecordingTargetResolver) AcquireRecordingTarget(context.Cont
 
 func TestRootCompositionAdaptersExposeSafeDefaultsAndLifecycle(t *testing.T) {
 	missing := &recordingHkAdapter{}
-	if missing.GetStartHotkeyVK() != 0x79 || missing.GetStopHotkeyVK() != 0x7B || missing.GetPauseHotkeyVK() != 0x7A {
+	if missing.GetStartHotkeyVK() != 0x79 || missing.GetStopHotkeyVK() != 0x7B || missing.GetPauseHotkeyVK() != 0x7A || missing.GetCancelHotkeyVK() != 0x76 {
 		t.Fatal("recording hotkey adapter lost safe defaults")
 	}
 	emptyRegistry := hotkey.NewHotkeyRegistry(nil)
@@ -52,8 +52,8 @@ func TestRootCompositionAdaptersExposeSafeDefaultsAndLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	adapter := &recordingHkAdapter{reg: registry}
-	if adapter.GetStartHotkeyVK() != 0x77 || adapter.GetStopHotkeyVK() != 0x79 || adapter.GetPauseHotkeyVK() != 0x78 {
-		t.Fatalf("recording hotkeys = %#x / %#x / %#x", adapter.GetStartHotkeyVK(), adapter.GetStopHotkeyVK(), adapter.GetPauseHotkeyVK())
+	if adapter.GetStartHotkeyVK() != 0x77 || adapter.GetStopHotkeyVK() != 0x79 || adapter.GetPauseHotkeyVK() != 0x78 || adapter.GetCancelHotkeyVK() != 0x76 {
+		t.Fatalf("recording hotkeys = %#x / %#x / %#x / %#x", adapter.GetStartHotkeyVK(), adapter.GetStopHotkeyVK(), adapter.GetPauseHotkeyVK(), adapter.GetCancelHotkeyVK())
 	}
 
 	app, err := services.OpenApp(filepath.Join(t.TempDir(), "settings.json"), "", nil, zerolog.Nop())
