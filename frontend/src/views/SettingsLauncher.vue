@@ -71,42 +71,23 @@
     </SettingsSection>
 
     <SettingsSection
-      :title="t('settingsLauncher.health_title')"
-      :description="t('settingsLauncher.health_hint')"
-      icon="i-tabler-shield-check"
-      :badge="healthBadge"
+      :title="t('settingsLauncher.layout_title')"
+      :description="t('settingsLauncher.layout_hint')"
+      icon="i-tabler-layout-list"
+      :badge="String(editItems.length)"
     >
-      <div
-        v-if="dependenciesLoaded"
-        class="launcher-health-card"
-        :class="{ 'launcher-health-card--warning': staleCount }"
-      >
-        <div class="launcher-health-stats">
-          <div>
-            <strong>{{ resolution.items.length }}</strong>
-            <span>{{ t('settingsLauncher.health_available') }}</span>
-          </div>
-          <div>
-            <strong :class="{ 'text-warning': staleCount }">{{ staleCount }}</strong>
-            <span>{{ t('settingsLauncher.health_stale') }}</span>
-          </div>
-        </div>
-
-        <div v-if="staleCount" class="launcher-health-action">
-          <span class="launcher-health-action__icon">
-            <UIcon name="i-tabler-unlink" class="size-4" />
+      <template #actions>
+        <div v-if="dependenciesLoaded" class="flex flex-wrap items-center justify-end gap-2">
+          <span class="text-xs tabular-nums text-muted">
+            {{
+              t('settingsLauncher.layout_stats', {
+                available: resolution.items.length,
+                stale: staleCount,
+              })
+            }}
           </span>
-          <div class="min-w-0 flex-1">
-            <p class="text-xs font-semibold text-highlighted">
-              {{ t('settingsLauncher.stale_title', { n: staleCount }) }}
-            </p>
-            <ul class="launcher-stale-list" :aria-label="t('settingsLauncher.cleanup_scope')">
-              <li v-for="item in resolution.staleBlocks" :key="item.id">
-                {{ staleBlockName(item) }}
-              </li>
-            </ul>
-          </div>
           <UButton
+            v-if="staleCount"
             size="xs"
             color="warning"
             variant="soft"
@@ -116,24 +97,11 @@
           >
             {{ t('settingsLauncher.cleanup_stale', { n: staleCount }) }}
           </UButton>
-        </div>
-        <div v-else class="launcher-health-action launcher-health-action--ready">
-          <span class="launcher-health-action__icon">
-            <UIcon name="i-tabler-check" class="size-4" />
-          </span>
-          <div class="min-w-0 flex-1">
-            <p class="text-xs font-semibold text-highlighted">
-              {{ t('settingsLauncher.health_ready') }}
-            </p>
-            <p class="mt-1 text-[11px] leading-4 text-muted">
-              {{ t('settingsLauncher.health_ready_hint') }}
-            </p>
-          </div>
           <UButton
-            v-if="cleanupUndo"
+            v-else-if="cleanupUndo"
             size="xs"
             color="neutral"
-            variant="outline"
+            variant="ghost"
             icon="i-tabler-arrow-back-up"
             :loading="cleanupBusy"
             @click="undoCleanup"
@@ -141,20 +109,7 @@
             {{ t('settingsLauncher.undo_cleanup') }}
           </UButton>
         </div>
-      </div>
-      <div v-else class="launcher-health-loading" aria-busy="true">
-        <USkeleton class="h-14 flex-1" />
-        <USkeleton class="h-14 flex-1" />
-        <USkeleton class="h-14 flex-1" />
-      </div>
-    </SettingsSection>
-
-    <SettingsSection
-      :title="t('settingsLauncher.layout_title')"
-      :description="t('settingsLauncher.layout_hint')"
-      icon="i-tabler-layout-list"
-      :badge="String(editItems.length)"
-    >
+      </template>
       <div class="min-w-0 space-y-3">
         <div class="launcher-library">
           <div class="flex flex-wrap items-center gap-2">
@@ -408,9 +363,6 @@ const addedCounts = computed<Record<string, number>>(() => {
 })
 const resolution = computed(() => resolveLauncher(editItems.value, workflows.value))
 const staleCount = computed(() => resolution.value.staleBlocks.length)
-const healthBadge = computed(() =>
-  staleCount.value ? t('settingsLauncher.health_attention') : t('settingsLauncher.health_normal'),
-)
 const persist = () => settingsStore.patch({ ui: { launcherItems: copyItems(editItems.value) } })
 const setDisplay = (value: string) => void settingsStore.patch({ ui: { launcherDisplay: value } })
 const setSize = (value: LauncherSize) => void settingsStore.patch({ ui: { launcherSize: value } })
@@ -521,9 +473,6 @@ function workflowName(id?: string) {
     t('settingsLauncher.deleted_workflow')
   )
 }
-function staleBlockName(item: LauncherBlock) {
-  return item.label?.trim() || item.workflowId || t('settingsLauncher.deleted_workflow')
-}
 
 async function openLauncher(): Promise<void> {
   if (launcherOpening.value) return
@@ -575,106 +524,5 @@ onMounted(async () => {
   padding: 14px 16px;
   border-block: 1px dashed var(--ui-border);
   background: transparent;
-}
-
-.launcher-health-card {
-  overflow: hidden;
-  border-block: 1px solid var(--ui-border);
-  background: transparent;
-}
-
-.launcher-health-card--warning {
-  border-color: color-mix(in oklab, var(--ui-warning) 28%, var(--ui-border));
-}
-
-.launcher-health-loading {
-  display: flex;
-  gap: 1px;
-  overflow: hidden;
-  border-block: 1px solid var(--ui-border);
-}
-
-.launcher-health-stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  border-bottom: 1px solid var(--ui-border);
-}
-
-.launcher-health-stats > div {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 2px;
-  padding: 14px 16px;
-}
-
-.launcher-health-stats > div + div {
-  border-left: 1px solid var(--ui-border);
-}
-
-.launcher-health-stats strong {
-  color: var(--ui-text-highlighted);
-  font-size: 20px;
-  font-weight: 650;
-  line-height: 24px;
-  font-variant-numeric: tabular-nums;
-}
-
-.launcher-health-stats span {
-  overflow: hidden;
-  color: var(--ui-text-dimmed);
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.launcher-health-action {
-  display: flex;
-  min-height: 64px;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-}
-
-.launcher-health-action__icon {
-  display: inline-flex;
-  width: 32px;
-  height: 32px;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid color-mix(in oklab, var(--ui-warning) 30%, var(--ui-border));
-  border-radius: 8px;
-  color: var(--ui-warning);
-  background: color-mix(in oklab, var(--ui-warning) 8%, transparent);
-}
-
-.launcher-health-action--ready .launcher-health-action__icon {
-  color: var(--ui-success);
-  border-color: color-mix(in oklab, var(--ui-success) 28%, var(--ui-border));
-  background: color-mix(in oklab, var(--ui-success) 7%, transparent);
-}
-
-.launcher-stale-list {
-  display: flex;
-  max-height: 72px;
-  flex-wrap: wrap;
-  gap: 4px;
-  overflow: auto;
-  margin-top: 6px;
-  padding-right: 4px;
-  list-style: none;
-}
-
-.launcher-stale-list li {
-  max-width: 100%;
-  padding: 2px 6px;
-  border: 1px solid color-mix(in oklab, var(--ui-warning) 22%, var(--ui-border));
-  border-radius: 5px;
-  color: var(--ui-text-muted);
-  background: color-mix(in oklab, var(--ui-warning) 5%, transparent);
-  font-size: 10px;
-  line-height: 14px;
-  overflow-wrap: anywhere;
 }
 </style>

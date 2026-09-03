@@ -97,9 +97,10 @@ tasks:
       - node --test ./scripts/check-changed.test.mjs
 
   check:docs:
-    summary: Verifies stable Markdown links, Task references and retired public names
+    summary: Verifies stable Markdown links, Task references, retired public names and build input contracts
     cmds:
       - node --test ./scripts/check-docs.test.mjs
+      - node --test ./scripts/check-frontend-build-inputs.test.mjs
       - node ./scripts/check-docs.mjs
 
   check:go:changed:

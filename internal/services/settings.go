@@ -8,6 +8,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/yottaapp/yotta/internal/ai"
+	"github.com/yottaapp/yotta/internal/aiauthoring"
 	"github.com/yottaapp/yotta/internal/appcontrol"
 	"github.com/yottaapp/yotta/internal/artifact"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
@@ -28,8 +29,13 @@ type Settings struct {
 }
 
 type AISettings struct {
-	Profiles []AIModelSettings `json:"profiles"`
-	Roles    AIRoleSettings    `json:"roles"`
+	Profiles  []AIModelSettings   `json:"profiles"`
+	Roles     AIRoleSettings      `json:"roles"`
+	Authoring AIAuthoringSettings `json:"authoring"`
+}
+
+type AIAuthoringSettings struct {
+	MaxIterations int `json:"maxIterations"`
 }
 
 type AIRoleSettings struct {
@@ -346,8 +352,11 @@ func defaultSettings() *Settings {
 		Locale: "zh",
 		// 默认 auto：启动期 main.go 看 OS build 决定 Win10 走 GDI / Win11+ 走 WGC。
 		// 用户嫌弃自动选的可以去设置硬切 gdi/wgc/mock。
-		Capture:      CaptureSettings{Method: "auto", DumpDebug: false},
-		AI:           AISettings{Profiles: []AIModelSettings{}, Roles: AIRoleSettings{}},
+		Capture: CaptureSettings{Method: "auto", DumpDebug: false},
+		AI: AISettings{
+			Profiles: []AIModelSettings{}, Roles: AIRoleSettings{},
+			Authoring: AIAuthoringSettings{MaxIterations: aiauthoring.DefaultMaxIterations},
+		},
 		MCP:          MCPSettings{Enabled: false, Port: 39271},
 		Network:      NetworkSettings{HTTPOrigins: []HTTPOriginSettings{}},
 		Applications: ApplicationSettings{Profiles: []InstalledApplicationSettings{}},
@@ -442,6 +451,9 @@ func (s *Settings) Validate() error {
 }
 
 func (settings *AISettings) validate() error {
+	if settings.Authoring.MaxIterations < aiauthoring.MinMaxIterations || settings.Authoring.MaxIterations > aiauthoring.MaxMaxIterations {
+		return fmt.Errorf("ai.authoring.maxIterations must be between %d and %d", aiauthoring.MinMaxIterations, aiauthoring.MaxMaxIterations)
+	}
 	if len(settings.Profiles) > 64 {
 		return errors.New("ai.profiles exceeds installation budget")
 	}

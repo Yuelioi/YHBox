@@ -1,13 +1,5 @@
 <template>
   <div class="settings-page">
-    <div class="settings-notice">
-      <UIcon name="i-tabler-shield-lock" class="settings-notice__icon" />
-      <div class="min-w-0">
-        <p class="settings-notice__title">{{ t('settingsMCP.security_title') }}</p>
-        <p class="settings-notice__description">{{ t('settingsMCP.security_hint') }}</p>
-      </div>
-    </div>
-
     <SettingsSection
       :title="t('settingsMCP.server_title')"
       :description="t('settingsMCP.server_hint')"

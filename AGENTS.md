@@ -17,6 +17,10 @@
 - `frontend/src/`：UI 与编辑器。`docs/README.md` 和 `flightdeck/knowledge/README.md` 只提供导航；文档与
   Knowledge 都可能过期，任何产品、架构或修改结论必须回到当前生产代码、schema、Task、测试或正式生成
   契约核验，不能用另一份文档自证。
+- 前端翻译按功能模块维护；新增、移动或拆分翻译前先读
+  [`frontend/src/i18n/README.md`](frontend/src/i18n/README.md)，保持中英文模块 seam 与 key 一致。
+- 修改用户可见错误、RPC、异步任务或持久失败证据前，先读[错误契约开发指南](flightdeck/knowledge/errors/error-contract.md)，
+  并从 domain cause 到实际 UI 反馈表面核验完整投影链路。
 
 ## 验证入口
 

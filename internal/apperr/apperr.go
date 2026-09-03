@@ -47,8 +47,9 @@ type EnvelopeProvider interface {
 
 // Error 携带一个 i18n code 与可选插值参数。
 type Error struct {
-	ID     string         `json:"id"`
-	Params map[string]any `json:"params,omitempty"`
+	ID        string         `json:"id"`
+	Params    map[string]any `json:"params,omitempty"`
+	Retryable bool           `json:"retryable,omitempty"`
 }
 
 // Error only returns the stable ID. Params remain structured and Cause belongs
@@ -60,12 +61,16 @@ func New(id string, params map[string]any) *Error {
 	return &Error{ID: id, Params: params}
 }
 
+func NewRetryable(id string, params map[string]any) *Error {
+	return &Error{ID: id, Params: params, Retryable: true}
+}
+
 func (e *Error) RPCErrorEnvelope() Envelope {
 	if e == nil {
 		return Envelope{ID: IDUnexpected, Category: CategoryInfrastructure}
 	}
 	return Envelope{
-		ID: e.ID, Category: CategoryDomain, Params: cloneParams(e.Params),
+		ID: e.ID, Category: CategoryDomain, Params: cloneParams(e.Params), Retryable: e.Retryable,
 	}
 }
 

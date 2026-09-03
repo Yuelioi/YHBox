@@ -48,9 +48,9 @@ tasks:
           ARCH: '{{.ARCH}}'
           DEV: '{{.DEV}}'
       - go build -mod=readonly {{.BUILD_FLAGS}} -o "{{.BIN_DIR}}/{{.APP_NAME}}.exe"
-      - cmd: powershell Remove-item *.syso
+      - cmd: powershell -NoProfile -Command "Remove-Item -LiteralPath '{{.ROOT_DIR}}/wails_windows_{{.ARCH | default ARCH}}.syso' -ErrorAction SilentlyContinue"
         platforms: [windows]
-      - cmd: rm -f *.syso
+      - cmd: rm -f "{{.ROOT_DIR}}/wails_windows_{{.ARCH | default ARCH}}.syso"
         platforms: [linux, darwin]
 
     env:

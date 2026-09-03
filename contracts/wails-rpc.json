@@ -4,7 +4,7 @@
   "summary": {
     "services": 16,
     "methods": 147,
-    "models": 235
+    "models": 236
   },
   "services": [
     {
@@ -2369,6 +2369,11 @@
               "type": "string"
             },
             {
+              "name": "\"problemParams\"",
+              "optional": true,
+              "type": "{ [_ in string]?: any }"
+            },
+            {
               "name": "\"operationId\"",
               "optional": true,
               "type": "string"
@@ -4459,6 +4464,17 @@
       "declarations": [
         {
           "kind": "class",
+          "name": "AIAuthoringSettings",
+          "fields": [
+            {
+              "name": "\"maxIterations\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "AIModelSettings",
           "fields": [
             {
@@ -4547,6 +4563,11 @@
               "name": "\"roles\"",
               "optional": false,
               "type": "AIRoleSettings"
+            },
+            {
+              "name": "\"authoring\"",
+              "optional": false,
+              "type": "AIAuthoringSettings"
             }
           ]
         },

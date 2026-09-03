@@ -28,14 +28,15 @@ const (
 var conversationScopePattern = regexp.MustCompile(`^[a-zA-Z0-9-]{1,128}$`)
 
 type ConversationMessage struct {
-	ID          string    `json:"id"`
-	Role        string    `json:"role"`
-	Content     string    `json:"content"`
-	CreatedAt   time.Time `json:"createdAt"`
-	ReviewID    string    `json:"reviewId,omitempty"`
-	Review      *Review   `json:"review,omitempty"`
-	ProblemID   string    `json:"problemId,omitempty"`
-	OperationID string    `json:"operationId,omitempty"`
+	ID            string         `json:"id"`
+	Role          string         `json:"role"`
+	Content       string         `json:"content"`
+	CreatedAt     time.Time      `json:"createdAt"`
+	ReviewID      string         `json:"reviewId,omitempty"`
+	Review        *Review        `json:"review,omitempty"`
+	ProblemID     string         `json:"problemId,omitempty"`
+	ProblemParams map[string]any `json:"problemParams,omitempty"`
+	OperationID   string         `json:"operationId,omitempty"`
 }
 
 type Conversation struct {

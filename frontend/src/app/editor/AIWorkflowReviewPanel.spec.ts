@@ -36,6 +36,14 @@ describe('AI workflow authoring review boundary', () => {
     expect(panel).toContain('onAIConversationProgress')
   })
 
+  it('renders durable Problems through the canonical error formatter with correlation ID', () => {
+    expect(panel).toContain(
+      'errorMessage({ id: message.problemId, params: message.problemParams })',
+    )
+    expect(panel).toContain("t('workflow.ai.operation_id', { id: message.operationId })")
+    expect(panel).not.toContain("return te(key) ? t(key) : t('error.UNKNOWN_ERROR')")
+  })
+
   it('reloads the durable source only after the accepted event', () => {
     expect(editor).toContain('@accepted="acceptAIProposal"')
     expect(editor).toContain('await session.load(session.workflowId)')

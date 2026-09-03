@@ -465,6 +465,7 @@ describe('workflow authoring foundations', () => {
 
   it('offers compatible nodes when a typed connection ends on the canvas', () => {
     const editor = readSource('src/views/WorkflowEditorView.vue')
+    const menu = readSource('src/app/editor/WorkflowConnectionMenu.vue')
     expect(editor).toContain(':is-valid-connection="isValidConnection"')
     expect(editor).toContain('@connect-start="startConnection"')
     expect(editor).toContain('@connect-end="endConnection"')
@@ -472,6 +473,11 @@ describe('workflow authoring foundations', () => {
     expect(editor).toContain('session.insertConnectedNode(')
     expect(editor).toContain('targetHandle: edgeTargetHandle(edge)')
     expect(editor).not.toContain('if (source.channel !== target.channel) return null')
+    expect(menu).toContain('@keydown="onListKeydown"')
+    expect(menu).toContain('numberedSelectionIndex(event, visibleCandidates.value.length)')
+    expect(menu).toContain('index < NUMBERED_SELECTION_LIMIT')
+    expect(menu).toContain("t('workflow.connection.show_compatible')")
+    expect(menu).not.toContain('workflow.connection.keyboard_hint')
   })
 
   it('restores multi-selection, atomic batch editing, snapping, and auto-layout', () => {
@@ -540,7 +546,10 @@ describe('workflow authoring foundations', () => {
     expect(editor).toContain('shortcutFromKeyboardEvent(event)')
     expect(editor).toContain('useSnippet(action.snippetID, canvasInsertionPosition())')
     expect(quickAdd).toContain('workflow-quick-add-search')
-    expect(quickAdd).toContain('@keydown.down.prevent="move(1)"')
+    expect(quickAdd).toContain('@keydown="onListKeydown"')
+    expect(quickAdd).toContain('numberedSelectionIndex(event, visibleItems.value.length)')
+    expect(quickAdd).toContain('index < NUMBERED_SELECTION_LIMIT')
+    expect(quickAdd).not.toContain('{{ item.categoryLabel }}')
     expect(quickAdd).toContain('<Teleport to="body">')
     expect(quickAdd).toContain('@mouseenter="previewCategory(entry.value)"')
     expect(editor).toContain(':anchor="quickAddAnchor"')

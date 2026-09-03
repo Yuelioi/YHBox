@@ -14,9 +14,7 @@
         class="fixed grid h-[min(30rem,calc(100vh-1rem))] w-[min(36rem,calc(100vw-1rem))] min-h-0 grid-cols-[11rem_minmax(0,1fr)] overflow-hidden rounded-xl border border-default bg-default shadow-2xl"
         :style="panelStyle"
         @pointerdown.stop
-        @keydown.down.prevent="move(1)"
-        @keydown.up.prevent="move(-1)"
-        @keydown.enter.prevent="selectActive"
+        @keydown="onListKeydown"
         @keydown.esc.stop.prevent="emit('update:open', false)"
       >
         <aside class="flex min-h-0 flex-col border-r border-default bg-elevated/30">
@@ -79,8 +77,8 @@
                   item.description
                 }}</span>
               </span>
+              <UKbd v-if="index < NUMBERED_SELECTION_LIMIT" size="xs">{{ index + 1 }}</UKbd>
               <UKbd v-if="item.shortcut" size="xs">{{ item.shortcut }}</UKbd>
-              <UBadge color="neutral" variant="soft" size="xs">{{ item.categoryLabel }}</UBadge>
             </button>
             <div v-if="!visibleItems.length" class="px-4 py-16 text-center">
               <UIcon name="i-tabler-search-off" class="mx-auto size-5 text-dimmed" />
@@ -107,6 +105,10 @@ import {
   moveWorkflowQuickAddIndex,
   type WorkflowQuickAddItem,
 } from '@/app/editor/workflowQuickAdd'
+import {
+  NUMBERED_SELECTION_LIMIT,
+  numberedSelectionIndex,
+} from '@/app/editor/listKeyboardSelection'
 
 const props = defineProps<{
   open: boolean
@@ -188,6 +190,24 @@ function move(delta: number): void {
 function selectActive(): void {
   const item = visibleItems.value[activeIndex.value]
   if (item) choose(item)
+}
+
+function onListKeydown(event: KeyboardEvent): void {
+  if (event.isComposing) return
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault()
+    move(event.key === 'ArrowDown' ? 1 : -1)
+    return
+  }
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    selectActive()
+    return
+  }
+  const index = numberedSelectionIndex(event, visibleItems.value.length)
+  if (index === undefined) return
+  event.preventDefault()
+  choose(visibleItems.value[index]!)
 }
 
 function choose(item: WorkflowQuickAddItem): void {

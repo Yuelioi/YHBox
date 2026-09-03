@@ -149,6 +149,13 @@ async function runConfiguredProfileTest(root: HTMLElement): Promise<void> {
 }
 
 describe('SettingsAI model draft', () => {
+  it('explains and exposes the configurable AI proposal step limit', async () => {
+    const root = await mountConfiguredAIProfile()
+    expect(root.textContent).toContain('settingsAI.authoring.max_iterations_label')
+    expect(root.textContent).toContain('settingsAI.authoring.not_billing_limit')
+    expect(root.querySelector('[data-testid="settings-ai-authoring-max-iterations"]')).toBeTruthy()
+  })
+
   it('explains why the diagnostic model selector has no usable options', async () => {
     const root = await mountConfiguredAIProfile()
     expect(root.textContent).toContain('settingsAI.roles.unavailable.tool-calling-required')

@@ -83,7 +83,7 @@ func (s *AIService) SendWorkflowAIMessage(slot, workflowID, conversationID strin
 	if err != nil {
 		if s.authoring != nil {
 			envelope := apperr.From(err)
-			_, _ = s.authoring.RecordFailedTurn(workflowID, conversationID, instruction, envelope.ID, envelope.OperationID)
+			_, _ = s.authoring.RecordFailedTurn(workflowID, conversationID, instruction, envelope.ID, envelopeParams(envelope), envelope.OperationID)
 		}
 		return aiauthoring.Conversation{}, err
 	}
@@ -95,9 +95,14 @@ func (s *AIService) SendWorkflowAIMessage(slot, workflowID, conversationID strin
 	projected := projectAIAuthoringError(err)
 	if projected != nil {
 		envelope := apperr.From(projected)
-		conversation, _ = s.authoring.RecordFailure(workflowID, conversationID, envelope.ID, envelope.OperationID)
+		conversation, _ = s.authoring.RecordFailure(workflowID, conversationID, envelope.ID, envelopeParams(envelope), envelope.OperationID)
 	}
 	return conversation, projected
+}
+
+func envelopeParams(envelope apperr.Envelope) map[string]any {
+	params, _ := envelope.Params.(map[string]any)
+	return params
 }
 
 func (s *AIService) authoringRuntime(slot string) (aiauthoring.Runtime, error) {
@@ -130,7 +135,10 @@ func (s *AIService) authoringRuntime(slot string) (aiauthoring.Runtime, error) {
 	if !ok {
 		return aiauthoring.Runtime{}, apperr.New("ai.authoring.agent_unsupported", map[string]any{"slot": slot})
 	}
-	return aiauthoring.Runtime{Profile: profile, Provider: agent, Credential: credential}, nil
+	return aiauthoring.Runtime{
+		Profile: profile, Provider: agent, Credential: credential,
+		MaxIterations: s.app.Settings().AI.Authoring.MaxIterations,
+	}, nil
 }
 
 func projectAIAuthoringError(err error) error {
@@ -144,6 +152,9 @@ func projectAIAuthoringError(err error) error {
 	var toolInput *aiauthoring.ToolInputError
 	if errors.As(err, &toolInput) {
 		return fmt.Errorf("%w: %v", apperr.New("ai.authoring.tool_input_invalid", map[string]any{"tool": toolInput.Tool}), err)
+	}
+	if errors.Is(err, ai.ErrAgentBudgetExceeded) {
+		return fmt.Errorf("%w: %v", apperr.NewRetryable("ai.authoring.budget_exhausted", nil), err)
 	}
 	var envelopeProvider apperr.EnvelopeProvider
 	if errors.As(err, &envelopeProvider) {

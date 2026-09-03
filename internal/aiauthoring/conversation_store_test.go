@@ -31,6 +31,14 @@ func TestConversationStoreIsolatesWorkflowHistoryAndReloads(t *testing.T) {
 	if first.Title != "修复等待模板节点" || len(first.Messages) != 1 {
 		t.Fatalf("unexpected conversation: %#v", first)
 	}
+	failureID, _ := runid.New()
+	first, err = store.Append("workflow-a", first.ID, ConversationMessage{
+		ID: failureID, Role: "assistant", Content: "ai.authoring.tool_input_invalid",
+		ProblemID: "ai.authoring.tool_input_invalid", ProblemParams: map[string]any{"tool": "workflow_connect"}, OperationID: "operation-1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	next, err := store.Create("workflow-a")
 	if err != nil || next.ID == first.ID {
 		t.Fatalf("new conversation after first message = %#v, %v", next, err)
@@ -45,10 +53,14 @@ func TestConversationStoreIsolatesWorkflowHistoryAndReloads(t *testing.T) {
 	items, err := reloaded.List("workflow-a")
 	foundFirst := false
 	for _, item := range items {
-		foundFirst = foundFirst || (item.ID == first.ID && item.MessageCount == 1)
+		foundFirst = foundFirst || (item.ID == first.ID && item.MessageCount == 2)
 	}
 	if err != nil || len(items) != 2 || !foundFirst {
 		t.Fatalf("reloaded summaries = %#v, err = %v", items, err)
+	}
+	persisted, err := reloaded.Get("workflow-a", first.ID)
+	if err != nil || persisted.Messages[1].ProblemParams["tool"] != "workflow_connect" || persisted.Messages[1].OperationID != "operation-1" {
+		t.Fatalf("reloaded failure evidence = %#v, err = %v", persisted.Messages, err)
 	}
 }
 

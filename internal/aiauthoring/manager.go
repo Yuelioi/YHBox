@@ -28,11 +28,14 @@ import (
 )
 
 const (
-	maxInstructionBytes = 64 << 10
-	maxTraceEvents      = 256
-	maxRetainedReviews  = 128
-	activeReviewTTL     = 30 * time.Minute
-	terminalReviewTTL   = 10 * time.Minute
+	maxInstructionBytes  = 64 << 10
+	maxTraceEvents       = 256
+	maxRetainedReviews   = 128
+	activeReviewTTL      = 30 * time.Minute
+	terminalReviewTTL    = 10 * time.Minute
+	MinMaxIterations     = 8
+	DefaultMaxIterations = 24
+	MaxMaxIterations     = ai.MaxAgentIterations
 )
 
 var (
@@ -55,9 +58,10 @@ func (e *ToolInputError) Error() string {
 func (e *ToolInputError) Unwrap() error { return e.Cause }
 
 type Runtime struct {
-	Profile    ai.ModelProfile
-	Provider   ai.AgentProvider
-	Credential string
+	Profile       ai.ModelProfile
+	Provider      ai.AgentProvider
+	Credential    string
+	MaxIterations int
 }
 
 type ProposeRequest struct {
@@ -225,7 +229,7 @@ func (m *Manager) DeleteConversation(workflowID, conversationID string) error {
 	return m.conversations.Delete(workflowID, conversationID)
 }
 
-func (m *Manager) RecordFailedTurn(workflowID, conversationID, instruction, problemID string, operationID ...string) (Conversation, error) {
+func (m *Manager) RecordFailedTurn(workflowID, conversationID, instruction, problemID string, problemParams map[string]any, operationID ...string) (Conversation, error) {
 	if m.conversations == nil {
 		return Conversation{}, errors.New("AI authoring conversation store is unavailable")
 	}
@@ -236,10 +240,10 @@ func (m *Manager) RecordFailedTurn(workflowID, conversationID, instruction, prob
 	if _, err := m.conversations.Append(workflowID, conversationID, ConversationMessage{ID: userID, Role: "user", Content: instruction, CreatedAt: m.now().UTC()}); err != nil {
 		return Conversation{}, err
 	}
-	return m.RecordFailure(workflowID, conversationID, problemID, operationID...)
+	return m.RecordFailure(workflowID, conversationID, problemID, problemParams, operationID...)
 }
 
-func (m *Manager) RecordFailure(workflowID, conversationID, problemID string, operationID ...string) (Conversation, error) {
+func (m *Manager) RecordFailure(workflowID, conversationID, problemID string, problemParams map[string]any, operationID ...string) (Conversation, error) {
 	if m.conversations == nil {
 		return Conversation{}, errors.New("AI authoring conversation store is unavailable")
 	}
@@ -254,7 +258,7 @@ func (m *Manager) RecordFailure(workflowID, conversationID, problemID string, op
 	if len(operationID) != 0 {
 		operation = operationID[0]
 	}
-	return m.conversations.Append(workflowID, conversationID, ConversationMessage{ID: responseID, Role: "assistant", Content: problemID, ProblemID: problemID, OperationID: operation, CreatedAt: m.now().UTC()})
+	return m.conversations.Append(workflowID, conversationID, ConversationMessage{ID: responseID, Role: "assistant", Content: problemID, ProblemID: problemID, ProblemParams: problemParams, OperationID: operation, CreatedAt: m.now().UTC()})
 }
 
 func (m *Manager) ProposeTurn(ctx context.Context, runtime Runtime, request ConversationTurnRequest) (Conversation, Review, error) {
@@ -389,7 +393,11 @@ func (m *Manager) Propose(ctx context.Context, runtime Runtime, request ProposeR
 	if err != nil {
 		return Review{}, err
 	}
-	budget := ai.RunBudget{MaxInputTokens: 250_000, MaxOutputTokens: 64_000, MaxCostMicrounits: 50_000_000, MaxWallTimeMillis: 120_000, MaxIterations: 12, MaxToolCalls: 48, MaxParallelism: 4}
+	maxIterations := runtime.MaxIterations
+	if maxIterations == 0 {
+		maxIterations = DefaultMaxIterations
+	}
+	budget := ai.RunBudget{MaxInputTokens: 250_000, MaxOutputTokens: 64_000, MaxCostMicrounits: 50_000_000, MaxWallTimeMillis: 120_000, MaxIterations: maxIterations, MaxToolCalls: 48, MaxParallelism: 4}
 	tracker, err := ai.NewBudgetTracker(budget, m.now())
 	if err != nil {
 		return Review{}, err

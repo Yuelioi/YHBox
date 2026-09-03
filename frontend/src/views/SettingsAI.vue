@@ -1,13 +1,5 @@
 <template>
   <div class="settings-page">
-    <div class="settings-notice">
-      <UIcon name="i-tabler-key" class="settings-notice__icon" />
-      <div class="min-w-0">
-        <p class="settings-notice__title">{{ t('settingsAI.security.title') }}</p>
-        <p class="settings-notice__description">{{ t('settingsAI.security.hint') }}</p>
-      </div>
-    </div>
-
     <SettingsSection
       :title="t('settingsAI.roles.title')"
       :description="t('settingsAI.roles.hint')"
@@ -38,6 +30,30 @@
         class="text-xs leading-5 text-muted"
       >
         {{ t(diagnosticProfileUnavailableKey) }}
+      </p>
+    </SettingsSection>
+
+    <SettingsSection
+      :title="t('settingsAI.authoring.title')"
+      :description="t('settingsAI.authoring.hint')"
+      icon="i-tabler-adjustments"
+    >
+      <UFormField
+        :label="t('settingsAI.authoring.max_iterations_label')"
+        :description="t('settingsAI.authoring.max_iterations_hint')"
+      >
+        <UInputNumber
+          v-model="authoringMaxIterations"
+          data-testid="settings-ai-authoring-max-iterations"
+          :min="8"
+          :max="64"
+          :step="1"
+          size="sm"
+          class="w-full sm:w-48"
+        />
+      </UFormField>
+      <p class="mt-2 text-xs leading-5 text-dimmed">
+        {{ t('settingsAI.authoring.not_billing_limit') }}
       </p>
     </SettingsSection>
 
@@ -458,6 +474,12 @@ const store = useSettingsStore()
 const draft = ref<AIModelProfileDraft[]>([])
 const profiles = computed<AIModelProfile[]>(() => store.data?.ai.profiles ?? [])
 const diagnosticSlot = computed(() => store.data?.ai.roles?.diagnostics ?? '')
+const authoringMaxIterations = computed({
+  get: () => store.data?.ai.authoring?.maxIterations ?? 24,
+  set: (maxIterations: number) => {
+    void store.patchAIAuthoring({ maxIterations })
+  },
+})
 const diagnosticProfileOptions = computed(() =>
   eligibleDiagnosticProfiles(draft.value).map((profile) => ({
     label: `${profile.label} (${profile.model})`,

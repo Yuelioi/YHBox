@@ -128,6 +128,12 @@
             <p class="whitespace-pre-wrap break-words text-xs leading-5 text-toned">
               {{ messageText(message) }}
             </p>
+            <p
+              v-if="message.problemId && message.operationId"
+              class="mt-1 break-all font-mono text-[10px] text-dimmed"
+            >
+              {{ t('workflow.ai.operation_id', { id: message.operationId }) }}
+            </p>
             <div
               v-if="message.review"
               class="mt-3 overflow-hidden rounded-xl border border-default bg-elevated/25"
@@ -487,8 +493,7 @@ function replaceReview(review: AIWorkflowReview) {
 }
 function messageText(message: AIConversationMessage) {
   if (!message.problemId) return message.content
-  const key = `error.${message.problemId}`
-  return te(key) ? t(key) : t('error.UNKNOWN_ERROR')
+  return errorMessage({ id: message.problemId, params: message.problemParams })
 }
 function stageError(
   error: unknown,

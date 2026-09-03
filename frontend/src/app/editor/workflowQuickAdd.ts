@@ -24,6 +24,6 @@ export function filterWorkflowQuickAddItems(
 }
 
 export function moveWorkflowQuickAddIndex(current: number, delta: number, count: number): number {
-  if (!count) return 0
-  return (current + delta + count) % count
+  return moveListSelection(current, delta, count)
 }
+import { moveListSelection } from './listKeyboardSelection'

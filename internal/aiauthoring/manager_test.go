@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -182,7 +183,49 @@ func TestConversationTurnMayAnswerWithoutInventingPatch(t *testing.T) {
 	}
 }
 
+func TestConversationTurnAllowsEnoughIterationsForCatalogDiscoveryAndProposal(t *testing.T) {
+	now := time.Date(2026, 9, 3, 6, 0, 0, 0, time.UTC)
+	runtime := testRuntime(t, now)
+	created, err := runtime.Application.CreateSource(context.Background(), "Catalog discovery")
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager, err := aiauthoring.NewManager(runtime.Application, runtime.Builtins, func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile, err := ai.SealModelProfile(ai.ModelProfileDraft{
+		Provider: ai.ProviderOpenAIResponses, Model: "test-model", MaxOutputTokens: 1024,
+		Capabilities: ai.ProfileCapabilities{ToolCalling: true}, Pricing: ai.TokenPricing{InputMicrounitsPerMillion: 1, OutputMicrounitsPerMillion: 1},
+		Evaluation: ai.EvaluationUnverified, ProviderMetadata: json.RawMessage(`{}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	review, err := manager.Propose(context.Background(), aiauthoring.Runtime{Profile: profile, Provider: &catalogDiscoveryProvider{}, Credential: "secret"}, aiauthoring.ProposeRequest{
+		WorkflowID: created.WorkflowID(), BaseRevision: created.Revision(), Instruction: "Add a key node.", TrustClass: "user-authored", AllowAnswerOnly: true,
+	})
+	if err != nil || review.Summary != "Catalog discovery completed." {
+		t.Fatalf("catalog discovery result = %#v, %v", review, err)
+	}
+}
+
 type answerProvider struct{}
+
+type catalogDiscoveryProvider struct{ turn int }
+
+func (p *catalogDiscoveryProvider) StartAgent(context.Context, string, ai.AgentStartRequest) (ai.Outcome, any, error) {
+	p.turn = 1
+	return toolOutcome("call-1", "catalog_search", `{"query":"按键"}`), p.turn, nil
+}
+
+func (p *catalogDiscoveryProvider) ContinueAgent(context.Context, string, any, ai.AgentContinueRequest) (ai.Outcome, any, error) {
+	p.turn++
+	if p.turn <= 12 {
+		return toolOutcome(fmt.Sprintf("call-%d", p.turn), "catalog_search", `{"query":"key"}`), p.turn, nil
+	}
+	return ai.Outcome{Provider: ai.ProviderOpenAIResponses, RequestedModel: "test-model", ResolvedModel: "test-model", Items: []ai.OutputItem{{Kind: ai.OutputText, Text: &ai.TextOutput{Text: "Catalog discovery completed."}}}, Finish: ai.Finish{Kind: ai.FinishCompleted}, Usage: testUsage()}, nil, nil
+}
 
 func (answerProvider) StartAgent(context.Context, string, ai.AgentStartRequest) (ai.Outcome, any, error) {
 	return ai.Outcome{Provider: ai.ProviderOpenAIResponses, RequestedModel: "test-model", ResolvedModel: "test-model", Items: []ai.OutputItem{{Kind: ai.OutputText, Text: &ai.TextOutput{Text: "The workflow stopped because its terminal route completed."}}}, Finish: ai.Finish{Kind: ai.FinishCompleted}, Usage: testUsage()}, nil, nil

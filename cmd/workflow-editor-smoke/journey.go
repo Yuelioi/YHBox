@@ -553,12 +553,19 @@ func run(
 		let conversation;
 		try {
 			conversation = await backend.ai.createConversation(workflowId);
-			const started = await backend.ai.beginConversationTurn(workflowId, conversation.id, 'Native transport persistence smoke');
-			if (!started?.messageId || started.conversation?.messages?.length !== 1 || started.conversation.messages[0]?.content !== 'Native transport persistence smoke') {
-				throw new Error('begin conversation turn did not return the persisted user message');
+			try {
+				await backend.ai.sendConversationMessage('__webview_smoke_missing_profile__', workflowId, conversation.id, 1, 'Native transport persistence smoke');
+				throw new Error('missing AI profile unexpectedly succeeded');
+			} catch (error) {
+				if (error?.id !== 'ai.authoring.profile_not_found') throw error;
 			}
 			const reopened = await backend.ai.getConversation(workflowId, conversation.id);
-			if (reopened.messages?.[0]?.id !== started.messageId) throw new Error('persisted AI turn could not be read back');
+			if (reopened.messages?.length !== 2 || reopened.messages[0]?.content !== 'Native transport persistence smoke') {
+				throw new Error('persisted AI turn could not be read back');
+			}
+			if (reopened.messages[1]?.problemId !== 'ai.authoring.profile_not_found' || !reopened.messages[1]?.problemParams?.slot || !reopened.messages[1]?.operationId) {
+				throw new Error('persisted AI failure lost its structured Problem evidence');
+			}
 			await backend.ai.deleteConversation(workflowId, conversation.id);
 		} catch (error) {
 			const source = error?.source;

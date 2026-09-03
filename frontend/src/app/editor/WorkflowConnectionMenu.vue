@@ -6,6 +6,7 @@
     @mousedown.stop
     @click.stop
     @wheel.stop
+    @keydown="onListKeydown"
   >
     <div class="border-b border-default px-3 py-3">
       <div class="flex items-start gap-2">
@@ -46,16 +47,18 @@
       </p>
     </div>
 
-    <div class="min-h-0 flex-1 overflow-y-auto p-2">
+    <div ref="resultsElement" class="min-h-0 flex-1 overflow-y-auto p-2">
       <div v-if="visibleCandidates.length" class="space-y-1">
         <button
-          v-for="candidate in visibleCandidates"
+          v-for="(candidate, index) in visibleCandidates"
           :key="candidate.key"
           type="button"
           data-testid="workflow-connection-candidate"
           :data-node-type-id="candidate.nodeTypeId"
           :data-port-id="candidate.handle?.portId"
-          class="flex h-auto w-full items-center justify-start gap-2 rounded-md px-2.5 py-2 text-left hover:bg-elevated focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          class="flex h-auto w-full items-center justify-start gap-2 rounded-md px-2.5 py-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          :class="index === activeIndex ? 'bg-primary/10' : 'hover:bg-elevated'"
+          @mouseenter="activeIndex = index"
           @click.stop="emit('select', candidate)"
         >
           <UIcon
@@ -74,6 +77,7 @@
               }}
             </span>
           </span>
+          <UKbd v-if="index < NUMBERED_SELECTION_LIMIT" size="xs">{{ index + 1 }}</UKbd>
           <UBadge v-if="candidate.conversionKind" color="warning" variant="soft" size="sm">
             {{ t(`workflow.connection.conversion_${candidate.conversionKind}`) }}
           </UBadge>
@@ -105,7 +109,7 @@
         color="neutral"
         variant="ghost"
         size="sm"
-        class="w-full"
+        class="w-full justify-center"
         :icon="showAll ? 'i-tabler-filter' : 'i-tabler-list'"
         :label="
           showAll ? t('workflow.connection.show_compatible') : t('workflow.connection.show_all')
@@ -120,6 +124,11 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ParsedHandle } from './graphHandles'
+import {
+  NUMBERED_SELECTION_LIMIT,
+  moveListSelection,
+  numberedSelectionIndex,
+} from './listKeyboardSelection'
 
 export interface WorkflowConnectionCandidate {
   key: string
@@ -150,6 +159,8 @@ const showAll = ref(false)
 const CANDIDATE_PAGE_SIZE = 80
 const visibleLimit = ref(CANDIDATE_PAGE_SIZE)
 const searchInput = ref<{ inputRef?: HTMLInputElement } | null>(null)
+const resultsElement = ref<HTMLElement | null>(null)
+const activeIndex = ref(0)
 
 const matchingCandidates = computed(() => {
   const normalized = query.value.trim().toLocaleLowerCase()
@@ -162,9 +173,42 @@ const visibleCandidates = computed(() => matchingCandidates.value.slice(0, visib
 
 watch([query, showAll], () => {
   visibleLimit.value = CANDIDATE_PAGE_SIZE
+  activeIndex.value = 0
 })
 
 onMounted(() => {
   void nextTick(() => searchInput.value?.inputRef?.focus())
 })
+
+function move(delta: number): void {
+  activeIndex.value = moveListSelection(activeIndex.value, delta, visibleCandidates.value.length)
+  void nextTick(() => {
+    resultsElement.value
+      ?.querySelectorAll<HTMLElement>('[data-testid="workflow-connection-candidate"]')
+      [activeIndex.value]?.scrollIntoView({ block: 'nearest' })
+  })
+}
+
+function selectActive(): void {
+  const candidate = visibleCandidates.value[activeIndex.value]
+  if (candidate) emit('select', candidate)
+}
+
+function onListKeydown(event: KeyboardEvent): void {
+  if (event.isComposing) return
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault()
+    move(event.key === 'ArrowDown' ? 1 : -1)
+    return
+  }
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    selectActive()
+    return
+  }
+  const index = numberedSelectionIndex(event, visibleCandidates.value.length)
+  if (index === undefined) return
+  event.preventDefault()
+  emit('select', visibleCandidates.value[index]!)
+}
 </script>

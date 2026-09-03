@@ -462,6 +462,7 @@ export interface AIConversationMessage {
   reviewId?: string
   review?: AIWorkflowReview
   problemId?: string
+  problemParams?: Record<string, unknown>
   operationId?: string
 }
 

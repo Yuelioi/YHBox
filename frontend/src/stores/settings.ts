@@ -70,6 +70,9 @@ export interface Settings {
     roles: {
       diagnostics: string
     }
+    authoring: {
+      maxIterations: number
+    }
   }
   mcp: {
     enabled: boolean
@@ -169,6 +172,10 @@ export const useSettingsStore = defineStore('settings', () => {
     return patch({ ai: { roles } })
   }
 
+  async function patchAIAuthoring(authoring: { maxIterations: number }) {
+    return patch({ ai: { authoring } })
+  }
+
   async function patchHTTPOrigins(httpOrigins: HTTPOriginProfile[]) {
     return patch({ network: { httpOrigins } })
   }
@@ -208,6 +215,7 @@ export const useSettingsStore = defineStore('settings', () => {
     patch,
     patchAIProfiles,
     patchAIRoles,
+    patchAIAuthoring,
     patchHTTPOrigins,
     patchApplicationProfiles,
     patchAutomationTargets,

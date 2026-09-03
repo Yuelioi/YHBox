@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/ai"
+	"github.com/yottaapp/yotta/internal/aiauthoring"
 	"github.com/yottaapp/yotta/internal/nodes"
 )
 
@@ -89,5 +90,22 @@ func TestAISettingsAllowUnverifiedToolCallingDiagnosticProfile(t *testing.T) {
 	settings.AI.Roles.Diagnostics = configured.Slot
 	if err := settings.Validate(); err != nil {
 		t.Fatalf("unverified tool-calling diagnostic profile rejected: %v", err)
+	}
+}
+
+func TestAISettingsValidateAuthoringIterationLimit(t *testing.T) {
+	settings := defaultSettings()
+	if settings.AI.Authoring.MaxIterations != aiauthoring.DefaultMaxIterations {
+		t.Fatalf("default AI authoring iteration limit = %d", settings.AI.Authoring.MaxIterations)
+	}
+	for _, value := range []int{aiauthoring.MinMaxIterations - 1, aiauthoring.MaxMaxIterations + 1} {
+		settings.AI.Authoring.MaxIterations = value
+		if err := settings.Validate(); err == nil {
+			t.Fatalf("accepted AI authoring iteration limit %d", value)
+		}
+	}
+	settings.AI.Authoring.MaxIterations = 32
+	if err := settings.Validate(); err != nil {
+		t.Fatalf("rejected AI authoring iteration limit: %v", err)
 	}
 }

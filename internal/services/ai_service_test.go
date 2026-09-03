@@ -11,7 +11,16 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/yottaapp/yotta/internal/ai"
+	"github.com/yottaapp/yotta/internal/apperr"
 )
+
+func TestProjectAIAuthoringBudgetError(t *testing.T) {
+	projected := projectAIAuthoringError(ai.ErrAgentBudgetExceeded)
+	envelope := apperr.From(projected)
+	if envelope.ID != "ai.authoring.budget_exhausted" || !envelope.Retryable || envelope.OperationID == "" {
+		t.Fatalf("projected budget error = %#v", envelope)
+	}
+}
 
 func TestProfileUsesProviderNativeGenerationAndStoredCredential(t *testing.T) {
 	store := newFakeSecretStore()

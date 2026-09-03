@@ -24,8 +24,19 @@ tasks:
     summary: Build the frontend project
     dir: frontend
     sources:
-      - "**/*"
-      - exclude: node_modules/**/*
+      - "src/**/*"
+      - "public/**/*"
+      - "scripts/**/*"
+      - "bindings/**/*"
+      - "index.html"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.json"
+      - "vite.config.ts"
+      - "auto-imports.d.ts"
+      - "components.d.ts"
+      - "bundle-budgets.json"
     generates:
       - dist/**/*
     deps:
