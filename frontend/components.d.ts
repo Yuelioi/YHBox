@@ -77,6 +77,7 @@ declare module 'vue' {
     USwitch: typeof import('./node_modules/.pnpm/@nuxt+ui@4.10.0_331c50f938c3ba7dcef7fc15483382d6/node_modules/@nuxt/ui/dist/runtime/components/Switch.vue')['default']
     UTextarea: typeof import('./node_modules/.pnpm/@nuxt+ui@4.10.0_331c50f938c3ba7dcef7fc15483382d6/node_modules/@nuxt/ui/dist/runtime/components/Textarea.vue')['default']
     UTooltip: typeof import('./node_modules/.pnpm/@nuxt+ui@4.10.0_331c50f938c3ba7dcef7fc15483382d6/node_modules/@nuxt/ui/dist/runtime/components/Tooltip.vue')['default']
+    WorkflowHotkeyField: typeof import('./src/components/hotkeys/WorkflowHotkeyField.vue')['default']
     WorkflowPickerModal: typeof import('./src/components/launcher/WorkflowPickerModal.vue')['default']
     YottaMark: typeof import('./src/components/common/YottaMark.vue')['default']
   }

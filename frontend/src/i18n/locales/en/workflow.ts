@@ -2,6 +2,13 @@ export default {
   workflow: {
     workspace_tools: 'Workspace tools',
     workspace_resources: 'Resource tools',
+    hotkey: {
+      label: 'Global hotkey',
+      hint: 'Trigger this workflow from any window. Changes are saved to this device immediately.',
+      capture_aria: 'Set the global hotkey for workflow “{name}”',
+      failed: 'Hotkey registration failed',
+      update_failed: 'Failed to update workflow hotkey',
+    },
     sidebar: {
       resize_workspace: 'Resize workspace sidebar',
       resize_inspector: 'Resize properties sidebar',

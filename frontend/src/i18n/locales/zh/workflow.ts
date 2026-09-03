@@ -2,6 +2,13 @@ export default {
   workflow: {
     workspace_tools: '工作区工具',
     workspace_resources: '资源工具',
+    hotkey: {
+      label: '全局快捷键',
+      hint: '在任意窗口触发此工作流；修改后立即保存到本机。',
+      capture_aria: '设置工作流“{name}”的全局快捷键',
+      failed: '快捷键注册失败',
+      update_failed: '更新工作流快捷键失败',
+    },
     sidebar: {
       resize_workspace: '调整工作区侧栏宽度',
       resize_inspector: '调整属性侧栏宽度',

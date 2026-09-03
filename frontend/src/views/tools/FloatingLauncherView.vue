@@ -89,6 +89,18 @@
         <UIcon name="i-tabler-alert-triangle" class="size-3.5" />
         <span>{{ t('floatingLauncher.stale_hint', { n: resolution.staleBlocks.length }) }}</span>
       </div>
+
+      <div v-if="stopTipItem" class="launcher-stop-tip" role="status" aria-live="polite">
+        <UIcon name="i-tabler-square" class="size-3.5 shrink-0" />
+        <span class="min-w-0 flex-1 truncate">
+          {{
+            stopTipItem.shortcut
+              ? t('floatingLauncher.stop_tip_hotkey', { name: stopTipItem.label })
+              : t('floatingLauncher.stop_tip_click', { name: stopTipItem.label })
+          }}
+        </span>
+        <UKbd v-if="stopTipItem.shortcut" :value="stopTipItem.shortcut" />
+      </div>
     </div>
 
     <div
@@ -194,6 +206,9 @@ const failedSlotHotkeys = computed(() =>
   hotkeysStore.list.filter(
     (entry) => entry.key.startsWith('launcher.slot.') && entry.status === 'failed',
   ),
+)
+const stopTipItem = computed(
+  () => resolution.value.items.find((item) => activeRuns.value[item.workflowId]?.length) ?? null,
 )
 
 watch(
@@ -506,5 +521,25 @@ onUnmounted(() => {
 
 .launcher-health--error {
   color: var(--ui-error);
+}
+
+.launcher-stop-tip {
+  display: flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 7px;
+  margin-top: auto;
+  padding: 6px 7px 2px;
+  border-top: 1px solid color-mix(in oklab, var(--ui-primary) 28%, var(--ui-border));
+  color: var(--ui-text-toned);
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.launcher-stop-tip :deep(kbd) {
+  flex: none;
+  height: 18px;
+  padding-inline: 5px;
+  font-size: 9px;
 }
 </style>

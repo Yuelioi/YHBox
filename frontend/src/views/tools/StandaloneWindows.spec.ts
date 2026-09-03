@@ -95,6 +95,14 @@ describe('standalone window presentation contract', () => {
     expect(source).toContain('activeRuns.value')
   })
 
+  it('shows a bottom stop tip using the live configured slot shortcut', () => {
+    const source = readSource('src/views/tools/FloatingLauncherView.vue')
+
+    expect(source).toContain('class="launcher-stop-tip"')
+    expect(source).toContain('stopTipItem.shortcut')
+    expect(source).toContain("t('floatingLauncher.stop_tip_hotkey'")
+  })
+
   it('lets live HUD state regions fill spare height instead of pushing it above actions', () => {
     for (const filename of ['RecordingHUDView.vue', 'CalibrationHUDView.vue']) {
       const source = readSource(`src/views/tools/${filename}`)

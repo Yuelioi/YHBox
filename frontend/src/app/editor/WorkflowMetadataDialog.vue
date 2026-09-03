@@ -28,6 +28,7 @@
           <UInput v-model="tagsText" class="w-full" />
         </UFormField>
       </div>
+      <WorkflowHotkeyField :workflow-id="workflowId" :name="draft.name || name" />
       <p v-if="error" class="text-xs text-error" role="alert">{{ error }}</p>
     </div>
     <template #footer>
@@ -54,11 +55,12 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseModal from '@/components/common/BaseModal.vue'
+import WorkflowHotkeyField from '@/components/hotkeys/WorkflowHotkeyField.vue'
 import { addCreatedCategory, uniqueCategoryOptions } from '@/lib/categoryOptions'
 import type { WorkflowMetadataDraft } from './EditorWorkflowMetadataController'
 
 const props = defineProps<
-  WorkflowMetadataDraft & { open: boolean; busy?: boolean; error?: string }
+  WorkflowMetadataDraft & { workflowId: string; open: boolean; busy?: boolean; error?: string }
 >()
 const emit = defineEmits<{
   'update:open': [open: boolean]

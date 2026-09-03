@@ -52,6 +52,7 @@
 
       <WorkflowMetadataDialog
         v-model:open="workflowSettingsOpen"
+        :workflow-id="session.workflowId"
         :name="workflowMetadata.name"
         :description="workflowMetadata.description"
         :category="workflowMetadata.category"

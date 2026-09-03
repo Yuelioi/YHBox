@@ -105,6 +105,8 @@ export default {
     success: '已提交运行',
     failed: '启动失败',
     hotkey_failed: '{n} 个槽位快捷键被占用，请在启动器设置中更换组合键。',
+    stop_tip_hotkey: '再次按下即可停止“{name}”',
+    stop_tip_click: '再次点击即可停止“{name}”',
     cancelled: '已停止',
   },
 }

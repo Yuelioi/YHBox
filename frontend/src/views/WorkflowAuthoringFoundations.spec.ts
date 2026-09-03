@@ -404,6 +404,19 @@ describe('workflow authoring foundations', () => {
     expect(dialog).toContain('@create="createCategory"')
   })
 
+  it('configures one shared global hotkey from workflow list and editor surfaces', () => {
+    const list = readSource('src/views/WorkflowsView.vue')
+    const dialog = readSource('src/app/editor/WorkflowMetadataDialog.vue')
+    const field = readSource('src/components/hotkeys/WorkflowHotkeyField.vue')
+    const management = readSource('src/views/SettingsHotkeys.vue')
+
+    expect(list).toContain('<WorkflowHotkeyField')
+    expect(dialog).toContain('<WorkflowHotkeyField')
+    expect(field).toContain('`action.${props.workflowId}`')
+    expect(field).toContain('backend.hotkeys.reconcile()')
+    expect(management).toContain("entry.source !== 'action' || entry.status !== 'unbound'")
+  })
+
   it('scales the asset library with server paging, cross-page batches, and guarded cleanup', () => {
     const source = readSource('src/views/AssetsView.vue')
     expect(source).toContain('assets.query')

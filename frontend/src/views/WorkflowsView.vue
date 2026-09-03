@@ -566,6 +566,11 @@
             />
           </UFormField>
         </div>
+        <WorkflowHotkeyField
+          v-if="editingSource"
+          :workflow-id="editingSource.workflowId"
+          :name="metadataDraft.name || editingSource.name"
+        />
         <p v-if="metadataFailure" class="text-sm text-error" role="alert">{{ metadataFailure }}</p>
       </form>
       <template #footer>
@@ -659,6 +664,7 @@ import BaseModal from '@/components/common/BaseModal.vue'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LibrarySelectionToolbar from '@/components/library/LibrarySelectionToolbar.vue'
+import WorkflowHotkeyField from '@/components/hotkeys/WorkflowHotkeyField.vue'
 
 defineOptions({ name: 'WorkflowsView' })
 

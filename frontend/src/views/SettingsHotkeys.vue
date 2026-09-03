@@ -121,7 +121,13 @@ onMounted(() => {
   void backend.hotkeys.reconcile().then(store.reload).catch(showError)
 })
 
-const persistentEntries = computed(() => store.list.filter((entry) => entry.source !== 'launcher'))
+const persistentEntries = computed(() =>
+  store.list.filter(
+    (entry) =>
+      entry.source !== 'launcher' &&
+      (entry.source !== 'action' || entry.status !== 'unbound' || Boolean(entry.lastError)),
+  ),
+)
 const failedCount = computed(
   () => persistentEntries.value.filter((entry) => entry.status === 'failed').length,
 )

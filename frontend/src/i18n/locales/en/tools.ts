@@ -109,6 +109,8 @@ export default {
     failed: 'Launch failed',
     hotkey_failed:
       '{n} slot hotkeys are unavailable. Choose another modifier combination in Launcher settings.',
+    stop_tip_hotkey: 'Press again to stop “{name}”',
+    stop_tip_click: 'Click again to stop “{name}”',
     cancelled: 'Stopped',
   },
 }
