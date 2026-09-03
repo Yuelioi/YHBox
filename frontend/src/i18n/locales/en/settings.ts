@@ -11,7 +11,6 @@ export default {
     automation: 'Automation targets',
   },
   settingsCenter: {
-    local_hint: 'Device and workspace preferences',
     search_placeholder: 'Search settings themes',
     clear_search: 'Clear settings search',
     themes_label: 'Settings themes',
@@ -62,20 +61,13 @@ export default {
     intro:
       'Put frequent workflows into a small launcher and run them with one click. Open it from the main window, this page, or the global hotkey.',
     access_title: 'Open & shortcut',
-    access_hint: 'Open the existing launcher window or use the global hotkey.',
     open_now: 'Open launcher',
-    hotkey_title: 'Current global hotkey',
-    hotkey_active: 'Show or hide the launcher from another window.',
-    hotkey_unbound: 'Open it from the main window or this page.',
-    hotkey_failed:
-      'The hotkey failed to register or conflicts with another binding. Resolve it under Hotkeys.',
-    configure_hotkey: 'Configure hotkey',
-    slot_hotkey_title: 'First 9 slot hotkeys',
-    slot_hotkey_hint:
-      'Global only while the launcher is visible; released immediately when hidden. Keep at least one modifier.',
+    hotkey_title: 'Enable launcher shortcuts',
+    hotkey_hint: 'Enable shortcuts for the first 9 slots while the launcher is visible.',
+    slot_hotkey_title: '1–9 modifier keys',
+    slot_hotkey_hint: 'Keep at least one modifier.',
     display_label: 'Command layout',
     appearance_title: 'Appearance & display',
-    display_hint: 'Choose a list, icon grid, or text-only layout.',
     display_both: 'Command list (recommended)',
     display_icon: 'Compact icon grid',
     display_text: 'Text-only list',
@@ -84,6 +76,7 @@ export default {
     size_small: 'Small',
     size_medium: 'Medium',
     size_large: 'Large',
+    size_xlarge: 'Extra large',
     layout_stats: '{available} available · {stale} missing',
     cleanup_stale: 'Clean {n}',
     undo_cleanup: 'Undo cleanup',
@@ -96,8 +89,6 @@ export default {
     hsep: 'Horizontal separator',
     vsep: 'Vertical separator',
     delete_block: 'Delete this block',
-    move_up: 'Move block up',
-    move_down: 'Move block down',
     from_workflow: 'From workflow: {name}',
     add_workflow: 'Add workflows',
     label_block: 'Text heading',
@@ -130,7 +121,6 @@ export default {
   settingsNetwork: {
     origins: {
       title: 'HTTP targets',
-      hint: 'Configure HTTP base addresses, timeouts, and response limits for workflows.',
       add: 'Add HTTP target',
       unnamed: 'Unnamed HTTP target',
       origin_missing: 'URL not specified',
@@ -143,7 +133,6 @@ export default {
       byte_limit_label: 'Maximum response bytes',
       byte_limit_hint: 'Requests fail when the response exceeds this limit.',
       timeout_label: 'Timeout (milliseconds)',
-      timeout_hint: 'How long a single request waits.',
       delete: 'Delete target',
       empty: 'No HTTP targets configured',
       empty_hint: 'Add a base URL to select it in HTTP GET nodes.',
@@ -158,13 +147,11 @@ export default {
   settingsApplications: {
     profiles: {
       title: 'Desktop applications',
-      hint: 'Manage program paths and launch arguments.',
       add: 'Add application',
       name_label: 'Display name',
       slot_label: 'Configuration slot',
       slot_hint: 'Workflows reference this identifier; it cannot change after saving.',
       executable_label: 'Program path',
-      executable_hint: 'Choose the program to run.',
       replace: 'Choose another',
       arguments_label: 'Launch arguments',
       arguments_hint: 'Enter one argument per line.',
@@ -186,7 +173,6 @@ export default {
   settingsAutomation: {
     targets: {
       title: 'Automation targets',
-      hint: 'Manage Windows, Android, and browser targets.',
       add: 'Add window target',
       add_windows: 'Windows target',
       add_android: 'Android target',
@@ -195,11 +181,8 @@ export default {
       slot_label: 'Configuration slot',
       slot_hint: 'Workflows reference this identifier; it cannot change after saving.',
       application_label: 'Application configuration',
-      application_hint: 'Choose the application that owns the window.',
       backend_label: 'Input backend',
-      backend_hint: 'Choose system input or window messages.',
       capture_backend_label: 'Capture backend',
-      capture_backend_hint: 'Choose the window capture method.',
       mouse_counts_label: 'Mouse counts per 360°',
       mouse_counts_hint:
         'Uses the active calibration by default; a custom value controls relative-mouse recording and replay scaling.',
@@ -215,7 +198,6 @@ export default {
       window_title_match_exact: 'Exact match',
       window_title_match_regex: 'Regex match',
       window_selection_label: 'When multiple windows match',
-      window_selection_hint: 'Choose a unique match or the current topmost match.',
       window_selection_unique: 'Require a unique match',
       window_selection_topmost: 'Use the current topmost match',
       preview_matches: 'Check current window matches',
@@ -224,7 +206,6 @@ export default {
       window_class_label: 'Exact window class',
       window_class_hint: 'Enter a Win32 class name. If title and class are set, both must match.',
       timeout_label: 'Resolve timeout (milliseconds)',
-      timeout_hint: 'How long to wait for a matching window.',
       delete: 'Delete target',
       empty: 'No automation targets configured',
       empty_hint: 'After adding a target, automation nodes can select it.',
@@ -242,7 +223,6 @@ export default {
       none_found:
         'No ADB devices found. Start an emulator or connect a device and authorize USB debugging.',
       device_label: 'ADB device',
-      device_hint: 'Choose an ADB device.',
       package_label: 'Android package',
       package_hint: 'Choose an app from the device or enter its package.',
       refresh_apps: 'Refresh applications',
@@ -264,7 +244,6 @@ export default {
       none_found:
         'No pages found. Confirm the browser debugging endpoint is running and reachable.',
       endpoint_label: 'CDP endpoint',
-      endpoint_hint: 'Enter an HTTP/HTTPS address.',
       page_label: 'Page',
       page_hint: 'The page ID is used to rediscover its connection address at runtime.',
       url_label: 'URL at discovery',
@@ -312,7 +291,6 @@ export default {
     intro: 'Install explicit model profiles for workflows to call through stable slots.',
     roles: {
       title: 'AI proposal model',
-      hint: 'Choose the default model for AI proposals and Run diagnostics.',
       diagnostics_placeholder: 'Choose AI proposal model',
       none: 'Not assigned',
       clear: 'Clear',
@@ -326,7 +304,6 @@ export default {
     },
     authoring: {
       title: 'Proposal execution',
-      hint: 'Control how many consecutive reasoning and tool-use steps one AI proposal may take.',
       max_iterations_label: 'Steps per turn',
       max_iterations_hint:
         'Range: 8–64. Complex node discovery, connections, and compilation usually need more steps.',
@@ -345,7 +322,6 @@ export default {
     },
     profiles: {
       title: 'Installed models',
-      hint: 'Manage models, endpoints, and API keys.',
       add: 'Install model',
       unnamed: 'Unnamed model',
       credential_saved: 'Key saved',
@@ -355,9 +331,7 @@ export default {
       slot_hint: 'Workflows reference this identifier; it cannot change after saving.',
       provider_label: 'API protocol',
       model_label: 'Exact model name',
-      model_hint: 'Sent as entered.',
       endpoint_label: 'API base URL',
-      endpoint_hint: "Enter the provider's API address.",
       endpoint_invalid:
         'Enter a complete URL without credentials, query parameters, or a fragment.',
       endpoint_https_required:
@@ -373,10 +347,8 @@ export default {
       label_placeholder: 'For example: Primary reasoning model',
       model_placeholder: 'For example: gpt-5.1 or claude-opus-4-1',
       max_tokens_label: 'Maximum output tokens',
-      max_tokens_hint: 'Per-generation limit; can be unlimited.',
       max_tokens_unlimited: 'Unlimited',
       apikey_label: 'API key',
-      apikey_hint: 'Saved by model slot.',
       apikey_replace_placeholder: 'Key saved, enter a new key to replace it',
       apikey_placeholder: 'Enter the provider API key',
       reveal: 'Show or hide key',
@@ -414,17 +386,11 @@ export default {
     },
     capabilities: {
       title: 'Declared capabilities',
-      hint: 'Choose the capabilities supported by this model.',
       structured_output: 'Structured output',
-      structured_output_hint: 'Generate structured results.',
       tool_calling: 'Tool calling',
-      tool_calling_hint: 'Let the model initiate tool calls.',
       parallel_tools: 'Parallel tool calls',
-      parallel_tools_hint: 'Call multiple tools in one response.',
       background: 'Background generation',
-      background_hint: 'Use the provider background execution mode.',
       zero_retention: 'Zero retention',
-      zero_retention_hint: 'The provider does not retain request data.',
     },
     pricing: {
       title: 'Pinned token pricing',

@@ -115,7 +115,6 @@ export default {
       control_failed: 'Recording control failed',
     },
     macros: {
-      nav_hint: 'Editable key presses, clicks, scrolling, and waits',
       empty: 'No keyboard macros yet',
       empty_hint: 'Select a target and record an editable macro, or add actions manually later.',
       library_meta: 'Keyboard macro · {bytes} bytes',
@@ -133,7 +132,6 @@ export default {
         'The target resolution is unavailable. Open and bind the target window first.',
     },
     clips: {
-      nav_hint: 'Full trajectories, dragging, and mouse turning',
       empty: 'No precise recordings yet',
       empty_hint: 'Select an automation target and record the complete input trajectory.',
       meta: '{duration} · {count} events · {mode}',
@@ -142,7 +140,6 @@ export default {
       load_failed: 'Could not load the precise recording',
     },
     templates: {
-      nav_hint: 'Match, wait, and click templates',
       empty: 'No visual templates yet',
       empty_hint:
         'Capture and crop a template from an installed target, then select it in matching nodes.',

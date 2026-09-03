@@ -51,9 +51,6 @@
         >
           <span class="min-w-0 flex-1">
             <span class="block text-xs font-medium">{{ t('assets.tabs.macros') }}</span>
-            <span class="mt-0.5 block truncate text-[10px] text-dimmed">{{
-              t('assets.macros.nav_hint')
-            }}</span>
           </span>
           <UBadge v-if="activeTab === 'macros'" color="neutral" variant="soft" size="xs">{{
             total
@@ -68,9 +65,6 @@
         >
           <span class="min-w-0 flex-1">
             <span class="block text-xs font-medium">{{ t('assets.tabs.clips') }}</span>
-            <span class="mt-0.5 block truncate text-[10px] text-dimmed">{{
-              t('assets.clips.nav_hint')
-            }}</span>
           </span>
           <UBadge v-if="activeTab === 'clips'" color="neutral" variant="soft" size="xs">{{
             total
@@ -85,9 +79,6 @@
         >
           <span class="min-w-0 flex-1">
             <span class="block text-xs font-medium">{{ t('assets.tabs.templates') }}</span>
-            <span class="mt-0.5 block truncate text-[10px] text-dimmed">{{
-              t('assets.templates.nav_hint')
-            }}</span>
           </span>
           <UBadge v-if="activeTab === 'templates'" color="neutral" variant="soft" size="xs">{{
             total
@@ -105,7 +96,6 @@
             </span>
             <div class="min-w-0 flex-1">
               <h2 class="text-xs font-semibold text-highlighted">{{ activeResourceTitle }}</h2>
-              <p class="mt-0.5 truncate text-[10px] text-dimmed">{{ activeResourceHint }}</p>
             </div>
             <template
               v-if="
@@ -1111,7 +1101,6 @@ const activeResourceIcon = computed(() =>
       : 'i-tabler-photo',
 )
 const activeResourceTitle = computed(() => t(`assets.tabs.${activeTab.value}`))
-const activeResourceHint = computed(() => t(`assets.${activeTab.value}.nav_hint`))
 const resourceActionTitle = computed(() => {
   if (resourceAction.value === 'macro') return t('assets.recording.record_macro')
   if (resourceAction.value === 'precise') return t('assets.recording.record_precise')

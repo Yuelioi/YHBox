@@ -44,7 +44,11 @@ describe('standalone window presentation contract', () => {
     expect(settingsSource).toContain('<div class="settings-page">')
     expect(settingsSource).not.toContain('settings-page--wide')
     expect(settingsSource).toContain('backend.tools.openLauncher()')
-    expect(settingsSource).toContain("entry.key === 'system.launcher-toggle'")
+    expect(settingsSource).toContain('<USwitch')
+    expect(settingsSource).toContain('launcherSlotHotkeysDisabled')
+    expect(settingsSource).not.toContain('configure_hotkey')
+    expect(settingsSource).not.toContain('i-tabler-arrow-up')
+    expect(settingsSource).not.toContain('i-tabler-arrow-down')
     expect(floatingSource).toContain('backend.tools.openLauncherSettings()')
   })
 
@@ -58,6 +62,8 @@ describe('standalone window presentation contract', () => {
     expect(source).toContain('backend.tools.refreshLauncherHotkeys()')
     expect(source).not.toContain("event.key >= '1'")
     expect(surface).toContain('launcher-command--stale')
+    expect(surface).toContain('launcher-surface--xlarge')
+    expect(surface).toContain('.launcher-command--separator-before::before')
     expect(surface).toContain(':aria-disabled="item.stale')
   })
 

@@ -147,11 +147,11 @@ function statusIcon(workflowId: string, fallback: string) {
 
 <style scoped>
 .launcher-surface {
-  --launcher-glyph-size: 20px;
-  --launcher-icon-size: 38px;
-  --launcher-row-height: 50px;
-  --launcher-grid-cell: 54px;
-  --launcher-label-size: 13px;
+  --launcher-glyph-size: 18px;
+  --launcher-icon-size: 34px;
+  --launcher-row-height: 46px;
+  --launcher-grid-cell: 50px;
+  --launcher-label-size: 12px;
   --launcher-status-size: 10px;
 
   display: flex;
@@ -161,10 +161,10 @@ function statusIcon(workflowId: string, fallback: string) {
 }
 
 .launcher-surface--small {
-  --launcher-glyph-size: 16px;
-  --launcher-icon-size: 30px;
-  --launcher-row-height: 42px;
-  --launcher-grid-cell: 46px;
+  --launcher-glyph-size: 15px;
+  --launcher-icon-size: 28px;
+  --launcher-row-height: 40px;
+  --launcher-grid-cell: 44px;
   --launcher-label-size: 12px;
 }
 
@@ -178,6 +178,14 @@ function statusIcon(workflowId: string, fallback: string) {
 }
 
 .launcher-surface--large {
+  --launcher-glyph-size: 21px;
+  --launcher-icon-size: 40px;
+  --launcher-row-height: 52px;
+  --launcher-grid-cell: 58px;
+  --launcher-label-size: 13px;
+}
+
+.launcher-surface--xlarge {
   --launcher-glyph-size: 24px;
   --launcher-icon-size: 46px;
   --launcher-row-height: 60px;
@@ -330,9 +338,22 @@ function statusIcon(workflowId: string, fallback: string) {
   color: var(--ui-warning);
 }
 
+.launcher-command--separator-before::before {
+  position: absolute;
+  content: '';
+  pointer-events: none;
+}
+
 .launcher-surface:not(.launcher-surface--icon) .launcher-command--separator-before {
   margin-top: 5px;
-  border-top-color: var(--ui-border);
+}
+
+.launcher-surface:not(.launcher-surface--icon) .launcher-command--separator-before::before {
+  top: -4px;
+  right: 7px;
+  left: 7px;
+  height: 1px;
+  background: var(--ui-border);
 }
 
 .launcher-surface--text .launcher-command {
@@ -354,7 +375,15 @@ function statusIcon(workflowId: string, fallback: string) {
 }
 
 .launcher-surface--icon .launcher-command--separator-before {
-  border-left-color: var(--ui-border-accented);
+  margin-left: 5px;
+}
+
+.launcher-surface--icon .launcher-command--separator-before::before {
+  top: 6px;
+  bottom: 6px;
+  left: -4px;
+  width: 1px;
+  background: var(--ui-border-accented);
 }
 
 .launcher-surface--icon .launcher-command__ordinal {

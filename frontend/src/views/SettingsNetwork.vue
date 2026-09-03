@@ -1,10 +1,6 @@
 <template>
   <div class="settings-page">
-    <SettingsSection
-      :title="t('settingsNetwork.origins.title')"
-      :description="t('settingsNetwork.origins.hint')"
-      icon="i-tabler-world-www"
-    >
+    <SettingsSection :title="t('settingsNetwork.origins.title')" icon="i-tabler-world-www">
       <template #badge>
         <UBadge size="xs" color="neutral" variant="subtle">{{ draft.length }}</UBadge>
       </template>
@@ -92,10 +88,7 @@
                   @change="commit"
                 />
               </UFormField>
-              <UFormField
-                :label="t('settingsNetwork.origins.timeout_label')"
-                :hint="t('settingsNetwork.origins.timeout_hint')"
-              >
+              <UFormField :label="t('settingsNetwork.origins.timeout_label')">
                 <UInputNumber
                   v-model="origin.timeoutMilliseconds"
                   :min="1"

@@ -7,7 +7,7 @@
         </div>
         <div class="min-w-0">
           <h1 class="settings-page-header__title">{{ title }}</h1>
-          <p class="settings-page-header__description">{{ description }}</p>
+          <p v-if="description" class="settings-page-header__description">{{ description }}</p>
         </div>
       </div>
       <SettingsSaveStatus class="shrink-0" />
@@ -18,5 +18,5 @@
 <script setup lang="ts">
 import SettingsSaveStatus from './SettingsSaveStatus.vue'
 
-defineProps<{ title: string; description: string; icon: string }>()
+defineProps<{ title: string; description?: string; icon: string }>()
 </script>

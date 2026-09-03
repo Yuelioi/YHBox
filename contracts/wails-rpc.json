@@ -5218,6 +5218,11 @@
               "type": "string"
             },
             {
+              "name": "\"launcherSlotHotkeysDisabled\"",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
               "name": "\"workflowHotkeys\"",
               "optional": true,
               "type": "{ [_ in string]?: string }"

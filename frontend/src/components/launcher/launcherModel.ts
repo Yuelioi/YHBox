@@ -1,7 +1,7 @@
 import type { LauncherBlock } from '@/stores/settings'
 
 export type LauncherDisplay = 'both' | 'icon' | 'text'
-export type LauncherSize = 'xsmall' | 'small' | 'medium' | 'large'
+export type LauncherSize = 'xsmall' | 'small' | 'medium' | 'large' | 'xlarge'
 
 export interface LauncherWorkflowSummary {
   workflowId: string
@@ -111,7 +111,9 @@ export function normalizeLauncherDisplay(value: unknown): LauncherDisplay {
 }
 
 export function normalizeLauncherSize(value: unknown): LauncherSize {
-  return value === 'xsmall' || value === 'small' || value === 'large' ? value : 'medium'
+  return value === 'xsmall' || value === 'small' || value === 'large' || value === 'xlarge'
+    ? value
+    : 'medium'
 }
 
 export function filterLauncherGroups(

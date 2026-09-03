@@ -11,7 +11,6 @@
           <h1 class="truncate text-sm font-semibold text-highlighted">
             {{ t('sidebar.settings') }}
           </h1>
-          <p class="truncate text-[11px] text-dimmed">{{ t('settingsCenter.local_hint') }}</p>
         </div>
       </div>
 
@@ -78,9 +77,6 @@
             />
             <span class="min-w-0 flex-1 text-left">
               <span class="block truncate text-xs font-medium">{{ t(theme.labelKey) }}</span>
-              <span class="mt-0.5 block truncate text-[10px] font-normal text-dimmed">
-                {{ t(theme.descriptionKey) }}
-              </span>
             </span>
             <UIcon
               v-if="activeKey === theme.key"
@@ -101,11 +97,7 @@
     </aside>
 
     <section class="settings-content">
-      <SettingsPageHeader
-        :title="t(activeTheme.labelKey)"
-        :description="t(activeTheme.descriptionKey)"
-        :icon="activeTheme.icon"
-      />
+      <SettingsPageHeader :title="t(activeTheme.labelKey)" :icon="activeTheme.icon" />
       <div
         id="settings-tabpanel"
         role="tabpanel"

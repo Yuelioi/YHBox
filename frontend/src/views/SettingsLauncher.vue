@@ -1,10 +1,6 @@
 <template>
   <div class="settings-page">
-    <SettingsSection
-      :title="t('settingsLauncher.access_title')"
-      :description="t('settingsLauncher.access_hint')"
-      icon="i-tabler-rocket"
-    >
+    <SettingsSection :title="t('settingsLauncher.access_title')" icon="i-tabler-rocket">
       <template #actions>
         <UButton
           size="sm"
@@ -17,56 +13,47 @@
           {{ t('settingsLauncher.open_now') }}
         </UButton>
       </template>
-      <div class="settings-inset flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div class="min-w-0 flex-1">
-          <p class="settings-detail__label">{{ t('settingsLauncher.hotkey_title') }}</p>
-          <p class="settings-detail__hint">
-            {{ t(`settingsLauncher.hotkey_${launcherHotkeyStatus}`) }}
-          </p>
-          <p v-if="launcherHotkey?.problem" class="mt-1 break-all text-xs text-error">
-            {{ errorMessage(launcherHotkey.problem) }}
-          </p>
+      <div class="settings-collection">
+        <div class="flex flex-col gap-3 py-3 sm:flex-row sm:items-center">
+          <div class="min-w-0 flex-1">
+            <p class="settings-detail__label">{{ t('settingsLauncher.hotkey_title') }}</p>
+            <p class="settings-detail__hint">{{ t('settingsLauncher.hotkey_hint') }}</p>
+          </div>
+          <USwitch
+            :model-value="slotHotkeysEnabled"
+            :aria-label="t('settingsLauncher.hotkey_title')"
+            @update:model-value="setSlotHotkeysEnabled"
+          />
         </div>
-        <UKbd v-if="launcherHotkey?.hotkeyStr" :value="launcherHotkey.hotkeyStr" />
-        <UButton
-          to="/settings?section=hotkeys"
-          size="xs"
-          color="neutral"
-          variant="ghost"
-          icon="i-tabler-keyboard"
-        >
-          {{ t('settingsLauncher.configure_hotkey') }}
-        </UButton>
-      </div>
-      <div class="settings-inset flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div class="min-w-0 flex-1">
-          <p class="settings-detail__label">{{ t('settingsLauncher.slot_hotkey_title') }}</p>
-          <p class="settings-detail__hint">{{ t('settingsLauncher.slot_hotkey_hint') }}</p>
-        </div>
-        <div
-          class="flex shrink-0 items-center gap-1"
-          role="group"
-          :aria-label="t('settingsLauncher.slot_hotkey_title')"
-        >
-          <UButton
-            v-for="modifier in slotModifierOptions"
-            :key="modifier"
-            size="xs"
-            color="neutral"
-            :variant="slotModifiers.includes(modifier) ? 'solid' : 'outline'"
-            :aria-pressed="slotModifiers.includes(modifier)"
-            @click="toggleSlotModifier(modifier)"
+        <div class="flex flex-col gap-3 py-3 sm:flex-row sm:items-center">
+          <div class="min-w-0 flex-1">
+            <p class="settings-detail__label">{{ t('settingsLauncher.slot_hotkey_title') }}</p>
+            <p class="settings-detail__hint">{{ t('settingsLauncher.slot_hotkey_hint') }}</p>
+          </div>
+          <div
+            class="flex shrink-0 items-center gap-1"
+            role="group"
+            :aria-label="t('settingsLauncher.slot_hotkey_title')"
           >
-            {{ modifier }}
-          </UButton>
-          <UKbd :value="`${slotModifierText}+1–9`" />
+            <UButton
+              v-for="modifier in slotModifierOptions"
+              :key="modifier"
+              size="xs"
+              color="neutral"
+              :variant="slotModifiers.includes(modifier) ? 'solid' : 'outline'"
+              :aria-pressed="slotModifiers.includes(modifier)"
+              @click="toggleSlotModifier(modifier)"
+            >
+              {{ modifier }}
+            </UButton>
+            <UKbd :value="`${slotModifierText}+1–9`" />
+          </div>
         </div>
       </div>
     </SettingsSection>
 
     <SettingsSection
       :title="t('settingsLauncher.appearance_title')"
-      :description="t('settingsLauncher.display_hint')"
       icon="i-tabler-adjustments-horizontal"
     >
       <SettingsRow :label="t('settingsLauncher.display_label')">
@@ -185,7 +172,7 @@
           @end="persist"
         >
           <article
-            v-for="(block, index) in editItems"
+            v-for="block in editItems"
             :key="block.id"
             class="launcher-block"
             :class="{ 'launcher-block--selected': selectedBlockId === block.id }"
@@ -281,24 +268,6 @@
               <UButton
                 size="xs"
                 variant="ghost"
-                color="neutral"
-                icon="i-tabler-arrow-up"
-                :disabled="index === 0"
-                :aria-label="t('settingsLauncher.move_up')"
-                @click="moveBlock(index, index - 1)"
-              />
-              <UButton
-                size="xs"
-                variant="ghost"
-                color="neutral"
-                icon="i-tabler-arrow-down"
-                :disabled="index === editItems.length - 1"
-                :aria-label="t('settingsLauncher.move_down')"
-                @click="moveBlock(index, index + 1)"
-              />
-              <UButton
-                size="xs"
-                variant="ghost"
                 color="error"
                 icon="i-tabler-trash"
                 :aria-label="t('settingsLauncher.delete_block')"
@@ -323,9 +292,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { VueDraggable } from 'vue-draggable-plus'
 import { useSettingsStore, type LauncherBlock } from '@/stores/settings'
-import { useHotkeysStore } from '@/stores/hotkeys'
 import { backend } from '@/lib/backend'
-import { errorMessage } from '@/lib/invoke'
 import { workflowTransport, type SourceView } from '@/app/transport/workflow'
 import IconPicker from '@/components/common/IconPicker.vue'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
@@ -342,7 +309,6 @@ import {
 } from '@/components/launcher/launcherModel'
 
 const settingsStore = useSettingsStore()
-const hotkeysStore = useHotkeysStore()
 const { t } = useI18n()
 const workflows = ref<SourceView[]>([])
 const editItems = ref<LauncherBlock[]>([])
@@ -352,10 +318,7 @@ const dependenciesLoaded = ref(false)
 const cleanupUndo = ref<LauncherBlock[] | null>(null)
 const workflowPickerOpen = ref(false)
 const selectedBlockId = ref('')
-const launcherHotkey = computed(() =>
-  hotkeysStore.list.find((entry) => entry.key === 'system.launcher-toggle'),
-)
-const launcherHotkeyStatus = computed(() => launcherHotkey.value?.status ?? 'unbound')
+const slotHotkeysEnabled = computed(() => !settingsStore.data?.ui.launcherSlotHotkeysDisabled)
 const slotModifierOptions = ['Ctrl', 'Shift', 'Alt'] as const
 const slotModifiers = computed(() =>
   slotModifierOptions.filter((modifier) =>
@@ -386,6 +349,7 @@ const sizeItems = computed<Array<{ label: string; value: LauncherSize }>>(() => 
   { label: t('settingsLauncher.size_small'), value: 'small' },
   { label: t('settingsLauncher.size_medium'), value: 'medium' },
   { label: t('settingsLauncher.size_large'), value: 'large' },
+  { label: t('settingsLauncher.size_xlarge'), value: 'xlarge' },
 ])
 const addedCounts = computed<Record<string, number>>(() => {
   const counts: Record<string, number> = {}
@@ -417,12 +381,9 @@ const separatorMenuItems = computed(() => [
 const block = (id: string) => editItems.value.find((item) => item.id === id)
 const genId = () => `lb_${crypto.randomUUID()}`
 
-function moveBlock(from: number, to: number) {
-  if (to < 0 || to >= editItems.value.length) return
-  const [item] = editItems.value.splice(from, 1)
-  if (!item) return
-  editItems.value.splice(to, 0, item)
-  persist()
+async function setSlotHotkeysEnabled(enabled: boolean) {
+  const saved = await settingsStore.patch({ ui: { launcherSlotHotkeysDisabled: !enabled } })
+  if (saved) await backend.tools.refreshLauncherHotkeys()
 }
 function insertBlocks(blocks: LauncherBlock[]) {
   const selectedIndex = editItems.value.findIndex((item) => item.id === selectedBlockId.value)
@@ -528,7 +489,7 @@ async function openLauncher(): Promise<void> {
 }
 
 onMounted(async () => {
-  const [, listed] = await Promise.all([hotkeysStore.reload(), workflowTransport.listSources()])
+  const listed = await workflowTransport.listSources()
   workflows.value = listed
   dependenciesLoaded.value = true
 })

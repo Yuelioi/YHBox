@@ -1,6 +1,9 @@
 export interface MainWindowCloseRequest {
   close: () => void | Promise<void>
+  setStage: (stage: MainWindowCloseStage) => void
 }
+
+export type MainWindowCloseStage = 'checking' | 'stopping' | 'restoring' | 'closing'
 
 export type MainWindowCloseGuardResult = boolean | 'handled'
 export type MainWindowCloseGuard = (

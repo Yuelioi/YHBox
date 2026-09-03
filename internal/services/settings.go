@@ -269,13 +269,15 @@ type UISettings struct {
 	LauncherItems []LauncherBlock `json:"launcherItems"`
 	// LauncherDisplay 按钮显示：""/"both"=图标+文字 | "icon"=仅图标 | "text"=仅文字。
 	LauncherDisplay string `json:"launcherDisplay"`
-	// LauncherSize 启动器内容尺寸："xsmall" | "small" | "medium" | "large"。
+	// LauncherSize 启动器内容尺寸："xsmall" | "small" | "medium" | "large" | "xlarge"。
 	LauncherSize string `json:"launcherSize"`
 	// LauncherToggleHotkey 呼出/隐藏悬浮窗的全局热键（空 = 未绑）。
 	LauncherToggleHotkey string `json:"launcherToggleHotkey"`
 	// LauncherSlotHotkeyModifiers 是启动器可见期间前九个槽位共享的修饰键。
 	// 仅允许 Ctrl/Shift/Alt 的非空组合；隐藏启动器后对应 OS 热键立即注销。
 	LauncherSlotHotkeyModifiers string `json:"launcherSlotHotkeyModifiers"`
+	// LauncherSlotHotkeysDisabled 关闭启动器可见期间的 1–9 槽位快捷键；默认 false。
+	LauncherSlotHotkeysDisabled bool `json:"launcherSlotHotkeysDisabled,omitempty"`
 	// WorkflowHotkeys 是本机安装级 Workflow 全局热键，不进入可移植 Workflow Source。
 	WorkflowHotkeys map[string]string    `json:"workflowHotkeys,omitempty"`
 	CanvasAssist    CanvasAssistSettings `json:"canvasAssist"`
@@ -433,10 +435,10 @@ func (s *Settings) Validate() error {
 		return fmt.Errorf("ui.logger.level 必须是 debug/info/warn/error，got %q", s.UI.Logger.Level)
 	}
 	switch s.UI.LauncherSize {
-	case "", "xsmall", "small", "medium", "large":
+	case "", "xsmall", "small", "medium", "large", "xlarge":
 		// 空值按 medium 解释，兼容显式删除该偏好的旧 patch。
 	default:
-		return fmt.Errorf("ui.launcherSize 必须是 xsmall/small/medium/large，got %q", s.UI.LauncherSize)
+		return fmt.Errorf("ui.launcherSize 必须是 xsmall/small/medium/large/xlarge，got %q", s.UI.LauncherSize)
 	}
 	if !validLauncherSlotModifiers(s.UI.LauncherSlotHotkeyModifiers) {
 		return fmt.Errorf("ui.launcherSlotHotkeyModifiers 必须是 Ctrl/Shift/Alt 的非空组合，got %q", s.UI.LauncherSlotHotkeyModifiers)

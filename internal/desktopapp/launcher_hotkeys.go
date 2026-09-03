@@ -28,6 +28,10 @@ func (c *launcherHotkeyController) refresh() {
 		_ = c.registry.ReplaceTransients(launcherSlotKeyPrefix, nil)
 		return
 	}
+	if settings.UI.LauncherSlotHotkeysDisabled {
+		c.clearLocked()
+		return
+	}
 	views, err := c.list()
 	if err != nil {
 		return

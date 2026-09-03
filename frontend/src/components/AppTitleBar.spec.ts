@@ -28,6 +28,9 @@ describe('AppTitleBar accessibility', () => {
 
   it('routes close requests through the workflow leave guard', () => {
     expect(source).toContain('requestMainWindowClose')
+    expect(source).toContain(':open="closeFeedbackVisible"')
+    expect(source).toContain('icon="i-tabler-power"')
+    expect(source).toContain('t(`appClosing.${closeStage}`)')
     expect(source).not.toContain('closeImmediate: onClose')
   })
 })

@@ -2,7 +2,6 @@
   <div class="settings-page">
     <SettingsSection
       :title="t('settings.general.appearance_title')"
-      :description="t('settings.general.appearance_hint')"
       icon="i-tabler-layout-dashboard"
     >
       <SettingsRow :label="t('settings.language')" :hint="t('settings.language_restart_hint')">
@@ -16,15 +15,8 @@
       </SettingsRow>
     </SettingsSection>
 
-    <SettingsSection
-      :title="t('settings.startup.section_title')"
-      :description="t('settings.general.behavior_hint')"
-      icon="i-tabler-power"
-    >
-      <SettingsRow
-        :label="t('settings.startup.autostart_label')"
-        :hint="t('settings.startup.autostart_hint')"
-      >
+    <SettingsSection :title="t('settings.startup.section_title')" icon="i-tabler-power">
+      <SettingsRow :label="t('settings.startup.autostart_label')">
         <USwitch
           :model-value="autostart"
           :aria-label="t('settings.startup.autostart_label')"
@@ -34,10 +26,7 @@
 
       <div class="border-t border-default/60" />
 
-      <SettingsRow
-        :label="t('settings.startup.tray_label')"
-        :hint="t('settings.startup.tray_hint')"
-      >
+      <SettingsRow :label="t('settings.startup.tray_label')">
         <USwitch
           :model-value="minimizeToTray"
           :aria-label="t('settings.startup.tray_label')"
@@ -48,7 +37,6 @@
 
     <SettingsSection
       :title="t('settings.general.capture_diagnostics_title')"
-      :description="t('settings.general.capture_diagnostics_hint')"
       icon="i-tabler-activity-heartbeat"
     >
       <SettingsRow :label="t('settings.capture.section_title')" :hint="captureMethodHint">
@@ -76,7 +64,7 @@
 
       <div class="border-t border-default/60" />
 
-      <SettingsRow :label="t('settings.log.enabled_label')" :hint="t('settings.log.enabled_hint')">
+      <SettingsRow :label="t('settings.log.enabled_label')">
         <USwitch
           :model-value="loggerEnabled"
           :aria-label="t('settings.log.enabled_label')"
@@ -97,7 +85,7 @@
 
       <div class="border-t border-default/60" />
 
-      <SettingsRow :label="t('settings.log.live_label')" :hint="t('settings.log.live_hint')">
+      <SettingsRow :label="t('settings.log.live_label')">
         <USwitch
           :model-value="loggerLiveView"
           :aria-label="t('settings.log.live_label')"

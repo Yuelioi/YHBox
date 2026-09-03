@@ -226,7 +226,7 @@ func TestSettingsValidateRejectsUnknownLoggerLevel(t *testing.T) {
 }
 
 func TestSettingsValidateLauncherSize(t *testing.T) {
-	for _, size := range []string{"", "xsmall", "small", "medium", "large"} {
+	for _, size := range []string{"", "xsmall", "small", "medium", "large", "xlarge"} {
 		settings := defaultSettings()
 		settings.UI.LauncherSize = size
 		if err := settings.Validate(); err != nil {
@@ -485,7 +485,8 @@ func TestLoadSettings_EmptyFileDirUsesManagedDefault(t *testing.T) {
 func TestUISettings_LauncherRoundTrip(t *testing.T) {
 	s := &Settings{
 		UI: UISettings{
-			LauncherToggleHotkey: "Ctrl+Shift+L",
+			LauncherToggleHotkey:        "Ctrl+Shift+L",
+			LauncherSlotHotkeysDisabled: true,
 			LauncherItems: []LauncherBlock{
 				{ID: "b1", Type: "label", Label: "战斗"},
 				{ID: "b2", Type: "workflow", WorkflowID: "w1", Icon: "i-tabler-fish"},
@@ -504,6 +505,9 @@ func TestUISettings_LauncherRoundTrip(t *testing.T) {
 	}
 	if out.UI.LauncherToggleHotkey != "Ctrl+Shift+L" {
 		t.Errorf("LauncherToggleHotkey: want %q, got %q", "Ctrl+Shift+L", out.UI.LauncherToggleHotkey)
+	}
+	if !out.UI.LauncherSlotHotkeysDisabled {
+		t.Error("LauncherSlotHotkeysDisabled was not preserved")
 	}
 	if len(out.UI.LauncherItems) != 4 {
 		t.Fatalf("LauncherItems: got %+v", out.UI.LauncherItems)

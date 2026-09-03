@@ -42,7 +42,6 @@
       v-for="group in filteredGrouped"
       :key="group.source"
       :title="groupLabel(group.source)"
-      :description="t(`hotkeys.group_hint.${group.source}`)"
       :icon="groupIcon(group.source)"
     >
       <template #badge>
@@ -67,9 +66,6 @@
             </div>
             <div v-else-if="entry.readonlyReason" class="mt-1 text-xs text-dimmed">
               {{ entry.readonlyReason }}
-            </div>
-            <div v-else-if="entry.status === 'unbound'" class="mt-1 text-xs text-dimmed">
-              {{ t('hotkeys.status.unbound') }}
             </div>
           </div>
           <HotkeyCaptureInput

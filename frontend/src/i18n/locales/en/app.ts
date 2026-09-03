@@ -1,4 +1,11 @@
 export default {
+  appClosing: {
+    title: 'Closing Yotta',
+    checking: 'Checking unfinished work…',
+    stopping: 'Stopping the current operation…',
+    restoring: 'Restoring the unsaved workflow…',
+    closing: 'Releasing resources and closing windows…',
+  },
   sidebar: {
     workflows: 'Workflows',
     workflow_edit: 'Edit workflow',
@@ -24,10 +31,7 @@ export default {
   settings: {
     general: {
       appearance_title: 'Interface & language',
-      appearance_hint: "Set Yotta's display language.",
-      behavior_hint: 'Set login startup and window-close behavior.',
       capture_diagnostics_title: 'Capture & diagnostics',
-      capture_diagnostics_hint: 'Choose a capture method and control diagnostic logging.',
     },
     editor_display: {
       section_title: 'Editor display',
@@ -45,9 +49,7 @@ export default {
     startup: {
       section_title: 'Startup & Close',
       autostart_label: 'Auto-start on login',
-      autostart_hint: 'Start Yotta after Windows login.',
       tray_label: 'Close minimizes to tray',
-      tray_hint: 'Keep Yotta in the system tray when the main window closes.',
     },
     capture: {
       section_title: 'Capture method',
@@ -78,11 +80,9 @@ export default {
       section_title: 'Log',
       hint: 'Folding, file write, timestamps, line-wrap, autoscroll — settings live in the bottom log panel header gear.',
       enabled_label: 'Enable runtime logging',
-      enabled_hint: 'Record workflow runtime logs.',
       level_label: 'Minimum level',
       level_hint: 'Record this level and more severe messages.',
       live_label: 'Stream to the log panel',
-      live_hint: 'Show logs live in the main-window log panel.',
     },
     input: {
       title: 'Input calibration',
@@ -357,16 +357,8 @@ export default {
       schedule: 'Schedule',
       editor: 'Editor',
     },
-    group_hint: {
-      system: 'System-wide and global shortcuts.',
-      recording: 'Controls the current recording.',
-      action: 'Triggers an independent action directly.',
-      schedule: 'Triggers a schedule manually.',
-      editor: 'Active only in the workflow editor.',
-    },
     status: {
       register_failed: 'Registration failed',
-      unbound: 'Unbound',
     },
     empty: 'No matching hotkey',
     reset_system: 'Reset defaults',

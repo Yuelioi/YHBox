@@ -90,6 +90,7 @@ describe('launcher model', () => {
     expect(normalizeLauncherSize('xsmall')).toBe('xsmall')
     expect(normalizeLauncherSize('small')).toBe('small')
     expect(normalizeLauncherSize('large')).toBe('large')
+    expect(normalizeLauncherSize('xlarge')).toBe('xlarge')
     expect(normalizeLauncherSize('unknown')).toBe('medium')
   })
 })

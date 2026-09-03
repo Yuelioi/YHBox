@@ -1,10 +1,6 @@
 <template>
   <div class="settings-page">
-    <SettingsSection
-      :title="t('settingsApplications.profiles.title')"
-      :description="t('settingsApplications.profiles.hint')"
-      icon="i-tabler-apps"
-    >
+    <SettingsSection :title="t('settingsApplications.profiles.title')" icon="i-tabler-apps">
       <template #badge>
         <UBadge size="xs" color="neutral" variant="subtle">{{ draft.length }}</UBadge>
       </template>
@@ -76,10 +72,7 @@
               </UFormField>
             </div>
 
-            <UFormField
-              :label="t('settingsApplications.profiles.executable_label')"
-              :hint="t('settingsApplications.profiles.executable_hint')"
-            >
+            <UFormField :label="t('settingsApplications.profiles.executable_label')">
               <div class="flex gap-2">
                 <UInput
                   :model-value="profile.executable"

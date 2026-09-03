@@ -1,10 +1,6 @@
 <template>
   <div class="settings-page">
-    <SettingsSection
-      :title="t('settingsAI.roles.title')"
-      :description="t('settingsAI.roles.hint')"
-      icon="i-tabler-stethoscope"
-    >
+    <SettingsSection :title="t('settingsAI.roles.title')" icon="i-tabler-stethoscope">
       <div v-if="diagnosticProfileOptions.length" class="flex flex-wrap items-center gap-2">
         <AdaptiveSelect
           data-testid="settings-ai-diagnostic-profile"
@@ -33,11 +29,7 @@
       </p>
     </SettingsSection>
 
-    <SettingsSection
-      :title="t('settingsAI.authoring.title')"
-      :description="t('settingsAI.authoring.hint')"
-      icon="i-tabler-adjustments"
-    >
+    <SettingsSection :title="t('settingsAI.authoring.title')" icon="i-tabler-adjustments">
       <UFormField
         :label="t('settingsAI.authoring.max_iterations_label')"
         :description="t('settingsAI.authoring.max_iterations_hint')"
@@ -57,11 +49,7 @@
       </p>
     </SettingsSection>
 
-    <SettingsSection
-      :title="t('settingsAI.profiles.title')"
-      :description="t('settingsAI.profiles.hint')"
-      icon="i-tabler-brain"
-    >
+    <SettingsSection :title="t('settingsAI.profiles.title')" icon="i-tabler-brain">
       <template #badge>
         <UBadge size="xs" color="neutral" variant="subtle">{{ draft.length }}</UBadge>
       </template>
@@ -136,11 +124,7 @@
                   @update:model-value="(value: AIProviderKind) => onProvider(index, value)"
                 />
               </UFormField>
-              <UFormField
-                :label="t('settingsAI.profiles.model_label')"
-                :description="t('settingsAI.profiles.model_hint')"
-                required
-              >
+              <UFormField :label="t('settingsAI.profiles.model_label')" required>
                 <UInput
                   v-model="profile.model"
                   size="sm"
@@ -153,7 +137,6 @@
             <div v-if="profile.provider !== 'codex-subscription'" class="settings-inset">
               <UFormField
                 :label="t('settingsAI.profiles.endpoint_label')"
-                :description="t('settingsAI.profiles.endpoint_hint')"
                 :error="endpointFieldError(profile)"
                 required
               >
@@ -214,10 +197,7 @@
             </div>
 
             <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
-              <UFormField
-                :label="t('settingsAI.profiles.max_tokens_label')"
-                :description="t('settingsAI.profiles.max_tokens_hint')"
-              >
+              <UFormField :label="t('settingsAI.profiles.max_tokens_label')">
                 <div class="flex flex-wrap items-center gap-3">
                   <UInput
                     v-if="profile.maxOutputTokens === 0"
@@ -260,9 +240,6 @@
               <p class="settings-detail__label">
                 {{ t('settingsAI.capabilities.title') }}
               </p>
-              <p class="settings-detail__hint">
-                {{ t('settingsAI.capabilities.hint') }}
-              </p>
               <div class="mt-3 grid gap-x-5 gap-y-3 sm:grid-cols-2">
                 <label
                   v-for="capability in capabilityOptions"
@@ -271,7 +248,6 @@
                 >
                   <span class="min-w-0">
                     <span class="settings-detail__label block">{{ capability.label }}</span>
-                    <span class="settings-detail__hint block">{{ capability.hint }}</span>
                   </span>
                   <USwitch
                     :model-value="profile.capabilities[capability.key]"
@@ -333,7 +309,6 @@
             <UFormField
               v-if="profile.provider !== 'codex-subscription'"
               :label="t('settingsAI.profiles.apikey_label')"
-              :description="t('settingsAI.profiles.apikey_hint')"
             >
               <UInput
                 v-model="apiKeys[profile.slot]"
@@ -503,35 +478,28 @@ const providerItems = computed(() => [
   { label: t('settingsAI.provider.openai_chat_completions'), value: 'openai-chat-completions' },
   { label: t('settingsAI.provider.anthropic_messages'), value: 'anthropic-messages' },
 ])
-const capabilityOptions = computed<Array<{ key: CapabilityKey; label: string; hint: string }>>(
-  () => [
-    {
-      key: 'structuredOutput',
-      label: t('settingsAI.capabilities.structured_output'),
-      hint: t('settingsAI.capabilities.structured_output_hint'),
-    },
-    {
-      key: 'toolCalling',
-      label: t('settingsAI.capabilities.tool_calling'),
-      hint: t('settingsAI.capabilities.tool_calling_hint'),
-    },
-    {
-      key: 'parallelTools',
-      label: t('settingsAI.capabilities.parallel_tools'),
-      hint: t('settingsAI.capabilities.parallel_tools_hint'),
-    },
-    {
-      key: 'background',
-      label: t('settingsAI.capabilities.background'),
-      hint: t('settingsAI.capabilities.background_hint'),
-    },
-    {
-      key: 'zeroRetention',
-      label: t('settingsAI.capabilities.zero_retention'),
-      hint: t('settingsAI.capabilities.zero_retention_hint'),
-    },
-  ],
-)
+const capabilityOptions = computed<Array<{ key: CapabilityKey; label: string }>>(() => [
+  {
+    key: 'structuredOutput',
+    label: t('settingsAI.capabilities.structured_output'),
+  },
+  {
+    key: 'toolCalling',
+    label: t('settingsAI.capabilities.tool_calling'),
+  },
+  {
+    key: 'parallelTools',
+    label: t('settingsAI.capabilities.parallel_tools'),
+  },
+  {
+    key: 'background',
+    label: t('settingsAI.capabilities.background'),
+  },
+  {
+    key: 'zeroRetention',
+    label: t('settingsAI.capabilities.zero_retention'),
+  },
+])
 
 watch(
   profiles,

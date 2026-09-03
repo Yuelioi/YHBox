@@ -1,10 +1,6 @@
 <template>
   <div class="settings-page">
-    <SettingsSection
-      :title="t('settingsAutomation.targets.title')"
-      :description="t('settingsAutomation.targets.hint')"
-      icon="i-tabler-pointer-cog"
-    >
+    <SettingsSection :title="t('settingsAutomation.targets.title')" icon="i-tabler-pointer-cog">
       <template #badge>
         <UBadge size="xs" color="neutral" variant="subtle">{{ draft.length }}</UBadge>
       </template>
@@ -126,7 +122,6 @@
               <UFormField
                 v-if="isDesktop(target)"
                 :label="t('settingsAutomation.targets.application_label')"
-                :hint="t('settingsAutomation.targets.application_hint')"
                 required
               >
                 <AdaptiveSelect
@@ -140,7 +135,6 @@
               <UFormField
                 v-if="isDesktop(target)"
                 :label="t('settingsAutomation.targets.backend_label')"
-                :hint="t('settingsAutomation.targets.backend_hint')"
                 required
               >
                 <AdaptiveSelect
@@ -154,7 +148,6 @@
               <UFormField
                 v-if="isDesktop(target)"
                 :label="t('settingsAutomation.targets.capture_backend_label')"
-                :hint="t('settingsAutomation.targets.capture_backend_hint')"
                 required
               >
                 <AdaptiveSelect
@@ -215,10 +208,7 @@
                 >
                   <UInput v-model="target.windowTitle" size="sm" @change="commit" />
                 </UFormField>
-                <UFormField
-                  :label="t('settingsAutomation.targets.window_selection_label')"
-                  :hint="t('settingsAutomation.targets.window_selection_hint')"
-                >
+                <UFormField :label="t('settingsAutomation.targets.window_selection_label')">
                   <AdaptiveSelect
                     v-model="target.windowSelection"
                     :items="windowSelectionItems"
@@ -240,10 +230,7 @@
                 </UFormField>
               </div>
 
-              <UFormField
-                :label="t('settingsAutomation.targets.timeout_label')"
-                :hint="t('settingsAutomation.targets.timeout_hint')"
-              >
+              <UFormField :label="t('settingsAutomation.targets.timeout_label')">
                 <UInputNumber
                   v-model="target.resolveTimeoutMilliseconds"
                   :min="100"
@@ -298,11 +285,7 @@
                 <p v-if="adbError" class="mt-2 text-xs text-error" role="alert">{{ adbError }}</p>
               </div>
               <div class="grid gap-4 sm:grid-cols-2">
-                <UFormField
-                  :label="t('settingsAutomation.android.device_label')"
-                  :hint="t('settingsAutomation.android.device_hint')"
-                  required
-                >
+                <UFormField :label="t('settingsAutomation.android.device_label')" required>
                   <AdaptiveSelect
                     :model-value="target.adbSerial"
                     :items="adbDeviceItems"
@@ -383,10 +366,7 @@
                   </p>
                 </UFormField>
               </div>
-              <UFormField
-                :label="t('settingsAutomation.targets.timeout_label')"
-                :hint="t('settingsAutomation.targets.timeout_hint')"
-              >
+              <UFormField :label="t('settingsAutomation.targets.timeout_label')">
                 <UInputNumber
                   v-model="target.resolveTimeoutMilliseconds"
                   :min="100"
@@ -421,11 +401,7 @@
                 </p>
               </div>
               <div class="grid gap-4 sm:grid-cols-2">
-                <UFormField
-                  :label="t('settingsAutomation.browser.endpoint_label')"
-                  :hint="t('settingsAutomation.browser.endpoint_hint')"
-                  required
-                >
+                <UFormField :label="t('settingsAutomation.browser.endpoint_label')" required>
                   <UInput
                     v-model.trim="target.browserEndpoint"
                     size="sm"
@@ -478,10 +454,7 @@
                   </p>
                 </UFormField>
               </div>
-              <UFormField
-                :label="t('settingsAutomation.targets.timeout_label')"
-                :hint="t('settingsAutomation.targets.timeout_hint')"
-              >
+              <UFormField :label="t('settingsAutomation.targets.timeout_label')">
                 <UInputNumber
                   v-model="target.resolveTimeoutMilliseconds"
                   :min="100"

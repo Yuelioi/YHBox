@@ -1,4 +1,11 @@
 export default {
+  appClosing: {
+    title: '正在关闭 Yotta',
+    checking: '正在检查未完成的操作…',
+    stopping: '正在停止当前操作…',
+    restoring: '正在恢复未保存的工作流…',
+    closing: '正在释放资源并关闭窗口…',
+  },
   sidebar: {
     workflows: '工作流',
     workflow_edit: '编辑工作流',
@@ -24,10 +31,7 @@ export default {
   settings: {
     general: {
       appearance_title: '界面与语言',
-      appearance_hint: '设置 Yotta 的显示语言。',
-      behavior_hint: '设置登录启动和关闭窗口行为。',
       capture_diagnostics_title: '采集与诊断',
-      capture_diagnostics_hint: '选择截屏方式，并控制诊断日志。',
     },
     editor_display: {
       section_title: '编辑器显示',
@@ -43,9 +47,7 @@ export default {
     startup: {
       section_title: '启动与关闭',
       autostart_label: '开机自启',
-      autostart_hint: '登录 Windows 后自动启动 Yotta。',
       tray_label: '关闭最小化到托盘',
-      tray_hint: '关闭主窗口时保留在系统托盘。',
     },
     capture: {
       section_title: '截屏方式',
@@ -75,11 +77,9 @@ export default {
       section_title: '日志',
       hint: '折叠/展开、写入文件、时间戳、折行、自动滚动等设置在底部日志面板 header 的设置图标里调整.',
       enabled_label: '启用运行日志',
-      enabled_hint: '记录工作流运行日志。',
       level_label: '最低记录级别',
       level_hint: '只记录当前级别及以上消息。',
       live_label: '实时发送到日志面板',
-      live_hint: '在主窗口日志面板中实时显示。',
     },
     input: {
       title: '输入校准',
@@ -323,16 +323,8 @@ export default {
       schedule: '计划',
       editor: '编辑器',
     },
-    group_hint: {
-      system: '系统级和全局快捷键。',
-      recording: '控制当前录制。',
-      action: '直接触发独立动作。',
-      schedule: '手动触发计划。',
-      editor: '仅在工作流编辑器内生效。',
-    },
     status: {
       register_failed: '注册失败',
-      unbound: '未绑定',
     },
     empty: '没有匹配的热键',
     reset_system: '重置默认',

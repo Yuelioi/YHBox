@@ -111,7 +111,6 @@ export default {
       control_failed: '录制操作失败',
     },
     macros: {
-      nav_hint: '可编辑的按键、点击、滚轮与等待',
       empty: '还没有键鼠宏',
       empty_hint: '选择目标并录制一个可编辑宏，或稍后手动创建动作。',
       library_meta: '键鼠宏 · {bytes} 字节',
@@ -126,7 +125,6 @@ export default {
       resolution_unavailable: '当前目标分辨率不可用，请先打开并绑定目标窗口。',
     },
     clips: {
-      nav_hint: '完整轨迹、拖拽与鼠标转向',
       empty: '还没有精准录制',
       empty_hint: '选择自动化目标并录制完整输入轨迹。',
       meta: '{duration} · {count} 个事件 · {mode}',
@@ -135,7 +133,6 @@ export default {
       load_failed: '无法加载精准录制',
     },
     templates: {
-      nav_hint: '找图、等待与点击模板',
       empty: '还没有视觉模板',
       empty_hint: '从已安装目标截图并裁剪模板，随后可在匹配节点中直接选择。',
       capture: '截图新模板',

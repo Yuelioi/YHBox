@@ -25,6 +25,31 @@ describe('requestMainWindowClose', () => {
     expect(close).toHaveBeenCalledOnce()
   })
 
+  it('reports checking and closing stages around a slow close', async () => {
+    const stages: string[] = []
+    let releaseClose!: () => void
+    const close = vi.fn(() => new Promise<void>((resolve) => (releaseClose = resolve)))
+
+    const pending = requestMainWindowClose(close, (stage) => stages.push(stage))
+    await vi.waitFor(() => expect(stages).toEqual(['checking', 'closing']))
+    expect(close).toHaveBeenCalledOnce()
+    releaseClose()
+
+    await expect(pending).resolves.toBe(true)
+  })
+
+  it('lets the active guard report restoration before it owns closing', async () => {
+    const stages: string[] = []
+    cleanup = registerMainWindowCloseGuard(async ({ close, setStage }) => {
+      setStage('restoring')
+      await close()
+      return 'handled' as const
+    })
+
+    await expect(requestMainWindowClose(vi.fn(), (stage) => stages.push(stage))).resolves.toBe(true)
+    expect(stages).toEqual(['checking', 'restoring', 'closing'])
+  })
+
   it('closes immediately when no guarded surface is active', async () => {
     const close = vi.fn()
 

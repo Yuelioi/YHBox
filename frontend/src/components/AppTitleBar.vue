@@ -139,6 +139,19 @@
       </div>
     </div>
   </div>
+  <BaseModal
+    :open="closeFeedbackVisible"
+    :title="t('appClosing.title')"
+    icon="i-tabler-power"
+    size="sm"
+    :show-close="false"
+    :dismissible="false"
+  >
+    <div class="flex items-center gap-3" role="status" aria-live="polite">
+      <UIcon name="i-tabler-loader-2" class="size-5 shrink-0 animate-spin text-primary" />
+      <p class="text-sm text-toned">{{ t(`appClosing.${closeStage}`) }}</p>
+    </div>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
@@ -149,7 +162,9 @@ import { useWindowControls } from '@/composables/useWindowControls'
 import { backend } from '@/lib/backend'
 import { buildAppNavigation } from '@/app/navigation/appNavigation'
 import { requestMainWindowClose } from '@/app/window/requestMainWindowClose'
+import type { MainWindowCloseStage } from '@/app/window/mainWindowCloseGuard'
 import YottaMark from '@/components/common/YottaMark.vue'
+import BaseModal from '@/components/common/BaseModal.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -158,6 +173,10 @@ const { isMaximised, onMinimise, onToggleMaximise, closeImmediate } = useWindowC
 const appVersion = ref('')
 const launcherOpening = ref(false)
 const closeRequestPending = ref(false)
+const closeStage = ref<MainWindowCloseStage>('checking')
+const closeFeedbackVisible = computed(
+  () => closeRequestPending.value && closeStage.value !== 'checking',
+)
 let stopMainNavigate: (() => void) | undefined
 const versionLabel = computed(() => (appVersion.value ? `v${appVersion.value}` : ''))
 
@@ -187,8 +206,9 @@ async function openLauncher(): Promise<void> {
 async function onClose(): Promise<void> {
   if (closeRequestPending.value) return
   closeRequestPending.value = true
+  closeStage.value = 'checking'
   try {
-    await requestMainWindowClose(closeImmediate)
+    await requestMainWindowClose(closeImmediate, (stage) => (closeStage.value = stage))
   } finally {
     closeRequestPending.value = false
   }

@@ -2321,6 +2321,7 @@ async function confirmEditorExit(
       color: 'warning',
     })
     if (leaveRecording !== true) return false
+    closeRequest?.setStage('stopping')
     if (!(await editorRecording.execute({ kind: 'cancel' }))) return false
   }
   if (recordingEditor.pending) {
@@ -2331,6 +2332,7 @@ async function confirmEditorExit(
       color: 'error',
     })
     if (discard !== true) return false
+    closeRequest?.setStage('stopping')
     if (!(await editorRecording.execute({ kind: 'discard' }))) return false
   }
   if (!session.dirty) return true
@@ -2347,6 +2349,7 @@ async function confirmEditorExit(
   if (decision === true) return (await editorRuns.execute({ kind: 'save' })).ok
   if (decision === 'discard' && closeRequest) {
     try {
+      closeRequest.setStage('restoring')
       await nextTick()
       await session.load(session.workflowId)
       await closeRequest.close()
