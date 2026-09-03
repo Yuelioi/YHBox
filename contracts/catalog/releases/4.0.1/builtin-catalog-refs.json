@@ -1,0 +1,125 @@
+{
+  "format": "yotta.builtin-catalog-release",
+  "version": 1,
+  "productVersion": "4.0.1",
+  "typeRefs": [
+    {
+      "typeId": "https://schemas.yotta.dev/types/automation/held-input/v1",
+      "semanticDigest": "sha256:c30f64422e92fc67bb0539a076769ae46a04b41fae2f6db8ec63bb4c6c92c4db"
+    },
+    {
+      "typeId": "https://schemas.yotta.dev/types/automation/input-clip/v1",
+      "semanticDigest": "sha256:25599b455e5350850a0db7fc813b49cc2a7af7d14ae620e7a54caef5671d700e"
+    },
+    {
+      "typeId": "https://schemas.yotta.dev/types/automation/key-code/v1",
+      "semanticDigest": "sha256:1e27e23aa12c29e5fcec5bcc6c7f50ef192051d0e148777d907c88ce0970f611"
+    },
+    {
+      "typeId": "https://schemas.yotta.dev/types/automation/macro/v1",
+      "semanticDigest": "sha256:28691686695eb23469a1a05d5942e7b8eb24ab0eb27f5bafac300476927023d5"
+    },
+    {
+      "typeId": "https://schemas.yotta.dev/types/automation/pointer-button/v1",
+      "semanticDigest": "sha256:980669bef2b04d2dca9235cee2ee5754444d034b359277763cdd05ad9364f45b"
+    },
+    {
+      "typeId": "https://schemas.yotta.dev/types/automation/pointer-motion/v1",
+      "semanticDigest": "sha256:1196c361bc58e72bf3125c2bf2a95a0b2f6f130ef4a1c2ffdead42856ec7afa4"
+    },
+    {
+      "typeId": "https://schemas.yotta.dev/types/core/binary/v1",
+      "semanticDigest": "sha256:b64d85fef5c2efd7fa5f894d01cbcd3304ecd3d8b98f41b0ed8393353305629d"
+    },
+    {
+      "typeId": "https://schemas.yotta.dev/types/core/boolean/v1",
+      "semanticDigest": "sha256:c06eab12645f9dc1287a78d95c0bdd887a981c47367628665d12562321d82f0a"
+    },
+    {
+      "typeId": "https://schemas.yotta.dev/types/core/integer/v1",
+      "semanticDigest": "sha256:2cba7041419de83ae27630871f5c833ec42ba1f701bbc140a6b200a81a2f8c2d"
+    },
+    {
+      "typeId": "https://schemas.yotta.dev/types/core/json/v1",
+      "semanticDigest": "sha256:63e08df3b6ddadb78eceeb9f5b65dc42abb60c3f7df92e88d75d957e64d3e112"
+    },
+    {
+      "typeId": "https://schemas.yotta.dev/types/core/number/v1",
+      "semanticDigest": "sha256:5a3cc6187f5b87202df9869aea8557a3f06eb53be9a9df5862c7d75b223a24b5"
+    },
+    {
+      "typeId": "https://schemas.yotta.dev/types/core/string/v1",
+      "semanticDigest": "sha256:def6aff60e8babb355d13a98d591bde07bffc9ab02ac358f59b3452befe7bc97"
+    },
+    {
+      "typeId": "https://schemas.yotta.dev/types/filesystem/metadata/v1",
+      "semanticDigest": "sha256:4517b1ccd27aa9f2f921f31a8e43bb249b79d3d516dd386683a5d03d10c0c647"
+    },
+    {
+      "typeId": "https://schemas.yotta.dev/types/geometry/point-unit/v1",
+      "semanticDigest": "sha256:fd5d753680fefc1c7c8b96374e5b46da8ea901b71fbd7bec54bcb31c6ec9359a"
+    },
+    {
+      "typeId": "https://schemas.yotta.dev/types/geometry/point/v1",
+      "semanticDigest": "sha256:1097889d7ba4596fb79b8099333bf19a1942787244ec436b412d9dfcb058afb1"
+    },
+    {
+      "typeId": "https://schemas.yotta.dev/types/geometry/region/v1",
+      "semanticDigest": "sha256:1aa93d27324f34a484e5d016c891241c8bce373f617138e9d8a389893e52c4d2"
+    },
+    {
+      "typeId": "https://schemas.yotta.dev/types/media/image/v1",
+      "semanticDigest": "sha256:f8dcbb5c3d9fced691122fb56ef4e012ceb65796aec1345adac558df6597769d"
+    },
+    {
+      "typeId": "https://schemas.yotta.dev/types/observability/message/v1",
+      "semanticDigest": "sha256:2e59299ae4a3a7776d228b461f47d5f767abe5c1f7f104e98fa2f0a5118bb86a"
+    },
+    {
+      "typeId": "https://schemas.yotta.dev/types/random/distribution/v1",
+      "semanticDigest": "sha256:ef6262eb3778f8ed871803338b7c01dfb5b9d7a44ac7eaccee2818725462cba3"
+    },
+    {
+      "typeId": "https://schemas.yotta.dev/types/time/duration-milliseconds/v1",
+      "semanticDigest": "sha256:4b359ea752c4e7dc5e7bf80cbff947af007d0d4ac69e36b58213ae2274c7a2ac"
+    },
+    {
+      "typeId": "https://schemas.yotta.dev/types/vision/color-blob/v1",
+      "semanticDigest": "sha256:21ac7abde96460d0248bea9cbb43e05a4495cadd7584cea729f4cb78dd274a1b"
+    },
+    {
+      "typeId": "https://schemas.yotta.dev/types/vision/color-range/v1",
+      "semanticDigest": "sha256:69d8f7980758ca8eba01d39030d9273ec35fadfd655af6957b85a6d41ad69919"
+    },
+    {
+      "typeId": "https://schemas.yotta.dev/types/vision/qr-code/v1",
+      "semanticDigest": "sha256:31d4fa0b7e7f75bb351f329d61297629b0212e5a55d756e24783a9bba51dd6a3"
+    },
+    {
+      "typeId": "https://schemas.yotta.dev/types/vision/template-match/v1",
+      "semanticDigest": "sha256:143e990bd999824fe97741f35b1ad41fa605e9177ef39cfd885cce32749c7900"
+    }
+  ],
+  "capabilityRefs": [
+    {
+      "capabilityId": "https://schemas.yotta.dev/capabilities/ai/generation/v1",
+      "semanticDigest": "sha256:e38fd634bb07dbbe0ceed95841ddc13883f42ed77b99538c6a6c055be1e11c5e"
+    },
+    {
+      "capabilityId": "https://schemas.yotta.dev/capabilities/blob/read/v1",
+      "semanticDigest": "sha256:2037b53163bb90ff5fa1a7f54cab32036c1949dee172aa30dfced21118d90ca2"
+    },
+    {
+      "capabilityId": "https://schemas.yotta.dev/capabilities/blob/write/v1",
+      "semanticDigest": "sha256:d6ef1865a4d8f9a69ae9658b28438caae4c9113d24524f09ac51d740d776bd21"
+    },
+    {
+      "capabilityId": "https://schemas.yotta.dev/capabilities/filesystem/workspace/v1",
+      "semanticDigest": "sha256:2f2bbc68675a07f7cf0fd7ce9ea4e1896f0f38ac3e7a1614c9871b7db4621bea"
+    },
+    {
+      "capabilityId": "https://schemas.yotta.dev/capabilities/stream/session/v1",
+      "semanticDigest": "sha256:3c71136acc868f19ad4aa6341b7177d08a5082933b77d3ce8eaf95420243e8f2"
+    }
+  ]
+}
