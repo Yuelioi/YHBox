@@ -85,7 +85,7 @@ func readCanvasNodeErgonomics(ctx context.Context, client *browsercdp.WebSocketC
 				const x = canvasRect.left + canvasRect.width * column / 9;
 				const y = canvasRect.top + canvasRect.height * row / 9;
 				const hit = document.elementFromPoint(x, y);
-				if (hit && canvas.contains(hit) && !hit.closest('.vue-flow__node, .vue-flow__controls, .vue-flow__minimap')) {
+				if (hit && canvas.contains(hit) && !hit.closest('.vue-flow__node, .vue-flow__controls, .vue-flow__minimap, [data-testid="workflow-canvas-assist"], [data-testid="workflow-canvas-context-actions"], [data-testid="workflow-selection-toolbar"]')) {
 					blank = { x, y };
 					break;
 				}
@@ -128,7 +128,6 @@ func clickRequired(ctx context.Context, client *browsercdp.WebSocketClient, test
 		if (!button) {
 			const toolbarItems = new Set([
 				'workflow-state-open',
-				'ai-workflow-review-open',
 				'workflow-inspector-toggle',
 				'workflow-check',
 				'workflow-diagnostics-open',

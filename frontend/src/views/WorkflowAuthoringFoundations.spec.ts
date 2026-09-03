@@ -37,18 +37,24 @@ describe('workflow authoring foundations', () => {
 
   it('keeps node creation contextual without a permanent catalog sidebar', () => {
     const source = readSource('src/views/WorkflowEditorView.vue')
+    const assist = readSource('src/app/editor/WorkflowCanvasAssistToolbar.vue')
     const keyboard = readSource('src/app/editor/editorKeyboard.ts')
     expect(source).not.toContain('v-model="catalogQuery"')
     expect(source).not.toContain('v-for="group in catalogGroups"')
     expect(source).not.toContain('data-testid="workflow-workspace-nodes"')
-    expect(source).toContain('data-testid="workflow-canvas-add-node"')
-    expect(source).toContain('data-testid="workflow-canvas-add-node-entry"')
-    expect(source).toContain('data-testid="workflow-annotation-add"')
+    expect(source).toContain('<WorkflowCanvasAssistToolbar')
+    expect(assist).toContain('test-id="workflow-canvas-add-node"')
+    expect(assist).toContain('test-id="workflow-annotation-add"')
+    expect(assist).toContain('data-testid="workflow-canvas-assist-compact"')
+    expect(assist).toContain('@click="emit(\'update-collapsed\', !collapsed)"')
+    expect(source).toContain('v-if="!canvasAssist.hidden"')
+    expect(source).toContain('data-testid="workflow-canvas-assist-visibility"')
+    expect(source).toContain('@click="setCanvasAssistHidden(!canvasAssist.hidden)"')
     expect(source).not.toContain('workflow-graph-add-call')
     expect(source).toContain('GRAPH_CALL_DRAG_FORMAT')
     expect(source).toContain('getData(GRAPH_CALL_DRAG_FORMAT)')
     expect(source).toContain('addGraphCall(graphCallID, position)')
-    expect(source).toContain('@click="openQuickAddFromButton"')
+    expect(source).toContain('@add-node="openQuickAddFromAssist"')
     expect(keyboard).toContain("event.key === 'Tab'")
     expect(source).toContain('data-testid="workflow-empty-canvas"')
     expect(source).toContain('addNode(RUN_STARTED_NODE_ID')
@@ -180,6 +186,10 @@ describe('workflow authoring foundations', () => {
     const editor = readSource('src/views/WorkflowEditorView.vue')
     const dialog = readSource('src/components/common/ConfirmDialog.vue')
     expect(editor).toContain("alternateValue: 'discard'")
+    expect(editor).toContain("t('workflow.editor.discard_and_exit_pending')")
+    expect(editor).toContain('await session.load(session.workflowId)')
+    expect(editor).toContain('await closeRequest.close()')
+    expect(dialog).toContain(':loading="pending"')
     expect(editor).toContain(
       "if (decision === true) return (await editorRuns.execute({ kind: 'save' })).ok",
     )
@@ -292,18 +302,13 @@ describe('workflow authoring foundations', () => {
     const panel = readSource('src/app/editor/WorkflowGraphInterfacePanel.vue')
 
     expect(toolbar).toContain('<slot name="breadcrumbs" />')
-    expect(toolbar).toContain('<slot name="target" />')
     expect(toolbar).toContain('data-testid="workflow-editor-editing"')
-    expect(toolbar).toContain(':data-testid="model.ai.testId"')
     expect(toolbar.indexOf('data-testid="workflow-editor-editing"')).toBeLessThan(
       toolbar.indexOf('data-testid="workflow-editor-actions"'),
     )
-    expect(toolbar.indexOf(':data-testid="model.ai.testId"')).toBeLessThan(
-      toolbar.indexOf('data-testid="workflow-editor-tools"'),
-    )
     expect(editor).toContain('<template #breadcrumbs>')
-    expect(editor).toContain('<template #target>')
-    expect(editor).toContain('data-testid="workflow-annotation-add"')
+    expect(editor).toContain('data-testid="workflow-canvas-ai"')
+    expect(editor).toContain('data-testid="workflow-target-default"')
     expect(editor).toContain(':callable-graph-ids="callableGraphIds"')
     expect(panel).toContain('data-testid="workflow-graph-infer-interface"')
     expect(panel).toContain(':label="t(\'workflow.graphs.infer_interface\')"')

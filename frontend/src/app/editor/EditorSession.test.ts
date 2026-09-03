@@ -768,6 +768,43 @@ describe('EditorSession', () => {
     )
   })
 
+  it('inserts a signal node into an existing edge as one undoable edit', async () => {
+    const source = emptySource()
+    const ids = ['first', 'second', 'inserted']
+    const session = new EditorSession(
+      mockTransport(sourceView(source), runView('QUEUED')),
+      () => ids.shift() ?? 'unused',
+    )
+    await session.load(source.workflow.id)
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: delay.nodeRef.nodeTypeId,
+      position: { x: 0, y: 0 },
+    })
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: delay.nodeRef.nodeTypeId,
+      position: { x: 500, y: 0 },
+    })
+    const edge = {
+      channel: 'exec' as const,
+      from: { nodeId: 'first', portId: 'done' },
+      to: { nodeId: 'second', portId: 'in' },
+    }
+    session.apply({ kind: 'connect', edge })
+
+    expect(session.insertNodeIntoSignalEdge(edge, delay.nodeRef.nodeTypeId, { x: 250, y: 0 })).toBe(
+      'inserted',
+    )
+    expect(session.currentGraph?.edges).toEqual([
+      { channel: 'exec', from: edge.from, to: { nodeId: 'inserted', portId: 'in' } },
+      { channel: 'exec', from: { nodeId: 'inserted', portId: 'done' }, to: edge.to },
+    ])
+    session.undo()
+    expect(session.currentGraph?.nodes.map((node) => node.id)).toEqual(['first', 'second'])
+    expect(session.currentGraph?.edges).toEqual([edge])
+  })
+
   it('inserts an invoke node directly from a failure output', async () => {
     const source = emptySource()
     const ids = ['delay', 'log']

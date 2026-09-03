@@ -269,7 +269,15 @@ type UISettings struct {
 	// LauncherSize 启动器内容尺寸："xsmall" | "small" | "medium" | "large"。
 	LauncherSize string `json:"launcherSize"`
 	// LauncherToggleHotkey 呼出/隐藏悬浮窗的全局热键（空 = 未绑）。
-	LauncherToggleHotkey string `json:"launcherToggleHotkey"`
+	LauncherToggleHotkey string               `json:"launcherToggleHotkey"`
+	CanvasAssist         CanvasAssistSettings `json:"canvasAssist"`
+}
+
+type CanvasAssistSettings struct {
+	Collapsed           bool     `json:"collapsed"`
+	Hidden              bool     `json:"hidden"`
+	Display             string   `json:"display"`
+	FavoriteNodeTypeIDs []string `json:"favoriteNodeTypeIds"`
 }
 
 // MouseProfile 一个命名校准档。Counts360 = 原地转身 360° 鼠标硬件累积的 |dx| (用户在游戏里实测)。
@@ -348,6 +356,16 @@ func defaultSettings() *Settings {
 			RecordingPauseHotkey: "F11",
 			RecordingMouseMode:   "relative",
 			LauncherSize:         "medium",
+			CanvasAssist: CanvasAssistSettings{
+				Display: "labels",
+				FavoriteNodeTypeIDs: []string{
+					"https://schemas.yotta.dev/nodes/automation/press-keys",
+					"https://schemas.yotta.dev/nodes/control/delay",
+					"https://schemas.yotta.dev/nodes/automation/click-pointer",
+					"https://schemas.yotta.dev/nodes/automation/click-template",
+					"https://schemas.yotta.dev/nodes/control/branch",
+				},
+			},
 		},
 		Locale: "zh",
 		// 默认 auto：启动期 main.go 看 OS build 决定 Win10 走 GDI / Win11+ 走 WGC。
@@ -409,6 +427,19 @@ func (s *Settings) Validate() error {
 		// 空值按 medium 解释，兼容显式删除该偏好的旧 patch。
 	default:
 		return fmt.Errorf("ui.launcherSize 必须是 xsmall/small/medium/large，got %q", s.UI.LauncherSize)
+	}
+	if s.UI.CanvasAssist.Display != "icons" && s.UI.CanvasAssist.Display != "labels" {
+		return fmt.Errorf("ui.canvasAssist.display must be icons or labels, got %q", s.UI.CanvasAssist.Display)
+	}
+	if len(s.UI.CanvasAssist.FavoriteNodeTypeIDs) > 5 {
+		return errors.New("ui.canvasAssist.favoriteNodeTypeIds exceeds five entries")
+	}
+	seenCanvasFavorites := make(map[string]bool, len(s.UI.CanvasAssist.FavoriteNodeTypeIDs))
+	for _, nodeTypeID := range s.UI.CanvasAssist.FavoriteNodeTypeIDs {
+		if len(nodeTypeID) == 0 || len(nodeTypeID) > 512 || seenCanvasFavorites[nodeTypeID] {
+			return fmt.Errorf("ui.canvasAssist.favoriteNodeTypeIds contains invalid or duplicate ID %q", nodeTypeID)
+		}
+		seenCanvasFavorites[nodeTypeID] = true
 	}
 	if err := s.AI.validate(); err != nil {
 		return err

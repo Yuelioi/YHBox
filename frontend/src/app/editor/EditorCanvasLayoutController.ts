@@ -1,6 +1,7 @@
 import { ref, type Ref } from 'vue'
 import type { NodeDragEvent } from '@vue-flow/core'
 import type { EditorCommand, EditorSession } from './EditorSession'
+import { flowGuideToCanvasCoordinate, type CanvasViewport } from './editorCanvasCoordinates'
 import {
   alignNodePositions,
   autoLayoutNodePositions,
@@ -15,6 +16,7 @@ export type EditorCanvasLayoutCommand =
   | { kind: 'align'; mode: AlignMode }
   | { kind: 'distribute'; mode: DistributeMode }
   | { kind: 'auto-layout'; direction: 'LR' | 'TB' }
+  | { kind: 'make-space' }
   | { kind: 'clear-guides' }
 
 interface EditorCanvasLayoutDependencies {
@@ -23,7 +25,7 @@ interface EditorCanvasLayoutDependencies {
   selectedNodeIds: Ref<Set<string>>
   findNode: (nodeId: string) => { dimensions?: { width?: number; height?: number } } | undefined
   fitView: (options: { padding: number; duration: number }) => Promise<unknown>
-  flowToScreenCoordinate: (position: { x: number; y: number }) => { x: number; y: number }
+  getViewport: () => CanvasViewport
   applyCommand: (command: EditorCommand) => boolean
   layoutErrorTitle: () => string
   showError: (title: string, error: unknown) => void
@@ -43,6 +45,9 @@ export function createEditorCanvasLayoutController(deps: EditorCanvasLayoutDepen
         return
       case 'auto-layout':
         await autoLayout(command.direction)
+        return
+      case 'make-space':
+        makeSpace()
         return
       case 'clear-guides':
         snapGuides.value = {}
@@ -138,20 +143,14 @@ export function createEditorCanvasLayoutController(deps: EditorCanvasLayoutDepen
   }
 
   function updateSnapGuides(guideX?: number, guideY?: number): void {
-    const bounds = deps.canvasElement.value?.getBoundingClientRect()
-    if (!bounds) {
+    if (!deps.canvasElement.value) {
       snapGuides.value = {}
       return
     }
+    const viewport = deps.getViewport()
     snapGuides.value = {
-      x:
-        guideX === undefined
-          ? undefined
-          : deps.flowToScreenCoordinate({ x: guideX, y: 0 }).x - bounds.left,
-      y:
-        guideY === undefined
-          ? undefined
-          : deps.flowToScreenCoordinate({ x: 0, y: guideY }).y - bounds.top,
+      x: guideX === undefined ? undefined : flowGuideToCanvasCoordinate(guideX, viewport, 'x'),
+      y: guideY === undefined ? undefined : flowGuideToCanvasCoordinate(guideY, viewport, 'y'),
     }
   }
 
@@ -174,6 +173,37 @@ export function createEditorCanvasLayoutController(deps: EditorCanvasLayoutDepen
     } finally {
       layouting.value = false
     }
+  }
+
+  function makeSpace(): void {
+    const graph = deps.session.currentGraph
+    if (!graph || deps.selectedNodeIds.value.size !== 2) return
+    const selected = graph.nodes
+      .filter((node) => deps.selectedNodeIds.value.has(node.id))
+      .sort(
+        (left, right) => left.position.x - right.position.x || left.position.y - right.position.y,
+      )
+    if (selected.length !== 2) return
+    const [first, second] = selected
+    const horizontal =
+      Math.abs(second.position.x - first.position.x) >=
+      Math.abs(second.position.y - first.position.y)
+    const positions = graph.nodes.flatMap((node) => {
+      const after = horizontal
+        ? node.position.x >= second.position.x
+        : node.position.y >= second.position.y
+      if (!after) return []
+      return [
+        {
+          nodeId: node.id,
+          position: {
+            x: node.position.x + (horizontal ? 280 : 0),
+            y: node.position.y + (horizontal ? 0 : 160),
+          },
+        },
+      ]
+    })
+    applyPositions(positions)
   }
 
   return {

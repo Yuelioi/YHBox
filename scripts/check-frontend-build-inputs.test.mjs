@@ -12,6 +12,8 @@ test('frontend build incrementality tracks source inputs without consuming dist 
   assert.match(sources, /- "public\/\*\*\/\*"/)
   assert.doesNotMatch(sources, /- "\*\*\/\*"/)
   assert.doesNotMatch(sources, /dist\/\*\*\/\*/)
+  assert.match(frontendTask, /dist\/\.yotta-build-mode/)
+  assert.match(frontendTask, /dev\{\{else\}\}production/)
 })
 
 test('Windows build cleanup does not load user PowerShell profiles or use a wildcard target', () => {

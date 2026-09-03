@@ -811,6 +811,49 @@ export class EditorSession {
     return nodeId
   }
 
+  insertNodeIntoSignalEdge(
+    edge: Edge,
+    nodeTypeId: string,
+    position: { x: number; y: number },
+  ): string {
+    if (edge.channel === 'data') throw new Error('data edges require an explicit typed insertion')
+    const graph = this.currentGraph
+    const projection = this.projections.get(nodeTypeId)
+    if (!graph || !projection) throw new Error('workflow node projection is unavailable')
+    const input = projection.signals.find(
+      (signal) => signal.direction === 'input' && signal.channel === edge.channel,
+    )
+    const output = projection.signals.find(
+      (signal) => signal.direction === 'output' && signal.channel === edge.channel,
+    )
+    if (!input || !output) throw new Error('node cannot be inserted into the selected signal edge')
+    const nodeId = uniqueNodeId(graph, this.idFactory)
+    this.apply({
+      kind: 'batch',
+      commands: [
+        { kind: 'disconnect', edge: clone(edge) },
+        { kind: 'add-node', nodeTypeId, nodeId, position: clone(position) },
+        {
+          kind: 'connect',
+          edge: {
+            channel: edge.channel,
+            from: clone(edge.from),
+            to: { nodeId, portId: input.id },
+          },
+        },
+        {
+          kind: 'connect',
+          edge: {
+            channel: edge.channel,
+            from: { nodeId, portId: output.id },
+            to: clone(edge.to),
+          },
+        },
+      ],
+    })
+    return nodeId
+  }
+
   moveNodes(positions: Array<{ nodeId: string; position: { x: number; y: number } }>): void {
     if (positions.length) this.apply({ kind: 'move-nodes', positions })
   }

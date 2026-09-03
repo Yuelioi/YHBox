@@ -83,11 +83,6 @@
         @click="emit('command', item.command)"
       />
 
-      <div class="mx-1 h-5 w-px shrink-0 bg-default" />
-      <div class="flex shrink-0 items-center">
-        <slot name="target" />
-      </div>
-
       <UButton
         v-for="item in model.primary"
         :key="item.command"
@@ -101,18 +96,6 @@
         :disabled="item.disabled"
         :loading="item.loading"
         @click="emit('command', item.command)"
-      />
-
-      <UButton
-        :data-testid="model.ai.testId"
-        class="shrink-0"
-        :label="t(model.ai.labelKey)"
-        :icon="model.ai.icon"
-        :color="model.ai.color ?? 'primary'"
-        :variant="model.ai.variant ?? 'ghost'"
-        size="xs"
-        :aria-pressed="model.ai.active"
-        @click="emit('command', model.ai.command)"
       />
 
       <UDropdownMenu :items="toolItems">

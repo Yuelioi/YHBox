@@ -48,48 +48,6 @@
             />
           </template>
         </template>
-        <template #target>
-          <UPopover mode="click" :ui="{ content: 'w-80 p-3' }">
-            <UButton
-              data-testid="workflow-target-default"
-              icon="i-tabler-device-desktop"
-              color="neutral"
-              variant="ghost"
-              size="xs"
-              :aria-label="workflowDefaultTargetLabel"
-              :title="workflowDefaultTargetLabel"
-            >
-              <span class="hidden max-w-40 truncate min-[1180px]:inline">
-                {{ workflowDefaultTargetLabel }}
-              </span>
-            </UButton>
-            <template #content>
-              <div class="space-y-2">
-                <p class="text-xs font-medium text-highlighted">
-                  {{ t('workflow.target_default.label') }}
-                </p>
-                <AdaptiveSelect
-                  :model-value="workflowDefaultTargetSlot"
-                  :items="workflowAutomationTargetItems"
-                  value-key="value"
-                  label-key="label"
-                  width-mode="fill"
-                  :placeholder="t('workflow.target_default.placeholder')"
-                  @update:model-value="setWorkflowDefaultTarget"
-                />
-                <UButton
-                  v-if="workflowDefaultTargetSlot"
-                  icon="i-tabler-x"
-                  color="neutral"
-                  variant="ghost"
-                  size="xs"
-                  :label="t('workflow.target_default.clear')"
-                  @click="session.setTargetDefault('target', '')"
-                />
-              </div>
-            </template>
-          </UPopover>
-        </template>
       </WorkflowEditorToolbar>
 
       <WorkflowMetadataDialog
@@ -373,34 +331,107 @@
             @collapse="collapseSelection"
             @remove="removeSelection"
           />
+          <WorkflowCanvasAssistToolbar
+            v-if="!canvasAssist.hidden"
+            :collapsed="canvasAssist.collapsed"
+            :favorite-node-type-ids="canvasAssist.favoriteNodeTypeIds"
+            :favorites="canvasAssistFavorites"
+            :node-options="canvasAssistNodeOptions"
+            :selected-node-count="selectedNodeIds.size"
+            :has-selected-edge="
+              Boolean(selectedSourceEdge() && selectedSourceEdge()?.channel !== 'data')
+            "
+            :layouting="layouting"
+            @add-node="openQuickAddFromAssist"
+            @add-comment="addComment"
+            @add-favorite="addFavoriteNodeFromAssist"
+            @insert-node="openInsertNodeFromAssist"
+            @make-space="makeSpaceForNode"
+            @layout="autoLayout"
+            @update-favorites="setCanvasAssistFavorites"
+            @update-collapsed="setCanvasAssistCollapsed"
+          />
           <div
-            data-testid="workflow-canvas-add-node-entry"
-            class="absolute left-3 top-3 z-20 flex gap-0.5 rounded-lg border border-default bg-default/95 p-1 shadow-lg"
+            data-testid="workflow-canvas-context-actions"
+            class="absolute right-3 top-3 z-20 flex gap-1 rounded-lg border border-default bg-default/95 p-1 shadow-lg"
           >
             <UButton
-              data-testid="workflow-canvas-add-node"
-              icon="i-tabler-plus"
-              color="neutral"
-              variant="ghost"
+              data-testid="workflow-canvas-ai"
+              icon="i-tabler-sparkles"
+              color="primary"
+              :variant="aiPanelOpen ? 'soft' : 'ghost'"
               size="xs"
-              :label="t('workflow.canvas.add_node')"
-              @click="openQuickAddFromButton"
+              :label="t('workflow.ai.open')"
+              @click="toggleAIReview"
             />
-            <UTooltip :text="t('workflow.graphs.add_comment')">
+            <UButton
+              data-testid="workflow-canvas-assist-visibility"
+              :icon="
+                canvasAssist.hidden
+                  ? 'i-tabler-layout-sidebar-left-expand'
+                  : 'i-tabler-layout-sidebar-left-collapse'
+              "
+              color="neutral"
+              :variant="canvasAssist.hidden ? 'ghost' : 'soft'"
+              size="xs"
+              :aria-label="
+                t(
+                  canvasAssist.hidden
+                    ? 'workflow.canvas_assist.show'
+                    : 'workflow.canvas_assist.hide',
+                )
+              "
+              :aria-pressed="!canvasAssist.hidden"
+              @click="setCanvasAssistHidden(!canvasAssist.hidden)"
+            />
+            <UButton
+              data-testid="workflow-minimap-toggle"
+              icon="i-tabler-map-2"
+              color="neutral"
+              :variant="minimapOpen ? 'soft' : 'ghost'"
+              size="xs"
+              :aria-label="
+                t(minimapOpen ? 'workflow.canvas.hide_minimap' : 'workflow.canvas.show_minimap')
+              "
+              :aria-pressed="minimapOpen"
+              @click="minimapOpen = !minimapOpen"
+            />
+            <UPopover mode="click" :ui="{ content: 'w-80 p-3' }">
               <UButton
-                data-testid="workflow-annotation-add"
-                icon="i-tabler-note"
+                data-testid="workflow-target-default"
+                icon="i-tabler-device-desktop"
                 color="neutral"
                 variant="ghost"
                 size="xs"
-                :aria-label="t('workflow.graphs.add_comment')"
-                @click="addComment"
+                :aria-label="workflowDefaultTargetLabel"
+                :title="workflowDefaultTargetLabel"
               />
-            </UTooltip>
-          </div>
-          <div
-            class="absolute right-3 top-3 z-20 flex gap-1 rounded-lg border border-default bg-default/95 p-1 shadow-lg"
-          >
+              <template #content>
+                <div class="space-y-2">
+                  <p class="text-xs font-medium text-highlighted">
+                    {{ t('workflow.target_default.label') }}
+                  </p>
+                  <AdaptiveSelect
+                    :model-value="workflowDefaultTargetSlot"
+                    :items="workflowAutomationTargetItems"
+                    value-key="value"
+                    label-key="label"
+                    width-mode="fill"
+                    :placeholder="t('workflow.target_default.placeholder')"
+                    @update:model-value="setWorkflowDefaultTarget"
+                  />
+                  <UButton
+                    v-if="workflowDefaultTargetSlot"
+                    icon="i-tabler-x"
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                    :label="t('workflow.target_default.clear')"
+                    @click="session.setTargetDefault('target', '')"
+                  />
+                </div>
+              </template>
+            </UPopover>
             <template v-if="!selectedNodeIds.size && selectedEdgeId">
               <template v-if="selectedSourceEdge()">
                 <UButton
@@ -430,28 +461,6 @@
                 @click="disconnectEdge(selectedEdgeId)"
               />
             </template>
-            <template v-if="!selectedNodeIds.size">
-              <UButton
-                data-testid="workflow-layout-lr"
-                icon="i-tabler-layout-board-split"
-                color="neutral"
-                variant="ghost"
-                size="xs"
-                :loading="layouting"
-                :aria-label="t('workflow.selection.layout_lr')"
-                @click="autoLayout('LR')"
-              />
-              <UButton
-                data-testid="workflow-layout-tb"
-                icon="i-tabler-layout-navbar-collapse"
-                color="neutral"
-                variant="ghost"
-                size="xs"
-                :loading="layouting"
-                :aria-label="t('workflow.selection.layout_tb')"
-                @click="autoLayout('TB')"
-              />
-            </template>
             <UButton
               v-if="session.activeRun"
               data-testid="workflow-clear-run-trace"
@@ -462,18 +471,6 @@
               :disabled="runActive"
               :aria-label="t('workflow.canvas.clear_run_trace')"
               @click="clearRunTrace"
-            />
-            <UButton
-              data-testid="workflow-minimap-toggle"
-              icon="i-tabler-map-2"
-              color="neutral"
-              :variant="minimapOpen ? 'soft' : 'ghost'"
-              size="xs"
-              :aria-label="
-                t(minimapOpen ? 'workflow.canvas.hide_minimap' : 'workflow.canvas.show_minimap')
-              "
-              :aria-pressed="minimapOpen"
-              @click="minimapOpen = !minimapOpen"
             />
             <UPopover mode="click" :ui="{ content: 'w-72 p-3' }">
               <UButton
@@ -670,7 +667,7 @@
 
       <WorkflowQuickAddMenu
         v-model:open="quickAddOpen"
-        :items="quickAddItems"
+        :items="quickAddIntent === 'insert-edge' ? insertableQuickAddItems : quickAddItems"
         :anchor="quickAddAnchor"
         @choose="selectQuickAddItem"
       />
@@ -1254,7 +1251,10 @@ import {
   watch,
 } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
-import { registerMainWindowCloseGuard } from '@/app/window/mainWindowCloseGuard'
+import {
+  registerMainWindowCloseGuard,
+  type MainWindowCloseRequest,
+} from '@/app/window/mainWindowCloseGuard'
 import { useToast } from '@nuxt/ui/composables'
 import {
   VueFlow,
@@ -1336,6 +1336,8 @@ import WorkflowGraphCall from '@/app/editor/WorkflowGraphCall.vue'
 import WorkflowGraphBoundary from '@/app/editor/WorkflowGraphBoundary.vue'
 import WorkflowAnnotation from '@/app/editor/WorkflowAnnotation.vue'
 import WorkflowRerouteEdge from '@/app/editor/WorkflowRerouteEdge.vue'
+import WorkflowCanvasAssistToolbar from '@/app/editor/WorkflowCanvasAssistToolbar.vue'
+import { canvasCenteredInsertionPosition } from '@/app/editor/editorCanvasCoordinates'
 import BaseModal from '@/components/common/BaseModal.vue'
 import { useRecordingStore, type RecordingMode } from '@/stores/recording'
 import { useSettingsStore } from '@/stores/settings'
@@ -1426,7 +1428,7 @@ const AIWorkflowReviewPanel = defineAsyncComponent(
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
-const { confirm } = useConfirm()
+const { confirm, finishPending } = useConfirm()
 const { t, te } = useI18n()
 const session = createEditorSession(workflowTransport)
 const recording = useRecordingStore()
@@ -1458,6 +1460,7 @@ const statePanelOpen = ref(false)
 const quickAddOpen = ref(false)
 const quickAddPosition = ref({ x: 160, y: 160 })
 const quickAddAnchor = ref({ x: 160, y: 160 })
+const quickAddIntent = ref<'add' | 'insert-edge'>('add')
 const canvasPointerInside = ref(false)
 const lastCanvasPointer = ref<{ x: number; y: number } | null>(null)
 const workspacePanel = ref<WorkflowWorkspacePanel>('graphs')
@@ -1645,7 +1648,6 @@ const {
   addSelectedNodes,
   findNode,
   fitView,
-  flowToScreenCoordinate,
   getViewport,
   getSelectedNodes,
   removeSelectedNodes,
@@ -1675,7 +1677,7 @@ const editorCanvasLayout = createEditorCanvasLayoutController({
   selectedNodeIds,
   findNode,
   fitView,
-  flowToScreenCoordinate,
+  getViewport,
   applyCommand,
   layoutErrorTitle: () => t('workflow.selection.layout_failed'),
   showError,
@@ -1788,6 +1790,50 @@ const quickAddItems = computed<WorkflowQuickAddItem[]>(() => [
       .toLocaleLowerCase(),
   })),
 ])
+const insertableQuickAddItems = computed(() => {
+  const edge = selectedSourceEdge()
+  if (!edge || edge.channel === 'data') return []
+  return quickAddItems.value.filter((item) => {
+    if (item.kind !== 'node') return false
+    const projection = session.nodeProjection(item.id)
+    return Boolean(
+      projection?.signals.some(
+        (signal) => signal.direction === 'input' && signal.channel === edge.channel,
+      ) &&
+      projection?.signals.some(
+        (signal) => signal.direction === 'output' && signal.channel === edge.channel,
+      ),
+    )
+  })
+})
+const canvasAssist = computed(
+  () =>
+    settings.data?.ui.canvasAssist ?? {
+      collapsed: false,
+      hidden: false,
+      display: 'labels' as const,
+      favoriteNodeTypeIds: [],
+    },
+)
+const canvasAssistFavorites = computed(() =>
+  canvasAssist.value.favoriteNodeTypeIds.map((nodeTypeId) => {
+    const projection = catalogNodes.value.find(
+      (candidate) => candidate.nodeRef.nodeTypeId === nodeTypeId,
+    )
+    return {
+      nodeTypeId,
+      title: projection ? projectionTitle(projection) : nodeTypeId,
+      icon: projection?.icon ?? 'box',
+      available: Boolean(projection),
+    }
+  }),
+)
+const canvasAssistNodeOptions = computed(() =>
+  catalogNodes.value.map((projection) => ({
+    label: projectionTitle(projection),
+    value: projection.nodeRef.nodeTypeId,
+  })),
+)
 const nodeSearchResults = computed<WorkflowNodeSearchResult[]>(() => {
   const query = nodeSearchQuery.value.trim().toLocaleLowerCase()
   if (!query) return []
@@ -2240,11 +2286,13 @@ onBeforeUnmount(() => {
   stopSidebarResize?.()
   unregisterMainWindowCloseGuard()
 })
-onBeforeRouteLeave(confirmEditorExit)
+onBeforeRouteLeave(async () => (await confirmEditorExit()) !== false)
 
 const unregisterMainWindowCloseGuard = registerMainWindowCloseGuard(confirmEditorExit)
 
-async function confirmEditorExit(): Promise<boolean> {
+async function confirmEditorExit(
+  closeRequest?: MainWindowCloseRequest,
+): Promise<boolean | 'handled'> {
   if (
     recording.state.phase === 'armed' ||
     recording.state.phase === 'countdown' ||
@@ -2279,8 +2327,22 @@ async function confirmEditorExit(): Promise<boolean> {
     alternateText: t('workflow.editor.discard_action'),
     alternateValue: 'discard',
     alternateColor: 'error',
+    alternatePendingText: closeRequest ? t('workflow.editor.discard_and_exit_pending') : undefined,
   })
   if (decision === true) return (await editorRuns.execute({ kind: 'save' })).ok
+  if (decision === 'discard' && closeRequest) {
+    try {
+      await nextTick()
+      await session.load(session.workflowId)
+      await closeRequest.close()
+      return 'handled'
+    } catch (error) {
+      showError(t('workflow.editor.discard_exit_failed'), error)
+      return false
+    } finally {
+      finishPending()
+    }
+  }
   return decision === 'discard'
 }
 
@@ -3048,10 +3110,9 @@ async function locateGraphCall(parentGraphId: string, callId: string): Promise<v
 
 function addComment(): void {
   const rect = canvasElement.value?.getBoundingClientRect()
-  const center = rect
-    ? screenToFlowCoordinate({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
+  const position = rect
+    ? canvasCenteredInsertionPosition(rect, screenToFlowCoordinate)
     : { x: 160, y: 160 }
-  const position = { x: center.x + 180, y: center.y - 140 }
   const id = session.addAnnotation(position)
   selectedNodeIds.value = new Set([id])
   selectedNodeId.value = id
@@ -3190,6 +3251,7 @@ function handleEditorKeydown(event: KeyboardEvent): void {
     hasNodeSelection: selectedNodeIds.value.size > 0,
     hasSelection: !!(selectedNodeIds.value.size || selectedNodeId.value || selectedEdgeId.value),
     matchedSnippetID: snippet?.id,
+    favoriteNodeTypeIds: canvasAssist.value.favoriteNodeTypeIds,
   })
   if (!action) return
 
@@ -3203,6 +3265,9 @@ function handleEditorKeydown(event: KeyboardEvent): void {
       return
     case 'use-snippet':
       void useSnippet(action.snippetID, canvasInsertionPosition())
+      return
+    case 'add-favorite-node':
+      addFavoriteNode(action.nodeTypeId)
       return
     case 'clear-selection':
       clearEditorSelection()
@@ -3597,6 +3662,7 @@ function canvasInsertionPosition(): { x: number; y: number } {
 }
 
 function openQuickAdd(): void {
+  quickAddIntent.value = 'add'
   quickAddPosition.value = canvasInsertionPosition()
   const rect = canvasElement.value?.getBoundingClientRect()
   quickAddAnchor.value = lastCanvasPointer.value ?? {
@@ -3606,25 +3672,81 @@ function openQuickAdd(): void {
   quickAddOpen.value = true
 }
 
-function openQuickAddFromButton(event: MouseEvent): void {
-  const canvasRect = canvasElement.value?.getBoundingClientRect()
-  const triggerRect =
-    event.currentTarget instanceof HTMLElement ? event.currentTarget.getBoundingClientRect() : null
-  quickAddPosition.value = canvasClientPointToFlowPosition({
-    x: (canvasRect?.left ?? 0) + (canvasRect?.width ?? 320) / 2,
-    y: (canvasRect?.top ?? 0) + (canvasRect?.height ?? 320) / 2,
-  })
+function openQuickAddFromAssist(): void {
+  quickAddIntent.value = 'add'
+  const rect = canvasElement.value?.getBoundingClientRect()
+  quickAddPosition.value = rect
+    ? canvasCenteredInsertionPosition(rect, screenToFlowCoordinate)
+    : { x: 160, y: 160 }
   quickAddAnchor.value = {
-    x: triggerRect?.left ?? canvasRect?.left ?? 8,
-    y: (triggerRect?.bottom ?? canvasRect?.top ?? 8) + 8,
+    x: (rect?.left ?? 0) + (canvasAssist.value.collapsed ? 56 : 176),
+    y: (rect?.top ?? 0) + 64,
+  }
+  quickAddOpen.value = true
+}
+
+function openInsertNodeFromAssist(): void {
+  const edge = selectedSourceEdge()
+  if (!edge || edge.channel === 'data') return
+  quickAddIntent.value = 'insert-edge'
+  quickAddPosition.value = conversionNodePosition(edge)
+  const rect = canvasElement.value?.getBoundingClientRect()
+  quickAddAnchor.value = {
+    x: (rect?.left ?? 0) + (canvasAssist.value.collapsed ? 56 : 176),
+    y: (rect?.top ?? 0) + 64,
   }
   quickAddOpen.value = true
 }
 
 function selectQuickAddItem(item: WorkflowQuickAddItem): void {
   const position = { x: quickAddPosition.value.x, y: quickAddPosition.value.y }
+  if (quickAddIntent.value === 'insert-edge' && item.kind === 'node') {
+    const edge = selectedSourceEdge()
+    if (!edge) return
+    try {
+      const nodeId = session.insertNodeIntoSignalEdge(edge, item.id, position)
+      selectedNodeIds.value = new Set([nodeId])
+      selectedNodeId.value = nodeId
+      selectedEdgeId.value = ''
+    } catch (error) {
+      showError(t('workflow.canvas_assist.insert_failed'), error)
+    }
+    return
+  }
   if (item.kind === 'node') addNode(item.id, position)
   else void useSnippet(item.id, position)
+}
+
+function addFavoriteNode(nodeTypeId: string): void {
+  if (!session.nodeProjection(nodeTypeId)) return
+  addNode(nodeTypeId, canvasInsertionPosition())
+}
+
+function addFavoriteNodeFromAssist(nodeTypeId: string): void {
+  if (!session.nodeProjection(nodeTypeId)) return
+  const rect = canvasElement.value?.getBoundingClientRect()
+  addNode(
+    nodeTypeId,
+    rect ? canvasCenteredInsertionPosition(rect, screenToFlowCoordinate) : { x: 160, y: 160 },
+  )
+}
+
+function makeSpaceForNode(): void {
+  void editorCanvasLayout.execute({ kind: 'make-space' })
+}
+
+function setCanvasAssistCollapsed(collapsed: boolean): void {
+  void settings.patch({ ui: { canvasAssist: { ...canvasAssist.value, collapsed } } })
+}
+
+function setCanvasAssistHidden(hidden: boolean): void {
+  void settings.patch({ ui: { canvasAssist: { ...canvasAssist.value, hidden } } })
+}
+
+function setCanvasAssistFavorites(favoriteNodeTypeIds: string[]): void {
+  void settings.patch({
+    ui: { canvasAssist: { ...canvasAssist.value, favoriteNodeTypeIds } },
+  })
 }
 
 function captureMarqueeSelection(event: PointerEvent): void {

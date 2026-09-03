@@ -29,7 +29,7 @@ export function useWindowControls() {
   }
 
   function closeImmediate() {
-    Window.Close()
+    return Window.Close()
   }
 
   onMounted(() => {

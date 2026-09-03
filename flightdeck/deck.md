@@ -4,7 +4,8 @@
 
 - [V4 发布兼容性封板](work/v4-release-compatibility-floor/index.md)
 - [图片录制与分辨率自适应 Run](work/image-resolution-adaptive-run/index.md)
-- **Focus:** [AI 提案验收](work/ai-proposal-acceptance/index.md)
+- [AI 提案验收](work/ai-proposal-acceptance/index.md)
+- **Focus:** [画布辅助工具栏](work/canvas-assist-toolbar/index.md)
 
 ## Project links
 

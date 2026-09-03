@@ -10,8 +10,11 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/localruntime"
 	"github.com/yottaapp/yotta/internal/noderuntime"
+	"github.com/yottaapp/yotta/internal/securestore"
+	"github.com/yottaapp/yotta/internal/services"
 )
 
 func TestOpenOwnsTheCompleteLocalRuntimeLifecycle(t *testing.T) {
@@ -67,6 +70,43 @@ func TestOpenResolvesAnEmptyStorageRootThroughTheCanonicalRootSet(t *testing.T) 
 	closeCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := opened.Close(closeCtx); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestOpenDoesNotRequireOptionalCodexCLI(t *testing.T) {
+	root := t.TempDir()
+	config := localruntime.Config{
+		StorageRoot: root, Executable: filepath.Join(root, "Yotta.exe"),
+		RootLog: zerolog.New(io.Discard), WorkflowLog: discardWorkflowLog{}, Now: time.Now,
+		AISecrets: services.NewAISecrets(securestore.New()),
+	}
+	opened, err := localruntime.Open(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = opened.Settings.MutateSettings(func(settings *services.Settings) error {
+		settings.AI.Profiles = []services.AIModelSettings{{
+			Slot: "codex", Label: "Codex", Provider: ai.ProviderCodexSubscription,
+			Endpoint: "codex://subscription", Model: "gpt-5.6-sol", MaxOutputTokens: 4096,
+			Capabilities: ai.ProfileCapabilities{StructuredOutput: true, ToolCalling: true, ParallelTools: true},
+			Evaluation:   ai.EvaluationUnverified,
+		}}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := opened.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("PATH", t.TempDir())
+	reopened, err := localruntime.Open(context.Background(), config)
+	if err != nil {
+		t.Fatalf("configured optional Codex profile blocked local runtime startup: %v", err)
+	}
+	if err := reopened.Close(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 }

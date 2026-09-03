@@ -2,6 +2,8 @@
   <div
     data-testid="workflow-selection-toolbar"
     class="absolute left-1/2 top-3 z-20 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-default bg-default/95 p-1.5 shadow-xl"
+    @pointerdown.stop
+    @click.stop
   >
     <span class="shrink-0 whitespace-nowrap px-2 text-[11px] font-medium text-muted">
       {{ t('workflow.selection.count', { count }) }}

@@ -11,6 +11,7 @@ export interface ConfirmOpts {
   color?: 'primary' | 'error' | 'warning' | 'neutral'
   alternateText?: string
   alternateValue?: string
+  alternatePendingText?: string
   alternateColor?: 'primary' | 'error' | 'warning' | 'neutral'
   /** 若设了 inputDefault，对话框显示 UInput，confirm 返回输入字符串；否则返 boolean */
   inputDefault?: string
@@ -18,8 +19,15 @@ export interface ConfirmOpts {
   inputPlaceholder?: string
 }
 
-const state = reactive<{ open: boolean; opts: ConfirmOpts | null }>({
+const state = reactive<{
+  open: boolean
+  pending: boolean
+  pendingText: string
+  opts: ConfirmOpts | null
+}>({
   open: false,
+  pending: false,
+  pendingText: '',
   opts: null,
 })
 let activeResolver: ((v: boolean | string) => void) | null = null
@@ -29,16 +37,29 @@ export function useConfirm() {
     return new Promise((resolve) => {
       activeResolver = resolve
       state.opts = opts
+      state.pending = false
+      state.pendingText = ''
       state.open = true
     })
   }
   function resolveActive(v: boolean | string) {
+    const opts = state.opts
     if (activeResolver) {
       activeResolver(v)
       activeResolver = null
     }
+    if (opts?.alternatePendingText && v === (opts.alternateValue ?? 'alternate')) {
+      state.pending = true
+      state.pendingText = opts.alternatePendingText
+      return
+    }
+    finishPending()
+  }
+  function finishPending() {
     state.open = false
+    state.pending = false
+    state.pendingText = ''
     state.opts = null
   }
-  return { confirm, state, resolveActive }
+  return { confirm, state, resolveActive, finishPending }
 }

@@ -116,6 +116,28 @@ func exerciseMultigraph(ctx context.Context, client *browsercdp.WebSocketClient,
 	if err := waitUntil(ctx, client, func(current pageState) bool { return current.Annotations == 1 }); err != nil {
 		return fmt.Errorf("add graph annotation: %w", err)
 	}
+	if err := eval(ctx, client, `(() => {
+		const canvas = document.querySelector('[data-testid="workflow-canvas"]');
+		const annotation = document.querySelector('[data-testid="workflow-annotation"]');
+		const textarea = annotation?.querySelector('textarea');
+		if (!canvas || !annotation || !textarea) throw new Error('annotation editing surface unavailable');
+		const canvasRect = canvas.getBoundingClientRect();
+		const noteRect = annotation.getBoundingClientRect();
+		const expectedX = canvasRect.left + canvasRect.width / 2;
+		const expectedY = canvasRect.top + canvasRect.height * 0.38;
+		const deltaX = noteRect.left + noteRect.width / 2 - expectedX;
+		const deltaY = noteRect.top + noteRect.height / 2 - expectedY;
+		if (Math.abs(deltaX) > 32 || Math.abs(deltaY) > 32) {
+			throw new Error('toolbar-created annotation missed the upper canvas center by (' + deltaX.toFixed(1) + ', ' + deltaY.toFixed(1) + ')');
+		}
+		const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+		setter?.call(textarea, 'Smoke comment');
+		textarea.dispatchEvent(new Event('input', { bubbles: true }));
+		textarea.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+		if (document.body.textContent?.includes('编辑被拒绝')) throw new Error('annotation edit was rejected');
+	})()`); err != nil {
+		return fmt.Errorf("edit graph annotation: %w", err)
+	}
 	return nil
 }
 
@@ -323,7 +345,7 @@ func exerciseCanvasNodeErgonomics(ctx context.Context, client *browsercdp.WebSoc
 	if len(failures) > 0 {
 		return fmt.Errorf("analyze color canvas node %s", strings.Join(failures, "; "))
 	}
-	if err := eval(ctx, client, `document.querySelector('.workflow-node[data-node-type-id="https://schemas.yotta.dev/nodes/vision/analyze-color"]')?.click()`); err != nil {
+	if err := dispatchMouseClick(ctx, client, afterNodeWheel.CenterX, afterNodeWheel.CenterY); err != nil {
 		return err
 	}
 	if err := dispatchKeyPress(ctx, client, "Delete", "Delete", 46); err != nil {
@@ -359,8 +381,16 @@ func addNodeViaQuickAddAfter(
 ) error {
 	queryJSON, _ := json.Marshal(query)
 	nodeTypeJSON, _ := json.Marshal(nodeTypeID)
-	if err := eval(ctx, client, `(() => {
-		const trigger = document.querySelector('[data-testid="workflow-canvas-add-node"]');
+	if err := eval(ctx, client, `(async () => {
+		let trigger = document.querySelector('[data-testid="workflow-canvas-add-node"]');
+		if (!trigger) {
+			document.querySelector('[data-testid="workflow-canvas-assist-compact"]')?.click();
+			const deadline = performance.now() + 3000;
+			while (!trigger && performance.now() < deadline) {
+				await new Promise(resolve => setTimeout(resolve, 25));
+				trigger = document.querySelector('[data-testid="workflow-canvas-add-node"]');
+			}
+		}
 		if (!trigger) throw new Error('explicit add node trigger not found');
 		trigger.click();
 	})()`); err != nil {
@@ -375,14 +405,14 @@ func addNodeViaQuickAddAfter(
 		return fmt.Errorf("wait for quick-add search: %w", err)
 	}
 	if err := eval(ctx, client, `(() => {
-		const trigger = document.querySelector('[data-testid="workflow-canvas-add-node"]');
+		const trigger = document.querySelector('[data-testid="workflow-canvas-assist"]');
 		const panel = document.querySelector('[data-testid="workflow-quick-add"]');
 		if (!trigger || !panel) throw new Error('explicit quick-add geometry unavailable');
 		const triggerRect = trigger.getBoundingClientRect();
 		const panelRect = panel.getBoundingClientRect();
-		if (Math.abs(panelRect.left - triggerRect.left) > 2 ||
-			Math.abs(panelRect.top - triggerRect.bottom - 8) > 2) {
-			throw new Error('explicit quick add did not open below its left-canvas trigger');
+		if (Math.abs(panelRect.left - triggerRect.right - 4) > 3 ||
+			Math.abs(panelRect.top - triggerRect.top) > 3) {
+			throw new Error('explicit quick add did not open beside the canvas assist toolbar');
 		}
 	})()`); err != nil {
 		return err
@@ -535,11 +565,9 @@ func verifyEditorToolbarConsolidation(ctx context.Context, client *browsercdp.We
 		if (!toolbar) throw new Error('editor toolbar not found');
 		const requiredSelectors = [
 			'[data-testid="workflow-graph-breadcrumb-main"]',
-			'[data-testid="workflow-target-default"]',
 			'[data-testid="workflow-find-node"]',
 			'[data-testid="workflow-run-timeline"]',
 			'[data-testid="workflow-save"]',
-			'[data-testid="ai-workflow-review-open"]',
 			'[data-testid="workflow-editor-tools"]'
 		];
 		for (const selector of requiredSelectors) {
@@ -549,8 +577,16 @@ func verifyEditorToolbarConsolidation(ctx context.Context, client *browsercdp.We
 			}
 		}
 		const addNode = document.querySelector('[data-testid="workflow-canvas-add-node"]');
-		if (!addNode || toolbar.contains(addNode)) {
+		const assist = document.querySelector('[data-testid="workflow-canvas-assist"]');
+		if (!addNode || !assist?.contains(addNode) || toolbar.contains(addNode) || !assist.querySelector('[data-testid="workflow-layout-lr"]')) {
 			throw new Error('canvas creation actions are not isolated from the editor toolbar');
+		}
+		const contextActions = document.querySelector('[data-testid="workflow-canvas-context-actions"]');
+		const target = document.querySelector('[data-testid="workflow-target-default"]');
+		const ai = document.querySelector('[data-testid="workflow-canvas-ai"]');
+		const assistVisibility = document.querySelector('[data-testid="workflow-canvas-assist-visibility"]');
+		if (!contextActions || !target || !ai || !assistVisibility || !contextActions.contains(target) || !contextActions.contains(ai) || !contextActions.contains(assistVisibility)) {
+			throw new Error('AI proposal and target actions are not grouped at the canvas upper-right');
 		}
 		if (document.querySelector('[data-testid="workflow-graph-infer-interface"]')) {
 			throw new Error('subgraph interface inference leaked into the main graph toolbar');
@@ -560,11 +596,8 @@ func verifyEditorToolbarConsolidation(ctx context.Context, client *browsercdp.We
 		if (!editing || !actions || editing.compareDocumentPosition(actions) !== Node.DOCUMENT_POSITION_FOLLOWING) {
 			throw new Error('editing commands are not placed on the left of workflow actions');
 		}
-		const ai = document.querySelector('[data-testid="ai-workflow-review-open"]');
 		const tools = document.querySelector('[data-testid="workflow-editor-tools"]');
-		if (!ai || !tools || ai.compareDocumentPosition(tools) !== Node.DOCUMENT_POSITION_FOLLOWING) {
-			throw new Error('AI proposal action is not placed before tools');
-		}
+		if (!tools) throw new Error('editor tools action is unavailable');
 		const previousStyle = toolbar.getAttribute('style');
 		toolbar.style.width = '900px';
 		toolbar.style.maxWidth = '900px';

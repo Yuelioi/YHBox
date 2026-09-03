@@ -31,4 +31,15 @@ describe('requestMainWindowClose', () => {
     expect(await requestMainWindowClose(close)).toBe(true)
     expect(close).toHaveBeenCalledOnce()
   })
+
+  it('does not close twice when the active guard owns the pending close flow', async () => {
+    const close = vi.fn(async () => undefined)
+    cleanup = registerMainWindowCloseGuard(async ({ close: guardedClose }) => {
+      await guardedClose()
+      return 'handled' as const
+    })
+
+    expect(await requestMainWindowClose(close)).toBe(true)
+    expect(close).toHaveBeenCalledOnce()
+  })
 })

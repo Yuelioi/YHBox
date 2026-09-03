@@ -91,6 +91,22 @@ describe('editor keyboard policy', () => {
     ).toBeNull()
   })
 
+  it('uses Alt+1 through Alt+5 for configured favorite nodes only on the canvas', () => {
+    expect(
+      resolveEditorKeyboardAction(new KeyboardEvent('keydown', { key: '2', altKey: true }), {
+        ...context,
+        favoriteNodeTypeIds: ['node-a', 'node-b'],
+      }),
+    ).toEqual({ kind: 'add-favorite-node', nodeTypeId: 'node-b' })
+    expect(
+      resolveEditorKeyboardAction(new KeyboardEvent('keydown', { key: '2', altKey: true }), {
+        ...context,
+        canvasPointerInside: false,
+        favoriteNodeTypeIds: ['node-a', 'node-b'],
+      }),
+    ).toBeNull()
+  })
+
   it('lets Escape close the connection menu before the dialog focus guard', () => {
     const input = document.createElement('input')
     let action: ReturnType<typeof resolveEditorKeyboardAction> = null

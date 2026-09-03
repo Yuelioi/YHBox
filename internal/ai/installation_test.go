@@ -80,6 +80,20 @@ func TestInstallationsRejectDuplicateSlotsAndRequireCredentials(t *testing.T) {
 	}
 }
 
+func TestInstallationsDoNotRequireOptionalCodexCLIAtStartup(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	profile := ModelProfileDraft{
+		Provider: ProviderCodexSubscription, Endpoint: "codex://subscription", Model: "gpt-5.6-sol",
+		MaxOutputTokens: 4096,
+		Capabilities:    ProfileCapabilities{StructuredOutput: true, ToolCalling: true, ParallelTools: true},
+		Evaluation:      EvaluationUnverified,
+	}
+	installed, err := Install([]InstallationDraft{{Slot: "codex", Profile: profile}}, installationCredentials{})
+	if err != nil || len(installed.Entries()) != 1 {
+		t.Fatalf("optional Codex profile blocked application startup: %#v, %v", installed.Entries(), err)
+	}
+}
+
 func testArtifactDigest(t *testing.T, value string) artifact.Digest {
 	t.Helper()
 	digest, err := artifact.Sum("yotta/test/ai-installation/v1", []byte(value))

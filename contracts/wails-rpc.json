@@ -4,7 +4,7 @@
   "summary": {
     "services": 16,
     "methods": 147,
-    "models": 236
+    "models": 237
   },
   "services": [
     {
@@ -4647,6 +4647,32 @@
         },
         {
           "kind": "class",
+          "name": "CanvasAssistSettings",
+          "fields": [
+            {
+              "name": "\"collapsed\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"hidden\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"display\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"favoriteNodeTypeIds\"",
+              "optional": false,
+              "type": "string[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "CaptureSettings",
           "fields": [
             {
@@ -5152,6 +5178,11 @@
               "name": "\"launcherToggleHotkey\"",
               "optional": false,
               "type": "string"
+            },
+            {
+              "name": "\"canvasAssist\"",
+              "optional": false,
+              "type": "CanvasAssistSettings"
             }
           ]
         },

@@ -2,6 +2,7 @@ export type EditorKeyboardAction =
   | { kind: 'close-connection-menu' }
   | { kind: 'open-quick-add' }
   | { kind: 'use-snippet'; snippetID: string }
+  | { kind: 'add-favorite-node'; nodeTypeId: string }
   | { kind: 'clear-selection' }
   | { kind: 'find-node' }
   | { kind: 'copy-selection' }
@@ -18,6 +19,7 @@ export interface EditorKeyboardContext {
   hasNodeSelection: boolean
   hasSelection: boolean
   matchedSnippetID?: string
+  favoriteNodeTypeIds?: string[]
 }
 
 export function resolveEditorKeyboardAction(
@@ -28,6 +30,18 @@ export function resolveEditorKeyboardAction(
     return { kind: 'close-connection-menu' }
   }
   if (!editorOwnsKeyboardEvent(event)) return null
+
+  if (
+    context.canvasPointerInside &&
+    event.altKey &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.shiftKey &&
+    /^[1-5]$/.test(event.key)
+  ) {
+    const nodeTypeId = context.favoriteNodeTypeIds?.[Number(event.key) - 1]
+    if (nodeTypeId) return { kind: 'add-favorite-node', nodeTypeId }
+  }
 
   if (
     event.key === 'Tab' &&

@@ -25,9 +25,6 @@ func newCodexProvider(profile ModelProfile) (*codexProvider, error) {
 	if !profile.Valid() || profile.Machine().Provider != ProviderCodexSubscription {
 		return nil, errors.New("Codex provider requires a Codex subscription profile")
 	}
-	if !codexcli.Available() {
-		return nil, errors.New("Codex CLI is not installed or is unavailable on PATH")
-	}
 	return &codexProvider{profile: profile}, nil
 }
 

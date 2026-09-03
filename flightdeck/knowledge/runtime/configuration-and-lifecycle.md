@@ -36,6 +36,10 @@ operation 只检查执行该操作真正需要的前置条件和 deadline。
 AI、workspace file、Blob、Stream 与隔离 guest 是 capability/provider 资源，仍按 admission 和 credential
 binding 工作。不能为了复用代码把两类 authority 合并。
 
+用户配置的可选外部工具不得成为应用启动依赖。installation 阶段只 seal 持久配置并建立惰性 provider；CLI、
+worker、设备或远端服务是否存在，应在用户真正调用对应能力时检查并投影成该任务的 Problem。测试必须覆盖
+“配置仍存在但可选工具不在 PATH”时 `localruntime.Open` 仍成功。
+
 ## Lifecycle rules
 
 - 创建顺序和关闭顺序必须相反；构造中途失败要关闭所有已经成功创建的 owner。

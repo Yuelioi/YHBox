@@ -33,6 +33,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import type { Annotation } from '../../../../contracts/workflow/current/workflow-source'
+import { editableAnnotationUpdate } from './annotationUpdate'
 
 const props = defineProps<{ annotation: Annotation; selected?: boolean }>()
 const emit = defineEmits<{ update: [annotation: Annotation] }>()
@@ -48,7 +49,7 @@ watch(
 
 function commitText(): void {
   if (text.value !== props.annotation.text)
-    emit('update', { ...props.annotation, text: text.value })
+    emit('update', editableAnnotationUpdate(props.annotation, { text: text.value }))
 }
 
 function commitSize(): void {
@@ -57,7 +58,7 @@ function commitSize(): void {
   const width = Math.max(80, Math.round(element.offsetWidth))
   const height = Math.max(48, Math.round(element.offsetHeight))
   if (width !== props.annotation.size.width || height !== props.annotation.size.height) {
-    emit('update', { ...props.annotation, size: { width, height } })
+    emit('update', editableAnnotationUpdate(props.annotation, { size: { width, height } }))
   }
 }
 </script>

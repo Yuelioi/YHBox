@@ -1,7 +1,9 @@
 import { allowsMainWindowClose } from './mainWindowCloseGuard'
 
 export async function requestMainWindowClose(close: () => void | Promise<void>): Promise<boolean> {
-  if (!(await allowsMainWindowClose())) return false
+  const guardResult = await allowsMainWindowClose({ close })
+  if (guardResult === false) return false
+  if (guardResult === 'handled') return true
   await close()
   return true
 }

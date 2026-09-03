@@ -51,7 +51,7 @@ function createFixture() {
     selectedNodeIds,
     findNode: () => undefined,
     fitView: vi.fn(async () => undefined),
-    flowToScreenCoordinate: (position) => position,
+    getViewport: () => ({ x: 40, y: -20, zoom: 0.75 }),
     applyCommand: (command) => {
       commands.push(command)
       return true
@@ -59,7 +59,7 @@ function createFixture() {
     layoutErrorTitle: () => 'layout failed',
     showError: vi.fn(),
   })
-  return { commands, controller, selectedNodeIds }
+  return { canvasElement, commands, controller, selectedNodeIds }
 }
 
 describe('EditorCanvasLayoutController', () => {
@@ -104,5 +104,32 @@ describe('EditorCanvasLayoutController', () => {
     await controller.execute({ kind: 'clear-guides' })
 
     expect(controller.snapGuides.value).toEqual({})
+  })
+
+  it('keeps snap guides in the canvas-local coordinate system', () => {
+    const { canvasElement, controller } = createFixture()
+    canvasElement.value = { querySelectorAll: () => [] } as unknown as HTMLElement
+    const event = {
+      node: { id: 'node-a', position: { x: 66, y: 20 }, dimensions: {} },
+      nodes: [],
+      event: new MouseEvent('mousemove'),
+    }
+
+    controller.dragPositions(event as never)
+
+    expect(controller.snapGuides.value.x).toBe(265)
+  })
+
+  it('makes one node-width gap after two selected nodes through one move command', async () => {
+    const { commands, controller } = createFixture()
+
+    await controller.execute({ kind: 'make-space' })
+
+    expect(commands).toEqual([
+      {
+        kind: 'move-nodes',
+        positions: [{ nodeId: 'node-b', position: { x: 580, y: 80 } }],
+      },
+    ])
   })
 })

@@ -188,6 +188,8 @@ export default {
       discard_title: 'Discard workflow changes?',
       discard_confirm: 'Discard unsaved workflow changes?',
       discard_action: 'Discard changes',
+      discard_and_exit_pending: 'Restoring and exiting…',
+      discard_exit_failed: 'Could not exit after restoring the workflow. Try again.',
       leave_title: 'Leave workflow?',
       leave_confirm: 'This workflow has unsaved changes. Save before leaving, or discard them.',
       save_and_exit: 'Save and leave',
@@ -345,6 +347,23 @@ export default {
         'The selection needs exactly one execution entry and at least one execution or error exit.',
       collapse_unknown:
         'An internal error occurred while creating the subgraph. Retry or check the current selection.',
+    },
+    canvas_assist: {
+      title: 'Canvas assist tools',
+      favorites: 'Favorite nodes',
+      quick_actions: 'Quick layout',
+      insert_node: 'Insert in edge',
+      insert_failed: 'Could not insert that node into the selected edge',
+      make_space: 'Insert between nodes',
+      settings: 'Settings',
+      configure_favorites: 'Favorite nodes (up to 5)',
+      configure_favorites_hint:
+        'Choose five toolbar shortcuts. Use Alt+1–5 while the pointer is over the canvas.',
+      favorite_slot: 'Favorite node {n}',
+      collapse: 'Use compact canvas toolbar',
+      expand: 'Show canvas toolbar labels',
+      hide: 'Hide canvas assist toolbar',
+      show: 'Show canvas assist toolbar',
     },
     canvas: {
       add_node: 'Add node',

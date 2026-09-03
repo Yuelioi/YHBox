@@ -240,6 +240,22 @@ func TestSettingsValidateLauncherSize(t *testing.T) {
 	}
 }
 
+func TestSettingsValidateCanvasAssist(t *testing.T) {
+	settings := defaultSettings()
+	if settings.UI.CanvasAssist.Hidden || settings.UI.CanvasAssist.Display != "labels" || len(settings.UI.CanvasAssist.FavoriteNodeTypeIDs) != 5 {
+		t.Fatalf("default canvas assist settings = %#v", settings.UI.CanvasAssist)
+	}
+	settings.UI.CanvasAssist.Display = "wide"
+	if err := settings.Validate(); err == nil {
+		t.Fatal("unknown canvas assist display validated")
+	}
+	settings = defaultSettings()
+	settings.UI.CanvasAssist.FavoriteNodeTypeIDs = append(settings.UI.CanvasAssist.FavoriteNodeTypeIDs, "node-six")
+	if err := settings.Validate(); err == nil {
+		t.Fatal("more than five canvas favorites validated")
+	}
+}
+
 func TestSettingsServiceRemovingApplicationAlsoRemovesDependentTargets(t *testing.T) {
 	app := newTestApp(t, filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
 	executable := filepath.Join(t.TempDir(), "HTGame.exe")

@@ -328,6 +328,9 @@ func run(
 	}); err != nil {
 		return fmt.Errorf("clear workflow selection before box select: %w", err)
 	}
+	if err := clickRequired(ctx, client, "workflow-canvas-assist-compact"); err != nil {
+		return fmt.Errorf("collapse canvas assist toolbar before box select: %w", err)
+	}
 
 	var selectionGesture connectionGesture
 	if err := evalJSON(ctx, client, `(() => {
@@ -335,42 +338,26 @@ func run(
 			.filter(node => node.getAttribute('data-id') !== 'run-started')
 			.map(node => node.getBoundingClientRect());
 		if (rects.length < 2) throw new Error('multi-selection needs two workflow nodes');
-		const intersects = (left, right) =>
-			left.left < right.right && left.right > right.left &&
-			left.top < right.bottom && left.bottom > right.top;
 		const pane = document.querySelector('.vue-flow__pane');
-		const hitsPane = point => document.elementFromPoint(point.x, point.y) === pane;
-		const candidates = [];
-		for (let left = 0; left < rects.length; left++) {
-			for (let right = left + 1; right < rects.length; right++) {
-				const box = {
-					left: Math.min(rects[left].left, rects[right].left) - 8,
-					top: Math.min(rects[left].top, rects[right].top) - 4,
-					right: Math.max(rects[left].right, rects[right].right) + 8,
-					bottom: Math.max(rects[left].bottom, rects[right].bottom) + 4,
-				};
-				const covered = rects.filter(rect => intersects(box, rect)).length;
-				if (covered === 2) {
-					const corners = [
-						{ start: { x: box.left, y: box.top }, end: { x: box.right, y: box.bottom } },
-						{ start: { x: box.right, y: box.top }, end: { x: box.left, y: box.bottom } },
-						{ start: { x: box.right, y: box.bottom }, end: { x: box.left, y: box.top } },
-						{ start: { x: box.left, y: box.bottom }, end: { x: box.right, y: box.top } }
-					];
-					const gesture = corners.find(candidate =>
-						hitsPane(candidate.start) && hitsPane(candidate.end));
-					if (gesture) {
-						candidates.push({
-							...gesture,
-							area: (box.right - box.left) * (box.bottom - box.top)
-						});
-					}
-				}
+		const canvas = document.querySelector('[data-testid="workflow-canvas"]');
+		if (!pane || !canvas) throw new Error('marquee canvas unavailable');
+		const bounds = canvas.getBoundingClientRect();
+		const safe = [];
+		for (let y = bounds.top + 16; y < bounds.bottom - 16; y += 24) {
+			for (let x = bounds.left + 16; x < bounds.right - 16; x += 24) {
+				const hit = document.elementFromPoint(x, y);
+				if (hit && canvas.contains(hit) && !hit.closest('.vue-flow__node, .vue-flow__controls, .vue-flow__minimap, [data-testid="workflow-canvas-assist"], [data-testid="workflow-canvas-context-actions"], [data-testid="workflow-selection-toolbar"]')) safe.push({ x, y });
 			}
 		}
-		const candidate = candidates.sort((left, right) => left.area - right.area)[0];
-		if (!candidate) throw new Error('no isolated two-node marquee region with pane-owned corners found');
-		return { start: candidate.start, end: candidate.end };
+		let best = null;
+		for (const start of safe) for (const end of safe) {
+			const box = { left: Math.min(start.x, end.x), right: Math.max(start.x, end.x), top: Math.min(start.y, end.y), bottom: Math.max(start.y, end.y) };
+			const covered = rects.filter(rect => rect.left >= box.left && rect.right <= box.right && rect.top >= box.top && rect.bottom <= box.bottom).length;
+			const area = (box.right - box.left) * (box.bottom - box.top);
+			if (covered >= 2 && (!best || area < best.area)) best = { start, end, area };
+		}
+		if (!best) throw new Error('no multi-node marquee gesture outside canvas overlays');
+		return { start: best.start, end: best.end };
 	})()`, &selectionGesture); err != nil {
 		return err
 	}
@@ -540,7 +527,7 @@ func run(
 		return fmt.Errorf("save multigraph workflow: %w", err)
 	}
 	uiFailures := workflowEditorUIFailures(visualState, confirmState, saveState)
-	if err := clickRequired(ctx, client, "ai-workflow-review-open"); err != nil {
+	if err := clickRequired(ctx, client, "workflow-canvas-ai"); err != nil {
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool { return current.AIReview }); err != nil {

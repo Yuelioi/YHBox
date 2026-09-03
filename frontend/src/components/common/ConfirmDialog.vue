@@ -5,7 +5,14 @@ ConfirmDialog 通用确认对话框（基于 NuxtUI UModal）。
 - 任何 view / composable 都可调 confirm({...}) 弹此对话框
 -->
 <template>
-  <BaseModal :open="open" :title="title" size="md" :show-close="false" @update:open="onUpdateOpen">
+  <BaseModal
+    :open="open"
+    :title="title"
+    size="md"
+    :show-close="false"
+    :dismissible="!pending"
+    @update:open="onUpdateOpen"
+  >
     <div data-testid="confirm-dialog" class="space-y-3">
       <p v-if="description" class="text-xs text-toned leading-relaxed whitespace-pre-line">
         {{ description }}
@@ -28,6 +35,7 @@ ConfirmDialog 通用确认对话框（基于 NuxtUI UModal）。
         size="sm"
         variant="ghost"
         color="neutral"
+        :disabled="pending"
         @click="onCancel"
         >{{ cancelTextResolved }}</UButton
       >
@@ -37,13 +45,20 @@ ConfirmDialog 通用确认对话框（基于 NuxtUI UModal）。
         size="sm"
         variant="soft"
         :color="alternateColor ?? 'neutral'"
+        :loading="pending"
+        :disabled="pending"
         @click="onAlternate"
       >
-        {{ alternateText }}
+        {{ pending ? pendingText : alternateText }}
       </UButton>
-      <UButton data-testid="confirm-accept" size="sm" :color="colorResolved" @click="onConfirm">{{
-        confirmTextResolved
-      }}</UButton>
+      <UButton
+        data-testid="confirm-accept"
+        size="sm"
+        :color="colorResolved"
+        :disabled="pending"
+        @click="onConfirm"
+        >{{ confirmTextResolved }}</UButton
+      >
     </template>
   </BaseModal>
 </template>
@@ -66,6 +81,9 @@ const props = defineProps<{
   alternateText?: string
   alternateValue?: string
   alternateColor?: 'primary' | 'error' | 'warning' | 'neutral'
+  alternatePendingText?: string
+  pending?: boolean
+  pendingText?: string
   inputDefault?: string
   inputLabel?: string
   inputPlaceholder?: string
@@ -105,9 +123,10 @@ function onCancel() {
 }
 function onAlternate() {
   emit('resolve', props.alternateValue ?? 'alternate')
-  emit('update:open', false)
+  if (!props.alternatePendingText) emit('update:open', false)
 }
 function onUpdateOpen(v: boolean) {
+  if (!v && props.pending) return
   if (!v) {
     emit('resolve', hasInput.value ? '' : false)
   }

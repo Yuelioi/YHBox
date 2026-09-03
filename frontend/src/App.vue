@@ -37,6 +37,8 @@
     <ConfirmDialog
       v-if="confirmState.opts"
       :open="confirmState.open"
+      :pending="confirmState.pending"
+      :pending-text="confirmState.pendingText"
       v-bind="confirmState.opts"
       @update:open="onConfirmDialogUpdateOpen"
       @resolve="resolveActive"
