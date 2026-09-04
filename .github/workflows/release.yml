@@ -41,10 +41,9 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           $version = (Get-Content -LiteralPath VERSION -Raw).Trim()
-          $stableTag = "v$version"
-          $prereleasePattern = '^' + [regex]::Escape($stableTag) + '-(?:alpha|beta|rc)\.[1-9][0-9]*$'
-          if ($env:RELEASE_TAG -ne $stableTag -and $env:RELEASE_TAG -notmatch $prereleasePattern) {
-            throw "Release tag must be $stableTag or $stableTag-<alpha|beta|rc>.<n>; got $env:RELEASE_TAG"
+          $expectedTag = "v$version"
+          if ($env:RELEASE_TAG -ne $expectedTag) {
+            throw "Release tag must match VERSION exactly: expected $expectedTag, got $env:RELEASE_TAG"
           }
 
           if (Test-Path -LiteralPath .git/shallow) {
@@ -58,7 +57,7 @@ jobs:
             throw "Release tag $env:RELEASE_TAG does not point to a commit on main"
           }
 
-          $isPrerelease = ($env:RELEASE_TAG -ne $stableTag).ToString().ToLowerInvariant()
+          $isPrerelease = $version.Contains('-').ToString().ToLowerInvariant()
           "tag=$env:RELEASE_TAG" >> $env:GITHUB_OUTPUT
           "prerelease=$isPrerelease" >> $env:GITHUB_OUTPUT
 
