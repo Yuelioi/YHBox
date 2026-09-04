@@ -1,0 +1,747 @@
+{
+  "format": "yotta.builtin-node-release",
+  "version": 1,
+  "productVersion": "4.0.0-alpha.2",
+  "nodeRefs": [
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/ai/extract",
+      "version": "1.1.0",
+      "semanticDigest": "sha256:05a063bb119608c66afac903198c60ac8763dafd732e2c4af550693a998d70af"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/ai/generate",
+      "version": "1.1.0",
+      "semanticDigest": "sha256:00f2342d44deca9db66ab5d43c80d2484216a207bc7c8be6edfe088cfead9fc1"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/application/launch",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:4415a2a8b76a63a197a6d352dcc8b566e7027440b37fc61074355fb647886bc9"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/application/terminate",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:3d3a8f3dc9664afcda5da81f006fa750d193587e5c8ccf870cf53dd301924154"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/activate-window",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:6987a82a28d0a1ab3b20f646c2dbe8a0ea5ca62eda73539d8eb505a5b4dc3765"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/capture-window",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:60fb92c662c834b3b1293020918a5e376034c75ee7536e054690d1f38164c960"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/click-pointer",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:e7a8bba287c1e4bb3770e7c02fffeb49a9ba4c1459e69e575ef72dbcd9cfc886"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/click-template",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:16babb2401a04127a949e0b855179ce03233a89dc79e63e93f8643e416e208b6"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/close-window",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:65f24fa35dc35bff8b3ae8e54b0aaf63e9ec48eee98e2ed84174958f66788656"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/control-dual-color-bar",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:39a337abfe1c4434fb258b7d2a9f12dd5951b4a9e4d09cf5d9015b25528679db"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/drag-pointer",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:ca4b628e75a740e17f9566afce673daa09726c37f1ddb86a84b6a0f007898137"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/get-pointer-position",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:d4c6246de48d7b09c526c03ba1e8778d222dbf32ed60c0754098e3c3ce075b17"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/get-window-state",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:31a660eccefe1e4999bcce4603c0e0dd972c1142219b646ff144f75659fbe6af"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/hold-keys",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:3ed65dfa116b8f08bd9f22bfbe2cf6db9189fdb8e4c8eb9fdd33da1ad7e1bcff"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/hold-pointer-button",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:a85dcb1f2f1d724cdf361b74fd4bb15a6bb5ca7afe5064cd00338cd8cf4d7403"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/maximize-window",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:5a7e6a35e777bbd63290709f0ba73301dbdd239345646564274c8e167d9ebc6a"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/minimize-window",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:b99cffa196a26ee352b7b93e0aaa36050927e22991408e04608a6804836fb4f3"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/move-pointer",
+      "version": "1.1.0",
+      "semanticDigest": "sha256:0e632e15564076e0292a3da0672c7e7a5cd852d19fd9603acab0c1fd568aec2a"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/move-pointer-relative",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:59646c01d6a8f7baac0975249d32b0f1eb40a42a6878b2570b64179bc846e00c"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/move-resize-window",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:89f37d031f0ff6693927d964a00f398852e5c6a40cf6fdef0434fa3c8dd01d47"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/play-input-clip",
+      "version": "1.1.0",
+      "semanticDigest": "sha256:abc200829a50376c1ad914f0ae25b1dea61a874a824a49f850a5ed4839db16a8"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/play-macro",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:552e6d234bee3856477fc3c256b8365cd21e7b574e3940ed450a18b6216ec1ab"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/press-keys",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:bb044f3544d6c190abb4d5e44abe01b967f213e4dfec8045a66701306a0193f3"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/release-held-input",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:f17e9b665d5def597c0bec90ba4a24f16a93db47f062c80541141457496c13af"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/restore-window",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:38d054f55ceceb7cb8b4d5bd07570957f4851e36227fa2ad6f3691d7bf108375"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/scroll-pointer",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:7e59d15a1ccf78f205169bb5fa359f83a8a9f7fbf2af0c1284dbac2b2f0152a1"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/stop-target-app",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:2ad70f7be5e9dee5868533a39315da3faf525eec49dee8a4d61b3fa978a56a6f"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/type-text",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:b8f9d6dfb132248945c12ed07ea0ea5af39301a2c42eaec0657ef7f905cb6c1e"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/wait-change",
+      "version": "1.1.0",
+      "semanticDigest": "sha256:1ccfedf422c5e9245916a0c9d0f86710f9fd6046b6f8fd85f0c2df78f08c399a"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/wait-stable",
+      "version": "1.1.0",
+      "semanticDigest": "sha256:cafd06f6193933bac354ee995f9766d5bf7ff4fb3e55de33e5e3c7dbfde09cf6"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/wait-template",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:2c28ed5b6ff228dd5d5e083b368f59a73a92a265364df07f8bdc355e9c282435"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/wait-template-gone",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:a5366ec1e69d656de1b3c714e432420c0a1d65b83c01ff3fd235c50834a3d62b"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/wait-window",
+      "version": "1.1.0",
+      "semanticDigest": "sha256:1662e4ee4b3d8b49d127dd3c25f4d82e218ae2d99d5f3ca45eb5522282b2d895"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/automation/wait-window-gone",
+      "version": "1.1.0",
+      "semanticDigest": "sha256:91b3e42d77c56a1a5d0e4f2c350df9c11bc70b59ec67ab1487cd38ec8549bd16"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/collection/append",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:40ed6ac1e1c9d8544a13312a8c201ea4a934fa5539f88b0fb6f5d0f0aff23196"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/collection/contains",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:0599b3d7c8d404a315a555760af3858caa5a4097bb14dacf5bfccd08cb6e3bf7"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/collection/get",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:202f0be84604be16cd5bbc302123e825fa9ac1b4c8492f5e83b1e8b4e5d75e64"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/collection/join",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:2c265079c250d5cce5420b8786903a5bc535d18549743479f2f7d6f2a4aaedd9"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/collection/length",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:a4f12bd79b2ca8ebe449f9e65be16db29ca1f0fb29c10c756e7841e9a4428809"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/collection/slice",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:52ba0cfb4147c71f7412610c89a82bde2350069e2da234793f9f80d3a83368da"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/collection/split",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:3a7d7bb10350b64baaec6d2513d075b19bbea40ab1884b4dfc4b4dcabec713ef"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/comparison/equal",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:aa71a083fa462a31c132cca0e9158d9a584f77f22c419dea71b70635abc8c903"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/comparison/greater-or-equal",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:3abf2995848bcf8123ffc52964452f1d361cb631da9d4e14f2101e5bc10d606e"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/comparison/greater-than",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:928f8b42de1ee61aa8c8d9ec62c4426cf15ed917dc78632ee99cad4909cb8388"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/comparison/less-or-equal",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:601bee565f16e5b01d5a94d2a60da59633a35297cf1b2ddea63147c61a40d5c1"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/comparison/less-than",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:9c8ab7425cf4d612f17c5fe1e76b7c3660887592adf68939ec350af39e975cdd"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/comparison/not-equal",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:26c0d373b7e3fa573f427eb2a8cbc92c16cf75d7e1b73a45932849c862eae347"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/control/branch",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:78e386e960eef40f9e81d35abf9d9d876dd3e4933f28489f86738f1148c827ca"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/control/delay",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:339170a9506f1846f65f1549da0bad420eb99bb58f40a6417d4edbce84266484"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/control/end-branch",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:4729f2c7ed938ff51bb6e69c6162d07a051be8d37c3a1e0c056d8358530223b4"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/control/for-each",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:115668593cfc666d9a03e471eb0f27b0b829a8835a7e060acb5ff8abb3e1c332"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/control/repeat",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:a4133ef960d5b686a48b3c5c08ad9938f2b7ff95a2b0d192e2a6b9bb22240775"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/control/retry",
+      "version": "1.1.0",
+      "semanticDigest": "sha256:61043a9e31514bb01c165bb5d64693b170818448c5aca266699892debaaf4ff7"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/control/switch",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:2149cfe46d906c71a8d842f376e83fea85f4b6d79533f6c2a897189d76099e66"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/control/throw",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:e0715ac54bc3d3c19e5a44510c3b5bf958fe7707e7c334c7a5c005a8f6cc88f7"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/conversion/blob-to-stream",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:9005213a3d551f35f9b23b44a76e339892da8f0db922341ed72667aae0b24f95"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/conversion/ceiling-to-integer",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:6a85c5469030a1ce4fc2b7cc820e7974b94b9ff5fad72456fdc9675a3b008191"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/conversion/floor-to-integer",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:59144cca8d048e34e24b1c95a7520aa5c7164574b70fe2e6d9a3db4d328acdd8"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/conversion/round-to-integer",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:e544dca974e51faf3f8eec5354849c3eeba7536766c8a8e996de40a0564b245e"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/conversion/stream-to-blob",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:a6372518aa53a8c1b6b6fb9b7b016b83ebf2233fe4535bac539f72c2c41c4d1c"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/conversion/string-to-boolean",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:4cd7edc2ebe3ee1bf11c89a4e379e8be9f55e9a2b53a22d8c55c1e978457aa73"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/conversion/string-to-integer",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:ab3349d5227af1641d9bba2124f0a1dedcd9962917bcf992044e301d92cd29bd"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/conversion/string-to-number",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:4cbfa6668cd5e22721569bb90f7fc51c19a4b6131963bc6d1c6af965ee5a6e46"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/conversion/to-string",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:a8523662a9d7e9733ba5382e4f25b34f1339ce1fef6758b57fce562b00f7a8e8"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/conversion/truncate-to-integer",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:8bf1117265358ef16abee6e9d7fb7750f3c0573bb81e8dcc6a88e962ddbba4bc"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/event/run-started",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:80f0dfbd61ee0e8810dfa62f4e562aa3fe3759396cd95d61ec8eb2254bf2bfeb"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/filesystem/load-image",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:ad20744ec39f5edcde3cac4bf609337bfcfefe2eedf6b614fa0dfbcbe07d26a4"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/filesystem/read-json",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:18acace0e9898dc09f318c6c68995fe7aa04d3ec2a4e3d8cf3ca7f16dda37b9a"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/filesystem/read-text",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:7897f21092c3456a033eadbcf2c4f114652377dd04c3ad725af0a9c457754ac8"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/filesystem/save-image",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:d5a11affbb07abf69e15c2634072240ae43b87511ab104a0a7079e340ab74ba8"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/filesystem/stat",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:635e54745fbdd1f308da60b2ee482a26b19c46b5b14bac73e4cc03080fcf2e88"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/geometry/make-point",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:96adbf945953513f5d2d4970cbc81d89a88facb37b4e01f771b8ffc56177ef94"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/geometry/offset-point",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:2fc847f36ddec8e49052a3cb0d6b1d56869f723771f8886f8bcc85497fe9b242"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/geometry/point-distance",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:4858b3f8da97476bb2143db3962bdb5bc9996471f05aa1f34d4983f382a2fab1"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/geometry/region-around-point",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:d7012077ad534782ff7798005751ed7e5987cc840a79c21c19ce36a7f0437308"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/json/parse",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:42daa240f011f289aacda1f1f5db102674e4dc6fe7868e32519d3d6bc12f2270"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/json/path",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:dabcdb083d2a989140a3e8ad9adeb36d323bbd3829554f2a076e5366ef6998fd"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/json/stringify",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:caa0d02f89602b977c01f0c2d8ede7ce48bfb17b25fb69321c4d96494b13f283"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/logic/and",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:988fcbc28d8705a3ea10b1ac8ed9cb1ada455844858c3a940c4021a6d57ca742"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/logic/not",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:f40018e2c42e45c015f7abd59b51bb2e8416966b726b11e5e0ffa876aae2019c"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/logic/or",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:e16cbc73e357f332488864bdb3a66057fb44c8bad5f6ae562fa5b367568d650b"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/logic/select",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:a3475cc7a07b5444cd590b6b894a6e1abdb1539e477fb2f80e434c59c9e1aad4"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/absolute",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:f2993d9cb7e3111fcc3d49a165dab680e5000e434a138dc8898107d5ad4795e8"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/add",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:be693b16db3f1a0b7bbe193d6f3949b34f27cef7d6914116983c84040d7f5fd7"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/ceiling",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:c2a15601a65427bf1d8ef805ede3670845d62c0e48874bbaa64af7a9e08754cf"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/clamp",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:de04b6a31376d55bd30e304dcfc18ef443e7003dc2d1f23e496eb5137c05d1cf"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/divide",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:6c97a754b5c3b2a0dea364571b26fdffe56a41fc5d5993da3cab39daa70c78cd"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/floor",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:d1466cac231000f851d37531b6819874c1eb01c2864ffa1be2468ccdcdf35baa"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/integer-absolute",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:62fb145c71fb0549e1ff33941f59f0e558abc5f08732c77132cbedc3db583342"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/integer-add",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:c2dd5258c39f68b9ca454846b95820df5cb96d0f2e8e10537c247594aea2e09a"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/integer-clamp",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:df35abdb0e04866c68f23c6bdbf66e1556001658981bfe826024e3b02febc2c8"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/integer-maximum",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:9c03dd9f3c9bf66d9c8dd5d3ebf7f4c3cc2deae211d7175bebd7d98ab5df6b69"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/integer-minimum",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:a700a318acb91a7c584669107fd7b9e41132c49be0c6be0c33f5283d383fff24"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/integer-modulo",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:5ddbd4148910c4e8aa18617479a12c10b88dc390ba61b521af42c013998e88ac"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/integer-multiply",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:76db913407116bf0bf39409803b46dfae231e6b15db39cdc2e5b521283e94891"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/integer-negate",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:e2353d1610a4acf46bf0835bb6578b2993cb589aac13434c50d13da7aee92194"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/integer-subtract",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:6bc081ed6f517d504c55dffaa486dda81a1e4e71082ca6fa0bdaa62493be6ada"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/maximum",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:8a692be6014518c53736adba94af080217473724bcc8d1ad5b835b638de3b4c9"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/minimum",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:af0cb56aeb14b6ace1f0b9e8dd092fdb4502bf183e53d4f7b16d1b17d5da785d"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/modulo",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:337e76793ddb6293411498ada1523e30b19e355e4ae636a74cf4c04147fdd489"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/multiply",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:7a1327ad7344510fce21d616f8580af893f34a26f33871ca02bde760d8873f28"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/negate",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:9a64bc5be8cd0d9811461192364ddad45f8214a61970e759b31e33e7afc893b5"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/power",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:f95d67b0bc9d5a21c30c5a2aa35e1b9ac509a04180c7ba22eb2c18c34c3f507f"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/round",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:f4cb3b73354d46376b1eb0fb27ae9f8f195d89cca6deb81e042027e3ec024f6d"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/square-root",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:9b0dc2d886e1c6c20d8672ce51d7ef8ed50c15d73d02351e7be3575c04692426"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/math/subtract",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:b34a159d08bc9b46d8c8b023e54612905ebde228eaec6863aa56946240f6f1f5"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/network/http-get",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:86e9ad49f3c02670427c056e131b1e48027273e1e8bd3a3b19648ea2632e42f2"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/observability/log",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:4affd863efb6cb712bbc270b8a39528b383a273ea516e233cac6b61a6323b7e1"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/random/boolean",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:087d36a2c0432392c7dfbd040beebec752f702b5a3a2cdcac13802b5b4ecc3ef"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/random/choice",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:b417ae59c8fcea014bb4dd406d6f6715aa57c9cc848f862cb07c28bee4433969"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/random/integer",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:c609f2c0216d0ef3ee377250b9ff820e55b6eba3da069be66285278018471db6"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/random/number",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:0997313e0465d9c0998566a08ed69c1c1c1714b727377601a48fb92e47cdc148"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/script/execute",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:9266512476efbc4813916c4b929b8b5d1be69c45e37a59a28d561ca048859b66"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/state/increment",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:6e10e253abac7ad70ea9dfe91ef540b7599a2649026b70554578b081d32e4169"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/state/last-change",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:06ae6d8df868f6573676ffa68b8036a5ab30cc57feee917b3a46de2c2fcd1b0a"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/state/metadata",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:b42dedcb81696007616313cf7f9c72b5c24a54e6ff87cd505834cb32ad9e9c70"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/state/read",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:5127862c1f2867e5b41fd0f9e1df061e25b2cbf8478300d6bc7941e9a68c77f5"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/state/write",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:5c36e2bc91d7a10f8622096808fd64d062ce2c2ea2aa6e3ef62c92fd551fef23"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/structure/break-color-blob",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:03a2edf9418c58070c1243acad0c3e3d299c14e5e80bad1525a5595a99270535"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/structure/break-file-metadata",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:93e421ce4cfba8921efc67a706b0e53147fca78f9208a438e5a7afbfbcff4335"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/structure/break-point",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:2e1aed2cd13690f3adf0584ebd74aa5480d7369b1abdf0a84eb7eab074d41284"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/structure/break-qr-code",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:ba31cefd3755d66b7cff4659a2750623515c569e52e875e9b8929a104273326f"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/structure/break-region",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:b1f3d672c0480d8704213e932047092b3d247b77fe870a40c327b0792dd00dcd"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/structure/break-template-match",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:f3748a367d41d9cfd0fa5648e3589e6e2e68761e2a1f1eff23adc610c1d596a4"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/text/concat",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:1b0ce3ca264bbdbcaa348929a51c68fdbd66accf70fadd2819ba40c5668da544"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/text/contains",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:73529c5e9389350c6bd480c49513115d60f87271d140733ee202d78cd4dc8341"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/text/ends-with",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:7067b3c319a52e5cd3ff6e65246950c3c09156d1ef29edb96537569946a12cc6"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/text/index-of",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:1186302d2975ab9563f1d6d88df6d45e07eaa36763f460a493f72f3703f48934"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/text/length",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:cf97c2b28b43c0d6e6438ee4bedf3b4036e81e544869a53fd273166d16db9810"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/text/lowercase",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:269dc80dc7db1abbddd9f6f57c2cb4a019eca8941a3f1cb491eebbfa8e37aefc"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/text/regex-extract",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:9f4abb749f2be9a99151c51bf6f6f2300cd26fece7941a94905de9317ebd311b"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/text/regex-match",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:53bf4c287ddb1fb1971897b8ed4dda55b3a641ac78efe26e9170cbaa7294fab2"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/text/replace",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:c7137a40c010a411e8bb138839554688ece16b232d5a27d439b8301d96c27d07"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/text/starts-with",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:4a48758c8988e88f571930fd163a2483875688e3821824a07018030bd201ceee"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/text/substring",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:61b9908377b71df5159efb36327dfe9edc5570868c533ff26221eb90db0b799f"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/text/trim",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:202e83dd4f5d85fc12a37805b53c5da255c2cd322b6ad7c2ea6ac68750ed9956"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/text/uppercase",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:0f3c4c7a817ce7ff35eced16487be598ea5c50ea243feb80bd7c1b520e5185bd"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/time/observe",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:08fd9b21d624259bee5c6f3196f42dab9a4cc66ce13886ecf83735e12f822499"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/time/stopwatch-read",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:c326f0f703f8bd2a6d3a2440961620917d7382bc532cfb595c7bc175137ba988"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/time/stopwatch-start",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:d7067e7687f4cae5445041885ce9b658ebe443dee4568ac38a2b33941981d4b9"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/time/stopwatch-stop",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:10b2bebef0fdbb9d2367498b5c4b864741d11b3e1a96c9fa8c2341176592ce3b"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/vision/analyze-color",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:7b198d7b153fff48b4a08fd7f0ebd72534d5a9ca2f7a64529e0865a367f824a6"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/vision/compare-images",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:df5a9b1ef5dd4fd94d78364c4e01431eaa8d15357cd33d7783c9569ac014c7a2"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/vision/decode-qr",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:34da98f36452a854c11b924f2aa827eafd7532d714c09d7a0d9fc307a03fe904"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/vision/find-color-blobs",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:1c131433dc9ccd8a6c16365b9dffc4022ac4ff67958a850f6b35389319611746"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/vision/find-template-matches",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:e2bbdb0c30c14dc990caeb27a6510a3b228321afa61f76307e679508afc03b48"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/vision/match-template",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:628a4a3a9775773ec3a993318a0e0416f2152d1e9f41db4f5cbf46bac648704c"
+    },
+    {
+      "nodeTypeId": "https://schemas.yotta.dev/nodes/vision/track-dual-color-bar",
+      "version": "1.0.0",
+      "semanticDigest": "sha256:033168c05ffdd69e4ee1caa2e31a5b448f7432156c00d1a8a3b431b72b753c27"
+    }
+  ]
+}
