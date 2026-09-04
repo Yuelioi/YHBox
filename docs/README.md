@@ -4,6 +4,7 @@
 
 | 要找什么 | 从这里开始 |
 | --- | --- |
+| 安装、界面和常用功能怎么使用 | [用户指南](user-guide/index.md) |
 | 领域术语与核心运行模型 | [Repository context](../CONTEXT.md) |
 | Workflow Source、图、节点、Snippet 与导入导出 | [Workflow 与创作](product/workflows.md) |
 | Target Slot、Configured Target、Capability 与资源 | [Target 与资源](product/targets-and-resources.md) |
